@@ -18,7 +18,6 @@ class StructuralGroup(ParallelGroup):
                                                      , promotes_outputs='*'
                                                      , max_procs=nprocs)
 
-
 class TacsSolver(ImplicitComponent):
     """
     Component to perform TACS steady analysis
@@ -63,7 +62,9 @@ class TacsSolver(ImplicitComponent):
 
         # OpenMDAO setup
         xpts = tacs.createNodeVec()
-        node_size = xpts.getArray().size
+
+        state_size = self.ans.getArray().size
+        node_size  =     xpts.getArray().size
 
         # inputs
         self.add_input('struct_dv', shape=ndv       , desc='tacs design variables')
@@ -85,7 +86,7 @@ class TacsSolver(ImplicitComponent):
         ans  = self.ans
 
         ans_array = ans.getArray()
-        ans_array[:] = outputs['u_s']
+        ans_array[:] = inputs['u_s']
         tacs.setVariables(ans)
 
         res_array = res.getArray()
@@ -131,8 +132,37 @@ class TacsSolver(ImplicitComponent):
         if mode == 'rev':
             if 'u_s' in d_residuals:
                 if 'u_s' in d_outputs:
+                    tacs = self.tacs
+                    res  = self.res
+                    ans  = self.ans
+
+                    ans_array = ans.getArray()
+                    ans_array[:] = d_residuals['u_s']
+                    tacs.setVariables(ans)
+
+                    res_array = res.getArray()
+                    res_array[:] = 0.0
+
+                    # dR/du_s = K
+                    tacs.assembleRes(res)
+
+                    # Apply BCs to the residual
+                    tacs.applyBCs(res)
+
+                    d_outputs['u_s'] += res_array[:]
 
                 if 'f_s' in d_inputs:
+                    # dR/df_s = -I
+                    d_inputs['f_s'] -= d_residuals['u_s']
+
+                if 'x_s' in d_inputs:
+
+                if 'struct_dv' in d_inputs:
+                    adjResProduct  = np.zeros(self.dvsens.size)
+                    psi_S_array    = self.psi_S.get_array()
+                    psi_S_array[:] = d_outputs['u_s']
+                    self.tacs.evalAdjointResProduct(self.psi_S, adjResProduct)
+                    d_inputs['struct_dv'] +=  adjResProduct
 
     def _design_vector_changed(self,x):
         if self.x_save is None:
@@ -145,27 +175,33 @@ class TacsSolver(ImplicitComponent):
             return False
 
 
-class TACSfunctions(ExplicitComponent):
+class TacsFunctions(ExplicitComponent):
     def initialize(self):
-        self.options.declare('tacs_func_setup', default = None, desc = 'tacs assembler')
+        self.options.declare('tacs_func_setup', default = None, desc = 'function to feed tacs function-evaluation information')
 
         self.ans = None
+        self.tacs = None
+
+        self.mass = False
 
     def setup(self):
+
+        # TACS part of setup
         tacs_func_setup = self.options['tacs_func_setup']
-        tacs, func_list, ndv = tacs_func_setup(self.comm)
+        func_list, tacs, ndv = tacs_func_setup(self.comm)
 
         self.tacs = tacs
 
         self.ans = tacs.createVec()
+        self.svsens = tacs.createVec()
 
+        # OpenMDAO part of setup
         self.add_input('stuct_dv',  shape=ndv,            desc='tacs design variables')
         self.add_input('x_s',       shape=xpts_shape,     desc='structural node coordinates')
         self.add_input('u_s',       shape=state_shape,    desc='structural state vector')
 
         # Remove the mass function from the func list if it is there
         # since it isn't dependent on the structural state
-        self.mass = True
         func_no_mass = []
         for i,func in enumerate(func_list)):
             if isinstance(func,functions.StructuralMass):
@@ -184,13 +220,17 @@ class TACSfunctions(ExplicitComponent):
 
     def compute(self,inputs,outputs):
 
+        ans_array = self.ans.getArray()
+        ans_array[:] = inputs['u_s']
+
         self.tacs.setVariables(self.ans)
 
-        # the inputs are assumed to be passed from tacs object
         outputs['f_struct'] = self.tacs.evalFunctions(self.func_list)
 
         if 'mass' in outputs:
-            funclist = [functions.structuralMass()]
+            funclist = [functions.structuralMass(self.tacs)]
             outputs['mass'] = self.tacs.evalFunctions(funclist)
 
     def compute_jacvec_product(inputs, d_inputs, d_outputs, mode):
+        # get df/dx if the function is a structural function
+        self.tacs.evalDVSens(self.funclist[func], dvsens)
