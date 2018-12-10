@@ -7,9 +7,7 @@ class FuntofemDisplacementTransfer(ExplicitComponent)
     Component to perform displacement transfer using MELD
     """
     def initialize(self):
-        self.options.declare('beta', default = 0.5, type=float, desc='exponential decay factor')
-        self.options.declare('n',    default = 200, type=int,   desc='number of struct. nodes attached to each aero node')
-        self.options.declare('isym', default =  -1, type=int,   desc='symmetry plane ')
+        self.options.declare('disp_xfer_setup', desc='function to instantiate MELD')
 
         self.options['distributed'] = True
 
@@ -28,7 +26,7 @@ class FuntofemDisplacementTransfer(ExplicitComponent)
         self.declare_partials('u_a',['x_s0','x_a0','u_s'])
 
         # get the transfer scheme object
-        self.xfer = 
+        self.meld = self.disp_xfer_setup(self.comm)
 
     def compute(self, inputs, outputs):
         u_s =  inputs['u_s']

@@ -7,7 +7,7 @@ class FuntofemLoadTransfer(ExplicitComponent)
     """
     def initialize(self,meld):
 
-        self.options.declare('meld',default = None,type
+        self.options.declare('load_xfer_setup',desc='function to set up the load xfer object')
 
         self.options['distributed'] = True
 
@@ -23,6 +23,9 @@ class FuntofemLoadTransfer(ExplicitComponent)
 
         # partials
         self.declare_partials('f_s',['x_s0','x_a0','u_s','f_a'])
+
+        # get the transfer scheme object
+        self.meld = self.load_xfer_setup()
 
     def compute(self, inputs, outputs):
         #u_s  = inputs['u_s']
