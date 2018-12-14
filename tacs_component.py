@@ -1,35 +1,68 @@
+from __future__ import division, print_function
 import numpy as np
 from mpi4py import MPI
 
-from openmdao.api import ImplicitComponent, ParallelGroup
+from openmdao.api import ImplicitComponent, ExplicitComponent, ParallelGroup
 from tacs import TACS,functions
 
 
 class StructuralGroup(ParallelGroup):
+    """
+    The structural parallel group wraps the TACS components to allow them to 
+    operate on a subset of the available procs if desired
+    """
     def initialize(self):
         self.options.declare('struct_comp', desc='Structural solver component')
-        self.options.declare('nprocs',default=self.comm.Get_size(),desc='number of structural processors')
+        self.options.declare('nprocs',default=1,desc='number of structural processors')
 
     def setup(self):
         struct_comp = self.options['struct_comp']
         nprocs      = self.options['nprocs']
 
-        self.add_subsystem('struct_comp', struct_comp, promotes_inputs ='*'
-                                                     , promotes_outputs='*'
+        self.add_subsystem('struct_comp', struct_comp, promotes =['*']
                                                      , max_procs=nprocs)
+class TacsMesh(ExplicitComponent):
+    """
+    Component to read the initial mesh coordinates with TACS
+
+    Assumptions:
+        - User will provide a tacs_setup function that assigns tacs elements to the mesh
+
+    """
+    def initialize(self):
+        self.options.declare('tacs_mesh_setup', default = None, desc='Function to setup tacs')
+        self.options['distributed'] = True
+
+    def setup(self):
+
+        # TACS assembler setup
+        tacs_setup = self.options['tacs_mesh_setup']
+        tacs = tacs_setup(self.comm)
+
+        self.tacs = tacs
+
+        # create some TACS bvecs that will be needed later
+        self.xpts  = tacs.createNodeVec()
+        self.tacs.getNodes(self.xpts)
+
+        # OpenMDAO setup
+        node_size  =     self.xpts.getArray().size
+        self.add_output('x_s', shape=node_size, desc='structural node coordinates')
+
+    def compute(self,inputs,outputs):
+        outputs['x_s'] = self.xpts.getArray()
 
 class TacsSolver(ImplicitComponent):
     """
     Component to perform TACS steady analysis
 
     Assumptions:
-        - Mesh will be loaded from bdf file
-        - user will provide an add_elements function that assigns tacs elements to the mesh and returns the ndof per node
+        - User will provide a tacs_setup function that assigns tacs elements to the mesh and returns the ndof per node
 
     """
     def initialize(self):
-        self.options.declare('tac_setup', default = None, desc='Function to setup tacs')
 
+        self.options.declare('tacs_solver_setup', default = None, desc='Function to setup tacs')
         self.options['distributed'] = True
 
         self.tacs = None
@@ -47,19 +80,19 @@ class TacsSolver(ImplicitComponent):
     def setup(self):
 
         # TACS assembler setup
-        tacs_setup = self.options['tacs_setup']
-        tacs, pc, gmres, ndv = tacs_setup(self.comm)
+        tacs_solver_setup = self.options['tacs_solver_setup']
+        tacs, mat, pc, ndv = tacs_solver_setup(self.comm)
 
         self.tacs = tacs
         self.pc = pc
-        self.gmres = gmres
+        self.mat = mat
 
         # create some TACS bvecs that will be needed later
         self.res        = tacs.createVec()
         self.ans        = tacs.createVec()
         self.struct_rhs = tacs.createVec()
         self.psi_s      = tacs.createVec()
-        self.xpts_sens  = tacs.createNodeVec()
+        self.xpt_sens  = tacs.createNodeVec()
 
         # OpenMDAO setup
         xpts = tacs.createNodeVec()
@@ -86,8 +119,25 @@ class TacsSolver(ImplicitComponent):
         res  = self.res
         ans  = self.ans
 
+        print('TACS: apply_nonlinear dv',inputs['dv_struct'][0])
+        if self._design_vector_changed(inputs['dv_struct']) or self.transposed:
+            print('TACS: apply_nonlinear design changed')
+            pc     = self.pc
+            tacs.setDesignVars(inputs['dv_struct'])
+            alpha = 1.0
+            beta  = 0.0
+            gamma = 0.0
+
+            res = self.res
+            res_array = res.getArray()
+            res_array[:] = 0.0
+
+            tacs.assembleJacobian(alpha,beta,gamma,res,self.mat)
+            pc.factor()
+            self.transposed = False
+
         ans_array = ans.getArray()
-        ans_array[:] = inputs['u_s']
+        ans_array[:] = outputs['u_s']
         tacs.setVariables(ans)
 
         res_array = res.getArray()
@@ -103,19 +153,28 @@ class TacsSolver(ImplicitComponent):
         tacs.applyBCs(res)
 
         residuals['u_s'][:] = res_array[:]
+        print('TACS: apply_nonlinear residual',np.linalg.norm(residuals['u_s'][:]))
 
     def solve_nonlinear(self, inputs, outputs):
         tacs   = self.tacs
         force  = self.res # using res bvec as force so we don't have to allocate more memory
         ans    = self.ans
+        pc     = self.pc
 
         # if the design variables changed, update the stiffness matrix
-        if self._design_vector_changed(inputs['x']) or self.transposed:
-            tacs.setDesignVars(inputs['x'])
+        print('TACS: solve_nonlinear dv',inputs['dv_struct'][0])
+        if self._design_vector_changed(inputs['dv_struct']) or self.transposed:
+            print('TACS: solve_nonlinear design changed')
+            tacs.setDesignVars(inputs['dv_struct'])
             alpha = 1.0
             beta  = 0.0
             gamma = 0.0
-            tacs.assembleJacobian(alpha,beta,gamma,res,mat)
+
+            res = self.res
+            res_array = res.getArray()
+            res_array[:] = 0.0
+
+            tacs.assembleJacobian(alpha,beta,gamma,res,self.mat)
             pc.factor()
             self.transposed = False
 
@@ -126,10 +185,12 @@ class TacsSolver(ImplicitComponent):
         pc.applyFactor(force, ans)
         ans_array = ans.getArray()
         outputs['u_s'] = ans_array[:]
+        print('TACS: solve_nonlinear u_s',np.linalg.norm(outputs['u_s'][:]))
 
     def apply_linear(self,inputs,outputs,d_inputs,d_outputs,d_residuals,mode):
         if mode == 'fwd':
-            raise ValueError('forward mode requested but not implemented')
+            #raise ValueError('forward mode requested but not implemented')
+            pass
 
         if mode == 'rev':
             if 'u_s' in d_residuals:
@@ -152,10 +213,10 @@ class TacsSolver(ImplicitComponent):
                     alpha = 1.0
                     beta  = 0.0
                     gamma = 0.0
-                    tacs.assembleJacobian(alpha,beta,gamma,res,mat,matOr=TACS.PY_TRANSPOSE)
+                    tacs.assembleJacobian(alpha,beta,gamma,res,self.mat,matOr=TACS.PY_TRANSPOSE)
                     self.transposed=True
 
-                    mat.mult(ans,res)
+                    self.mat.mult(ans,res)
 
                     d_outputs['u_s'] += res_array[:]
 
@@ -175,17 +236,18 @@ class TacsSolver(ImplicitComponent):
                     d_inputs['x_s'] += xpt_sens_array[:]
 
                 if 'dv_struct' in d_inputs:
-                    adjResProduct  = np.zeros(self.dvsens.size)
-                    psi_s_array    = self.psi_s.get_array()
+                    adjResProduct  = np.zeros(d_inputs['dv_struct'].size)
+                    psi_s_array    = self.psi_s.getArray()
                     psi_s_array[:] = d_residuals['u_s']
-                    self.tacs.evalAdjointResProduct(self.psi_S, adjResProduct)
+                    self.tacs.evalAdjointResProduct(self.psi_s, adjResProduct)
                     d_inputs['dv_struct'] +=  adjResProduct
+        print('TACS: apply_linear called')
 
     def _design_vector_changed(self,x):
         if self.x_save is None:
             self.x_save = x
             return True
-        elif np.allclose(x,self.x_save,rtol=1e-10,atol=1e-13)
+        elif not np.allclose(x,self.x_save,rtol=1e-6,atol=1e-6):
             self.x_save = x
             return True
         else:
@@ -194,7 +256,7 @@ class TacsSolver(ImplicitComponent):
 
 class TacsFunctions(ExplicitComponent):
     def initialize(self):
-        self.options.declare('tacs_func_setup', default = None, desc = 'function to feed tacs function-evaluation information')
+        self.options.declare('tacs_func_setup', desc = 'function to feed tacs function-evaluation information')
 
         self.ans = None
         self.tacs = None
@@ -210,16 +272,20 @@ class TacsFunctions(ExplicitComponent):
         self.tacs = tacs
 
         self.ans = tacs.createVec()
+        state_shape = self.ans.getArray().size
+
+        self.xpt_sens = tacs.createNodeVec()
+        xpts_shape = self.xpt_sens.getArray().size
 
         # OpenMDAO part of setup
-        self.add_input('stuct_dv',  shape=ndv,            desc='tacs design variables')
+        self.add_input('dv_struct', shape=ndv,            desc='tacs design variables')
         self.add_input('x_s',       shape=xpts_shape,     desc='structural node coordinates')
         self.add_input('u_s',       shape=state_shape,    desc='structural state vector')
 
         # Remove the mass function from the func list if it is there
         # since it is not dependent on the structural state
         func_no_mass = []
-        for i,func in enumerate(func_list)):
+        for i,func in enumerate(func_list):
             if isinstance(func,functions.StructuralMass):
                 if not self.mass:
                     self.add_output('mass', 0.0, desc = 'structural mass')
@@ -231,8 +297,9 @@ class TacsFunctions(ExplicitComponent):
         self.add_output('f_struct', shape=len(self.func_list), desc='structural function values')
 
         # declare the partials
-        self.declare_partials('f_struct',['x_s','u_s'])
-        self.declare_partials('mass',['x_s'])
+        self.declare_partials('f_struct',['dv_struct','x_s','u_s'])
+        if self.mass:
+            self.declare_partials('mass',['dv_struct','x_s'])
 
     def compute(self,inputs,outputs):
 
@@ -243,49 +310,93 @@ class TacsFunctions(ExplicitComponent):
         self.tacs.setVariables(ans)
 
         outputs['f_struct'] = self.tacs.evalFunctions(self.func_list)
+        print('TACS: Current f_struct',outputs['f_struct'])
 
         if 'mass' in outputs:
-            funclist = [functions.structuralMass(self.tacs)]
-            outputs['mass'] = self.tacs.evalFunctions(funclist)
+            func = functions.StructuralMass(self.tacs)
+            outputs['mass'] = self.tacs.evalFunctions([func])
+            print('TACS: Current mass',outputs['mass'])
 
-    def compute_jacvec_product(inputs, d_inputs, d_outputs, mode):
+    def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
-            raise ValueError('forward mode requested but not implemented')
+            #raise ValueError('forward mode requested but not implemented')
+            pass
         if mode == 'rev':
             if 'mass' in d_outputs:
-                funclist = [functions.structuralMass(self.tacs)]
+                func = functions.StructuralMass(self.tacs)
                 if 'dv_struct' in d_inputs:
                     # get df/dx if the function is a structural function
+                    size = d_inputs['dv_struct'].size
                     dvsens = np.zeros(d_inputs['dv_struct'].size)
-                    self.tacs.evalDVSens(funclist, dvsens)
+                    self.tacs.evalDVSens(func, dvsens)
 
                     d_inputs['dv_struct'] += dvsens
 
                 if 'x_s' in d_inputs:
                     xpt_sens = self.xpt_sens
                     xpt_sens_array = xpt_sens.getArray()
-                    tacs.evalXptSens(funclist, xpt_sens)
+                    self.tacs.evalXptSens(func, xpt_sens)
 
                     d_inputs['x_s'] += xpt_sens_array
 
             if 'f_struct' in d_outputs:
                 ans = self.ans
-                for ifunc, func in enumerate(self.funclist):
+                for ifunc, func in enumerate(self.func_list):
                     if 'dv_struct' in d_inputs:
                         dvsens = np.zeros(d_inputs['dv_struct'].size)
                         self.tacs.evalDVSens(func, dvsens)
 
-                        d_inputs['dv_struct'][ifunc][:] += dvsens
+                        d_inputs['dv_struct'][:] += dvsens
 
                     if 'x_s' in d_inputs:
                         xpt_sens = self.xpt_sens
                         xpt_sens_array = xpt_sens.getArray()
-                        tacs.evalXptSens(func, xpt_sens)
+                        self.tacs.evalXptSens(func, xpt_sens)
 
-                        d_inputs['x_s'][ifunc][:] += xpt_sens_array
+                        d_inputs['x_s'][:] += xpt_sens_array
 
                     if 'u_s' in d_inputs:
-                        tacs.evalSVSens(func,ans)
+                        self.tacs.evalSVSens(func,ans)
                         ans_array = ans.getArray()
 
-                        d_inputs['u_s'][ifunc][:] += ans_array
+                        d_inputs['u_s'][:] += ans_array
+
+class PrescribedLoad(ExplicitComponent):
+    """
+    Prescribe a load to tacs
+
+    Assumptions:
+        - User will provide a tacs_setup function that assigns tacs elements to the mesh
+
+    """
+    def initialize(self):
+        self.options.declare('load_function', default = None, desc='function that prescribes the loads')
+        self.options.declare('get_tacs', default = None, desc='function that gets tacs')
+
+        self.options['distributed'] = True
+
+        self.ndof = 0
+
+    def setup(self):
+
+        # TACS assembler setup
+        tacs = self.options['get_tacs']()
+
+        # create some TACS vectors so we can see what size they are
+        xpts  = tacs.createNodeVec()
+        node_size = xpts.getArray().size
+
+        tmp   = tacs.createVec()
+        state_size = tmp.getArray().size
+        self.ndof = int(state_size / ( node_size / 3 ))
+
+        # OpenMDAO setup
+        self.add_input('x_s', shape=node_size, desc='structural load')
+        self.add_output('f_s', shape=state_size, desc='structural load')
+
+        self.declare_partials('f_s','x_s')
+
+    def compute(self,inputs,outputs):
+        load_function = self.options['load_function']
+        outputs['f_s'] = load_function(inputs['x_s'],self.ndof) 
+

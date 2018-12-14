@@ -78,24 +78,20 @@ class FsiComps(object):
         to the mesh object.
         """
         self.struct_comm = comm
-        mesh_file = self.tacs_setup['mesh_file']
-        add_elements = self.tacs_setup['add_elements']
+        mesh_file        = self.tacs_setup['mesh_file']
+        add_elements     = self.tacs_setup['add_elements']
 
         mesh = TACS.MeshLoader(comm)
         mesh.scanBDFFile(mesh_file)
 
         self.struct_ndof, self.struct_ndv = add_elements(mesh)
-       
+
         self.tacs = mesh.createTACS(self.struct_ndof)
 
         mat = tacs.createFEMat()
         pc = TACS.Pc(mat)
 
-        nrestart = 0 # number of restarts before giving up
-        m = 30 # size of Krylov subspace (max # of iterations)
-        gmres = TACS.KSM(mat, pc, m, nrestart)
-
-        return self.tacs, pc, gmres, self.struct_ndv
+        return self.tacs, pc, self.struct_ndv
 
     def tacs_func_setup(self,comm):
         """
@@ -153,7 +149,7 @@ def add_elements(mesh):
 func_list = ['ksfailure']
 meld_setup = {'isym':1, 'n':200,'beta':0.5}
 adflow_setup = {}
-tacs_setup = {'add_elements': add_elements, 
+tacs_setup = {'add_elements': add_elements,
               'nprocs'      : 4,
               'mesh_file'   : 'CRM_box_2nd.bdf'}
               'func_list'   : func_list}
