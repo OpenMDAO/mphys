@@ -1,4 +1,3 @@
-from openmdao.api import NonlinearBlockGS, LinearBlockGS
 from openmdao.api import NonlinearRunOnce, LinearRunOnce
 from tacs_component import StructuralGroup, TacsMesh, TacsSolver, TacsFunctions
 from tacs_component import PrescribedLoad
@@ -7,14 +6,13 @@ from tacs import TACS, functions
 
 class TacsComps(object):
     """
-    This class is design for adding steady FSI systems to an OpenMDAO model/group.
-    It contains some setup callback functions so that TACS, ADFlow, and
-    MELD objects can be shared between OpenMDAO components
+    This class is design for adding steady TACS analysis to an OpenMDAO model/group.
+    It contains some setup callback functions so that a tacs object can be shared
+    between multiple OpenMDAO components
 
     """
     def __init__(self):
         # Structural data to keep track of
-        self.struct_comm = None
         self.tacs = None
         self.struct_ndv = 0
         self.struct_ndof = 0
@@ -27,17 +25,15 @@ class TacsComps(object):
         self.struct_nprocs = self.tacs_setup['nprocs']
 
         # Initialize the disciplinary solvers
-        struct_mesh = self._initialize_meshes(reuse_solvers)
+        struct_mesh = self._initialize_mesh(reuse_solvers)
 
         # Initialize the disciplinary solvers
-        struct = self._initialize_solvers()
+        struct = self._initialize_solver()
         struct.nonlinear_solver = NonlinearRunOnce()
-        #struct.nonlinear_solver = NonlinearBlockGS()
-        #struct.linear_solver = LinearBlockGS()
         struct.linear_solver = LinearRunOnce()
 
         # Initialize the function evaluators
-        struct_funcs = self._initialize_function_evaluators()
+        struct_funcs = self._initialize_function_evaluator()
 
         model.add_subsystem(prefix+'struct_mesh',struct_mesh,promotes=['x_s'])
 
@@ -49,28 +45,28 @@ class TacsComps(object):
         model.add_subsystem(prefix+'struct_solver',struct,promotes=['dv_struct','x_s','u_s','f_s'])
         model.add_subsystem(prefix+'struct_funcs',struct_funcs,promotes=['*'])
 
-    def _initialize_meshes(self,reuse_solvers):
+    def _initialize_mesh(self,reuse_solvers):
         """
-        Initialize the different disciplinary meshes
+        Initialize the mesh
         """
-        # Initialize the structural mesh group
         tacs_mesh   = TacsMesh(tacs_mesh_setup=self.tacs_mesh_setup)
         struct      = StructuralGroup(struct_comp=tacs_mesh,nprocs=self.struct_nprocs)
 
         return struct
 
-    def _initialize_solvers(self):
+    def _initialize_solver(self):
         """
-        Initialize the different disciplinary solvers
+        Initialize the TACS solver
         """
-        # Initialize the structural solver
         tacs   = TacsSolver(tacs_solver_setup=self.tacs_solver_setup)
         struct = StructuralGroup(struct_comp=tacs,nprocs=self.struct_nprocs)
 
         return struct
 
-    def _initialize_function_evaluators(self):
-        # Set up the structural solver
+    def _initialize_function_evaluator(self):
+        """
+        Initialize the TACS function evaluator
+        """
         tacs_funcs = TacsFunctions(tacs_func_setup=self.tacs_func_setup)
         struct_funcs = StructuralGroup(struct_comp=tacs_funcs,nprocs=self.struct_nprocs)
         return struct_funcs
@@ -80,7 +76,6 @@ class TacsComps(object):
         Setup callback function for TACS intial setup: reading the mesh and
         assigning elements
         """
-        self.struct_comm = comm
         mesh_file        = self.tacs_setup['mesh_file']
         add_elements     = self.tacs_setup['add_elements']
 
@@ -100,7 +95,11 @@ class TacsComps(object):
         mat = self.tacs.createFEMat()
         pc = TACS.Pc(mat)
 
-        return self.tacs, mat, pc, self.struct_ndv
+        subspace = 100
+        restarts = 2
+        gmres = TACS.KSM(mat, pc, subspace, restarts)
+
+        return self.tacs, mat, pc, gmres, self.struct_ndv
 
     def tacs_func_setup(self,comm):
         """
@@ -121,5 +120,6 @@ class TacsComps(object):
                 func_list.append(functions.StructuralMass(self.tacs))
 
         return func_list, self.tacs, self.struct_ndv
+
     def get_tacs(self):
         return self.tacs

@@ -27,6 +27,7 @@ class TacsMesh(ExplicitComponent):
 
     Assumptions:
         - User will provide a tacs_setup function that assigns tacs elements to the mesh
+          => tacs = tacs_mesh_setup(comm)
 
     """
     def initialize(self):
@@ -57,7 +58,10 @@ class TacsSolver(ImplicitComponent):
     Component to perform TACS steady analysis
 
     Assumptions:
-        - User will provide a tacs_setup function that assigns tacs elements to the mesh and returns the ndof per node
+        - User will provide a tacs_solver_setup function that gives some pieces
+          required for the tacs solver
+          => tacs, mat, pc, gmres, struct_ndv = tacs_solver_setup(comm)
+        - The TACS steady residual is R = K * u_s - f_s = 0
 
     """
     def initialize(self):
@@ -81,14 +85,16 @@ class TacsSolver(ImplicitComponent):
 
         # TACS assembler setup
         tacs_solver_setup = self.options['tacs_solver_setup']
-        tacs, mat, pc, ndv = tacs_solver_setup(self.comm)
+        tacs, mat, pc, gmres, ndv = tacs_solver_setup(self.comm)
 
         self.tacs = tacs
         self.pc = pc
+        self.gmres = gmres
         self.mat = mat
 
         # create some TACS bvecs that will be needed later
         self.res        = tacs.createVec()
+        self.force      = tacs.createVec()
         self.ans        = tacs.createVec()
         self.struct_rhs = tacs.createVec()
         self.psi_s      = tacs.createVec()
@@ -112,9 +118,6 @@ class TacsSolver(ImplicitComponent):
         self.declare_partials('u_s',['dv_struct','x_s','f_s'])
 
     def apply_nonlinear(self, inputs, outputs, residuals):
-        """
-        The TACS steady residual is R = K * u_s - f_s = 0
-        """
         tacs = self.tacs
         res  = self.res
         ans  = self.ans
@@ -154,12 +157,13 @@ class TacsSolver(ImplicitComponent):
 
     def solve_nonlinear(self, inputs, outputs):
         tacs   = self.tacs
-        force  = self.res # using res bvec as force so we don't have to allocate more memory
+        force  = self.force
         ans    = self.ans
         pc     = self.pc
+        gmres  = self.gmres
 
-        # if the design variables changed, update the stiffness matrix
-        print('TACS: solve_nonlinear dv',inputs['dv_struct'][0])
+        # if the design variables changed or we're coming in with a transposed
+        # matrix, update the stiffness matrix
         if self._design_vector_changed(inputs['dv_struct']) or self.transposed:
             tacs.setDesignVars(inputs['dv_struct'])
             alpha = 1.0
@@ -179,7 +183,7 @@ class TacsSolver(ImplicitComponent):
         force_array[:] = inputs['f_s']
         tacs.applyBCs(force)
 
-        pc.applyFactor(force, ans)
+        gmres.solve(force, ans)
         ans_array = ans.getArray()
         outputs['u_s'] = ans_array[:]
 
@@ -188,10 +192,22 @@ class TacsSolver(ImplicitComponent):
             raise ValueError('forward mode requested but not implemented')
 
         if mode == 'rev':
-                subspace = 100
-                restarts = 2
-                gmres = TACS.KSM(self.mat, self.pc, subspace, restarts)
                 tacs = self.tacs
+                gmres = self.gmres
+
+                # if nonsymmetric, we need to form the transpose Jacobian
+                #if self._design_vector_changed(inputs['dv_struct']) or not self.transposed:
+                #    alpha = 1.0
+                #    beta  = 0.0
+                #    gamma = 0.0
+
+                #    res = self.res
+                #    res_array = res.getArray()
+                #    res_array[:] = 0.0
+                #    tacs.assembleJacobian(alpha,beta,gamma,res,self.mat,matOr=TACS.PY_TRANSPOSE)
+                #    pc.factor()
+                #    self.transposed=True
+
                 res = self.res
                 res_array = res.getArray()
                 res_array[:] = d_outputs['u_s']
@@ -219,8 +235,6 @@ class TacsSolver(ImplicitComponent):
                     ans_array[:] = outputs['u_s']
                     tacs.setVariables(ans)
 
-                    res_array[:] = 0.0
-
                     # if nonsymmetric, we need to form the transpose Jacobian
                     #if self._design_vector_changed(inputs['dv_struct']) or not self.transposed:
                     #    alpha = 1.0
@@ -228,6 +242,8 @@ class TacsSolver(ImplicitComponent):
                     #    gamma = 0.0
                     #    tacs.assembleJacobian(alpha,beta,gamma,res,self.mat,matOr=TACS.PY_TRANSPOSE)
                     #    self.transposed=True
+
+                    res_array[:] = 0.0
 
                     self.mat.mult(ans,res)
 
@@ -265,6 +281,13 @@ class TacsSolver(ImplicitComponent):
 
 
 class TacsFunctions(ExplicitComponent):
+    """
+    Component to compute TACS functions
+
+    Assumptions:
+        - User will provide a tacs_func_setup function that will set up a list of functions
+          => func_list, tacs, struct_ndv = tacs_func_setup(comm)
+    """
     def initialize(self):
         self.options.declare('tacs_func_setup', desc = 'function to feed tacs function-evaluation information')
 
@@ -320,12 +343,10 @@ class TacsFunctions(ExplicitComponent):
         self.tacs.setVariables(ans)
 
         outputs['f_struct'] = self.tacs.evalFunctions(self.func_list)
-        print('TACS: Current f_struct',outputs['f_struct'])
 
         if 'mass' in outputs:
             func = functions.StructuralMass(self.tacs)
             outputs['mass'] = self.tacs.evalFunctions([func])
-            print('TACS: Current mass',outputs['mass'])
 
     def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
@@ -375,8 +396,10 @@ class PrescribedLoad(ExplicitComponent):
     Prescribe a load to tacs
 
     Assumptions:
-        - User will provide a tacs_setup function that assigns tacs elements to the mesh
-
+        - User will provide a load_function prescribes the loads
+          => load = load_function(x_s,ndof)
+        - User will provide a get_tacs function
+          => tacs = get_tacs()
     """
     def initialize(self):
         self.options.declare('load_function', default = None, desc='function that prescribes the loads')
