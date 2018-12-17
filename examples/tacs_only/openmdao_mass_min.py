@@ -7,7 +7,7 @@ import numpy as np
 from openmdao.api import Problem, ScipyOptimizeDriver, ExecComp, IndepVarComp
 
 from tacs import elements, constitutive
-from assemble_tacs_only import TacsComps
+from omfsi.assemble_tacs_only import TacsComps
 
 ################################################################################
 # Tacs solver pieces
