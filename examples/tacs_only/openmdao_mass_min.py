@@ -42,7 +42,8 @@ def load_function(x_s,ndof):
     f_s[2::ndof] = 100.0
     return f_s
 
-func_list = ['mass','ks_failure']
+func_list = ['ks_failure','mass']
+#func_list = ['ks_failure']
 tacs_setup = {'add_elements': add_elements,
               'nprocs'      : 4,
               'mesh_file'   : 'CRM_box_2nd.bdf',
@@ -59,11 +60,8 @@ prob = Problem()
 model = prob.model
 
 indeps = IndepVarComp()
-indeps.add_output('dv_struct',np.array(240*[0.003]))
+indeps.add_output('dv_struct',np.array(240*[0.005]))
 model.add_subsystem('indeps',indeps,promotes=['dv_struct'])
-
-
-
 
 tacs_comps.add_tacs_subsystems(model,setup,load_function=load_function)
 
@@ -71,13 +69,13 @@ tacs_comps.add_tacs_subsystems(model,setup,load_function=load_function)
 prob.driver = ScipyOptimizeDriver()
 prob.driver.options['optimizer'] = 'SLSQP'
 
-model.add_design_var('dv_struct',lower=0.001,upper=0.075)
+model.add_design_var('dv_struct',lower=0.001,upper=0.075,scaler=100.0)
 
-model.add_objective('mass')
-model.add_constraint('f_struct',upper = 2.0/3.0)
+model.add_objective('mass',scaler=1/1000.0/100.0)
+model.add_constraint('f_struct',upper = 2.0/3.0,scaler=1.0)
 
 prob.setup()
 
 #prob.run_model()
-#prob.run_driver()
-prob.check_partials(compact_print=True)
+prob.run_driver()
+#prob.check_partials(compact_print=True)

@@ -47,7 +47,7 @@ class TacsComps(object):
             model.add_subsystem('struct_loads',struct_l,promotes=['x_s','f_s'])
 
         model.add_subsystem(prefix+'struct_solver',struct,promotes=['dv_struct','x_s','u_s','f_s'])
-        model.add_subsystem(prefix+'struct_funcs',struct_funcs,promotes=['dv_struct','x_s','u_s','f_struct','mass'])
+        model.add_subsystem(prefix+'struct_funcs',struct_funcs,promotes=['*'])
 
     def _initialize_meshes(self,reuse_solvers):
         """

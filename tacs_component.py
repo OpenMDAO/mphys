@@ -2,13 +2,13 @@ from __future__ import division, print_function
 import numpy as np
 from mpi4py import MPI
 
-from openmdao.api import ImplicitComponent, ExplicitComponent, ParallelGroup
+from openmdao.api import ImplicitComponent, ExplicitComponent, IndepVarComp, ParallelGroup
 from tacs import TACS,functions
 
 
 class StructuralGroup(ParallelGroup):
     """
-    The structural parallel group wraps the TACS components to allow them to 
+    The structural parallel group wraps the TACS components to allow them to
     operate on a subset of the available procs if desired
     """
     def initialize(self):
@@ -92,7 +92,7 @@ class TacsSolver(ImplicitComponent):
         self.ans        = tacs.createVec()
         self.struct_rhs = tacs.createVec()
         self.psi_s      = tacs.createVec()
-        self.xpt_sens  = tacs.createNodeVec()
+        self.xpt_sens   = tacs.createNodeVec()
 
         # OpenMDAO setup
         xpts = tacs.createNodeVec()
@@ -119,9 +119,7 @@ class TacsSolver(ImplicitComponent):
         res  = self.res
         ans  = self.ans
 
-        print('TACS: apply_nonlinear dv',inputs['dv_struct'][0])
         if self._design_vector_changed(inputs['dv_struct']) or self.transposed:
-            print('TACS: apply_nonlinear design changed')
             pc     = self.pc
             tacs.setDesignVars(inputs['dv_struct'])
             alpha = 1.0
@@ -153,7 +151,6 @@ class TacsSolver(ImplicitComponent):
         tacs.applyBCs(res)
 
         residuals['u_s'][:] = res_array[:]
-        print('TACS: apply_nonlinear residual',np.linalg.norm(residuals['u_s'][:]))
 
     def solve_nonlinear(self, inputs, outputs):
         tacs   = self.tacs
@@ -164,7 +161,6 @@ class TacsSolver(ImplicitComponent):
         # if the design variables changed, update the stiffness matrix
         print('TACS: solve_nonlinear dv',inputs['dv_struct'][0])
         if self._design_vector_changed(inputs['dv_struct']) or self.transposed:
-            print('TACS: solve_nonlinear design changed')
             tacs.setDesignVars(inputs['dv_struct'])
             alpha = 1.0
             beta  = 0.0
@@ -181,16 +177,32 @@ class TacsSolver(ImplicitComponent):
         # solve the linear system
         force_array = force.getArray()
         force_array[:] = inputs['f_s']
+        tacs.applyBCs(force)
 
         pc.applyFactor(force, ans)
         ans_array = ans.getArray()
         outputs['u_s'] = ans_array[:]
-        print('TACS: solve_nonlinear u_s',np.linalg.norm(outputs['u_s'][:]))
+
+    def solve_linear(self,d_outputs,d_residuals,mode):
+        if mode == 'fwd':
+            raise ValueError('forward mode requested but not implemented')
+
+        if mode == 'rev':
+                subspace = 100
+                restarts = 2
+                gmres = TACS.KSM(self.mat, self.pc, subspace, restarts)
+                tacs = self.tacs
+                res = self.res
+                res_array = res.getArray()
+                res_array[:] = d_outputs['u_s']
+                psi_s = self.psi_s
+                gmres.solve(res,psi_s)
+                psi_s_array = psi_s.getArray()
+                d_residuals['u_s'] = psi_s_array
 
     def apply_linear(self,inputs,outputs,d_inputs,d_outputs,d_residuals,mode):
         if mode == 'fwd':
-            #raise ValueError('forward mode requested but not implemented')
-            pass
+            raise ValueError('forward mode requested but not implemented')
 
         if mode == 'rev':
             if 'u_s' in d_residuals:
@@ -204,17 +216,18 @@ class TacsSolver(ImplicitComponent):
 
                 if 'u_s' in d_outputs:
 
-                    ans_array[:] = d_residuals['u_s']
+                    ans_array[:] = outputs['u_s']
                     tacs.setVariables(ans)
 
                     res_array[:] = 0.0
 
                     # if nonsymmetric, we need to form the transpose Jacobian
-                    alpha = 1.0
-                    beta  = 0.0
-                    gamma = 0.0
-                    tacs.assembleJacobian(alpha,beta,gamma,res,self.mat,matOr=TACS.PY_TRANSPOSE)
-                    self.transposed=True
+                    #if self._design_vector_changed(inputs['dv_struct']) or not self.transposed:
+                    #    alpha = 1.0
+                    #    beta  = 0.0
+                    #    gamma = 0.0
+                    #    tacs.assembleJacobian(alpha,beta,gamma,res,self.mat,matOr=TACS.PY_TRANSPOSE)
+                    #    self.transposed=True
 
                     self.mat.mult(ans,res)
 
@@ -229,8 +242,6 @@ class TacsSolver(ImplicitComponent):
                     xpt_sens = self.xpt_sens
                     xpt_sens_array = xpt_sens.getArray()
 
-                    tacs.setVariables(ans)
-
                     tacs.evalAdjointResXptSensProduct(ans, xpt_sens)
 
                     d_inputs['x_s'] += xpt_sens_array[:]
@@ -241,14 +252,13 @@ class TacsSolver(ImplicitComponent):
                     psi_s_array[:] = d_residuals['u_s']
                     self.tacs.evalAdjointResProduct(self.psi_s, adjResProduct)
                     d_inputs['dv_struct'] +=  adjResProduct
-        print('TACS: apply_linear called')
 
     def _design_vector_changed(self,x):
         if self.x_save is None:
-            self.x_save = x
+            self.x_save = x.copy()
             return True
-        elif not np.allclose(x,self.x_save,rtol=1e-6,atol=1e-6):
-            self.x_save = x
+        elif not np.allclose(x,self.x_save,rtol=1e-10,atol=1e-10):
+            self.x_save = x.copy()
             return True
         else:
             return False
@@ -319,8 +329,7 @@ class TacsFunctions(ExplicitComponent):
 
     def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
-            #raise ValueError('forward mode requested but not implemented')
-            pass
+            raise ValueError('forward mode requested but not implemented')
         if mode == 'rev':
             if 'mass' in d_outputs:
                 func = functions.StructuralMass(self.tacs)
@@ -398,5 +407,5 @@ class PrescribedLoad(ExplicitComponent):
 
     def compute(self,inputs,outputs):
         load_function = self.options['load_function']
-        outputs['f_s'] = load_function(inputs['x_s'],self.ndof) 
+        outputs['f_s'] = load_function(inputs['x_s'],self.ndof)
 
