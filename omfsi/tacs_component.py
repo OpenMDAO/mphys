@@ -114,7 +114,7 @@ class TacsSolver(ImplicitComponent):
         self.add_output('u_s',      shape=state_size, desc='structural state vector')
 
         # partials
-        self.declare_partials('u_s',['dv_struct','x_s','f_s'])
+        #self.declare_partials('u_s',['dv_struct','x_s','f_s'])
 
     def apply_nonlinear(self, inputs, outputs, residuals):
         tacs = self.tacs
@@ -200,9 +200,6 @@ class TacsSolver(ImplicitComponent):
             #    beta  = 0.0
             #    gamma = 0.0
 
-            #    res = self.res
-            #    res_array = res.getArray()
-            #    res_array[:] = 0.0
             #    tacs.assembleJacobian(alpha,beta,gamma,res,self.mat,matOr=TACS.PY_TRANSPOSE)
             #    pc.factor()
             #    self.transposed=True
@@ -240,6 +237,7 @@ class TacsSolver(ImplicitComponent):
                     #    beta  = 0.0
                     #    gamma = 0.0
                     #    tacs.assembleJacobian(alpha,beta,gamma,res,self.mat,matOr=TACS.PY_TRANSPOSE)
+                    #    pc.factor()
                     #    self.transposed=True
 
                     res_array[:] = 0.0
@@ -330,10 +328,11 @@ class TacsFunctions(ExplicitComponent):
             self.add_output('f_struct', shape=len(self.func_list), desc='structural function values')
 
             # declare the partials
-            self.declare_partials('f_struct',['dv_struct','x_s','u_s'])
+            #self.declare_partials('f_struct',['dv_struct','x_s','u_s'])
 
         if self.mass:
-            self.declare_partials('mass',['dv_struct','x_s'])
+            #self.declare_partials('mass',['dv_struct','x_s'])
+            pass
 
     def compute(self,inputs,outputs):
 
@@ -371,7 +370,6 @@ class TacsFunctions(ExplicitComponent):
                     d_inputs['x_s'] += xpt_sens_array * d_outputs['mass']
 
             if 'f_struct' in d_outputs:
-                #FIXME not sure how d_inputs handles multiple components to d_outputs
                 ans = self.ans
                 for ifunc, func in enumerate(self.func_list):
                     if 'dv_struct' in d_inputs:
@@ -425,10 +423,10 @@ class PrescribedLoad(ExplicitComponent):
         self.ndof = int(state_size / ( node_size / 3 ))
 
         # OpenMDAO setup
-        self.add_input('x_s', shape=node_size, desc='structural load')
+        self.add_input('x_s', shape=node_size, desc='structural node coordinates')
         self.add_output('f_s', shape=state_size, desc='structural load')
 
-        self.declare_partials('f_s','x_s')
+        #self.declare_partials('f_s','x_s')
 
     def compute(self,inputs,outputs):
         load_function = self.options['load_function']
