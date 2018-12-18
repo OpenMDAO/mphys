@@ -79,24 +79,19 @@ tacs.setVariables(ans)
 
 # Evaluate the function
 fvals1 = tacs.evalFunctions(funcs)
-print('fvals1',fvals1)
 
 # Solve for the adjoint variables
 adjoint = tacs.createVec()
 tacs.evalSVSens(funcs[0], res)
 res_array = res.getArray()
 res_array *= -1.0
-print('dfdu',np.linalg.norm(res.getArray()))
 gmres.solve(res, adjoint)
-print('psi_s',np.linalg.norm(adjoint.getArray()))
 
 # Compute the total derivative w.r.t. material design variables
 fdvSens = np.zeros(x.shape, TACS.dtype)
 product = np.zeros(x.shape, TACS.dtype)
 tacs.evalDVSens(funcs[0], fdvSens)
-print('dfdx',np.linalg.norm(fdvSens))
 tacs.evalAdjointResProduct(adjoint, product)
-print('dSdx',np.linalg.norm(product))
 fdvSens = fdvSens + product
 
 # Create a random direction along which to perturb the nodes
