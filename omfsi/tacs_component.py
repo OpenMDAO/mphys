@@ -48,10 +48,10 @@ class TacsMesh(ExplicitComponent):
 
         # OpenMDAO setup
         node_size  =     self.xpts.getArray().size
-        self.add_output('x_s', shape=node_size, desc='structural node coordinates')
+        self.add_output('x_s0', shape=node_size, desc='structural node coordinates')
 
     def compute(self,inputs,outputs):
-        outputs['x_s'] = self.xpts.getArray()
+        outputs['x_s0'] = self.xpts.getArray()
 
 class TacsSolver(ImplicitComponent):
     """
@@ -107,14 +107,14 @@ class TacsSolver(ImplicitComponent):
 
         # inputs
         self.add_input('dv_struct', shape=ndv       , desc='tacs design variables')
-        self.add_input('x_s',       shape=node_size , desc='structural node coordinates')
+        self.add_input('x_s0',       shape=node_size , desc='structural node coordinates')
         self.add_input('f_s',       shape=state_size, desc='structural load vector')
 
         # outputs
         self.add_output('u_s',      shape=state_size, desc='structural state vector')
 
         # partials
-        #self.declare_partials('u_s',['dv_struct','x_s','f_s'])
+        #self.declare_partials('u_s',['dv_struct','x_s0','f_s'])
 
     def apply_nonlinear(self, inputs, outputs, residuals):
         tacs = self.tacs
@@ -250,14 +250,14 @@ class TacsSolver(ImplicitComponent):
                     # dR/df_s^T = -I
                     d_inputs['f_s'] -= d_residuals['u_s']
 
-                if 'x_s' in d_inputs:
+                if 'x_s0' in d_inputs:
                     ans_array[:] = d_residuals['u_s']
                     xpt_sens = self.xpt_sens
                     xpt_sens_array = xpt_sens.getArray()
 
                     tacs.evalAdjointResXptSensProduct(ans, xpt_sens)
 
-                    d_inputs['x_s'] += xpt_sens_array[:]
+                    d_inputs['x_s0'] += xpt_sens_array[:]
 
                 if 'dv_struct' in d_inputs:
                     adj_res_product  = np.zeros(d_inputs['dv_struct'].size)
@@ -309,7 +309,7 @@ class TacsFunctions(ExplicitComponent):
 
         # OpenMDAO part of setup
         self.add_input('dv_struct', shape=ndv,            desc='tacs design variables')
-        self.add_input('x_s',       shape=xpts_shape,     desc='structural node coordinates')
+        self.add_input('x_s0',       shape=xpts_shape,     desc='structural node coordinates')
         self.add_input('u_s',       shape=state_shape,    desc='structural state vector')
 
         # Remove the mass function from the func list if it is there
@@ -328,10 +328,10 @@ class TacsFunctions(ExplicitComponent):
             self.add_output('f_struct', shape=len(self.func_list), desc='structural function values')
 
             # declare the partials
-            #self.declare_partials('f_struct',['dv_struct','x_s','u_s'])
+            #self.declare_partials('f_struct',['dv_struct','x_s0','u_s'])
 
         if self.mass:
-            #self.declare_partials('mass',['dv_struct','x_s'])
+            #self.declare_partials('mass',['dv_struct','x_s0'])
             pass
 
     def compute(self,inputs,outputs):
@@ -362,12 +362,12 @@ class TacsFunctions(ExplicitComponent):
 
                     d_inputs['dv_struct'] += dvsens * d_outputs['mass']
 
-                if 'x_s' in d_inputs:
+                if 'x_s0' in d_inputs:
                     xpt_sens = self.xpt_sens
                     xpt_sens_array = xpt_sens.getArray()
                     self.tacs.evalXptSens(func, xpt_sens)
 
-                    d_inputs['x_s'] += xpt_sens_array * d_outputs['mass']
+                    d_inputs['x_s0'] += xpt_sens_array * d_outputs['mass']
 
             if 'f_struct' in d_outputs:
                 ans = self.ans
@@ -378,12 +378,12 @@ class TacsFunctions(ExplicitComponent):
 
                         d_inputs['dv_struct'][:] += dvsens * d_outputs['f_struct'][ifunc]
 
-                    if 'x_s' in d_inputs:
+                    if 'x_s0' in d_inputs:
                         xpt_sens = self.xpt_sens
                         xpt_sens_array = xpt_sens.getArray()
                         self.tacs.evalXptSens(func, xpt_sens)
 
-                        d_inputs['x_s'][:] += xpt_sens_array * d_outputs['f_struct'][ifunc]
+                        d_inputs['x_s0'][:] += xpt_sens_array * d_outputs['f_struct'][ifunc]
 
                     if 'u_s' in d_inputs:
                         self.tacs.evalSVSens(func,ans)
@@ -397,7 +397,7 @@ class PrescribedLoad(ExplicitComponent):
 
     Assumptions:
         - User will provide a load_function prescribes the loads
-          => load = load_function(x_s,ndof)
+          => load = load_function(x_s0,ndof)
         - User will provide a get_tacs function
           => tacs = get_tacs()
     """
@@ -423,12 +423,12 @@ class PrescribedLoad(ExplicitComponent):
         self.ndof = int(state_size / ( node_size / 3 ))
 
         # OpenMDAO setup
-        self.add_input('x_s', shape=node_size, desc='structural node coordinates')
+        self.add_input('x_s0', shape=node_size, desc='structural node coordinates')
         self.add_output('f_s', shape=state_size, desc='structural load')
 
-        #self.declare_partials('f_s','x_s')
+        #self.declare_partials('f_s','x_s0')
 
     def compute(self,inputs,outputs):
         load_function = self.options['load_function']
-        outputs['f_s'] = load_function(inputs['x_s'],self.ndof)
+        outputs['f_s'] = load_function(inputs['x_s0'],self.ndof)
 

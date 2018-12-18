@@ -24,10 +24,10 @@ class TacsComps(object):
         # Structural data to keep track of
         self.struct_nprocs = self.tacs_setup['nprocs']
 
-        # Initialize the disciplinary solvers
+        # Initialize the disciplinary mesh
         struct_mesh = self._initialize_mesh(reuse_solvers)
 
-        # Initialize the disciplinary solvers
+        # Initialize the disciplinary solver
         struct = self._initialize_solver()
         struct.nonlinear_solver = NonlinearRunOnce()
         struct.linear_solver = LinearRunOnce()
@@ -35,14 +35,14 @@ class TacsComps(object):
         # Initialize the function evaluators
         struct_funcs = self._initialize_function_evaluator()
 
-        model.add_subsystem(prefix+'struct_mesh',struct_mesh,promotes=['x_s'])
+        model.add_subsystem(prefix+'struct_mesh',struct_mesh,promotes=['x_s0'])
 
         if load_function is not None:
             struct_loads = PrescribedLoad(load_function=load_function,get_tacs=self.get_tacs)
             struct_l     = StructuralGroup(struct_comp=struct_loads,nprocs=self.struct_nprocs)
-            model.add_subsystem('struct_loads',struct_l,promotes=['x_s','f_s'])
+            model.add_subsystem('struct_loads',struct_l,promotes=['x_s0','f_s'])
 
-        model.add_subsystem(prefix+'struct_solver',struct,promotes=['dv_struct','x_s','u_s','f_s'])
+        model.add_subsystem(prefix+'struct_solver',struct,promotes=['dv_struct','x_s0','u_s','f_s'])
         model.add_subsystem(prefix+'struct_funcs',struct_funcs,promotes=['*'])
 
     def _initialize_mesh(self,reuse_solvers):
