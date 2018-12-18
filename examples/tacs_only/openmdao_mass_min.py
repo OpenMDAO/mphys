@@ -2,9 +2,13 @@
 Mass minimization of uCRM wingbox subject to a constant vertical force
 
 """
+from __future__ import division, print_function
 import numpy as np
 
-from openmdao.api import Problem, ScipyOptimizeDriver, ExecComp, IndepVarComp
+from openmdao.api import Problem, ScipyOptimizeDriver
+from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
+from openmdao.api import NonlinearRunOnce, LinearRunOnce
+from openmdao.api import SqliteRecorder
 
 from tacs import elements, constitutive
 from omfsi.assemble_tacs_only import TacsComps
@@ -38,12 +42,11 @@ def add_elements(mesh):
     return ndof, ndv
 
 def load_function(x_s,ndof):
-    f_s = np.zeros(x_s.size/3*ndof)
+    f_s = np.zeros(int(x_s.size/3)*ndof)
     f_s[2::ndof] = 100.0
     return f_s
 
 func_list = ['ks_failure','mass']
-#func_list = ['ks_failure']
 tacs_setup = {'add_elements': add_elements,
               'nprocs'      : 4,
               'mesh_file'   : 'CRM_box_2nd.bdf',
@@ -60,22 +63,29 @@ prob = Problem()
 model = prob.model
 
 indeps = IndepVarComp()
-indeps.add_output('dv_struct',np.array(240*[0.005]))
+indeps.add_output('dv_struct',np.array(240*[0.0031]))
 model.add_subsystem('indeps',indeps,promotes=['dv_struct'])
 
 tacs_comps.add_tacs_subsystems(model,setup,load_function=load_function)
 
-
-prob.driver = ScipyOptimizeDriver()
+prob.driver = ScipyOptimizeDriver(debug_print=['objs','nl_cons'])
 prob.driver.options['optimizer'] = 'SLSQP'
 
-model.add_design_var('dv_struct',lower=0.001,upper=0.075,scaler=100.0)
+#recorder = SqliteRecorder('crm.sql')
+#prob.driver.add_recorder(recorder)
+#prob.driver.recording_options['includes'] = ['*']
 
-model.add_objective('mass',scaler=1/1000.0/100.0)
-model.add_constraint('f_struct',upper = 2.0/3.0,scaler=1.0)
+model.add_design_var('dv_struct',lower=0.001,upper=0.075,scaler=1.0/1.0)
+
+model.add_objective('mass',scaler=1.0/100000.0)
+model.add_constraint('f_struct',lower = 0.0, upper = 2.0/3.0,scaler=100.0/100.0)
 
 prob.setup()
 
 #prob.run_model()
+#prob.check_partials()
+
 prob.run_driver()
-#prob.check_partials(compact_print=True)
+
+for i in range(240):
+    print('final dvs',i,prob['dv_struct'][i])

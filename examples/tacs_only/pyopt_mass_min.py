@@ -11,10 +11,10 @@ from tacs import TACS, elements, constitutive, functions
 class TacsOpt(object):
     def __init__(self):
 
-        self.x0 = 0.005
-        self.var_scale = 100.0
-        self.c1 = 1.0/ 1000.0 / self.var_scale
-        self.c2 = 100.0 / self.var_scale
+        self.x0 = 0.0031
+        self.var_scale = 1.0
+        self.c1 = 1.0/100000.0
+        self.c2 = 1.0 / self.var_scale
 
         # Load structural mesh from BDF file
         tacs_comm = MPI.COMM_WORLD
