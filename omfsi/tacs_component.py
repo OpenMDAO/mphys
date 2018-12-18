@@ -103,7 +103,7 @@ class TacsSolver(ImplicitComponent):
         # OpenMDAO setup
 
         state_size = self.ans.getArray().size
-        node_size  = self.xpts_sens.getArray().size
+        node_size  = self.xpt_sens.getArray().size
 
         # inputs
         self.add_input('dv_struct', shape=ndv       , desc='tacs design variables')
