@@ -13,6 +13,10 @@ class FsiComps(object):
     It contains some setup callback functions so that TACS, ADFlow, and
     MELD objects can be shared between OpenMDAO components
 
+    These helpper functions are combined like this because transfer components
+    needs to know some information (vector sizes and comms) from the disciplinary
+    solver components
+
     """
     def __init__(self):
         # Flow data to keep track of
@@ -23,6 +27,7 @@ class FsiComps(object):
         self.tacs = None
         self.struct_ndv = 0
         self.struct_ndof = 0
+        self.struct_nprocs = 0
 
         # Transfer data to keep track of
         self.xfer_ndof = 3
@@ -36,8 +41,11 @@ class FsiComps(object):
         # Structural data to keep track of
         self.struct_nprocs = tacs_setup['nprocs']
 
+        # Initialize the disciplinary meshes
+        struct_mesh = self._initialize_meshes(reuse_solvers)
+
         # Initialize the disciplinary solvers
-        aero, struct, disp_xfer, load_xfer = self._initialize_solvers(reuse_solvers)
+        aero, struct, disp_xfer, load_xfer = self._initialize_solvers()
 
         # Initialize the coupling group
         FsiSolver(aero=aero,struct=struct,disp_xfer=disp_xfer,load_xfer=load_xfer)
@@ -45,10 +53,22 @@ class FsiComps(object):
         # Initialize the function evaluators
         struct_funcs = self._initialize_function_evaluators()
 
+        model.add_subsystem(prefix+'struct_mesh',struct_mesh,promotes['x_s0']
+
         model.add_subsystem(prefix+'FsiSolver',FsiSolver,promotes=['struct_dv','x_a0','x_s0','x_g','q','u_s'])
+
         model.add_subsystem(prefix+'struct_funcs',struct_funcs,promotes=['*']
 
-    def _initialize_solvers(self,reuse_solvers):
+    def _initialize_mesh(self,reuse_solvers):
+        """
+        Initialize the different discipline meshes
+        """
+        tacs_mesh   = TacsMesh(tacs_mesh_setup=self.tacs_mesh_setup)
+        struct      = StructuralGroup(struct_comp=tacs_mesh,nprocs=self.struct_nprocs)
+
+        return struct
+
+    def _initialize_solvers(self):
         """
         Initialize the different disciplinary solvers
         """
@@ -71,13 +91,11 @@ class FsiComps(object):
         struct_funcs = StructuralGroup(struct_comp=tacs_funcs,nprocs=self.struct_nprocs)
         return struct_funcs
 
-    def tacs_solver_setup(self,comm):
+    def tacs_mesh_setup(self,comm):
         """
-        Setup callback function for TACS solver setup.
-        The user provides the mesh file name and a function to add the elements
-        to the mesh object.
+        Setup callback function for TACS intial setup: reading the mesh and
+        assigning elements
         """
-        self.struct_comm = comm
         mesh_file        = self.tacs_setup['mesh_file']
         add_elements     = self.tacs_setup['add_elements']
 
@@ -87,18 +105,39 @@ class FsiComps(object):
         self.struct_ndof, self.struct_ndv = add_elements(mesh)
 
         self.tacs = mesh.createTACS(self.struct_ndof)
+        return self.tacs
 
-        mat = tacs.createFEMat()
+    def tacs_solver_setup(self,comm):
+        """
+        Setup callback function for TACS solver setup.
+        """
+
+        mat = self.tacs.createFEMat()
         pc = TACS.Pc(mat)
 
-        return self.tacs, pc, self.struct_ndv
+        subspace = 100
+        restarts = 2
+        gmres = TACS.KSM(mat, pc, subspace, restarts)
+
+        return self.tacs, mat, pc, gmres, self.struct_ndv
 
     def tacs_func_setup(self,comm):
         """
         Setup callback function for TACS function evaluation.
-        The user provides a list TACS functions
+        The user provides a list TACS function names (strings)
         """
-        func_list = self.tacs_setup['func_list']
+        func_str_list = self.tacs_setup['func_list']
+        func_list = []
+        for func in func_str_list:
+            if func.lower() == 'ks_failure':
+                ksweight = 100.0
+                func_list.append(functions.KSFailure(self.tacs, ksweight))
+
+            elif func.lower() == 'compliance':
+                func_list.append(functions.Compliance(self.tacs))
+
+            elif func.lower() == 'mass':
+                func_list.append(functions.StructuralMass(self.tacs))
 
         return func_list, self.tacs, self.struct_ndv
 
@@ -116,40 +155,3 @@ class FsiComps(object):
 
     def adflow_setup(self,comm):
 
-
-
-
-# problem setup
-
-def add_elements(mesh):
-    rho = 2500.0  # density, kg/m^3
-    E = 70.0e9 # elastic modulus, Pa
-    nu = 0.3 # poisson's ratio
-    kcorr = 5.0 / 6.0 # shear correction factor
-    ys = 350e6  # yield stress, Pa
-    min_thickness = 0.001
-    max_thickness = 0.100
-
-    num_components = mesh
-    for i in xrange(num_components)
-        descript = mesh.getElementDescript(i)
-        stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, t, i,
-                                     min_thickness, max_thickness)
-        element = None
-        if descript in ["CQUAD", "CQUADR", "CQUAD4"]:
-            element = elements.MITCShell(2,stiff,component_num=i)
-        mesh.setElement(i, element)
-
-    ndof = 6
-    ndv = num_components
-
-    return ndof, ndv
-
-
-func_list = ['ksfailure']
-meld_setup = {'isym':1, 'n':200,'beta':0.5}
-adflow_setup = {}
-tacs_setup = {'add_elements': add_elements,
-              'nprocs'      : 4,
-              'mesh_file'   : 'CRM_box_2nd.bdf'}
-              'func_list'   : func_list}
