@@ -1,5 +1,8 @@
+from __future__ import division, print_function
+
 from openmdao.api import NonlinearRunOnce, LinearRunOnce
-from tacs_component import StructuralGroup, TacsMesh, TacsSolver, TacsFunctions
+
+from tacs_component import TacsMesh, TacsSolver, TacsFunctions
 from tacs_component import PrescribedLoad
 
 from tacs import TACS, functions
@@ -28,48 +31,42 @@ class TacsComps(object):
         struct_mesh = self._initialize_mesh(reuse_solvers)
 
         # Initialize the disciplinary solver
-        struct = self._initialize_solver()
-        struct.nonlinear_solver = NonlinearRunOnce()
-        struct.linear_solver = LinearRunOnce()
+        struct_solver = self._initialize_solver()
+        model.nonlinear_solver = NonlinearRunOnce()
+        model.linear_solver = LinearRunOnce()
 
         # Initialize the function evaluators
         struct_funcs = self._initialize_function_evaluator()
 
-        model.add_subsystem(prefix+'struct_mesh',struct_mesh,promotes=['x_s0'])
+        model.add_subsystem(prefix+'struct_mesh',struct_mesh,promotes=['x_s0'],max_procs=self.struct_nprocs)
 
         if load_function is not None:
             struct_loads = PrescribedLoad(load_function=load_function,get_tacs=self.get_tacs)
-            struct_l     = StructuralGroup(struct_comp=struct_loads,nprocs=self.struct_nprocs)
-            model.add_subsystem('struct_loads',struct_l,promotes=['x_s0','f_s'])
+            model.add_subsystem('struct_loads',struct_loads,promotes=['x_s0','f_s'],max_procs=self.struct_nprocs)
 
-        model.add_subsystem(prefix+'struct_solver',struct,promotes=['dv_struct','x_s0','u_s','f_s'])
-        model.add_subsystem(prefix+'struct_funcs',struct_funcs,promotes=['*'])
+        model.add_subsystem(prefix+'struct_solver',struct_solver,promotes=['dv_struct','x_s0','u_s','f_s'],max_procs=self.struct_nprocs)
+        model.add_subsystem(prefix+'struct_funcs',struct_funcs,promotes=['*'],max_procs=self.struct_nprocs)
 
     def _initialize_mesh(self,reuse_solvers):
         """
         Initialize the mesh
         """
         tacs_mesh   = TacsMesh(tacs_mesh_setup=self.tacs_mesh_setup)
-        struct      = StructuralGroup(struct_comp=tacs_mesh,nprocs=self.struct_nprocs)
-
-        return struct
+        return tacs_mesh
 
     def _initialize_solver(self):
         """
         Initialize the TACS solver
         """
-        tacs   = TacsSolver(tacs_solver_setup=self.tacs_solver_setup)
-        struct = StructuralGroup(struct_comp=tacs,nprocs=self.struct_nprocs)
-
-        return struct
+        tacs_solver   = TacsSolver(tacs_solver_setup=self.tacs_solver_setup)
+        return tacs_solver
 
     def _initialize_function_evaluator(self):
         """
         Initialize the TACS function evaluator
         """
         tacs_funcs = TacsFunctions(tacs_func_setup=self.tacs_func_setup)
-        struct_funcs = StructuralGroup(struct_comp=tacs_funcs,nprocs=self.struct_nprocs)
-        return struct_funcs
+        return tacs_funcs
 
     def tacs_mesh_setup(self,comm):
         """

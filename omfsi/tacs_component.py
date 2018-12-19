@@ -2,25 +2,9 @@ from __future__ import division, print_function
 import numpy as np
 from mpi4py import MPI
 
-from openmdao.api import ImplicitComponent, ExplicitComponent, ParallelGroup
+from openmdao.api import ImplicitComponent, ExplicitComponent
 from tacs import TACS,functions
 
-
-class StructuralGroup(ParallelGroup):
-    """
-    The structural parallel group wraps the TACS components to allow them to
-    operate on a subset of the available procs if desired
-    """
-    def initialize(self):
-        self.options.declare('struct_comp', desc='Structural solver component')
-        self.options.declare('nprocs',default=1,desc='number of structural processors')
-
-    def setup(self):
-        struct_comp = self.options['struct_comp']
-        nprocs      = self.options['nprocs']
-
-        self.add_subsystem('struct_comp', struct_comp, promotes =['*']
-                                                     , max_procs=nprocs)
 class TacsMesh(ExplicitComponent):
     """
     Component to read the initial mesh coordinates with TACS

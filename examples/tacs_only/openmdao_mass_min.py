@@ -68,7 +68,7 @@ model.add_subsystem('indeps',indeps,promotes=['dv_struct'])
 
 tacs_comps.add_tacs_subsystems(model,setup,load_function=load_function)
 
-prob.driver = ScipyOptimizeDriver(debug_print=['objs','nl_cons'])
+prob.driver = ScipyOptimizeDriver(debug_print=['objs','nl_cons'],maxiter=1500)
 prob.driver.options['optimizer'] = 'SLSQP'
 
 #recorder = SqliteRecorder('crm.sql')
