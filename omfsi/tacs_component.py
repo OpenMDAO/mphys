@@ -1,6 +1,5 @@
 from __future__ import division, print_function
 import numpy as np
-from mpi4py import MPI
 
 from openmdao.api import ImplicitComponent, ExplicitComponent
 from tacs import TACS,functions
