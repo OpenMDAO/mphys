@@ -68,7 +68,7 @@ model.add_subsystem('indeps',indeps,promotes=['dv_struct','dv_aero'])
 
 fsi_comps.add_fsi_subsystems(model,setup)
 
-prob.driver = ScipyOptimizeDriver(debug_print=['objs','nl_cons'],maxiter=2)
+prob.driver = ScipyOptimizeDriver(debug_print=['objs','nl_cons'],maxiter=1000)
 prob.driver.options['optimizer'] = 'SLSQP'
 
 #recorder = SqliteRecorder('crm.sql')

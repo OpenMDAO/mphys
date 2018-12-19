@@ -6,6 +6,7 @@ from omfsi.load_xfer_component import FuntofemLoadTransfer
 from omfsi.aero_groups import AeroSolverGroup
 
 from dummy_aero_fixed import AeroMesh, AeroDeformer, AeroSolver, AeroForceIntegrator
+#from dummy_aero_coupled import AeroMesh, AeroDeformer, AeroSolver, AeroForceIntegrator
 
 from tacs import TACS, functions
 from funtofem import TransferScheme

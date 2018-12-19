@@ -1,3 +1,5 @@
+import numpy as np
+
 from openmdao.api import ExplicitComponent
 
 class FuntofemLoadTransfer(ExplicitComponent):
@@ -15,7 +17,9 @@ class FuntofemLoadTransfer(ExplicitComponent):
         load_xfer_setup = self.options['load_xfer_setup']
         meld, aero_nnodes, struct_nnodes, struct_ndof = load_xfer_setup()
         self.meld = meld
-        self.struct_ndof = struct_ndof
+        self.struct_ndof   = struct_ndof
+        self.struct_nnodes = struct_nnodes
+        self.aero_nnodes   =   aero_nnodes
 
         # inputs
         self.add_input('x_s0', shape = struct_nnodes*3,           desc='initial structural node coordinates')
@@ -30,15 +34,16 @@ class FuntofemLoadTransfer(ExplicitComponent):
         #self.declare_partials('f_s',['x_s0','x_a0','u_s','f_a'])
 
     def compute(self, inputs, outputs):
-        u_s  = np.zeros(struct_nnodes*3)
+        u_s  = np.zeros(self.struct_nnodes*3)
         for i in range(3):
             u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
 
 
         f_a =  inputs['f_a']
-        f_s = outputs['f_s']
+        f_s = np.zeros(self.struct_nnodes*3)
 
         #TODO meld needs a set state rather requiring transferDisps to update the internal state
+        u_a  = np.zeros(inputs['f_a'].size)
         self.meld.transferDisps(u_s,u_a)
         self.meld.transferLoads(f_a,f_s)
 

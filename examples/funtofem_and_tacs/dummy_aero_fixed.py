@@ -86,7 +86,7 @@ class AeroSolver(ImplicitComponent):
         residuals['q'] = outputs['q'] - self.c2 * inputs['x_g']
 
     def solve_nonlinear(self, inputs, outputs):
-        outputs['q'] = self.c2 * inputs['x_a']
+        outputs['q'] = self.c2 * inputs['x_g']
 
     def solve_linear(self, d_outputs,d_residuals,mode):
         if mode == 'fwd':
@@ -108,7 +108,7 @@ class AeroForceIntegrator(ExplicitComponent):
     """
     Dummy aerodynamic force integrator
 
-    f_a = 1000.0 for z component
+    f_a = z component
     """
     def initialize(self):
         self.options.declare('aero_force_integrator_setup', default = None, desc='Dummy call back to get aero info')
@@ -122,7 +122,7 @@ class AeroForceIntegrator(ExplicitComponent):
         self.add_output('f_a',shape=nnodes*3, desc='dummy aero force')
 
     def compute(self, inputs, outputs):
-        outputs['f_a'][2::3] = 1000.0
+        outputs['f_a'][2::3] = 100000.0
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':

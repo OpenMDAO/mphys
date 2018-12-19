@@ -38,8 +38,9 @@ class FsiSolver(Group):
 
         self.add_subsystem('struct',self.options['struct'],promotes_inputs=['dv_struct','x_s0','f_s'], promotes_outputs=['u_s'],max_procs=self.options['struct_nprocs'])
 
-        self.nonlinear_solver = NonlinearBlockGS()
-        self.linear_solver = LinearBlockGS()
+        self.nonlinear_solver = NonlinearBlockGS(maxiter=50)
+        #self.nonlinear_solver = NonlinearBlockGS(debug_print=True)
+        self.linear_solver = LinearBlockGS(maxiter=50)
 
 class GeoDisp(ExplicitComponent):
     """

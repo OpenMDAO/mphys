@@ -14,7 +14,7 @@ class AeroMesh(ExplicitComponent):
         self.options.declare('aero_mesh_setup', default = None, desc='Dummy call back to get aero object')
 
     def setup(self):
-        self.flow = self.options['aero_mesh_setup']()
+        self.flow = self.options['aero_mesh_setup'](self.comm)
         aero_nnodes = self.flow['nnodes']
         self.add_output('x_a0',shape=3*aero_nnodes, desc='aerodynamic surface coordinates')
 
@@ -33,10 +33,11 @@ class AeroDeformer(ImplicitComponent):
         self.c1 = 1e-5
 
     def setup(self):
-        flow = self.options['aero_deformer_setup']()
+        flow = self.options['aero_deformer_setup'](self.comm)
         nnodes = flow['nnodes']
 
-        self.add_input('x_a',shape=nnodes*3, desc='dummy aero surface coordinates')
+        self.add_input('x_a0',shape=nnodes*3, desc='dummy aero jig shape surface coordinates')
+        self.add_input('x_a',shape=nnodes*3, desc='dummy aero deformed surface coordinates')
         self.add_output('x_g',shape=nnodes*3, desc='dummy aero volume grid')
 
     def apply_nonlinear(self, inputs, outputs, residuals):
@@ -74,9 +75,10 @@ class AeroSolver(ImplicitComponent):
         self.c2 = 1e-5
 
     def setup(self):
-        flow = self.options['aero_solver_setup']()
+        flow = self.options['aero_solver_setup'](self.comm)
         nnodes = flow['nnodes']
 
+        self.add_input('dv_aero',shape=1, desc='dummy aero design variables')
         self.add_input('x_g',shape=nnodes*3, desc='dummy aero mesh')
         self.add_output('q',shape=nnodes*3, desc='dummy aero state')
 
@@ -84,7 +86,7 @@ class AeroSolver(ImplicitComponent):
         residuals['q'] = outputs['q'] - self.c2 * inputs['x_g']
 
     def solve_nonlinear(self, inputs, outputs):
-        outputs['q'] = self.c2 * inputs['x_a']
+        outputs['q'] = self.c2 * inputs['x_g']
 
     def solve_linear(self, d_outputs,d_residuals,mode):
         if mode == 'fwd':
@@ -115,7 +117,7 @@ class AeroForceIntegrator(ExplicitComponent):
         self.c4 = 1e-5
 
     def setup(self):
-        flow = self.options['aero_solver_setup']()
+        flow = self.options['aero_force_integrator_setup'](self.comm)
         nnodes = flow['nnodes']
 
         self.add_input('x_g',shape=nnodes*3, desc='dummy aero mesh')

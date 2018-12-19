@@ -1,3 +1,5 @@
+import numpy as np
+
 from openmdao.api import ExplicitComponent
 
 class FuntofemDisplacementTransfer(ExplicitComponent):
@@ -19,6 +21,7 @@ class FuntofemDisplacementTransfer(ExplicitComponent):
         meld, aero_nnodes, struct_nnodes, struct_ndof = disp_xfer_setup(self.comm)
         self.meld = meld
         self.struct_ndof = struct_ndof
+        self.struct_nnodes = struct_nnodes
 
         # inputs
         self.add_input('x_s0', shape = struct_nnodes*3,           desc='initial structural node coordinates')
@@ -36,7 +39,7 @@ class FuntofemDisplacementTransfer(ExplicitComponent):
         x_a0 = inputs['x_a0']
         u_a  = outputs['u_a']
 
-        u_s  = np.zeros(struct_nnodes*3)
+        u_s  = np.zeros(self.struct_nnodes*3)
         for i in range(3):
             u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
 
@@ -81,7 +84,8 @@ class FuntofemDisplacementTransfer(ExplicitComponent):
                     d_inputs['x_a0'] -= prod
 
                 if 'x_s0' in d_inputs:
-                    self.meld.applydDdxS0(d_outputs['u_a'],d_inputs['x_s0'])
+                    prod = np.zeros(self.struct_nnodes*3)
+                    self.meld.applydDdxS0(d_outputs['u_a'],prod)
                     d_inputs['x_s0'] -= prod
 
     def _mesh_changed(self,x_s0,x_a0):
