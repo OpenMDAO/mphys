@@ -12,8 +12,7 @@ class FuntofemDisplacementTransfer(ExplicitComponent):
         self.options['distributed'] = True
 
         self.meld = None
-        self.x_s0_old = None
-        self.x_a0_old = None
+        self.initialized_meld = False
 
     def setup(self):
         # get the transfer scheme object
@@ -43,17 +42,12 @@ class FuntofemDisplacementTransfer(ExplicitComponent):
         for i in range(3):
             u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
 
-        # give MELD the meshes and then form the connections
-        if self.x_s0_old is None and self.x_a0_old is None:
-            self.meld.setStructNodes(x_s0)
-            self.meld.setAeroNodes(x_a0)
-            self.meld.initialize()
-            self.x_s0_old = x_s0.copy()
-            self.x_a0_old = x_a0.copy()
+        self.meld.setStructNodes(x_s0)
+        self.meld.setAeroNodes(x_a0)
 
-        elif self._mesh_changed(x_s0,x_a0):
-            self.meld.setStructNodes(x_s0)
-            self.meld.setAeroNodes(x_a0)
+        if not self.initialized_meld:
+            self.meld.initialize()
+            self.initialized_meld = True
 
         self.meld.transferDisps(u_s,u_a)
 
@@ -87,12 +81,3 @@ class FuntofemDisplacementTransfer(ExplicitComponent):
                     prod = np.zeros(self.struct_nnodes*3)
                     self.meld.applydDdxS0(d_outputs['u_a'],prod)
                     d_inputs['x_s0'] -= prod
-
-    def _mesh_changed(self,x_s0,x_a0):
-        if not(np.allclose(x_s0,self.x_s0_old,rtol=1e-10,atol=1e-10) and
-               np.allclose(x_a0,self.x_a0_old,rtol=1e-10,atol=1e-10)):
-            self.x_s0_old = x_s0.copy()
-            self.x_a0_old = x_a0.copy()
-            return True
-        else:
-            return False
