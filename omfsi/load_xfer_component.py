@@ -38,7 +38,6 @@ class FuntofemLoadTransfer(ExplicitComponent):
         for i in range(3):
             u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
 
-
         f_a =  inputs['f_a']
         f_s = np.zeros(self.struct_nnodes*3)
 
@@ -47,6 +46,7 @@ class FuntofemLoadTransfer(ExplicitComponent):
         self.meld.transferDisps(u_s,u_a)
         self.meld.transferLoads(f_a,f_s)
 
+        outputs['f_s'][:] = 0.0
         for i in range(3):
             outputs['f_s'][i::self.struct_ndof] = f_s[i::3]
 
