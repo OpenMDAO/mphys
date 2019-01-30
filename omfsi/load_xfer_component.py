@@ -21,11 +21,25 @@ class FuntofemLoadTransfer(ExplicitComponent):
         self.struct_nnodes = struct_nnodes
         self.aero_nnodes   =   aero_nnodes
 
+        irank = self.comm.rank
+
+        ax_list = self.comm.allgather(aero_nnodes*3)
+        ax1 = np.sum(ax_list[:irank])
+        ax2 = np.sum(ax_list[:irank+1])
+
+        sx_list = self.comm.allgather(struct_nnodes*3)
+        sx1 = np.sum(sx_list[:irank])
+        sx2 = np.sum(sx_list[:irank+1])
+
+        su_list = self.comm.allgather(struct_nnodes*struct_ndof)
+        su1 = np.sum(su_list[:irank])
+        su2 = np.sum(su_list[:irank+1])
+
         # inputs
-        self.add_input('x_s0', shape = struct_nnodes*3,           desc='initial structural node coordinates')
-        self.add_input('x_a0', shape = aero_nnodes*3,             desc='initial aerodynamic surface node coordinates')
-        self.add_input('u_s',  shape = struct_nnodes*struct_ndof, desc='structural node displacements')
-        self.add_input('f_a',  shape = aero_nnodes*3,             desc='aerodynamic force vector')
+        self.add_input('x_s0', shape = struct_nnodes*3,           src_indices = np.arange(sx1, sx2, dtype=int), desc='initial structural node coordinates')
+        self.add_input('x_a0', shape = aero_nnodes*3,             src_indices = np.arange(ax1, ax2, dtype=int), desc='initial aerodynamic surface node coordinates')
+        self.add_input('u_s',  shape = struct_nnodes*struct_ndof, src_indices = np.arange(su1, su2, dtype=int), desc='structural node displacements')
+        self.add_input('f_a',  shape = aero_nnodes*3,             src_indices = np.arange(ax1, ax2, dtype=int), desc='aerodynamic force vector')
 
         # outputs
         self.add_output('f_s', shape = struct_nnodes*struct_ndof, desc='structural force vector')
