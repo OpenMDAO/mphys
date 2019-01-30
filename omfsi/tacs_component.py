@@ -87,11 +87,19 @@ class TacsSolver(ImplicitComponent):
 
         state_size = self.ans.getArray().size
         node_size  = self.xpt_sens.getArray().size
+        s_list = self.comm.allgather(state_size)
+        n_list = self.comm.allgather(node_size)
+        irank  = self.comm.rank
+
+        s1 = np.sum(s_list[:irank])
+        s2 = np.sum(s_list[:irank+1])
+        n1 = np.sum(n_list[:irank])
+        n2 = np.sum(n_list[:irank+1])
 
         # inputs
-        self.add_input('dv_struct', shape=ndv       , desc='tacs design variables')
-        self.add_input('x_s0',       shape=node_size , desc='structural node coordinates')
-        self.add_input('f_s',       shape=state_size, desc='structural load vector')
+        self.add_input('dv_struct', shape=ndv                                                 , desc='tacs design variables')
+        self.add_input('x_s0',      shape=node_size , src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
+        self.add_input('f_s',       shape=state_size, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
 
         # outputs
         self.add_output('u_s',      shape=state_size, desc='structural state vector')
@@ -247,7 +255,11 @@ class TacsSolver(ImplicitComponent):
                     psi_s_array    = self.psi_s.getArray()
                     psi_s_array[:] = d_residuals['u_s']
                     self.tacs.evalAdjointResProduct(self.psi_s, adj_res_product)
-                    d_inputs['dv_struct'] +=  adj_res_product
+
+                    # TACS has already done a parallel sum (mpi allreduce) so 
+                    # only add the product on one rank
+                    if self.comm.rank == 0:
+                        d_inputs['dv_struct'] +=  adj_res_product
 
     def _design_vector_changed(self,x):
         if self.x_save is None:
@@ -285,15 +297,24 @@ class TacsFunctions(ExplicitComponent):
         self.tacs = tacs
 
         self.ans = tacs.createVec()
-        state_shape = self.ans.getArray().size
+        state_size = self.ans.getArray().size
 
         self.xpt_sens = tacs.createNodeVec()
-        xpts_shape = self.xpt_sens.getArray().size
+        node_size = self.xpt_sens.getArray().size
+
+        s_list = self.comm.allgather(state_size)
+        n_list = self.comm.allgather(node_size)
+        irank  = self.comm.rank
+
+        s1 = np.sum(s_list[:irank])
+        s2 = np.sum(s_list[:irank+1])
+        n1 = np.sum(n_list[:irank])
+        n2 = np.sum(n_list[:irank+1])
 
         # OpenMDAO part of setup
-        self.add_input('dv_struct', shape=ndv,            desc='tacs design variables')
-        self.add_input('x_s0',       shape=xpts_shape,     desc='structural node coordinates')
-        self.add_input('u_s',       shape=state_shape,    desc='structural state vector')
+        self.add_input('dv_struct', shape=ndv,                                                    desc='tacs design variables')
+        self.add_input('x_s0',      shape=node_size,  src_indices=np.arange(n1, n2, dtype=int),   desc='structural node coordinates')
+        self.add_input('u_s',       shape=state_size, src_indices=np.arange(s1, s2, dtype=int),   desc='structural state vector')
 
         # Remove the mass function from the func list if it is there
         # since it is not dependent on the structural state
@@ -405,8 +426,14 @@ class PrescribedLoad(ExplicitComponent):
         state_size = tmp.getArray().size
         self.ndof = int(state_size / ( node_size / 3 ))
 
+        irank = self.comm.rank
+
+        n_list = self.comm.allgather(node_size)
+        n1 = np.sum(n_list[:irank])
+        n2 = np.sum(n_list[:irank+1])
+
         # OpenMDAO setup
-        self.add_input('x_s0', shape=node_size, desc='structural node coordinates')
+        self.add_input('x_s0', shape=node_size, src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
         self.add_output('f_s', shape=state_size, desc='structural load')
 
         #self.declare_partials('f_s','x_s0')
