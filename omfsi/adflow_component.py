@@ -6,10 +6,10 @@ from baseclasses import AeroProblem
 
 from adflow import ADFLOW
 
-from openmdao.api import ImplicitComponent
+from openmdao.api import ImplicitComponent, ExplicitComponent
 from openmdao.core.analysis_error import AnalysisError
 
-from .om_utils import get_dvs_and_cons
+from adflow.python.om_utils import get_dvs_and_cons
 
 class AdflowMesh(ExplicitComponent):
     """
@@ -22,7 +22,7 @@ class AdflowMesh(ExplicitComponent):
         self.options['distributed'] = True
 
     def setup(self):
-        self.x_a0 = self.options.['solver'].getSurfaceCoordinates())
+        self.x_a0 = self.options['solver'].getSurfaceCoordinates().flatten(order='C')
         coord_size = self.x_a0.size
 
         self.add_output('x_a0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
@@ -390,14 +390,19 @@ class AdflowFunctions(ExplicitComponent):
 
             self.add_input(name, shape=size, units=kwargs['units'])
 
-        local_state_size = self.options['solver'].getStateSize()
-        local_state_sizes = self.comm.allgather(local_state_size)
-        iproc = self.comm.rank
+        local_state_size = solver.getStateSize()
+        local_coord_size = solver.getSurfaceCoordinates().size
+        s_list = self.comm.allgather(local_state_size)
+        n_list = self.comm.allgather(local_coord_size)
+        irank  = self.comm.rank
 
-        ind1 = np.sum(local_state_sizes[:iproc])
-        ind2 = np.sum(local_state_sizes[:iproc+1])
+        s1 = np.sum(s_list[:irank])
+        s2 = np.sum(s_list[:irank+1])
+        n1 = np.sum(n_list[:irank])
+        n2 = np.sum(n_list[:irank+1])
 
-        self.add_input('q', src_indices=np.arange(ind1, ind2, dtype=int))
+        self.add_input('x_a', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size)
+        self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
 
         for f_name, f_meta in solver.adflowCostFunctions.items():
             f_type = f_meta[1]
