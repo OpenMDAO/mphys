@@ -68,7 +68,8 @@ ap = AeroProblem(name='wing',
 use_openmdao = True
 if use_openmdao:
     # Adflow components set up
-    mesh_comp   = AdflowMesh(ap=ap,solver=CFDSolver)
+    mesh_comp   = AdflowMesh(ap=ap,solver=CFDSolver,options=aeroOptions)
+    warp_comp   = AdflowWarper(ap=ap,solver=CFDSolver)
     solver_comp = AdflowSolver(ap=ap,solver=CFDSolver)
     func_comp   = AdflowFunctions(ap=ap,solver=CFDSolver)
 
@@ -78,9 +79,11 @@ if use_openmdao:
     model = prob.model
 
     model.add_subsystem('mesh',mesh_comp)
+    model.add_subsystem('warp',warp_comp)
     model.add_subsystem('solver',solver_comp)
     model.add_subsystem('funcs',func_comp)
-    model.connect('mesh.x_a0',['solver.x_a','funcs.x_a'])
+    model.connect('mesh.x_a0',['warp.x_a'])
+    model.connect('warp.x_g',['solver.x_g','funcs.x_g'])
     model.connect('solver.q',['funcs.q'])
 
     model.nonlinear_solver = NonlinearRunOnce()
