@@ -25,9 +25,9 @@ class AdflowMesh(ExplicitComponent):
 
     def setup(self):
         self.mesh = MBMesh(comm=self.comm,options=self.options['options'])
-        self.x_a0 = self.mesh.getSurfaceCoordinates().flatten(order='C')
-
         self.options['solver'].setMesh(self.mesh)
+
+        self.x_a0 = self.mesh.getSurfaceCoordinates().flatten(order='C')
 
         coord_size = self.x_a0.size
 
