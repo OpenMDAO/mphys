@@ -66,6 +66,8 @@ ap = AeroProblem(name='wing',
 )
 
 use_openmdao = True
+#use_openmdao = False
+
 if use_openmdao:
     # Adflow components set up
     mesh_comp   = AdflowMesh(ap=ap,solver=CFDSolver,options=aeroOptions)
@@ -91,6 +93,10 @@ if use_openmdao:
 
     prob.setup()
     prob.run_model()
+
+    if MPI.COMM_WORLD.rank == 0:
+        print('cl =',prob['funcs.cl'])
+        print('cd =',prob['funcs.cd'])
 
 else:
     #rst Run ADflow
