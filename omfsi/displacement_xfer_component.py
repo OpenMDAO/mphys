@@ -21,6 +21,7 @@ class FuntofemDisplacementTransfer(ExplicitComponent):
         self.meld = meld
         self.struct_ndof = struct_ndof
         self.struct_nnodes = struct_nnodes
+        self.aero_nnodes = aero_nnodes
 
         irank = self.comm.rank
 
@@ -42,7 +43,7 @@ class FuntofemDisplacementTransfer(ExplicitComponent):
         self.add_input('u_s',  shape = struct_nnodes*struct_ndof, src_indices = np.arange(su1, su2, dtype=int), desc='structural node displacements')
 
         # outputs
-        self.add_output('u_a', shape = aero_nnodes*3,             desc='aerodynamic surface displacements')
+        self.add_output('u_a', shape = aero_nnodes*3, val=np.zeros(aero_nnodes*3), desc='aerodynamic surface displacements')
 
         # partials
         #self.declare_partials('u_a',['x_s0','x_a0','u_s'])

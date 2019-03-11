@@ -102,7 +102,7 @@ class TacsSolver(ImplicitComponent):
         self.add_input('f_s',       shape=state_size, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
 
         # outputs
-        self.add_output('u_s',      shape=state_size, desc='structural state vector')
+        self.add_output('u_s',      shape=state_size, val = np.zeros(state_size),desc='structural state vector')
 
         # partials
         #self.declare_partials('u_s',['dv_struct','x_s0','f_s'])
