@@ -1,9 +1,11 @@
 from fsi_group import FsiSolver
 
-from tacs_component import TacsSolver, StructuralGroup, TacsFunctions
-from aero_group import AeroSolver
+from tacs_component import TacsMesh, TacsSolver, TacsFunctions
 from displacement_xfer_component import FuntofemDisplacementTransfer
 from load_xfer_component import FuntofemLoadTransfer
+
+from tacs import TACS, functions
+from funtofem import TransferScheme
 
 #TODO: multiple FSI groups with shared or new solver objects
 
@@ -13,16 +15,14 @@ class FsiComps(object):
     It contains some setup callback functions so that TACS, ADFlow, and
     MELD objects can be shared between OpenMDAO components
 
-    These helpper functions are combined like this because transfer components
+    These helper functions are combined like this because transfer components
     needs to know some information (vector sizes and comms) from the disciplinary
     solver components
 
     """
-    def __init__(self):
-        # Flow data to keep track of
-        self.adflow = None
-
+    def __init__(self,tacs_setup,meld_setup):
         # Structural data to keep track of
+        self.tacs_setup = tacs_setup
         self.struct_comm = None
         self.tacs = None
         self.struct_ndv = 0
@@ -30,65 +30,72 @@ class FsiComps(object):
         self.struct_nprocs = 0
 
         # Transfer data to keep track of
+        self.meld_setup = meld_setup
         self.xfer_ndof = 3
         self.meld = None
 
-    def add_fsi_subsystems(self,model,step,prefix='',reuse_solvers=True):
-        self.tacs_setup = setup['tacs']
-        self.meld_setup = setup['meld']
-        self.adflow_setup = setup['adflow']
-
-        # Structural data to keep track of
-        self.struct_nprocs = tacs_setup['nprocs']
-
+    def add_tacs_mesh(self,model,prefix='',reuse_solvers=True):
         # Initialize the disciplinary meshes
-        struct_mesh = self._initialize_meshes(reuse_solvers)
+        tacs_mesh   = TacsMesh(tacs_mesh_setup=self.tacs_mesh_setup)
+        model.add_subsystem('struct_mesh',tacs_mesh)
 
-        # Initialize the disciplinary solvers
-        aero, struct, disp_xfer, load_xfer = self._initialize_solvers()
-
-        # Initialize the coupling group
-        FsiSolver(aero=aero,struct=struct,disp_xfer=disp_xfer,load_xfer=load_xfer)
-
+    def add_tacs_functions(self,model,prefix='',reuse_solvers=True):
         # Initialize the function evaluators
         struct_funcs = self._initialize_function_evaluators()
+        model.add_subsystem('struct_funcs',struct_funcs)
 
-        model.add_subsystem(prefix+'struct_mesh',struct_mesh,promotes['x_s0']
+    def add_fsi_subsystems(self,model,aero,aero_nnodes,prefix='',reuse_solvers=True):
+        self.aero_nnodes = aero_nnodes
 
-        model.add_subsystem(prefix+'FsiSolver',FsiSolver,promotes=['struct_dv','x_a0','x_s0','x_g','q','u_s'])
+        # Structural data to keep track of
+        self.struct_nprocs = self.tacs_setup['nprocs']
 
-        model.add_subsystem(prefix+'struct_funcs',struct_funcs,promotes=['*']
+        # Initialize the disciplinary solvers
+        struct, disp_xfer, load_xfer = self._initialize_solvers()
+
+        # Initialize the coupling group
+        fsi_solver = FsiSolver(aero=aero,struct=struct,disp_xfer=disp_xfer,load_xfer=load_xfer,struct_nprocs=self.struct_nprocs,get_vector_size=self.get_aero_surface_size)
+
+        model.add_subsystem(prefix+'fsi_solver',fsi_solver)
+
+    def create_fsi_connections(self,model,struct_mesh='struct_mesh',aero_mesh='aero_mesh',fsi_solver='fsi_solver',
+                                    nonlinear_xfer=False):
+
+        model.connect(fsi_solver+'.struct.u_s',[fsi_solver+'.disp_xfer.u_s'])
+        if nonlinear_xfer:
+            model.connect(fsi_solver+'.struct.u_s',[fsi_solver+'.load_xfer.u_s'])
+
+        model.connect(fsi_solver+'.disp_xfer.u_a',fsi_solver+'.geo_disps.u_a')
+        model.connect(fsi_solver+'.geo_disps.x_a',fsi_solver+'.aero.deformer.x_a')
+        model.connect(fsi_solver+'.aero.deformer.x_g',[fsi_solver+'.aero.solver.x_g',
+                                                      fsi_solver+'.aero.forces.x_g'])
+        model.connect(fsi_solver+'.aero.solver.q',[fsi_solver+'.aero.forces.q'])
+        model.connect(fsi_solver+'.aero.forces.f_a',[fsi_solver+'.load_xfer.f_a'])
+        model.connect(fsi_solver+'.load_xfer.f_s',fsi_solver+'.struct.f_s')
 
     def _initialize_mesh(self,reuse_solvers):
         """
         Initialize the different discipline meshes
         """
-        tacs_mesh   = TacsMesh(tacs_mesh_setup=self.tacs_mesh_setup)
-        struct      = StructuralGroup(struct_comp=tacs_mesh,nprocs=self.struct_nprocs)
 
-        return struct
+        return tacs_mesh 
 
     def _initialize_solvers(self):
         """
         Initialize the different disciplinary solvers
         """
         # Initialize the structural solver
-        tacs   = TacsSolver(mesh_file=input_file,add_elements=add_elements)
-        struct = StructuralGroup(struct_comp=tacs,nprocs=self.struct_nprocs)
-
-        # Initialize the aero solver
-        aero = ADFlow()
+        struct    = TacsSolver(tacs_solver_setup=self.tacs_solver_setup)
 
         # Initialize the transfers
-        disp_xfer = FuntofemDisplacementTransfer()
-        load_xfer = FuntofemLoadTransfer()
+        disp_xfer   = FuntofemDisplacementTransfer(disp_xfer_setup=self.disp_xfer_setup)
+        load_xfer   =         FuntofemLoadTransfer(load_xfer_setup=self.load_xfer_setup)
 
-        return aero, struct, disp_xfer, load_xfer
+        return struct, disp_xfer, load_xfer
 
     def _initialize_function_evaluators(self):
         # Set up the structural solver
-        tacs_funcs = TacsFunctions(self.tacs_setup)
-        struct_funcs = StructuralGroup(struct_comp=tacs_funcs,nprocs=self.struct_nprocs)
+        struct_funcs = TacsFunctions(tacs_func_setup=self.tacs_func_setup)
         return struct_funcs
 
     def tacs_mesh_setup(self,comm):
@@ -105,6 +112,8 @@ class FsiComps(object):
         self.struct_ndof, self.struct_ndv = add_elements(mesh)
 
         self.tacs = mesh.createTACS(self.struct_ndof)
+
+        self.struct_nnodes = int(self.tacs.createNodeVec().getArray().size / 3)
         return self.tacs
 
     def tacs_solver_setup(self,comm):
@@ -141,17 +150,17 @@ class FsiComps(object):
 
         return func_list, self.tacs, self.struct_ndv
 
+    def get_aero_surface_size(self):
+        return self.aero_nnodes*3
+
     def disp_xfer_setup(self,comm):
         isym = self.meld_setup['isym']
         n    = self.meld_setup['n']
         beta = self.meld_setup['beta']
 
-        # Assumption: The transfer comm is the same as the flow comm
+        # Assumption: The transfer comm is the same as the aero comm
         self.meld = TransferScheme.pyMELD(comm,comm,0,self.struct_comm,0,isym,n,beta)
-        return self.meld, self.xfer_ndof
+        return self.meld, self.aero_nnodes, self.struct_nnodes, self.struct_ndof
 
-    def load_xfer_setup(self,comm):
-        return self.meld, self.xfer_ndof
-
-    def adflow_setup(self,comm):
-
+    def load_xfer_setup(self):
+        return self.meld, self.aero_nnodes, self.struct_nnodes, self.struct_ndof
