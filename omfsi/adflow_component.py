@@ -322,7 +322,7 @@ class AdflowForces(ExplicitComponent):
                 print(name)
 
         local_state_size = solver.getStateSize()
-        local_coord_size = solver.mesh.getSolverMesh().size
+        local_coord_size = solver.mesh.getSolverGrid().size
         s_list = self.comm.allgather(local_state_size)
         n_list = self.comm.allgather(local_coord_size)
         irank  = self.comm.rank
@@ -335,7 +335,8 @@ class AdflowForces(ExplicitComponent):
         self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size)
         self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
 
-        self.add_output('f_a', shape=local_coord_size)
+        local_surface_coord_size = solver.mesh.getSurfaceCoordinates().size
+        self.add_output('f_a', shape=local_surface_coord_size)
 
         #self.declare_partials(of='f_a', wrt='*')
 
@@ -362,7 +363,7 @@ class AdflowForces(ExplicitComponent):
         # ^ This call does not exist. Assume the mesh hasn't changed since the last call to the warping comp for now
         self._set_states(inputs)
 
-        outputs['f_a'] = solver.getForces()
+        outputs['f_a'] = solver.getForces().flatten(order='C')
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
 
