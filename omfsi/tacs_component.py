@@ -17,9 +17,6 @@ class TacsMesh(ExplicitComponent):
         self.options.declare('tacs_mesh_setup', default = None, desc='Function to setup tacs')
         self.options['distributed'] = True
 
-        #TODO more generic handling of writing f5 files
-        self.write_f5 = False
-
     def setup(self):
 
         # TACS assembler setup
@@ -66,6 +63,9 @@ class TacsSolver(ImplicitComponent):
         self.x_save = None
 
         self.transposed = False
+
+        #TODO more generic handling of writing f5 files
+        self.write_f5 = False
 
     def setup(self):
 
