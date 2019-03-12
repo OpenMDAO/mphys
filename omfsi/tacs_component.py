@@ -17,6 +17,9 @@ class TacsMesh(ExplicitComponent):
         self.options.declare('tacs_mesh_setup', default = None, desc='Function to setup tacs')
         self.options['distributed'] = True
 
+        #TODO more generic handling of writing f5 files
+        self.write_f5 = False
+
     def setup(self):
 
         # TACS assembler setup
@@ -177,6 +180,14 @@ class TacsSolver(ImplicitComponent):
         ans_array = ans.getArray()
         outputs['u_s'] = ans_array[:]
         tacs.setVariables(ans)
+
+        if self.write_f5:
+            flag = (TACS.ToFH5.NODES |
+                    TACS.ToFH5.DISPLACEMENTS |
+                    TACS.ToFH5.STRAINS |
+                    TACS.ToFH5.EXTRAS)
+            f5 = TACS.ToFH5(tacs, TACS.PY_SHELL, flag)
+            f5.writeToFile('wing.f5')
 
     def solve_linear(self,d_outputs,d_residuals,mode):
         if mode == 'fwd':
