@@ -35,7 +35,7 @@ class FsiSolver(Group):
         self.add_subsystem('load_xfer',self.options['load_xfer'])
         self.add_subsystem('struct',self.options['struct'])
 
-        self.nonlinear_solver = NonlinearBlockGS(maxiter=100,use_aitken=True,aitken_max_factor=1.0)
+        self.nonlinear_solver = NonlinearBlockGS(maxiter=100,use_aitken=True,aitken_max_factor=1.5)
         self.linear_solver = LinearBlockGS(maxiter=100)
 
 
