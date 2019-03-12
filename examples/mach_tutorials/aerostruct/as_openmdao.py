@@ -46,6 +46,9 @@ aeroOptions = {
     'L2Convergence':1e-6,
     'L2ConvergenceCoarse':1e-2,
     'nCycles':1000,
+
+    # force integration
+    'forcesAsTractions':False,
 }
 
 # Create aero solver
@@ -69,14 +72,14 @@ ap = AeroProblem(name='wing',
 # TACS setup
 ################################################################################
 def add_elements(mesh):
-    rho = 2500.0  # density, kg/m^3
-    E = 70.0e9 # elastic modulus, Pa
-    nu = 0.3 # poisson's ratio
-    kcorr = 5.0 / 6.0 # shear correction factor
-    ys = 350e6  # yield stress, Pa
+    rho = 2780.0            # density, kg/m^3
+    E = 73.1e9              # elastic modulus, Pa
+    nu = 0.33               # poisson's ratio
+    kcorr = 5.0 / 6.0       # shear correction factor
+    ys = 324.0e6            # yield stress, Pa
     thickness= 0.010
-    min_thickness = 0.00
-    max_thickness = 1.00
+    min_thickness = 0.002
+    max_thickness = 0.05
 
     num_components = mesh.getNumComponents()
     for i in xrange(num_components):
@@ -136,7 +139,7 @@ model.linear_solver = LinearRunOnce()
 
 #Add the components and groups to the model
 indeps = IndepVarComp()
-indeps.add_output('dv_struct',np.array(810*[0.0031]))
+indeps.add_output('dv_struct',np.array(810*[0.01]))
 model.add_subsystem('dv',indeps)
 
 assembler = FsiComps(tacs_setup,meld_setup)
