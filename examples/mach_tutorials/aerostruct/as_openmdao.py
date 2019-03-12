@@ -102,7 +102,7 @@ tacs_setup = {'add_elements': add_elements,
 ################################################################################
 # Transfer scheme setup
 ################################################################################
-meld_setup = {'isym': 1,
+meld_setup = {'isym': 2,
               'n': 200,
               'beta': 0.5}
 
@@ -135,15 +135,18 @@ model.nonlinear_solver = NonlinearRunOnce()
 model.linear_solver = LinearRunOnce()
 
 #Add the components and groups to the model
+indeps = IndepVarComp()
+indeps.add_output('dv_struct',np.array(810*[0.0031]))
+model.add_subsystem('dv',indeps)
+
 assembler = FsiComps(tacs_setup,meld_setup)
 assembler.add_tacs_mesh(model)
-assembler.add_tacs_functions(model)
-
 model.add_subsystem('aero_mesh',aero_mesh)
-model.add_subsystem('aero_funcs',aero_funcs)
 
 assembler.add_fsi_subsystems(model,aero_group,aero_nnodes)
 
+assembler.add_tacs_functions(model)
+model.add_subsystem('aero_funcs',aero_funcs)
 
 # Connect the components
 model.connect('aero_mesh.x_a0',['fsi_solver.disp_xfer.x_a0',
@@ -151,7 +154,10 @@ model.connect('aero_mesh.x_a0',['fsi_solver.disp_xfer.x_a0',
                                 'fsi_solver.load_xfer.x_a0'])
 model.connect('struct_mesh.x_s0',['fsi_solver.disp_xfer.x_s0',
                                   'fsi_solver.load_xfer.x_s0',
+                                  'fsi_solver.struct.x_s0',
                                   'struct_funcs.x_s0'])
+model.connect('dv.dv_struct',['fsi_solver.struct.dv_struct',
+                              'struct_funcs.dv_struct'])
 
 
 model.connect('fsi_solver.aero.deformer.x_g','aero_funcs.x_g')
