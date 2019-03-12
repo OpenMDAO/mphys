@@ -176,6 +176,7 @@ class TacsSolver(ImplicitComponent):
         gmres.solve(force, ans)
         ans_array = ans.getArray()
         outputs['u_s'] = ans_array[:]
+        tacs.setVariables(ans)
 
     def solve_linear(self,d_outputs,d_residuals,mode):
         if mode == 'fwd':
