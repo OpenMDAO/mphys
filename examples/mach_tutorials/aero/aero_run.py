@@ -6,11 +6,9 @@ from baseclasses import *
 from mpi4py import MPI
 from omfsi.adflow_component import *
 
-
 from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
 from openmdao.api import NonlinearRunOnce, LinearRunOnce
-
 
 use_openmdao = False
 
@@ -42,7 +40,7 @@ aeroOptions = {
     'nkswitchtol':1e-4,
 
     # Termination Criteria
-    'L2Convergence':1e-6,
+    'L2Convergence':1e-12,
     'L2ConvergenceCoarse':1e-2,
     'nCycles':1000,
 }
@@ -64,9 +62,6 @@ ap = AeroProblem(name='wing',
     chordRef=3.25,
     evalFuncs=['cl','cd']
 )
-
-use_openmdao = True
-#use_openmdao = False
 
 if use_openmdao:
     # Adflow components set up
