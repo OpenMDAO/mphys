@@ -73,7 +73,24 @@ class FuntofemLoadTransfer(ExplicitComponent):
         So explicit partials below for f_s are negative partials of L
         """
         if mode == 'fwd':
-            raise ValueError('forward mode requested but not implemented')
+            if 'f_s' in d_outputs:
+                if 'u_s' in d_inputs:
+                    d_in = np.zeros(self.struct_nnodes*3)
+                    for i in range(3):
+                        d_in[i::3] = d_inputs['u_s'][i::self.struct_ndof]
+                    prod = np.zeros(self.struct_nnodes*3)
+                    self.meld.applydLduS(d_in,prod)
+                    for i in range(3):
+                        d_outputs['f_s'][i::self.struct_ndof] = prod[i::3]
+                if 'f_a' in d_inputs:
+                    # df_s/df_a psi = - dL/df_a * psi = -dD/du_s^T * psi
+                    prod = np.zeros(self.struct_nnodes*3)
+                    self.meld.applydDduSTrans(d_inputs['f_a'],prod)
+                    for i in range(3):
+                        d_outputs['f_s'][i::self.struct_ndof] -= prod[i::3]
+            else:
+                #raise ValueError('forward mode requested but not implemented')
+                pass
 
         if mode == 'rev':
             if 'f_s' in d_outputs:

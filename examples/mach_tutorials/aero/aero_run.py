@@ -10,7 +10,9 @@ from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
 from openmdao.api import NonlinearRunOnce, LinearRunOnce
 
-use_openmdao = False
+
+use_openmdao = True
+#use_openmdao = False
 
 #rst ADflow options
 aeroOptions = {

@@ -18,21 +18,23 @@ use_openmdao = False
 #ADflow options
 aeroOptions = {
     # I/O Parameters
-    'gridFile':'wing_vol.cgns',
+    'gridFile':'debug.cgns',
     'outputDirectory':'.',
     'monitorvariables':['resrho','cl','cd'],
-    'writeTecplotSurfaceSolution':True,
+    'writeTecplotSurfaceSolution':False,
+    'writeVolumeSolution':False,
+    'writeSurfaceSolution':False,
 
     # Physics Parameters
-    'equationType':'RANS',
+    'equationType':'euler',
 
     # Solver Parameters
     'smoother':'dadi',
     'CFL':1.5,
     'CFLCoarse':1.25,
-    'MGCycle':'3w',
+    'MGCycle':'sg',
     'MGStartLevel':-1,
-    'nCyclesCoarse':250,
+    #'nCyclesCoarse':250,
 
     # ANK Solver Parameters
     'useANKSolver':True,
@@ -43,9 +45,9 @@ aeroOptions = {
     'nkswitchtol':1e-4,
 
     # Termination Criteria
-    'L2Convergence':1e-14,
+    'L2Convergence':1e-12,
     'L2ConvergenceCoarse':1e-2,
-    'nCycles':10000,
+    'nCycles':200,
 
     # force integration
     'forcesAsTractions':False,
@@ -55,16 +57,16 @@ aeroOptions = {
 CFDSolver = ADFLOW(options=aeroOptions)
 
 # Add features
-CFDSolver.addLiftDistribution(150, 'z')
-CFDSolver.addSlices('z', numpy.linspace(0.1, 14, 10))
+#CFDSolver.addLiftDistribution(150, 'z')
+#CFDSolver.addSlices('z', numpy.linspace(0.1, 14, 10))
 
 # Create AeroProblem
-ap = AeroProblem(name='wing',
-    mach=0.8,
+ap = AeroProblem(name='debug',
+    mach=0.3,
     altitude=10000,
     alpha=1.5,
-    areaRef=45.5,
-    chordRef=3.25,
+    areaRef=16.0*32.0,
+    chordRef=16.0,
     evalFuncs=['lift','drag']
 )
 
@@ -98,14 +100,14 @@ def add_elements(mesh):
 
 func_list = ['ks_failure','mass']
 tacs_setup = {'add_elements': add_elements,
-              'nprocs'      : 4,
-              'mesh_file'   : 'wingbox.bdf',
+              'nprocs'      : 1,
+              'mesh_file'   : 'debug.bdf',
               'func_list'   : func_list}
 
 ################################################################################
 # Transfer scheme setup
 ################################################################################
-meld_setup = {'isym': 2,
+meld_setup = {'isym': -1,
               'n': 200,
               'beta': 0.5}
 
@@ -139,7 +141,7 @@ model.linear_solver = LinearRunOnce()
 
 #Add the components and groups to the model
 indeps = IndepVarComp()
-indeps.add_output('dv_struct',np.array(810*[0.01]))
+indeps.add_output('dv_struct',np.array(1*[0.01]))
 model.add_subsystem('dv',indeps)
 
 assembler = FsiComps(tacs_setup,meld_setup)

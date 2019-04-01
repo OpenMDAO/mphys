@@ -89,14 +89,14 @@ class AdflowWarper(ExplicitComponent):
             if 'x_g' in d_outputs:
                 if 'x_a' in d_inputs:
                     dxS = d_inputs['x_a']
-                    dxV = self.solver.mesh.warpDerivFwd(dxS)
+                    dxV = self.options['solver'].mesh.warpDerivFwd(dxS)
                     d_outputs['x_g'] += dxV
 
         elif mode == 'rev':
             if 'x_g' in d_outputs:
                 if 'x_a' in d_inputs:
                     dxV = d_outputs['x_g']
-                    dxS = self.solver.mesh.warpDeriv(dxV)
+                    dxS = self.options['solver'].mesh.warpDeriv(dxV)
                     d_inputs['x_a'] += dxS
 
 class AdflowSolver(ImplicitComponent):
@@ -245,9 +245,9 @@ class AdflowSolver(ImplicitComponent):
                 for var_name in d_inputs:
                     xDvDot[var_name] = d_inputs[var_name]
                 if 'x_g' in d_inputs:
-                    xVdot = d_inputs['x_g']
+                    xVDot = d_inputs['x_g']
                 else:
-                    xVdot = None
+                    xVDot = None
                 if 'q' in d_outputs:
                     wDot = d_outputs['q']
                 else:
@@ -377,14 +377,14 @@ class AdflowForces(ExplicitComponent):
                 else:
                     wDot = None
                 if 'x_g' in d_inputs:
-                    xVdot = d_inputs['x_g']
+                    xVDot = d_inputs['x_g']
                 else:
-                    xVdot = None
-
-                dfdot = solver.computeJacobianVectorProductFwd(xVDot=xVDot,
-                                                               wDot=wDot,
-                                                               fDeriv=True)
-                d_outputs['f_a'] += dfdot
+                    xVDot = None
+                if not(xVDot is None and wDot is None):
+                    dfdot = solver.computeJacobianVectorProductFwd(xVDot=xVDot,
+                                                                   wDot=wDot,
+                                                                   fDeriv=True)
+                    d_outputs['f_a'] += dfdot
 
         elif mode == 'rev':
             if 'q' in d_outputs:
