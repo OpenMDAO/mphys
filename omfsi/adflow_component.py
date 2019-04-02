@@ -96,8 +96,9 @@ class AdflowWarper(ExplicitComponent):
             if 'x_g' in d_outputs:
                 if 'x_a' in d_inputs:
                     dxV = d_outputs['x_g']
-                    dxS = self.options['solver'].mesh.warpDeriv(dxV)
-                    d_inputs['x_a'] += dxS
+                    self.options['solver'].mesh.warpDeriv(dxV)
+                    dxS = self.options['solver'].mesh.getdXs()
+                    d_inputs['x_a'] += dxS.flatten()
 
 class AdflowSolver(ImplicitComponent):
     """
@@ -384,7 +385,7 @@ class AdflowForces(ExplicitComponent):
                     dfdot = solver.computeJacobianVectorProductFwd(xVDot=xVDot,
                                                                    wDot=wDot,
                                                                    fDeriv=True)
-                    d_outputs['f_a'] += dfdot
+                    d_outputs['f_a'] += dfdot.flatten()
 
         elif mode == 'rev':
             if 'q' in d_outputs:
@@ -555,7 +556,7 @@ class AdflowFunctions(ExplicitComponent):
                 wDot=wDot,
                 funcDeriv=True)
 
-            for name, meta  in solver.adflowCostFunctions.items():
+            for name in funcsdot:
                 func_name = name.lower()
                 if name in d_outputs:
                     d_outputs[name] += funcsdot[func_name]
@@ -588,7 +589,7 @@ class AdflowFunctions(ExplicitComponent):
 
             wBar, xVBar, xDVBar = solver.computeJacobianVectorProductBwd(
                 funcsBar=funcsBar,
-                wDeriv=True, xVBar=True, xDvDeriv=True)
+                wDeriv=True, xVDeriv=True, xDvDeriv=True)
             if 'q' in d_inputs:
                 d_inputs['q'] += wBar
             if 'x_g' in d_inputs:

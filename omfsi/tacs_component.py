@@ -65,7 +65,7 @@ class TacsSolver(ImplicitComponent):
         self.transposed = False
 
         #TODO more generic handling of writing f5 files
-        self.write_f5 = False
+        self.write_f5 = True
 
     def setup(self):
 

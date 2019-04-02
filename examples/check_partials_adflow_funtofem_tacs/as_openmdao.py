@@ -79,7 +79,7 @@ def add_elements(mesh):
     nu = 0.33               # poisson's ratio
     kcorr = 5.0 / 6.0       # shear correction factor
     ys = 324.0e6            # yield stress, Pa
-    thickness= 0.020
+    thickness= 0.50
     min_thickness = 0.002
     max_thickness = 0.05
 
@@ -107,7 +107,7 @@ tacs_setup = {'add_elements': add_elements,
 ################################################################################
 # Transfer scheme setup
 ################################################################################
-meld_setup = {'isym': -1,
+meld_setup = {'isym': 2,
               'n': 200,
               'beta': 0.5}
 
@@ -141,7 +141,7 @@ model.linear_solver = LinearRunOnce()
 
 #Add the components and groups to the model
 indeps = IndepVarComp()
-indeps.add_output('dv_struct',np.array(1*[0.01]))
+indeps.add_output('dv_struct',np.array(1*[0.2]))
 model.add_subsystem('dv',indeps)
 
 assembler = FsiComps(tacs_setup,meld_setup)
@@ -174,7 +174,7 @@ assembler.create_fsi_connections(model,nonlinear_xfer=True)
 
 prob.setup()
 prob.run_model()
-prob.check_partials()
+prob.check_partials(compact_print=True)
 
 if MPI.COMM_WORLD.rank == 0:
     print('cl =',prob['aero_funcs.cl'])
