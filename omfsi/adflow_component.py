@@ -373,6 +373,9 @@ class AdflowForces(ExplicitComponent):
 
         if mode == 'fwd':
             if 'f_a' in d_outputs:
+                xDvDot = {}
+                for var_name in d_inputs:
+                    xDvDot[var_name] = d_inputs[var_name]
                 if 'q' in d_inputs:
                     wDot = d_inputs['q']
                 else:
@@ -382,7 +385,8 @@ class AdflowForces(ExplicitComponent):
                 else:
                     xVDot = None
                 if not(xVDot is None and wDot is None):
-                    dfdot = solver.computeJacobianVectorProductFwd(xVDot=xVDot,
+                    dfdot = solver.computeJacobianVectorProductFwd(xDvDot=xDvDot,
+                                                                   xVDot=xVDot,
                                                                    wDot=wDot,
                                                                    fDeriv=True)
                     d_outputs['f_a'] += dfdot.flatten()
@@ -390,7 +394,7 @@ class AdflowForces(ExplicitComponent):
         elif mode == 'rev':
             if 'f_a' in d_outputs:
                 fBar = d_outputs['f_a']
-                #print ('fBar',fBar)
+                print ('fBar',fBar)
 
                 wBar, xVBar, xDVBar = solver.computeJacobianVectorProductBwd(
                     fBar=fBar,
@@ -398,10 +402,15 @@ class AdflowForces(ExplicitComponent):
 
                 if 'x_g' in d_inputs:
                     d_inputs['x_g'] += xVBar
-                    #print ('xVBor',xVBar)
+                    print ('xVBar',xVBar)
                 if 'q' in d_inputs:
                     d_inputs['q'] += wBar
-                    #print ('wBor',wBar)
+                    print ('wBar',wBar)
+
+                for dv_name, dv_bar in xDVBar.items():
+                    if dv_name in d_inputs:
+                        d_inputs[dv_name] += dv_bar.flatten()
+                        print ('wBar',wBar)
 
 FUNCS_UNITS={
     'mdot': 'kg/s',

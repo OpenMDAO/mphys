@@ -71,6 +71,7 @@ ap = AeroProblem(name='debug',
 )
 
 ap.addDV('alpha',value=1.5,name='alpha')
+ap.addDV('mach',value=0.3,name='mach')
 
 ################################################################################
 # TACS setup
@@ -144,6 +145,8 @@ model.linear_solver = LinearRunOnce()
 #Add the components and groups to the model
 indeps = IndepVarComp()
 indeps.add_output('dv_struct',np.array(1*[0.2]))
+indeps.add_output('alpha',np.array(1.5))
+indeps.add_output('mach',np.array(0.3))
 model.add_subsystem('dv',indeps)
 
 assembler = FsiComps(tacs_setup,meld_setup)
@@ -165,6 +168,12 @@ model.connect('struct_mesh.x_s0',['fsi_solver.disp_xfer.x_s0',
                                   'struct_funcs.x_s0'])
 model.connect('dv.dv_struct',['fsi_solver.struct.dv_struct',
                               'struct_funcs.dv_struct'])
+model.connect('dv.alpha',['fsi_solver.aero.solver.alpha',
+                          'fsi_solver.aero.forces.alpha',
+                          'aero_funcs.alpha'])
+model.connect('dv.mach',['fsi_solver.aero.solver.mach',
+                          'fsi_solver.aero.forces.mach',
+                          'aero_funcs.mach'])
 
 
 model.connect('fsi_solver.aero.deformer.x_g','aero_funcs.x_g')
@@ -176,7 +185,7 @@ assembler.create_fsi_connections(model,nonlinear_xfer=True)
 
 prob.setup()
 prob.run_model()
-prob.check_partials(step=1e-3,compact_print=True)
+prob.check_partials(step=1e-8,compact_print=True)
 
 if MPI.COMM_WORLD.rank == 0:
     print('cl =',prob['aero_funcs.lift'])
