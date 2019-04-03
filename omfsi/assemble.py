@@ -124,6 +124,9 @@ class FsiComps(object):
         mat = self.tacs.createFEMat()
         pc = TACS.Pc(mat)
 
+        self.mat = mat
+        self.pc = pc
+
         subspace = 100
         restarts = 2
         gmres = TACS.KSM(mat, pc, subspace, restarts)
@@ -148,7 +151,7 @@ class FsiComps(object):
             elif func.lower() == 'mass':
                 func_list.append(functions.StructuralMass(self.tacs))
 
-        return func_list, self.tacs, self.struct_ndv
+        return func_list, self.tacs, self.struct_ndv, self.mat, self.pc
 
     def get_aero_surface_size(self):
         return self.aero_nnodes*3

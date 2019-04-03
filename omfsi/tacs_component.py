@@ -122,6 +122,12 @@ class TacsSolver(ImplicitComponent):
             beta  = 0.0
             gamma = 0.0
 
+            xpts = tacs.createNodeVec()
+            tacs.getNodes(xpts)
+            xpts_array = xpts.getArray()
+            xpts_array[:] = inputs['x_s0']
+            tacs.setNodes(xpts)
+
             res = self.res
             res_array = res.getArray()
             res_array[:] = 0.0
@@ -162,6 +168,12 @@ class TacsSolver(ImplicitComponent):
             alpha = 1.0
             beta  = 0.0
             gamma = 0.0
+
+            xpts = tacs.createNodeVec()
+            tacs.getNodes(xpts)
+            xpts_array = xpts.getArray()
+            xpts_array[:] = inputs['x_s0']
+            tacs.setNodes(xpts)
 
             res = self.res
             res_array = res.getArray()
@@ -302,13 +314,17 @@ class TacsFunctions(ExplicitComponent):
 
         self.mass = False
 
+        self.check_partials = True
+
     def setup(self):
 
         # TACS part of setup
         tacs_func_setup = self.options['tacs_func_setup']
-        func_list, tacs, ndv = tacs_func_setup(self.comm)
+        func_list, tacs, ndv, mat, pc = tacs_func_setup(self.comm)
 
         self.tacs = tacs
+        self.mat = mat
+        self.pc = pc
 
         self.ans = tacs.createVec()
         state_size = self.ans.getArray().size
@@ -353,12 +369,38 @@ class TacsFunctions(ExplicitComponent):
             pass
 
     def compute(self,inputs,outputs):
+        if self.check_partials:
+            self.tacs.setDesignVars(inputs['dv_struct'])
 
-        ans = self.ans
-        ans_array = ans.getArray()
-        ans_array[:] = inputs['u_s']
+            xpts = self.tacs.createNodeVec()
+            self.tacs.getNodes(xpts)
+            xpts_array = xpts.getArray()
+            xpts_array[:] = inputs['x_s0']
+            self.tacs.setNodes(xpts)
 
-        self.tacs.setVariables(ans)
+            pc     = self.pc
+            alpha = 1.0
+            beta  = 0.0
+            gamma = 0.0
+
+            xpts = self.tacs.createNodeVec()
+            self.tacs.getNodes(xpts)
+            xpts_array = xpts.getArray()
+            xpts_array[:] = inputs['x_s0']
+            self.tacs.setNodes(xpts)
+
+            res = self.tacs.createVec()
+            res_array = res.getArray()
+            res_array[:] = 0.0
+
+            self.tacs.assembleJacobian(alpha,beta,gamma,res,self.mat)
+            pc.factor()
+
+            ans = self.ans
+            ans_array = ans.getArray()
+            ans_array[:] = inputs['u_s']
+
+            self.tacs.setVariables(ans)
 
         if 'f_struct' in outputs:
             outputs['f_struct'] = self.tacs.evalFunctions(self.func_list)
