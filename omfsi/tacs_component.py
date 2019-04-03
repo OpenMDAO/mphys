@@ -66,6 +66,7 @@ class TacsSolver(ImplicitComponent):
 
         #TODO more generic handling of writing f5 files
         self.write_f5 = True
+        self.check_partials = True
 
     def setup(self):
 
@@ -163,7 +164,7 @@ class TacsSolver(ImplicitComponent):
 
         # if the design variables changed or we're coming in with a transposed
         # matrix, update the stiffness matrix
-        if self._design_vector_changed(inputs['dv_struct']) or self.transposed:
+        if self._design_vector_changed(inputs['dv_struct']) or self.transposed or self.check_partials:
             tacs.setDesignVars(inputs['dv_struct'])
             alpha = 1.0
             beta  = 0.0
@@ -203,8 +204,10 @@ class TacsSolver(ImplicitComponent):
 
     def solve_linear(self,d_outputs,d_residuals,mode):
         if mode == 'fwd':
-            #raise ValueError('forward mode requested but not implemented')
-            pass
+            if self.check_partials:
+                pass
+            else:
+                raise ValueError('forward mode requested but not implemented')
 
         if mode == 'rev':
             tacs = self.tacs
@@ -230,8 +233,10 @@ class TacsSolver(ImplicitComponent):
 
     def apply_linear(self,inputs,outputs,d_inputs,d_outputs,d_residuals,mode):
         if mode == 'fwd':
-            #raise ValueError('forward mode requested but not implemented')
-            pass
+            if self.check_partials:
+                pass
+            else:
+                raise ValueError('forward mode requested but not implemented')
 
         if mode == 'rev':
             if 'u_s' in d_residuals:
@@ -282,7 +287,7 @@ class TacsSolver(ImplicitComponent):
                     psi_s_array[:] = d_residuals['u_s']
                     self.tacs.evalAdjointResProduct(self.psi_s, adj_res_product)
 
-                    # TACS has already done a parallel sum (mpi allreduce) so 
+                    # TACS has already done a parallel sum (mpi allreduce) so
                     # only add the product on one rank
                     if self.comm.rank == 0:
                         d_inputs['dv_struct'] +=  adj_res_product
