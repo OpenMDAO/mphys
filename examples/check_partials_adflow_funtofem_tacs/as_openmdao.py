@@ -70,6 +70,8 @@ ap = AeroProblem(name='debug',
     evalFuncs=['lift','drag']
 )
 
+ap.addDV('alpha',value=1.5,name='alpha')
+
 ################################################################################
 # TACS setup
 ################################################################################
@@ -174,8 +176,8 @@ assembler.create_fsi_connections(model,nonlinear_xfer=True)
 
 prob.setup()
 prob.run_model()
-prob.check_partials(compact_print=True)
+prob.check_partials(step=1e-3,compact_print=True)
 
 if MPI.COMM_WORLD.rank == 0:
-    print('cl =',prob['aero_funcs.cl'])
-    print('cd =',prob['aero_funcs.cd'])
+    print('cl =',prob['aero_funcs.lift'])
+    print('cd =',prob['aero_funcs.drag'])

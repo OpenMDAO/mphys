@@ -388,8 +388,9 @@ class AdflowForces(ExplicitComponent):
                     d_outputs['f_a'] += dfdot.flatten()
 
         elif mode == 'rev':
-            if 'q' in d_outputs:
-                fBar = d_outputs['q']
+            if 'f_a' in d_outputs:
+                fBar = d_outputs['f_a']
+                #print ('fBar',fBar)
 
                 wBar, xVBar, xDVBar = solver.computeJacobianVectorProductBwd(
                     fBar=fBar,
@@ -397,8 +398,10 @@ class AdflowForces(ExplicitComponent):
 
                 if 'x_g' in d_inputs:
                     d_inputs['x_g'] += xVBar
+                    #print ('xVBor',xVBar)
                 if 'q' in d_inputs:
                     d_inputs['q'] += wBar
+                    #print ('wBor',wBar)
 
 FUNCS_UNITS={
     'mdot': 'kg/s',
@@ -469,15 +472,17 @@ class AdflowFunctions(ExplicitComponent):
         self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size)
         self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
 
-        for f_name, f_meta in solver.adflowCostFunctions.items():
-            f_type = f_meta[1]
-            units = None
-            if f_type in FUNCS_UNITS:
-                units = FUNCS_UNITS[f_type]
+        for f_name in self.options['ap'].evalFuncs:
+        #for f_name, f_meta in solver.adflowCostFunctions.items():
+        #    f_type = f_meta[1]
+        #    units = None
+        #    if f_type in FUNCS_UNITS:
+        #        units = FUNCS_UNITS[f_type]
 
             if self.comm.rank == 0:
                 print("adding adflow func as output: {}".format(f_name))
-            self.add_output(f_name, shape=1, units=units)
+            self.add_output(f_name, shape=1)
+            #self.add_output(f_name, shape=1, units=units)
 
             #self.declare_partials(of=f_name, wrt='*')
 
@@ -510,12 +515,12 @@ class AdflowFunctions(ExplicitComponent):
 
         funcs = {}
 
-        eval_funcs = [f_name for f_name, f_meta in solver.adflowCostFunctions.items()]
+        eval_funcs = [f_name for f_name in self.options['ap'].evalFuncs]
         solver.evalFunctions(ap, funcs, eval_funcs)
         #solver.evalFunctions(ap, funcs)
 
         #for name in ap.evalFuncs:
-        for name in solver.adflowCostFunctions.keys():
+        for name in self.options['ap'].evalFuncs:
             f_name = self._get_func_name(name)
             if f_name in funcs:
                 outputs[name.lower()] = funcs[f_name]
@@ -564,7 +569,7 @@ class AdflowFunctions(ExplicitComponent):
         elif mode == 'rev':
             funcsBar = {}
 
-            for name, meta  in solver.adflowCostFunctions.items():
+            for name  in self.options['ap'].evalFuncs:
                 func_name = name.lower()
 
                 # we have to check for 0 here, so we don't include any unnecessary variables in funcsBar
