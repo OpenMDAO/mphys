@@ -12,6 +12,8 @@ class FuntofemLoadTransfer(ExplicitComponent):
 
         self.options['distributed'] = True
 
+        self.check_partials = True
+
     def setup(self):
         # get the transfer scheme object
         load_xfer_setup = self.options['load_xfer_setup']
@@ -55,9 +57,18 @@ class FuntofemLoadTransfer(ExplicitComponent):
         f_a =  inputs['f_a']
         f_s = np.zeros(self.struct_nnodes*3)
 
-        #TODO meld needs a set state rather requiring transferDisps to update the internal state
-        u_a  = np.zeros(inputs['f_a'].size)
-        self.meld.transferDisps(u_s,u_a)
+        if self.check_partials:
+            x_s0 = inputs['x_s0']
+            x_a0 = inputs['x_a0']
+            self.meld.setStructNodes(x_s0)
+            self.meld.setAeroNodes(x_a0)
+            #TODO meld needs a set state rather requiring transferDisps to update the internal state
+            u_s  = np.zeros(self.struct_nnodes*3)
+            for i in range(3):
+                u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
+            u_a = np.zeros(inputs['f_a'].size)
+            self.meld.transferDisps(u_s,u_a)
+
         self.meld.transferLoads(f_a,f_s)
 
         outputs['f_s'][:] = 0.0
@@ -72,6 +83,8 @@ class FuntofemLoadTransfer(ExplicitComponent):
             L = f_s - g(f_a,u_s,x_a0,x_s0)
         So explicit partials below for f_s are negative partials of L
         """
+
+
         if mode == 'fwd':
             if 'f_s' in d_outputs:
                 if 'u_s' in d_inputs:
@@ -81,7 +94,7 @@ class FuntofemLoadTransfer(ExplicitComponent):
                     prod = np.zeros(self.struct_nnodes*3)
                     self.meld.applydLduS(d_in,prod)
                     for i in range(3):
-                        d_outputs['f_s'][i::self.struct_ndof] = prod[i::3]
+                        d_outputs['f_s'][i::self.struct_ndof] -= prod[i::3]
                 if 'f_a' in d_inputs:
                     # df_s/df_a psi = - dL/df_a * psi = -dD/du_s^T * psi
                     prod = np.zeros(self.struct_nnodes*3)
