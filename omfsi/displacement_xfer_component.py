@@ -15,6 +15,8 @@ class FuntofemDisplacementTransfer(ExplicitComponent):
         self.initialized_meld = False
 
     def setup(self):
+        self.set_check_partial_options(wrt='*',directional=True)
+
         # get the transfer scheme object
         disp_xfer_setup = self.options['disp_xfer_setup']
         meld, aero_nnodes, struct_nnodes, struct_ndof = disp_xfer_setup(self.comm)

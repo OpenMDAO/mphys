@@ -69,6 +69,7 @@ class TacsSolver(ImplicitComponent):
         self.check_partials = True
 
     def setup(self):
+#        self.set_check_partial_options(wrt='*',directional=True)
 
         # TACS assembler setup
         tacs_solver_setup = self.options['tacs_solver_setup']
@@ -116,7 +117,7 @@ class TacsSolver(ImplicitComponent):
         res  = self.res
         ans  = self.ans
 
-        if self._design_vector_changed(inputs['dv_struct']) or self.transposed:
+        if self._design_vector_changed(inputs['dv_struct']) or self.transposed or self.check_partials:
             pc     = self.pc
             tacs.setDesignVars(inputs['dv_struct'])
             alpha = 1.0
@@ -205,7 +206,7 @@ class TacsSolver(ImplicitComponent):
     def solve_linear(self,d_outputs,d_residuals,mode):
         if mode == 'fwd':
             if self.check_partials:
-                pass
+                print ('solver fwd')
             else:
                 raise ValueError('forward mode requested but not implemented')
 
@@ -322,6 +323,7 @@ class TacsFunctions(ExplicitComponent):
         self.check_partials = True
 
     def setup(self):
+#        self.set_check_partial_options(wrt='*',directional=True)
 
         # TACS part of setup
         tacs_func_setup = self.options['tacs_func_setup']
@@ -416,8 +418,10 @@ class TacsFunctions(ExplicitComponent):
 
     def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
-            #raise ValueError('forward mode requested but not implemented')
-            pass
+            if self.check_partials:
+                pass
+            else:
+                raise ValueError('forward mode requested but not implemented')
         if mode == 'rev':
             if 'mass' in d_outputs:
                 func = functions.StructuralMass(self.tacs)
@@ -476,6 +480,7 @@ class PrescribedLoad(ExplicitComponent):
         self.ndof = 0
 
     def setup(self):
+#        self.set_check_partial_options(wrt='*',directional=True)
 
         # TACS assembler setup
         tacs = self.options['get_tacs']()

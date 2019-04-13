@@ -15,6 +15,8 @@ class FuntofemLoadTransfer(ExplicitComponent):
         self.check_partials = True
 
     def setup(self):
+        self.set_check_partial_options(wrt='*',directional=True)
+
         # get the transfer scheme object
         load_xfer_setup = self.options['load_xfer_setup']
         meld, aero_nnodes, struct_nnodes, struct_ndof = load_xfer_setup()

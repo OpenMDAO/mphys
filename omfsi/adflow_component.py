@@ -51,6 +51,8 @@ class AdflowWarper(ExplicitComponent):
         self.distributed = True
 
     def setup(self):
+        self.set_check_partial_options(wrt='*',directional=True)
+
         solver = self.options['solver']
         ap = self.options['ap']
 
@@ -119,6 +121,8 @@ class AdflowSolver(ImplicitComponent):
         self._do_solve = True
 
     def setup(self):
+        self.set_check_partial_options(wrt='*',directional=True)
+
         solver = self.options['solver']
         ap = self.options['ap']
 
@@ -281,17 +285,11 @@ class AdflowSolver(ImplicitComponent):
     def solve_linear(self, d_outputs, d_residuals, mode):
         solver = self.options['solver']
         ap = self.options['ap']
-        if self.options['use_OM_KSP']:
-                if mode == 'fwd':
-                    d_outputs['q'] = solver.globalNKPreCon(d_residuals['q'], d_outputs['q'])
-                elif mode == 'rev':
-                    d_residuals['q'] = solver.globalAdjointPreCon(d_outputs['q'], d_residuals['q'])
-        else:
-            if mode == 'fwd':
-                d_outputs['q'] = solver.solveDirectForRHS(d_residuals['q'])
-            elif mode == 'rev':
-                #d_residuals['q'] = solver.solveAdjointForRHS(d_outputs['q'])
-                solver.adflow.adjointapi.solveadjoint(d_outputs['q'], d_residuals['q'], True)
+        if mode == 'fwd':
+            d_outputs['q'] = solver.solveDirectForRHS(d_residuals['q'])
+        elif mode == 'rev':
+            #d_residuals['q'] = solver.solveAdjointForRHS(d_outputs['q'])
+            solver.adflow.adjointapi.solveadjoint(d_outputs['q'], d_residuals['q'], True)
 
         return True, 0, 0
 
@@ -308,6 +306,8 @@ class AdflowForces(ExplicitComponent):
         self.distributed = True
 
     def setup(self):
+        self.set_check_partial_options(wrt='*',directional=True)
+
         solver = self.options['solver']
         ap = self.options['ap']
 
@@ -453,6 +453,8 @@ class AdflowFunctions(ExplicitComponent):
 
 
     def setup(self):
+        self.set_check_partial_options(wrt='*',directional=True)
+
         solver = self.options['solver']
         ap = self.options['ap']
 

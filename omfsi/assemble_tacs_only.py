@@ -2,8 +2,8 @@ from __future__ import division, print_function
 
 from openmdao.api import NonlinearRunOnce, LinearRunOnce
 
-from tacs_component import TacsMesh, TacsSolver, TacsFunctions
-from tacs_component import PrescribedLoad
+from .tacs_component import TacsMesh, TacsSolver, TacsFunctions
+from .tacs_component import PrescribedLoad
 
 from tacs import TACS, functions
 
@@ -92,6 +92,9 @@ class TacsComps(object):
         mat = self.tacs.createFEMat()
         pc = TACS.Pc(mat)
 
+        self.mat = mat
+        self.pc = pc
+
         subspace = 100
         restarts = 2
         gmres = TACS.KSM(mat, pc, subspace, restarts)
@@ -116,7 +119,7 @@ class TacsComps(object):
             elif func.lower() == 'mass':
                 func_list.append(functions.StructuralMass(self.tacs))
 
-        return func_list, self.tacs, self.struct_ndv
+        return func_list, self.tacs, self.struct_ndv, self.mat, self.pc
 
     def get_tacs(self):
         return self.tacs

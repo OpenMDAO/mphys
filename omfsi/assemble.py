@@ -1,8 +1,8 @@
-from fsi_group import FsiSolver
+from .fsi_group import FsiSolver
 
-from tacs_component import TacsMesh, TacsSolver, TacsFunctions
-from displacement_xfer_component import FuntofemDisplacementTransfer
-from load_xfer_component import FuntofemLoadTransfer
+from .tacs_component import TacsMesh, TacsSolver, TacsFunctions
+from .displacement_xfer_component import FuntofemDisplacementTransfer
+from .load_xfer_component import FuntofemLoadTransfer
 
 from tacs import TACS, functions
 from funtofem import TransferScheme
