@@ -87,7 +87,7 @@ def add_elements(mesh):
     max_thickness = 0.05
 
     num_components = mesh.getNumComponents()
-    for i in xrange(num_components):
+    for i in range(num_components):
         descript = mesh.getElementDescript(i)
         stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
                                      min_thickness, max_thickness)
@@ -132,7 +132,7 @@ aero_group.add_subsystem('forces',aero_forces)
 aero_group.nonlinear_solver = NonlinearRunOnce()
 aero_group.linear_solver = LinearRunOnce()
 
-aero_nnodes = CFDSolver.getSurfaceCoordinates().size /3
+aero_nnodes = int(CFDSolver.getSurfaceCoordinates().size /3)
 
 
 # OpenMDAO problem set up
