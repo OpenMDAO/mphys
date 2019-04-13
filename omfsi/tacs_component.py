@@ -92,6 +92,8 @@ class TacsSolver(ImplicitComponent):
 
         state_size = self.ans.getArray().size
         node_size  = self.xpt_sens.getArray().size
+        self.ndof = int(state_size/(node_size/3))
+
         s_list = self.comm.allgather(state_size)
         n_list = self.comm.allgather(node_size)
         irank  = self.comm.rank
@@ -100,6 +102,7 @@ class TacsSolver(ImplicitComponent):
         s2 = np.sum(s_list[:irank+1])
         n1 = np.sum(n_list[:irank])
         n2 = np.sum(n_list[:irank+1])
+
 
         # inputs
         self.add_input('dv_struct', shape=ndv                                                 , desc='tacs design variables')
@@ -112,35 +115,47 @@ class TacsSolver(ImplicitComponent):
         # partials
         #self.declare_partials('u_s',['dv_struct','x_s0','f_s'])
 
+    def _update_internal(self,inputs,outputs=None):
+        self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
+
+        xpts = self.tacs.createNodeVec()
+        self.tacs.getNodes(xpts)
+        xpts_array = xpts.getArray()
+        xpts_array[:] = inputs['x_s0']
+        self.tacs.setNodes(xpts)
+
+        pc     = self.pc
+        alpha = 1.0
+        beta  = 0.0
+        gamma = 0.0
+
+        xpts = self.tacs.createNodeVec()
+        self.tacs.getNodes(xpts)
+        xpts_array = xpts.getArray()
+        xpts_array[:] = inputs['x_s0']
+        self.tacs.setNodes(xpts)
+
+        res = self.tacs.createVec()
+        res_array = res.getArray()
+        res_array[:] = 0.0
+
+        self.tacs.assembleJacobian(alpha,beta,gamma,res,self.mat)
+        pc.factor()
+
+        if outputs is not None:
+            ans = self.ans
+            ans_array = ans.getArray()
+            ans_array[:] = outputs['u_s']
+            self.tacs.applyBCs(ans)
+
+            self.tacs.setVariables(ans)
+
     def apply_nonlinear(self, inputs, outputs, residuals):
         tacs = self.tacs
         res  = self.res
         ans  = self.ans
 
-        if self._design_vector_changed(inputs['dv_struct']) or self.transposed or self.check_partials:
-            pc     = self.pc
-            tacs.setDesignVars(inputs['dv_struct'])
-            alpha = 1.0
-            beta  = 0.0
-            gamma = 0.0
-
-            xpts = tacs.createNodeVec()
-            tacs.getNodes(xpts)
-            xpts_array = xpts.getArray()
-            xpts_array[:] = inputs['x_s0']
-            tacs.setNodes(xpts)
-
-            res = self.res
-            res_array = res.getArray()
-            res_array[:] = 0.0
-
-            tacs.assembleJacobian(alpha,beta,gamma,res,self.mat)
-            pc.factor()
-            self.transposed = False
-
-        ans_array = ans.getArray()
-        ans_array[:] = outputs['u_s']
-        tacs.setVariables(ans)
+        self._update_internal(inputs,outputs)
 
         res_array = res.getArray()
         res_array[:] = 0.0
@@ -163,28 +178,7 @@ class TacsSolver(ImplicitComponent):
         pc     = self.pc
         gmres  = self.gmres
 
-        # if the design variables changed or we're coming in with a transposed
-        # matrix, update the stiffness matrix
-        if self._design_vector_changed(inputs['dv_struct']) or self.transposed or self.check_partials:
-            tacs.setDesignVars(inputs['dv_struct'])
-            alpha = 1.0
-            beta  = 0.0
-            gamma = 0.0
-
-            xpts = tacs.createNodeVec()
-            tacs.getNodes(xpts)
-            xpts_array = xpts.getArray()
-            xpts_array[:] = inputs['x_s0']
-            tacs.setNodes(xpts)
-
-            res = self.res
-            res_array = res.getArray()
-            res_array[:] = 0.0
-
-            tacs.assembleJacobian(alpha,beta,gamma,res,self.mat)
-            pc.factor()
-            self.transposed = False
-
+        self._update_internal(inputs)
         # solve the linear system
         force_array = force.getArray()
         force_array[:] = inputs['f_s']
@@ -227,12 +221,14 @@ class TacsSolver(ImplicitComponent):
             res = self.res
             res_array = res.getArray()
             res_array[:] = d_outputs['u_s']
+            tacs.applyBCs(res)
             psi_s = self.psi_s
             gmres.solve(res,psi_s)
             psi_s_array = psi_s.getArray()
             d_residuals['u_s'] = psi_s_array
 
     def apply_linear(self,inputs,outputs,d_inputs,d_outputs,d_residuals,mode):
+        self._update_internal(inputs,outputs)
         if mode == 'fwd':
             if self.check_partials:
                 pass
@@ -266,12 +262,18 @@ class TacsSolver(ImplicitComponent):
                     res_array[:] = 0.0
 
                     self.mat.mult(ans,res)
+                    tacs.applyBCs(res)
 
-                    d_outputs['u_s'] += res_array[:]
+                    d_outputs['u_s'] += np.array(res_array[:],dtype=float)
 
                 if 'f_s' in d_inputs:
+                    res_array[:] = 0.0
+                    for i in range(int(inputs['x_s0'].size/3)):
+                        for j in range(3):
+                            res_array[self.ndof*i+j] = d_residuals['u_s'][3*i+j]
                     # dR/df_s^T = -I
-                    d_inputs['f_s'] -= d_residuals['u_s']
+                    tacs.applyBCs(res)
+                    d_inputs['f_s'] -= np.array(res_array[:],dtype=float)
 
                 if 'x_s0' in d_inputs:
                     ans_array[:] = d_residuals['u_s']
@@ -280,10 +282,10 @@ class TacsSolver(ImplicitComponent):
 
                     tacs.evalAdjointResXptSensProduct(ans, xpt_sens)
 
-                    d_inputs['x_s0'] += xpt_sens_array[:]
+                    d_inputs['x_s0'] += np.array(xpt_sens_array[:],dtype=float)
 
                 if 'dv_struct' in d_inputs:
-                    adj_res_product  = np.zeros(d_inputs['dv_struct'].size)
+                    adj_res_product  = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
                     psi_s_array    = self.psi_s.getArray()
                     psi_s_array[:] = d_residuals['u_s']
                     self.tacs.evalAdjointResProduct(self.psi_s, adj_res_product)
@@ -291,7 +293,7 @@ class TacsSolver(ImplicitComponent):
                     # TACS has already done a parallel sum (mpi allreduce) so
                     # only add the product on one rank
                     if self.comm.rank == 0:
-                        d_inputs['dv_struct'] +=  adj_res_product
+                        d_inputs['dv_struct'] +=  np.array(adj_res_product,dtype=float)
 
     def _design_vector_changed(self,x):
         if self.x_save is None:
@@ -375,39 +377,43 @@ class TacsFunctions(ExplicitComponent):
             #self.declare_partials('mass',['dv_struct','x_s0'])
             pass
 
+    def _update_internal(self,inputs):
+        self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
+
+        xpts = self.tacs.createNodeVec()
+        self.tacs.getNodes(xpts)
+        xpts_array = xpts.getArray()
+        xpts_array[:] = inputs['x_s0']
+        self.tacs.setNodes(xpts)
+
+        pc     = self.pc
+        alpha = 1.0
+        beta  = 0.0
+        gamma = 0.0
+
+        xpts = self.tacs.createNodeVec()
+        self.tacs.getNodes(xpts)
+        xpts_array = xpts.getArray()
+        xpts_array[:] = inputs['x_s0']
+        self.tacs.setNodes(xpts)
+
+        res = self.tacs.createVec()
+        res_array = res.getArray()
+        res_array[:] = 0.0
+
+        self.tacs.assembleJacobian(alpha,beta,gamma,res,self.mat)
+        pc.factor()
+
+        ans = self.ans
+        ans_array = ans.getArray()
+        ans_array[:] = inputs['u_s']
+        self.tacs.applyBCs(ans)
+
+        self.tacs.setVariables(ans)
+
     def compute(self,inputs,outputs):
         if self.check_partials:
-            self.tacs.setDesignVars(inputs['dv_struct'])
-
-            xpts = self.tacs.createNodeVec()
-            self.tacs.getNodes(xpts)
-            xpts_array = xpts.getArray()
-            xpts_array[:] = inputs['x_s0']
-            self.tacs.setNodes(xpts)
-
-            pc     = self.pc
-            alpha = 1.0
-            beta  = 0.0
-            gamma = 0.0
-
-            xpts = self.tacs.createNodeVec()
-            self.tacs.getNodes(xpts)
-            xpts_array = xpts.getArray()
-            xpts_array[:] = inputs['x_s0']
-            self.tacs.setNodes(xpts)
-
-            res = self.tacs.createVec()
-            res_array = res.getArray()
-            res_array[:] = 0.0
-
-            self.tacs.assembleJacobian(alpha,beta,gamma,res,self.mat)
-            pc.factor()
-
-            ans = self.ans
-            ans_array = ans.getArray()
-            ans_array[:] = inputs['u_s']
-
-            self.tacs.setVariables(ans)
+            self._update_internal(inputs)
 
         if 'f_struct' in outputs:
             outputs['f_struct'] = self.tacs.evalFunctions(self.func_list)
@@ -423,43 +429,46 @@ class TacsFunctions(ExplicitComponent):
             else:
                 raise ValueError('forward mode requested but not implemented')
         if mode == 'rev':
+            if self.check_partials:
+                self._update_internal(inputs)
             if 'mass' in d_outputs:
                 func = functions.StructuralMass(self.tacs)
                 if 'dv_struct' in d_inputs:
                     size = d_inputs['dv_struct'].size
-                    dvsens = np.zeros(d_inputs['dv_struct'].size)
+                    dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
                     self.tacs.evalDVSens(func, dvsens)
 
-                    d_inputs['dv_struct'] += dvsens * d_outputs['mass']
+                    d_inputs['dv_struct'] += np.array(dvsens,dtype=float) * d_outputs['mass']
 
                 if 'x_s0' in d_inputs:
                     xpt_sens = self.xpt_sens
                     xpt_sens_array = xpt_sens.getArray()
                     self.tacs.evalXptSens(func, xpt_sens)
 
-                    d_inputs['x_s0'] += xpt_sens_array * d_outputs['mass']
+                    d_inputs['x_s0'] += np.array(xpt_sens_array,dtype=float) * d_outputs['mass']
 
             if 'f_struct' in d_outputs:
-                ans = self.ans
                 for ifunc, func in enumerate(self.func_list):
+                    self.tacs.evalFunctions([func])
                     if 'dv_struct' in d_inputs:
-                        dvsens = np.zeros(d_inputs['dv_struct'].size)
+                        dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
                         self.tacs.evalDVSens(func, dvsens)
 
-                        d_inputs['dv_struct'][:] += dvsens * d_outputs['f_struct'][ifunc]
+                        d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_outputs['f_struct'][ifunc]
 
                     if 'x_s0' in d_inputs:
                         xpt_sens = self.xpt_sens
                         xpt_sens_array = xpt_sens.getArray()
                         self.tacs.evalXptSens(func, xpt_sens)
 
-                        d_inputs['x_s0'][:] += xpt_sens_array * d_outputs['f_struct'][ifunc]
+                        d_inputs['x_s0'][:] += np.array(xpt_sens_array,dtype=float) * d_outputs['f_struct'][ifunc]
 
                     if 'u_s' in d_inputs:
-                        self.tacs.evalSVSens(func,ans)
-                        ans_array = ans.getArray()
+                        prod = self.tacs.createVec()
+                        self.tacs.evalSVSens(func,prod)
+                        prod_array = prod.getArray()
 
-                        d_inputs['u_s'][:] += ans_array * d_outputs['f_struct'][ifunc]
+                        d_inputs['u_s'][:] += np.array(prod_array,dtype=float) * d_outputs['f_struct'][ifunc]
 
 class PrescribedLoad(ExplicitComponent):
     """
