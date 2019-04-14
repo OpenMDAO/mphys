@@ -24,11 +24,10 @@ class FsiComps(object):
     solver components
 
     """
-    def __init__(self):
-        # Flow data to keep track of
-        self.flow = None
-
+    def __init__(self,tacs_setup,meld_setup):
+        self.flow = {'nnodes':2}
         # Structural data to keep track of
+        self.tacs_setup = tacs_setup
         self.struct_comm = None
         self.tacs = None
         self.struct_ndv = 0
@@ -36,65 +35,60 @@ class FsiComps(object):
         self.struct_nprocs = 0
 
         # Transfer data to keep track of
+        self.meld_setup = meld_setup
         self.xfer_ndof = 3
         self.meld = None
+    def get_aero_surface_size(self):
+        return self.flow['nnodes']*3
 
-    def add_fsi_subsystems(self,model,setup,prefix='',reuse_solvers=True):
-        self.tacs_setup = setup['tacs']
-        self.meld_setup = setup['meld']
-        self.flow_setup = setup['flow']
+    def add_fsi_subsystems(self,model,aero,aero_nnodes,prefix='',reuse_solvers=True):
+        self.aero_nnodes = aero_nnodes
 
         # Structural data to keep track of
         self.struct_nprocs = self.tacs_setup['nprocs']
 
-        # Initialize the disciplinary meshes
-        aero_mesh, struct_mesh = self._initialize_meshes(reuse_solvers)
-
         # Initialize the disciplinary solvers
-        aero, struct, disp_xfer, load_xfer = self._initialize_solvers()
+        struct, disp_xfer, load_xfer = self._initialize_solvers()
 
         # Initialize the coupling group
-        fsi_solver = FsiSolver(aero=aero,
-                               struct=struct,
-                               disp_xfer=disp_xfer,
-                               load_xfer=load_xfer,
-                               struct_nprocs=self.struct_nprocs,
-                               get_vector_size=self.get_vector_size)
+        fsi_solver = FsiSolver(aero=aero,struct=struct,disp_xfer=disp_xfer,load_xfer=load_xfer,struct_nprocs=self.struct_nprocs,get_vector_size=self.get_aero_surface_size)
 
-        # Initialize the function evaluators
-        struct_funcs = self._initialize_function_evaluators()
+        model.add_subsystem(prefix+'fsi_solver',fsi_solver)
 
-        model.add_subsystem(prefix+'aero_mesh',aero_mesh,promotes=['x_a0'])
-        model.add_subsystem(prefix+'struct_mesh',struct_mesh,promotes=['x_s0'],max_procs=self.struct_nprocs)
+    def create_fsi_connections(self,model,struct_mesh='struct_mesh',aero_mesh='aero_mesh',fsi_solver='fsi_solver',
+                                    nonlinear_xfer=False):
 
-        model.add_subsystem(prefix+'fsi_solver',fsi_solver,promotes=['dv_aero','dv_struct','x_a0','x_s0','x_g','q','u_s'])
+        model.connect(fsi_solver+'.struct.u_s',[fsi_solver+'.disp_xfer.u_s'])
+        if nonlinear_xfer:
+            model.connect(fsi_solver+'.struct.u_s',[fsi_solver+'.load_xfer.u_s'])
 
-        model.add_subsystem(prefix+'struct_funcs',struct_funcs,promotes=['*'],max_procs=self.struct_nprocs)
+        model.connect(fsi_solver+'.disp_xfer.u_a',fsi_solver+'.geo_disps.u_a')
+        model.connect(fsi_solver+'.geo_disps.x_a',fsi_solver+'.aero.deformer.x_a')
+        model.connect(fsi_solver+'.aero.deformer.x_g',[fsi_solver+'.aero.solver.x_g',
+                                                      fsi_solver+'.aero.forces.x_g'])
+        model.connect(fsi_solver+'.aero.solver.q',[fsi_solver+'.aero.forces.q'])
+        model.connect(fsi_solver+'.aero.forces.f_a',[fsi_solver+'.load_xfer.f_a'])
+        model.connect(fsi_solver+'.load_xfer.f_s',fsi_solver+'.struct.f_s')
 
-    def _initialize_meshes(self,reuse_solvers):
+    def _initialize_mesh(self,reuse_solvers):
         """
-        Initialize the disciplinary meshes
+        Initialize the different discipline meshes
         """
-        aero_mesh   = AeroMesh(aero_mesh_setup=self.aero_mesh_setup)
-        tacs_mesh   = TacsMesh(tacs_mesh_setup=self.tacs_mesh_setup)
 
-        return aero_mesh, tacs_mesh
+        return tacs_mesh 
 
     def _initialize_solvers(self):
         """
-        Initialize the disciplinary solvers
+        Initialize the different disciplinary solvers
         """
-        deformer    = AeroDeformer(aero_deformer_setup=self.aero_deformer_setup)
-        aero_solver = AeroSolver(aero_solver_setup=self.aero_solver_setup)
-        aero_force  = AeroForceIntegrator(aero_force_integrator_setup=self.aero_force_integrator_setup)
-        aero_group  = AeroSolverGroup(deformer=deformer,solver=aero_solver,force=aero_force)
+        # Initialize the structural solver
+        struct    = TacsSolver(tacs_solver_setup=self.tacs_solver_setup)
 
-        tacs_solver = TacsSolver(tacs_solver_setup=self.tacs_solver_setup)
-
+        # Initialize the transfers
         disp_xfer   = FuntofemDisplacementTransfer(disp_xfer_setup=self.disp_xfer_setup)
         load_xfer   =         FuntofemLoadTransfer(load_xfer_setup=self.load_xfer_setup)
 
-        return aero_group, tacs_solver, disp_xfer, load_xfer
+        return struct, disp_xfer, load_xfer
 
     def _initialize_function_evaluators(self):
         """
@@ -102,6 +96,16 @@ class FsiComps(object):
         """
         tacs_funcs = TacsFunctions(tacs_func_setup=self.tacs_func_setup)
         return tacs_funcs
+
+    def add_tacs_mesh(self,model,prefix='',reuse_solvers=True):
+        # Initialize the disciplinary meshes
+        tacs_mesh   = TacsMesh(tacs_mesh_setup=self.tacs_mesh_setup)
+        model.add_subsystem('struct_mesh',tacs_mesh)
+
+    def add_tacs_functions(self,model,prefix='',reuse_solvers=True):
+        # Initialize the function evaluators
+        struct_funcs = self._initialize_function_evaluators()
+        model.add_subsystem('struct_funcs',struct_funcs)
 
     def tacs_mesh_setup(self,comm):
         """
@@ -125,8 +129,12 @@ class FsiComps(object):
         """
         Setup callback function for TACS solver setup.
         """
+
         mat = self.tacs.createFEMat()
         pc = TACS.Pc(mat)
+
+        self.mat = mat
+        self.pc = pc
 
         subspace = 100
         restarts = 2
@@ -152,7 +160,7 @@ class FsiComps(object):
             elif func.lower() == 'mass':
                 func_list.append(functions.StructuralMass(self.tacs))
 
-        return func_list, self.tacs, self.struct_ndv
+        return func_list, self.tacs, self.struct_ndv, self.mat, self.pc
 
     def aero_mesh_setup(self,comm):
         """

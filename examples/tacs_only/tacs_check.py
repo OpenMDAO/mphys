@@ -46,7 +46,7 @@ def load_function(x_s,ndof):
     f_s[2::ndof] = 100.0
     return f_s
 
-func_list = ['compliance']
+func_list = ['mass','compliance']
 tacs_setup = {'add_elements': add_elements,
               'nprocs'      : 4,
               'mesh_file'   : 'debug.bdf',
