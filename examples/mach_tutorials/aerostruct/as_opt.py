@@ -11,7 +11,7 @@ from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
 from openmdao.api import NonlinearRunOnce, LinearRunOnce
 
-from tacs import elements, constitutive
+from tacs import elements, constitutive, TACS
 
 use_openmdao = False
 
@@ -107,8 +107,17 @@ def add_elements(mesh):
 
     return ndof, ndv
 
+def write_f5(tacs)
+    flag = (TACS.ToFH5.NODES |
+            TACS.ToFH5.DISPLACEMENTS |
+            TACS.ToFH5.STRAINS |
+            TACS.ToFH5.EXTRAS)
+    f5 = TACS.ToFH5(tacs, TACS.PY_SHELL, flag)
+    f5.writeToFile('wing.f5')
+
 func_list = ['ks_failure']
 tacs_setup = {'add_elements': add_elements,
+              'f5_writer'   : write_f5,
               'nprocs'      : 4,
               'mesh_file'   : 'wingbox.bdf',
               'func_list'   : func_list}

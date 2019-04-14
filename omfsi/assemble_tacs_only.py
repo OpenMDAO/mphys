@@ -59,7 +59,10 @@ class TacsComps(object):
         """
         Initialize the TACS solver
         """
-        tacs_solver   = TacsSolver(tacs_solver_setup=self.tacs_solver_setup)
+        f5_writer = None
+        if 'f5_writer' in self.tacs_setup:
+            f5_writer = self.tacs_setup['f5_writer']
+        tacs_solver = TacsSolver(tacs_solver_setup=self.tacs_solver_setup,tacs_f5_writer=f5_writer)
         return tacs_solver
 
     def _initialize_function_evaluator(self):

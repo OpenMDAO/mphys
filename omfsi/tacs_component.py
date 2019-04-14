@@ -50,6 +50,7 @@ class TacsSolver(ImplicitComponent):
     def initialize(self):
 
         self.options.declare('tacs_solver_setup', default = None, desc='Function to setup tacs')
+        self.options.declare('tacs_f5_writer', default = None, desc='Function to write f5 file')
         self.options['distributed'] = True
 
         self.tacs = None
@@ -64,8 +65,6 @@ class TacsSolver(ImplicitComponent):
 
         self.transposed = False
 
-        #TODO more generic handling of writing f5 files
-        self.write_f5 = True
         self.check_partials = True
 
     def setup(self):
@@ -73,6 +72,7 @@ class TacsSolver(ImplicitComponent):
 
         # TACS assembler setup
         tacs_solver_setup = self.options['tacs_solver_setup']
+        self.f5_writer = self.options['tacs_f5_writer']
         tacs, mat, pc, gmres, ndv = tacs_solver_setup(self.comm)
 
         self.tacs = tacs
@@ -189,13 +189,8 @@ class TacsSolver(ImplicitComponent):
         outputs['u_s'] = ans_array[:]
         tacs.setVariables(ans)
 
-        if self.write_f5:
-            flag = (TACS.ToFH5.NODES |
-                    TACS.ToFH5.DISPLACEMENTS |
-                    TACS.ToFH5.STRAINS |
-                    TACS.ToFH5.EXTRAS)
-            f5 = TACS.ToFH5(tacs, TACS.PY_SHELL, flag)
-            f5.writeToFile('wing.f5')
+        if self.f5_writer is not None:
+            self.f5writer(tacs)
 
     def solve_linear(self,d_outputs,d_residuals,mode):
         if mode == 'fwd':

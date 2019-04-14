@@ -86,7 +86,10 @@ class FsiComps(object):
         Initialize the different disciplinary solvers
         """
         # Initialize the structural solver
-        struct    = TacsSolver(tacs_solver_setup=self.tacs_solver_setup)
+        f5_writer = None
+        if 'f5_writer' in self.tacs_setup:
+            f5_writer = self.tacs_setup['f5_writer']
+        struct    = TacsSolver(tacs_solver_setup=self.tacs_solver_setup,tacs_f5_writer=f5_writer)
 
         # Initialize the transfers
         disp_xfer   = FuntofemDisplacementTransfer(disp_xfer_setup=self.disp_xfer_setup)
