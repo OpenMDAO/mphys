@@ -166,7 +166,7 @@ class TacsSolver(ImplicitComponent):
         # Add the external loads
         res_array[:] -= inputs['f_s']
 
-        # Apply BCs to the residual
+        # Apply BCs to the residual (forces)
         tacs.applyBCs(res)
 
         residuals['u_s'][:] = res_array[:]
@@ -226,6 +226,7 @@ class TacsSolver(ImplicitComponent):
             gmres.solve(res,psi_s)
             psi_s_array = psi_s.getArray()
             d_residuals['u_s'] = psi_s_array
+            tacs.applyBCs(psi_s)
 
     def apply_linear(self,inputs,outputs,d_inputs,d_outputs,d_residuals,mode):
         self._update_internal(inputs,outputs)
@@ -245,9 +246,15 @@ class TacsSolver(ImplicitComponent):
                 ans  = self.ans
                 ans_array = ans.getArray()
 
+                psi = tacs.createVec()
+                psi_array = psi.getArray()
+                psi_array[:] = d_residuals['u_s'][:]
+                tacs.applyBCs(psi)
+
                 if 'u_s' in d_outputs:
 
                     ans_array[:] = outputs['u_s']
+                    tacs.applyBCs(ans)
                     tacs.setVariables(ans)
 
                     # if nonsymmetric, we need to form the transpose Jacobian
@@ -261,34 +268,25 @@ class TacsSolver(ImplicitComponent):
 
                     res_array[:] = 0.0
 
-                    self.mat.mult(ans,res)
+                    self.mat.mult(psi,res)
                     tacs.applyBCs(res)
 
                     d_outputs['u_s'] += np.array(res_array[:],dtype=float)
 
                 if 'f_s' in d_inputs:
-                    res_array[:] = 0.0
-                    for i in range(int(inputs['x_s0'].size/3)):
-                        for j in range(3):
-                            res_array[self.ndof*i+j] = d_residuals['u_s'][3*i+j]
-                    # dR/df_s^T = -I
-                    tacs.applyBCs(res)
-                    d_inputs['f_s'] -= np.array(res_array[:],dtype=float)
+                    d_inputs['f_s'] -= np.array(psi_array[:],dtype=float)
 
                 if 'x_s0' in d_inputs:
-                    ans_array[:] = d_residuals['u_s']
                     xpt_sens = self.xpt_sens
                     xpt_sens_array = xpt_sens.getArray()
 
-                    tacs.evalAdjointResXptSensProduct(ans, xpt_sens)
+                    tacs.evalAdjointResXptSensProduct(psi, xpt_sens)
 
                     d_inputs['x_s0'] += np.array(xpt_sens_array[:],dtype=float)
 
                 if 'dv_struct' in d_inputs:
                     adj_res_product  = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
-                    psi_s_array    = self.psi_s.getArray()
-                    psi_s_array[:] = d_residuals['u_s']
-                    self.tacs.evalAdjointResProduct(self.psi_s, adj_res_product)
+                    self.tacs.evalAdjointResProduct(psi, adj_res_product)
 
                     # TACS has already done a parallel sum (mpi allreduce) so
                     # only add the product on one rank
