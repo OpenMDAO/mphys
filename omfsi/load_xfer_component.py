@@ -1,6 +1,7 @@
 import numpy as np
 
 from openmdao.api import ExplicitComponent
+from funtofem import TransferScheme
 
 class FuntofemLoadTransfer(ExplicitComponent):
     """
@@ -15,7 +16,7 @@ class FuntofemLoadTransfer(ExplicitComponent):
         self.check_partials = True
 
     def setup(self):
-        self.set_check_partial_options(wrt='*',directional=True)
+        #self.set_check_partial_options(wrt='*',directional=True)
 
         # get the transfer scheme object
         load_xfer_setup = self.options['load_xfer_setup']
@@ -56,19 +57,19 @@ class FuntofemLoadTransfer(ExplicitComponent):
         for i in range(3):
             u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
 
-        f_a =  inputs['f_a']
-        f_s = np.zeros(self.struct_nnodes*3)
+        f_a =  np.array(inputs['f_a'],dtype=TransferScheme.dtype)
+        f_s = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
 
         if self.check_partials:
-            x_s0 = inputs['x_s0']
-            x_a0 = inputs['x_a0']
+            x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
+            x_a0 = np.array(inputs['x_a0'],dtype=TransferScheme.dtype)
             self.meld.setStructNodes(x_s0)
             self.meld.setAeroNodes(x_a0)
             #TODO meld needs a set state rather requiring transferDisps to update the internal state
-            u_s  = np.zeros(self.struct_nnodes*3)
+            u_s  = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
             for i in range(3):
                 u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
-            u_a = np.zeros(inputs['f_a'].size)
+            u_a = np.zeros(inputs['f_a'].size,dtype=TransferScheme.dtype)
             self.meld.transferDisps(u_s,u_a)
 
         self.meld.transferLoads(f_a,f_s)
@@ -90,51 +91,52 @@ class FuntofemLoadTransfer(ExplicitComponent):
         if mode == 'fwd':
             if 'f_s' in d_outputs:
                 if 'u_s' in d_inputs:
-                    d_in = np.zeros(self.struct_nnodes*3)
+                    d_in = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
                     for i in range(3):
                         d_in[i::3] = d_inputs['u_s'][i::self.struct_ndof]
-                    prod = np.zeros(self.struct_nnodes*3)
+                    prod = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
                     self.meld.applydLduS(d_in,prod)
                     for i in range(3):
-                        d_outputs['f_s'][i::self.struct_ndof] -= prod[i::3]
+                        d_outputs['f_s'][i::self.struct_ndof] -= np.array(prod[i::3],dtype=float)
                 if 'f_a' in d_inputs:
                     # df_s/df_a psi = - dL/df_a * psi = -dD/du_s^T * psi
-                    prod = np.zeros(self.struct_nnodes*3)
-                    self.meld.applydDduSTrans(d_inputs['f_a'],prod)
+                    prod = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+                    df_a = np.array(d_inputs['f_a'],dtype=TransferScheme.dtype)
+                    self.meld.applydDduSTrans(df_a,prod)
                     for i in range(3):
-                        d_outputs['f_s'][i::self.struct_ndof] -= prod[i::3]
+                        d_outputs['f_s'][i::self.struct_ndof] -= np.array(prod[i::3],dtype=float)
             else:
                 #raise ValueError('forward mode requested but not implemented')
                 pass
 
         if mode == 'rev':
             if 'f_s' in d_outputs:
-                d_out = np.zeros(self.struct_nnodes*3)
+                d_out = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
                 for i in range(3):
                     d_out[i::3] = d_outputs['f_s'][i::self.struct_ndof]
 
                 if 'u_s' in d_inputs:
-                    d_in = np.zeros(self.struct_nnodes*3)
+                    d_in = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
                     # df_s/du_s^T * psi = - dL/du_s^T * psi
                     self.meld.applydLduSTrans(d_out,d_in)
 
                     for i in range(3):
-                        d_inputs['u_s'][i::self.struct_ndof] -= d_in[i::3]
+                        d_inputs['u_s'][i::self.struct_ndof] -= np.array(d_in[i::3],dtype=float)
 
                 if 'f_a' in d_inputs:
                     # df_s/df_a^T psi = - dL/df_a^T * psi = -dD/du_s * psi
-                    prod = np.zeros(self.aero_nnodes*3)
+                    prod = np.zeros(self.aero_nnodes*3,dtype=TransferScheme.dtype)
                     self.meld.applydDduS(d_out,prod)
-                    d_inputs['f_a'] -= prod
+                    d_inputs['f_a'] -= np.array(prod,dtype=float)
 
                 if 'x_a0' in d_inputs:
                     # df_s/dx_a0^T * psi = - psi^T * dL/dx_a0 in F2F terminology
-                    prod = np.zeros(self.aero_nnodes*3)
+                    prod = np.zeros(self.aero_nnodes*3,dtype=TransferScheme.dtype)
                     self.meld.applydLdxA0(d_out,prod)
-                    d_inputs['x_a0'] -= prod
+                    d_inputs['x_a0'] -= np.array(prod,dtype=float)
 
                 if 'x_s0' in d_inputs:
                     # df_s/dx_s0^T * psi = - psi^T * dL/dx_s0 in F2F terminology
-                    prod = np.zeros(self.struct_nnodes*3)
+                    prod = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
                     self.meld.applydLdxS0(d_out,prod)
-                    d_inputs['x_s0'] -= prod
+                    d_inputs['x_s0'] -= np.array(prod,dtype=float)
