@@ -148,21 +148,6 @@ model = prob.model
 model.nonlinear_solver = NonlinearRunOnce()
 model.linear_solver = LinearRunOnce()
 
-class Summer(ExplicitComponent):
-    def initialize(self):
-        pass
-
-    def setup(self):
-        self.add_input('dv_struct',shape=810)
-        self.add_output('mass')
-    def compute(self,inputs,outputs):
-        outputs['mass'] = sum(inputs['dv_struct'])
-    def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
-        if mode == 'fwd':
-            d_outputs['mass'] += sum(d_inputs['dv_struct'])
-        if mode == 'rev':
-            d_inputs['dv_struct'] += d_outputs['mass']
-
 #Add the components and groups to the model
 indeps = IndepVarComp()
 indeps.add_output('alpha',np.array(1.5))
@@ -177,7 +162,6 @@ assembler.add_fsi_subsystems(model,aero_group,aero_nnodes)
 
 assembler.add_tacs_functions(model)
 model.add_subsystem('aero_funcs',aero_funcs)
-model.add_subsystem('summer',Summer())
 
 # Connect the components
 model.connect('aero_mesh.x_a0',['fsi_solver.disp_xfer.x_a0',
@@ -189,7 +173,7 @@ model.connect('struct_mesh.x_s0',['fsi_solver.disp_xfer.x_s0',
                                   'struct_funcs.x_s0',
                                   'struct_mass.x_s0'])
 
-model.connect('dv.dv_struct',['fsi_solver.struct.dv_struct',
+model.connect('dvs.dv_struct',['fsi_solver.struct.dv_struct',
                               'struct_funcs.dv_struct',
                               'struct_mass.dv_struct'])
 model.connect('dvs.alpha',['fsi_solver.aero.solver.alpha',
@@ -202,8 +186,8 @@ model.connect('fsi_solver.aero.solver.q','aero_funcs.q')
 model.connect('fsi_solver.struct.u_s','struct_funcs.u_s')
 assembler.create_fsi_connections(model,nonlinear_xfer=True)
 
-model.add_subsystem('trim',ExecComp('balance = lift - 9.81*3000*mass'),promotes=['balance'])
-model.connect('summer.mass','trim.mass')
+model.add_subsystem('trim',ExecComp('balance = lift - 9.81*10*mass'),promotes=['balance'])
+model.connect('struct_mass.mass','trim.mass')
 model.connect('aero_funcs.lift','trim.lift')
 
 prob.driver = ScipyOptimizeDriver(debug_print=['objs','nl_cons'],maxiter=1500)
@@ -212,7 +196,7 @@ prob.driver.options['optimizer'] = 'SLSQP'
 model.add_design_var('dvs.dv_struct',lower=0.001,upper=0.075,scaler=1000.0/1.0)
 model.add_design_var('dvs.alpha',lower=-5.0,upper=5.0,scaler=1.0/1.0)
 
-model.add_objective('summer.mass',scaler=1.0/100000.0)
+model.add_objective('struct_mass.mass',scaler=1.0/100000.0)
 model.add_constraint('struct_funcs.f_struct',lower = 0.0, upper = 2.0/3.0,scaler=1000.0/1.0)
 model.add_constraint('balance',equals = 0.0, scaler=1.0/1000.0)
 
