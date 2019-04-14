@@ -2,7 +2,7 @@ from __future__ import division, print_function
 
 from openmdao.api import NonlinearRunOnce, LinearRunOnce
 
-from .tacs_component import TacsMesh, TacsSolver, TacsFunctions
+from .tacs_component import TacsMesh, TacsSolver, TacsFunctions, TacsMassFunction
 from .tacs_component import PrescribedLoad
 
 from tacs import TACS, functions
@@ -36,7 +36,7 @@ class TacsComps(object):
         model.linear_solver = LinearRunOnce()
 
         # Initialize the function evaluators
-        struct_funcs = self._initialize_function_evaluator()
+        struct_funcs,struct_mass = self._initialize_function_evaluator()
 
         model.add_subsystem(prefix+'struct_mesh',struct_mesh,promotes=['x_s0'],max_procs=self.struct_nprocs)
 
@@ -46,6 +46,7 @@ class TacsComps(object):
 
         model.add_subsystem(prefix+'struct_solver',struct_solver,promotes=['dv_struct','x_s0','u_s','f_s'],max_procs=self.struct_nprocs)
         model.add_subsystem(prefix+'struct_funcs',struct_funcs,promotes=['*'],max_procs=self.struct_nprocs)
+        model.add_subsystem(prefix+'struct_masss',struct_mass,promotes=['*'],max_procs=self.struct_nprocs)
 
     def _initialize_mesh(self,reuse_solvers):
         """
@@ -66,7 +67,8 @@ class TacsComps(object):
         Initialize the TACS function evaluator
         """
         tacs_funcs = TacsFunctions(tacs_func_setup=self.tacs_func_setup)
-        return tacs_funcs
+        tacs_mass = TacsMassFunction(tacs_func_setup=self.tacs_func_setup)
+        return tacs_funcs, tacs_mass
 
     def tacs_mesh_setup(self,comm):
         """

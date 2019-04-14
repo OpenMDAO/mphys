@@ -1,6 +1,6 @@
 from .fsi_group import FsiSolver
 
-from .tacs_component import TacsMesh, TacsSolver, TacsFunctions
+from .tacs_component import TacsMesh, TacsSolver, TacsFunctions, TacsMassFunction
 from .displacement_xfer_component import FuntofemDisplacementTransfer
 from .load_xfer_component import FuntofemLoadTransfer
 
@@ -41,8 +41,9 @@ class FsiComps(object):
 
     def add_tacs_functions(self,model,prefix='',reuse_solvers=True):
         # Initialize the function evaluators
-        struct_funcs = self._initialize_function_evaluators()
+        struct_funcs,struct_mass = self._initialize_function_evaluators()
         model.add_subsystem('struct_funcs',struct_funcs)
+        model.add_subsystem('struct_mass',struct_mass)
 
     def add_fsi_subsystems(self,model,aero,aero_nnodes,prefix='',reuse_solvers=True):
         self.aero_nnodes = aero_nnodes
@@ -96,7 +97,8 @@ class FsiComps(object):
     def _initialize_function_evaluators(self):
         # Set up the structural solver
         struct_funcs = TacsFunctions(tacs_func_setup=self.tacs_func_setup)
-        return struct_funcs
+        struct_mass = TacsMassFunction(tacs_func_setup=self.tacs_func_setup)
+        return struct_funcs, struct_mass
 
     def tacs_mesh_setup(self,comm):
         """

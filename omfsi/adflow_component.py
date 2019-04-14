@@ -51,7 +51,7 @@ class AdflowWarper(ExplicitComponent):
         self.distributed = True
 
     def setup(self):
-        self.set_check_partial_options(wrt='*',directional=True)
+        #self.set_check_partial_options(wrt='*',directional=True)
 
         solver = self.options['solver']
         ap = self.options['ap']
@@ -121,7 +121,7 @@ class AdflowSolver(ImplicitComponent):
         self._do_solve = True
 
     def setup(self):
-        self.set_check_partial_options(wrt='*',directional=True)
+        #self.set_check_partial_options(wrt='*',directional=True)
 
         solver = self.options['solver']
         ap = self.options['ap']
@@ -306,7 +306,7 @@ class AdflowForces(ExplicitComponent):
         self.distributed = True
 
     def setup(self):
-        self.set_check_partial_options(wrt='*',directional=True)
+        #self.set_check_partial_options(wrt='*',directional=True)
 
         solver = self.options['solver']
         ap = self.options['ap']
@@ -394,7 +394,6 @@ class AdflowForces(ExplicitComponent):
         elif mode == 'rev':
             if 'f_a' in d_outputs:
                 fBar = d_outputs['f_a']
-                print ('fBar',fBar)
 
                 wBar, xVBar, xDVBar = solver.computeJacobianVectorProductBwd(
                     fBar=fBar,
@@ -402,15 +401,12 @@ class AdflowForces(ExplicitComponent):
 
                 if 'x_g' in d_inputs:
                     d_inputs['x_g'] += xVBar
-                    print ('xVBar',xVBar)
                 if 'q' in d_inputs:
                     d_inputs['q'] += wBar
-                    print ('wBar',wBar)
 
                 for dv_name, dv_bar in xDVBar.items():
                     if dv_name in d_inputs:
                         d_inputs[dv_name] += dv_bar.flatten()
-                        print ('wBar',wBar)
 
 FUNCS_UNITS={
     'mdot': 'kg/s',
@@ -453,7 +449,7 @@ class AdflowFunctions(ExplicitComponent):
 
 
     def setup(self):
-        self.set_check_partial_options(wrt='*',directional=True)
+        #self.set_check_partial_options(wrt='*',directional=True)
 
         solver = self.options['solver']
         ap = self.options['ap']

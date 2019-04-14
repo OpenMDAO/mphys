@@ -158,9 +158,11 @@ model.connect('aero_mesh.x_a0',['fsi_solver.disp_xfer.x_a0',
 model.connect('struct_mesh.x_s0',['fsi_solver.disp_xfer.x_s0',
                                   'fsi_solver.load_xfer.x_s0',
                                   'fsi_solver.struct.x_s0',
-                                  'struct_funcs.x_s0'])
+                                  'struct_funcs.x_s0',
+                                  'struct_mass.x_s0'])
 model.connect('dv.dv_struct',['fsi_solver.struct.dv_struct',
-                              'struct_funcs.dv_struct'])
+                              'struct_funcs.dv_struct',
+                              'struct_mass.dv_struct'])
 
 
 model.connect('fsi_solver.aero.deformer.x_g','aero_funcs.x_g')

@@ -357,11 +357,7 @@ class TacsFunctions(ExplicitComponent):
         # since it is not dependent on the structural state
         func_no_mass = []
         for i,func in enumerate(func_list):
-            if isinstance(func,functions.StructuralMass):
-                if not self.mass:
-                    self.add_output('mass', 0.0, desc = 'structural mass')
-                    self.mass = True
-            else:
+            if not isinstance(func,functions.StructuralMass):
                 func_no_mass.append(func)
 
         self.func_list = func_no_mass
@@ -370,10 +366,6 @@ class TacsFunctions(ExplicitComponent):
 
             # declare the partials
             #self.declare_partials('f_struct',['dv_struct','x_s0','u_s'])
-
-        if self.mass:
-            #self.declare_partials('mass',['dv_struct','x_s0'])
-            pass
 
     def _update_internal(self,inputs):
         self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
@@ -416,6 +408,94 @@ class TacsFunctions(ExplicitComponent):
         if 'f_struct' in outputs:
             outputs['f_struct'] = self.tacs.evalFunctions(self.func_list)
 
+    def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
+        if mode == 'fwd':
+            if self.check_partials:
+                pass
+            else:
+                raise ValueError('forward mode requested but not implemented')
+        if mode == 'rev':
+            if self.check_partials:
+                self._update_internal(inputs)
+
+            if 'f_struct' in d_outputs:
+                for ifunc, func in enumerate(self.func_list):
+                    self.tacs.evalFunctions([func])
+                    if 'dv_struct' in d_inputs:
+                        dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
+                        self.tacs.evalDVSens(func, dvsens)
+
+                        d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_outputs['f_struct'][ifunc]
+
+                    if 'x_s0' in d_inputs:
+                        xpt_sens = self.xpt_sens
+                        xpt_sens_array = xpt_sens.getArray()
+                        self.tacs.evalXptSens(func, xpt_sens)
+
+                        d_inputs['x_s0'][:] += np.array(xpt_sens_array,dtype=float) * d_outputs['f_struct'][ifunc]
+
+                    if 'u_s' in d_inputs:
+                        prod = self.tacs.createVec()
+                        self.tacs.evalSVSens(func,prod)
+                        prod_array = prod.getArray()
+
+                        d_inputs['u_s'][:] += np.array(prod_array,dtype=float) * d_outputs['f_struct'][ifunc]
+class TacsMassFunction(ExplicitComponent):
+    """
+    Component to compute TACS mass
+
+    Assumptions:
+        - User will provide a tacs_func_setup function that will set up a list of functions
+          => func_list, tacs, struct_ndv = tacs_func_setup(comm)
+    """
+    def initialize(self):
+        self.options.declare('tacs_func_setup', desc = 'function to feed tacs function-evaluation information')
+
+        self.ans = None
+        self.tacs = None
+
+        self.mass = False
+
+        self.check_partials = True
+
+    def setup(self):
+#        self.set_check_partial_options(wrt='*',directional=True)
+
+        # TACS part of setup
+        tacs_func_setup = self.options['tacs_func_setup']
+        func_list, tacs, ndv, mat, pc = tacs_func_setup(self.comm)
+
+        self.tacs = tacs
+
+        self.xpt_sens = tacs.createNodeVec()
+        node_size = self.xpt_sens.getArray().size
+
+        n_list = self.comm.allgather(node_size)
+        irank  = self.comm.rank
+
+        n1 = np.sum(n_list[:irank])
+        n2 = np.sum(n_list[:irank+1])
+
+        # OpenMDAO part of setup
+        self.add_input('dv_struct', shape=ndv,                                                    desc='tacs design variables')
+        self.add_input('x_s0',      shape=node_size,  src_indices=np.arange(n1, n2, dtype=int),   desc='structural node coordinates')
+
+        self.add_output('mass', 0.0, desc = 'structural mass')
+        #self.declare_partials('mass',['dv_struct','x_s0'])
+
+    def _update_internal(self,inputs):
+        self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
+
+        xpts = self.tacs.createNodeVec()
+        self.tacs.getNodes(xpts)
+        xpts_array = xpts.getArray()
+        xpts_array[:] = inputs['x_s0']
+        self.tacs.setNodes(xpts)
+
+    def compute(self,inputs,outputs):
+        if self.check_partials:
+            self._update_internal(inputs)
+
         if 'mass' in outputs:
             func = functions.StructuralMass(self.tacs)
             outputs['mass'] = self.tacs.evalFunctions([func])
@@ -445,28 +525,6 @@ class TacsFunctions(ExplicitComponent):
 
                     d_inputs['x_s0'] += np.array(xpt_sens_array,dtype=float) * d_outputs['mass']
 
-            if 'f_struct' in d_outputs:
-                for ifunc, func in enumerate(self.func_list):
-                    self.tacs.evalFunctions([func])
-                    if 'dv_struct' in d_inputs:
-                        dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
-                        self.tacs.evalDVSens(func, dvsens)
-
-                        d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_outputs['f_struct'][ifunc]
-
-                    if 'x_s0' in d_inputs:
-                        xpt_sens = self.xpt_sens
-                        xpt_sens_array = xpt_sens.getArray()
-                        self.tacs.evalXptSens(func, xpt_sens)
-
-                        d_inputs['x_s0'][:] += np.array(xpt_sens_array,dtype=float) * d_outputs['f_struct'][ifunc]
-
-                    if 'u_s' in d_inputs:
-                        prod = self.tacs.createVec()
-                        self.tacs.evalSVSens(func,prod)
-                        prod_array = prod.getArray()
-
-                        d_inputs['u_s'][:] += np.array(prod_array,dtype=float) * d_outputs['f_struct'][ifunc]
 
 class PrescribedLoad(ExplicitComponent):
     """

@@ -1,6 +1,6 @@
 
 from omfsi.fsi_group import FsiSolver
-from omfsi.tacs_component import TacsMesh, TacsSolver, TacsFunctions
+from omfsi.tacs_component import TacsMesh, TacsSolver, TacsFunctions, TacsMassFunction
 from omfsi.displacement_xfer_component import FuntofemDisplacementTransfer
 from omfsi.load_xfer_component import FuntofemLoadTransfer
 from omfsi.aero_groups import AeroSolverGroup
@@ -95,7 +95,8 @@ class FsiComps(object):
         Initialize the TACS function evaluator
         """
         tacs_funcs = TacsFunctions(tacs_func_setup=self.tacs_func_setup)
-        return tacs_funcs
+        tacs_mass = TacsMassFunction(tacs_func_setup=self.tacs_func_setup)
+        return tacs_funcs, tacs_mass
 
     def add_tacs_mesh(self,model,prefix='',reuse_solvers=True):
         # Initialize the disciplinary meshes
@@ -104,8 +105,9 @@ class FsiComps(object):
 
     def add_tacs_functions(self,model,prefix='',reuse_solvers=True):
         # Initialize the function evaluators
-        struct_funcs = self._initialize_function_evaluators()
+        struct_funcs,struct_mass = self._initialize_function_evaluators()
         model.add_subsystem('struct_funcs',struct_funcs)
+        model.add_subsystem('struct_mass',struct_mass)
 
     def tacs_mesh_setup(self,comm):
         """

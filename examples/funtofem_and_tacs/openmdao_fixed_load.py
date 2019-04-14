@@ -90,9 +90,11 @@ model.connect('aero_mesh.x_a0',['fsi_solver.disp_xfer.x_a0',
 model.connect('struct_mesh.x_s0',['fsi_solver.disp_xfer.x_s0',
                                   'fsi_solver.load_xfer.x_s0',
                                   'fsi_solver.struct.x_s0',
-                                  'struct_funcs.x_s0'])
+                                  'struct_funcs.x_s0',
+                                  'struct_mass.x_s0'])
 model.connect('dv.dv_struct',['fsi_solver.struct.dv_struct',
-                              'struct_funcs.dv_struct'])
+                              'struct_funcs.dv_struct',
+                              'struct_mass.dv_struct'])
 model.connect('dv.dv_aero',['fsi_solver.aero.solver.dv_aero'])
 
 
@@ -102,5 +104,5 @@ fsi_comps.create_fsi_connections(model,nonlinear_xfer=True)
 prob.setup(force_alloc_complex=True)
 
 prob.run_model()
-#prob.check_partials()
-prob.check_partials(step=1e-30,compact_print=False,method='cs')
+#prob.check_partials(step=1e-30,compact_print=False,method='cs')
+prob.check_partials(step=1e-30,compact_print=True,method='cs')
