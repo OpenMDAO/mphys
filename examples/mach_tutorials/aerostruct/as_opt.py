@@ -107,7 +107,7 @@ def add_elements(mesh):
 
     return ndof, ndv
 
-def write_f5(tacs)
+def write_f5(tacs):
     flag = (TACS.ToFH5.NODES |
             TACS.ToFH5.DISPLACEMENTS |
             TACS.ToFH5.STRAINS |
@@ -210,8 +210,16 @@ model.add_constraint('struct_funcs.f_struct',lower = 0.0, upper = 2.0/3.0,scaler
 model.add_constraint('balance',equals = 0.0, scaler=1.0/1000.0)
 
 prob.setup()
-prob.run_driver()
+#prob.run_driver()
 
-for i in range(810):
-    print('final dvs',i,prob['dvs.dv_struct'][i])
-print('final alpha',i,prob['dvs.alpha'])
+prob.run_model()
+derivs = prob.compute_totals(of=['balance','struct_funcs.f_struct','struct_mass.mass'],wrt=['dvs.alpha','dvs.dv_struct'])
+if MPI.COMM_WORLD.Get_rank() ==0:
+    print('derivs',derivs)
+
+    for i in derivs:
+        print('der',i,derivs[i])
+
+    for i in range(810):
+        print('final dvs',i,prob['dvs.dv_struct'][i])
+    print('final alpha',i,prob['dvs.alpha'])

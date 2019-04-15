@@ -190,7 +190,7 @@ class TacsSolver(ImplicitComponent):
         tacs.setVariables(ans)
 
         if self.f5_writer is not None:
-            self.f5writer(tacs)
+            self.f5_writer(tacs)
 
     def solve_linear(self,d_outputs,d_residuals,mode):
         if mode == 'fwd':
