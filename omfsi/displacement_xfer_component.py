@@ -1,6 +1,7 @@
 import numpy as np
 
 from openmdao.api import ExplicitComponent
+from funtofem import TransferScheme
 
 class FuntofemDisplacementTransfer(ExplicitComponent):
     """
@@ -15,12 +16,15 @@ class FuntofemDisplacementTransfer(ExplicitComponent):
         self.initialized_meld = False
 
     def setup(self):
+        #self.set_check_partial_options(wrt='*',directional=True)
+
         # get the transfer scheme object
         disp_xfer_setup = self.options['disp_xfer_setup']
         meld, aero_nnodes, struct_nnodes, struct_ndof = disp_xfer_setup(self.comm)
         self.meld = meld
         self.struct_ndof = struct_ndof
         self.struct_nnodes = struct_nnodes
+        self.aero_nnodes = aero_nnodes
 
         irank = self.comm.rank
 
@@ -42,17 +46,17 @@ class FuntofemDisplacementTransfer(ExplicitComponent):
         self.add_input('u_s',  shape = struct_nnodes*struct_ndof, src_indices = np.arange(su1, su2, dtype=int), desc='structural node displacements')
 
         # outputs
-        self.add_output('u_a', shape = aero_nnodes*3,             desc='aerodynamic surface displacements')
+        self.add_output('u_a', shape = aero_nnodes*3, val=np.zeros(aero_nnodes*3), desc='aerodynamic surface displacements')
 
         # partials
         #self.declare_partials('u_a',['x_s0','x_a0','u_s'])
 
     def compute(self, inputs, outputs):
-        x_s0 = inputs['x_s0']
-        x_a0 = inputs['x_a0']
-        u_a  = outputs['u_a']
+        x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
+        x_a0 = np.array(inputs['x_a0'],dtype=TransferScheme.dtype)
+        u_a  = np.array(outputs['u_a'],dtype=TransferScheme.dtype)
 
-        u_s  = np.zeros(self.struct_nnodes*3)
+        u_s  = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
         for i in range(3):
             u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
 
@@ -65,6 +69,8 @@ class FuntofemDisplacementTransfer(ExplicitComponent):
 
         self.meld.transferDisps(u_s,u_a)
 
+        outputs['u_a'] = u_a
+
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         """
         The explicit component is defined as:
@@ -74,24 +80,35 @@ class FuntofemDisplacementTransfer(ExplicitComponent):
         So explicit partials below for u_a are negative partials of D
         """
         if mode == 'fwd':
-            raise ValueError('forward mode requested but not implemented')
+            if 'u_a' in d_outputs:
+                if 'u_s' in d_inputs:
+                    d_in = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+                    for i in range(3):
+                        d_in[i::3] = d_inputs['u_s'][i::self.struct_ndof]
+                    prod = np.zeros(self.aero_nnodes*3,dtype=TransferScheme.dtype)
+                    self.meld.applydDduS(d_in,prod)
+                    d_outputs['u_a'] -= np.array(prod,dtype=float)
+            else:
+                #raise ValueError('forward mode requested but not implemented')
+                pass
 
         if mode == 'rev':
             if 'u_a' in d_outputs:
+                du_a = np.array(d_outputs['u_a'],dtype=TransferScheme.dtype)
                 if 'u_s' in d_inputs:
                     # du_a/du_s^T * psi = - dD/du_s^T psi
-                    prod = np.zeros(self.struct_nnodes*3)
-                    self.meld.applydDduSTrans(d_outputs['u_a'],prod)
+                    prod = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+                    self.meld.applydDduSTrans(du_a,prod)
                     for i in range(3):
-                        d_inputs['u_s'][i::self.struct_ndof] -= prod[i::3]
+                        d_inputs['u_s'][i::self.struct_ndof] -= np.array(prod[i::3],dtype=float)
 
                 # du_a/dx_a0^T * psi = - psi^T * dD/dx_a0 in F2F terminology
                 if 'x_a0' in d_inputs:
-                    prod = np.zeros(d_inputs['x_a0'].size)
-                    self.meld.applydDdxA0(d_outputs['u_a'],prod)
-                    d_inputs['x_a0'] -= prod
+                    prod = np.zeros(d_inputs['x_a0'].size,dtype=TransferScheme.dtype)
+                    self.meld.applydDdxA0(du_a,prod)
+                    d_inputs['x_a0'] -= np.array(prod,dtype=float)
 
                 if 'x_s0' in d_inputs:
-                    prod = np.zeros(self.struct_nnodes*3)
-                    self.meld.applydDdxS0(d_outputs['u_a'],prod)
-                    d_inputs['x_s0'] -= prod
+                    prod = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+                    self.meld.applydDdxS0(du_a,prod)
+                    d_inputs['x_s0'] -= np.array(prod,dtype=float)

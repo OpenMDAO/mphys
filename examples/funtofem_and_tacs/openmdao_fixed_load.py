@@ -12,6 +12,7 @@ from openmdao.api import SqliteRecorder
 
 from tacs import elements, constitutive
 from assemble_dummy_aero import FsiComps
+from dummy_aero_fixed import *
 
 ################################################################################
 # Tacs solver pieces
@@ -27,7 +28,7 @@ def add_elements(mesh):
     max_thickness = 1.00
 
     num_components = mesh.getNumComponents()
-    for i in xrange(num_components):
+    for i in range(num_components):
         descript = mesh.getElementDescript(i)
         stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, t, i,
                                      min_thickness, max_thickness)
@@ -44,7 +45,7 @@ def add_elements(mesh):
 func_list = ['ks_failure','mass']
 tacs_setup = {'add_elements': add_elements,
               'nprocs'      : 4,
-              'mesh_file'   : 'CRM_box_2nd.bdf',
+              'mesh_file'   : 'debug.bdf',
               'func_list'   : func_list}
 meld_setup = {'isym': 1,
               'n': 200,
@@ -53,7 +54,6 @@ flow_setup = {}
 
 setup = {'tacs': tacs_setup, 'meld': meld_setup, 'flow': flow_setup}
 
-fsi_comps = FsiComps()
 
 ################################################################################
 # OpenMDAO setup
@@ -62,30 +62,47 @@ prob = Problem()
 model = prob.model
 
 indeps = IndepVarComp()
-indeps.add_output('dv_struct',np.array(240*[0.0031]))
+indeps.add_output('dv_struct',np.array([0.1]))
 indeps.add_output('dv_aero',1.0)
-model.add_subsystem('indeps',indeps,promotes=['dv_struct','dv_aero'])
+model.add_subsystem('dv',indeps)
 
-fsi_comps.add_fsi_subsystems(model,setup)
+fsi_comps = FsiComps(tacs_setup,meld_setup)
+fsi_comps.add_tacs_mesh(model)
+aero_mesh = AeroMesh(aero_mesh_setup=fsi_comps.aero_mesh_setup)
+aero_deform = AeroDeformer(aero_deformer_setup=fsi_comps.aero_deformer_setup)
+aero_solver = AeroSolver(aero_solver_setup=fsi_comps.aero_solver_setup)
+aero_forces = AeroForceIntegrator(aero_force_integrator_setup=fsi_comps.aero_force_integrator_setup)
 
-prob.driver = ScipyOptimizeDriver(debug_print=['objs','nl_cons'],maxiter=1000)
-prob.driver.options['optimizer'] = 'SLSQP'
+model.add_subsystem('aero_mesh',aero_mesh)
+aero_group = Group()
+aero_group.add_subsystem('deformer',aero_deform)
+aero_group.add_subsystem('solver',aero_solver)
+aero_group.add_subsystem('forces',aero_forces)
+aero_group.nonlinear_solver = NonlinearRunOnce()
+aero_group.linear_solver = LinearRunOnce()
 
-#recorder = SqliteRecorder('crm.sql')
-#prob.driver.add_recorder(recorder)
-#prob.driver.recording_options['includes'] = ['*']
+fsi_comps.add_fsi_subsystems(model,aero_group,aero_nnodes=2)
+fsi_comps.add_tacs_functions(model)
 
-model.add_design_var('dv_struct',lower=0.001,upper=0.075,scaler=1.0/1.0)
+model.connect('aero_mesh.x_a0',['fsi_solver.disp_xfer.x_a0',
+                                'fsi_solver.geo_disps.x_a0',
+                                'fsi_solver.load_xfer.x_a0'])
+model.connect('struct_mesh.x_s0',['fsi_solver.disp_xfer.x_s0',
+                                  'fsi_solver.load_xfer.x_s0',
+                                  'fsi_solver.struct.x_s0',
+                                  'struct_funcs.x_s0',
+                                  'struct_mass.x_s0'])
+model.connect('dv.dv_struct',['fsi_solver.struct.dv_struct',
+                              'struct_funcs.dv_struct',
+                              'struct_mass.dv_struct'])
+model.connect('dv.dv_aero',['fsi_solver.aero.solver.dv_aero'])
 
-model.add_objective('mass',scaler=1.0/100000.0)
-model.add_constraint('f_struct',lower = 0.0, upper = 2.0/3.0,scaler=100.0/100.0)
 
-prob.setup()
+model.connect('fsi_solver.struct.u_s','struct_funcs.u_s')
+fsi_comps.create_fsi_connections(model,nonlinear_xfer=True)
 
-#prob.run_model()
-#prob.check_partials()
+prob.setup(force_alloc_complex=True)
 
-prob.run_driver()
-
-for i in range(240):
-    print('final dvs',i,prob['dv_struct'][i])
+prob.run_model()
+#prob.check_partials(step=1e-30,compact_print=False,method='cs')
+prob.check_partials(step=1e-30,compact_print=True,method='cs')

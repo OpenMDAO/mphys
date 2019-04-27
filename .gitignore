@@ -1,2 +1,10 @@
 .DS_Store
 *pyc
+*out
+*cgns
+*plt
+*dat
+*swp
+*f5
+*html
+*bdf

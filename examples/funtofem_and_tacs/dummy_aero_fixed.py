@@ -36,6 +36,7 @@ class AeroDeformer(ImplicitComponent):
         flow = self.options['aero_deformer_setup'](self.comm)
         nnodes = flow['nnodes']
 
+        print('KEJ deformer print',nnodes*3)
         self.add_input('x_a0',shape=nnodes*3, desc='dummy aero jig shape surface coordinates')
         self.add_input('x_a',shape=nnodes*3, desc='dummy aero deformed surface coordinates')
         self.add_output('x_g',shape=nnodes*3, desc='dummy aero volume grid')
@@ -48,13 +49,13 @@ class AeroDeformer(ImplicitComponent):
 
     def solve_linear(self, d_outputs,d_residuals,mode):
         if mode == 'fwd':
-            raise ValueError('forward mode requested but not implemented')
+            pass
         if mode == 'rev':
             d_residuals['x_g'] += d_outputs['x_g']
 
     def apply_linear(self,inputs,outputs,d_inputs,d_outputs,d_residuals,mode):
         if mode == 'fwd':
-            raise ValueError('forward mode requested but not implemented')
+            pass
         if mode == 'rev':
             if 'x_g' in d_residuals:
                 if 'x_g' in d_outputs:
@@ -90,13 +91,13 @@ class AeroSolver(ImplicitComponent):
 
     def solve_linear(self, d_outputs,d_residuals,mode):
         if mode == 'fwd':
-            raise ValueError('forward mode requested but not implemented')
+            pass
         if mode == 'rev':
             d_residuals['q'] += d_outputs['q']
 
     def apply_linear(self,inputs,outputs,d_inputs,d_outputs,d_residuals,mode):
         if mode == 'fwd':
-            raise ValueError('forward mode requested but not implemented')
+            pass
         if mode == 'rev':
             if 'q' in d_residuals:
                 if 'q' in d_outputs:
@@ -126,7 +127,7 @@ class AeroForceIntegrator(ExplicitComponent):
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
-            raise ValueError('forward mode requested but not implemented')
+            pass
         if mode == 'rev':
             if 'f_a' in d_outputs:
                 if 'q' in d_inputs:
