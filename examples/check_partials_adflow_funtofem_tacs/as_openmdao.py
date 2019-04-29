@@ -4,19 +4,21 @@ import numpy
 from adflow import ADFLOW
 from baseclasses import *
 from mpi4py import MPI
+
+from omfsi.fsi_assembler import *
 from omfsi.adflow_component import *
-from omfsi.assemble import *
+from omfsi.tacs_component import *
+from omfsi.meld_xfer_component import *
 
 from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
 from openmdao.api import NonlinearRunOnce, LinearRunOnce
+from openmdao.api import NonlinearBlockGS, LinearBlockGS
 
 from tacs import elements, constitutive
 
-use_openmdao = False
-
 #ADflow options
-aeroOptions = {
+aero_options = {
     # I/O Parameters
     'gridFile':'debug.cgns',
     'outputDirectory':'.',
@@ -52,13 +54,6 @@ aeroOptions = {
     # force integration
     'forcesAsTractions':False,
 }
-
-# Create aero solver
-CFDSolver = ADFLOW(options=aeroOptions)
-
-# Add features
-#CFDSolver.addLiftDistribution(150, 'z')
-#CFDSolver.addSlices('z', numpy.linspace(0.1, 14, 10))
 
 # Create AeroProblem
 ap = AeroProblem(name='debug',
@@ -117,30 +112,27 @@ meld_setup = {'isym': 2,
 ################################################################################
 # OpenMDAO setup
 ################################################################################
-# Adflow components set up
-aero_mesh   = AdflowMesh(ap=ap,solver=CFDSolver,options=aeroOptions)
-aero_deform = AdflowWarper(ap=ap,solver=CFDSolver)
-aero_solver = AdflowSolver(ap=ap,solver=CFDSolver)
-aero_forces = AdflowForces(ap=ap,solver=CFDSolver)
-aero_funcs  = AdflowFunctions(ap=ap,solver=CFDSolver)
+comm = MPI.COMM_WORLD
+aero_assembler = AdflowAssembler(comm,aero_options,ap)
+struct_assembler = TacsOmfsiAssembler(comm,tacs_setup,add_elements)
 
-# Aero group
-aero_group = Group()
-aero_group.add_subsystem('deformer',aero_deform)
-aero_group.add_subsystem('solver',aero_solver)
-aero_group.add_subsystem('forces',aero_forces)
-aero_group.nonlinear_solver = NonlinearRunOnce()
-aero_group.linear_solver = LinearRunOnce()
+aero_nnodes   = aero_assembler.solver_dict['nnodes']
+struct_nnodes = struct_assembler.solver_dict['nnodes']
+struct_ndof   = struct_assembler.solver_dict['ndof']
 
-aero_nnodes = int(CFDSolver.getSurfaceCoordinates().size /3)
+xfer_assembler = MeldAssembler(comm,comm,comm,meld_setup,aero_nnodes,struct_nnodes,struct_ndof)
 
+assembler = FsiAssembler(struct_assembler,aero_assembler,xfer_assembler)
 
 # OpenMDAO problem set up
 prob = Problem()
 model = prob.model
-
 model.nonlinear_solver = NonlinearRunOnce()
 model.linear_solver = LinearRunOnce()
+
+scenario = model.add_subsystem('cruise1',Group())
+scenario.nonlinear_solver = NonlinearRunOnce()
+scenario.linear_solver = LinearRunOnce()
 
 #Add the components and groups to the model
 indeps = IndepVarComp()
@@ -149,46 +141,20 @@ indeps.add_output('alpha',np.array(1.5))
 indeps.add_output('mach',np.array(0.3))
 model.add_subsystem('dv',indeps)
 
-assembler = FsiComps(tacs_setup,meld_setup)
-assembler.add_tacs_mesh(model)
-model.add_subsystem('aero_mesh',aero_mesh)
-
-assembler.add_fsi_subsystems(model,aero_group,aero_nnodes)
-
-assembler.add_tacs_functions(model)
-model.add_subsystem('aero_funcs',aero_funcs)
-
 # Connect the components
-model.connect('aero_mesh.x_a0',['fsi_solver.disp_xfer.x_a0',
-                                'fsi_solver.geo_disps.x_a0',
-                                'fsi_solver.load_xfer.x_a0'])
-model.connect('struct_mesh.x_s0',['fsi_solver.disp_xfer.x_s0',
-                                  'fsi_solver.load_xfer.x_s0',
-                                  'fsi_solver.struct.x_s0',
-                                  'struct_funcs.x_s0',
-                                  'struct_mass.x_s0'])
-model.connect('dv.dv_struct',['fsi_solver.struct.dv_struct',
-                              'struct_funcs.dv_struct',
-                              'struct_mass.dv_struct'])
-model.connect('dv.alpha',['fsi_solver.aero.solver.alpha',
-                          'fsi_solver.aero.forces.alpha',
-                          'aero_funcs.alpha'])
-model.connect('dv.mach',['fsi_solver.aero.solver.mach',
-                          'fsi_solver.aero.forces.mach',
-                          'aero_funcs.mach'])
-
-
-model.connect('fsi_solver.aero.deformer.x_g','aero_funcs.x_g')
-model.connect('fsi_solver.aero.solver.q','aero_funcs.q')
-
-model.connect('fsi_solver.struct.u_s','struct_funcs.u_s')
-assembler.create_fsi_connections(model,nonlinear_xfer=True)
+assembler.connection_srcs['dv_struct'] = 'dv.dv_struct'
+assembler.connection_srcs['alpha'] = 'dv.alpha'
+assembler.connection_srcs['mach'] = 'dv.mach'
+assembler.add_model_components(model)
+fsi_group = assembler.add_fsi_subsystem(model,scenario)
+fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100)
+fsi_group.linear_solver = LinearBlockGS(maxiter=100)
 
 
 prob.setup()
 prob.run_model()
-prob.check_partials(step=1e-8,compact_print=True)
+#prob.check_partials(step=1e-8,compact_print=True)
 
 if MPI.COMM_WORLD.rank == 0:
-    print('cl =',prob['aero_funcs.lift'])
-    print('cd =',prob['aero_funcs.drag'])
+    print('lift =',prob['aero_funcs.lift'])
+    print('drag =',prob['aero_funcs.drag'])

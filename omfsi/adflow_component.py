@@ -7,65 +7,66 @@ from baseclasses import AeroProblem
 from adflow import ADFLOW
 from pywarp import MBMesh
 
-from openmdao.api import ImplicitComponent, ExplicitComponent
+from openmdao.api import Group, ImplicitComponent, ExplicitComponent
 from openmdao.core.analysis_error import AnalysisError
 
 from adflow.python.om_utils import get_dvs_and_cons
 
 class AdflowAssembler(object):
-    def __init__(self,options,ap):
+    def __init__(self,comm,options,ap):
+        self.comm = comm
         self.solver = ADFLOW(options=options)
         self.ap = ap
 
+        self.mesh = MBMesh(comm=self.comm,options=options)
+        self.solver.setMesh(self.mesh)
+
+        self.solver_dict = {}
         self.solver_dict['nnodes'] = int(self.solver.getSurfaceCoordinates().size /3)
 
-
-    def _solver_setup(self):
-        mat = self.tacs.createFEMat()
-        pc = TACS.Pc(mat)
-
-        self.mat = mat
-        self.pc = pc
-
-        subspace = 100
-        restarts = 2
-        self.gmres = TACS.KSM(mat, pc, subspace, restarts)
-
-    def add_components(self,model,scenario,fsi_group,connection_srcs):
-
-        # add the components to the group
+    def add_model_components(self,model,connection_srcs):
         mesh_comp     = AdflowMesh(ap=self.ap,solver=self.solver)
+        model.add_subsystem('aero_mesh',mesh_comp)
+
+        connection_srcs['x_a0'] = 'aero_mesh.x_a0_mesh'
+
+    def add_scenario_components(self,model,scenario,connection_srcs):
+        func_comp     = AdflowFunctions(ap=self.ap,solver=self.solver)
+        scenario.add_subsystem('aero_funcs',func_comp)
+
+    def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
+        # add the components to the group
         deformer_comp = AdflowWarper(ap=self.ap,solver=self.solver)
         solver_comp   = AdflowSolver(ap=self.ap,solver=self.solver)
         force_comp    = AdflowForces(ap=self.ap,solver=self.solver)
-        func_comp     = AdflowFunctions(ap=self.ap,solver=self.solver)
 
         aero_group = Group()
         aero_group.add_subsystem('deformer',deformer_comp)
         aero_group.add_subsystem('solver',solver_comp)
-        aero_group.add_subsystem('forces',force_comp)
+        aero_group.add_subsystem('force',force_comp)
 
         fsi_group.add_subsystem('aero_group',aero_group)
-        scenario.add_subsystem('aero_funcs',aero_funcs)
 
-        connection_srcs['x_a0'] = 'aero_mesh.x_a0_mesh'
         connection_srcs['q'] = scenario.name+'.'+fsi_group.name+'.aero_group.solver.q'
         connection_srcs['x_g'] = scenario.name+'.'+fsi_group.name+'.aero_group.deformer.x_g'
         connection_srcs['f_a'] = scenario.name+'.'+fsi_group.name+'.aero_group.force.f_a'
 
     def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
 
-       model.connect(connection_srcs['x_a'],[fsi_group.name+'aero_group.deformer.x_a'])
+        model.connect(connection_srcs['x_a'],[scenario.name+'.'+fsi_group.name+'.aero_group.deformer.x_a'])
 
-       model.connect(connection_srcs['x_g'],[fsi_group.name+'aero_group.solver.x_g',
-                                                fsi_group.name+'aero_group.force.x_g',
-                                                'aero_funcs.x_g'])
+        model.connect(connection_srcs['x_g'],[scenario.name+'.'+fsi_group.name+'.aero_group.solver.x_g',
+                                                 scenario.name+'.'+fsi_group.name+'.aero_group.force.x_g',
+                                                 scenario.name+'.'+'aero_funcs.x_g'])
 
-       model.connect(connection_srcs['q'],[fsi_group.name+'aero_group.force.q',
-                                              'aero_funcs.q'])
+        model.connect(connection_srcs['q'],[scenario.name+'.'+fsi_group.name+'.aero_group.force.q',
+                                               scenario.name+'.'+'aero_funcs.q'])
 
+        for dv in self.ap.DVs:
+            model.connect(connection_srcs[dv],[scenario.name+'.'+fsi_group.name+'.aero_group.solver.'+dv,
+                                               scenario.name+'.'+fsi_group.name+'.aero_group.force.'+dv,
+                                               scenario.name+'.'+'aero_funcs.'+dv])
 
-       model.connect(connection_srcs['x_a0'],[fsi_group.name+'aero_group.deformer.x_a0'])
 
 class AdflowMesh(ExplicitComponent):
     """
@@ -79,10 +80,8 @@ class AdflowMesh(ExplicitComponent):
         self.options['distributed'] = True
 
     def setup(self):
-        self.mesh = MBMesh(comm=self.comm,options=self.options['options'])
-        self.options['solver'].setMesh(self.mesh)
 
-        self.x_a0 = self.mesh.getSurfaceCoordinates().flatten(order='C')
+        self.x_a0 = self.options['solver'].mesh.getSurfaceCoordinates().flatten(order='C')
 
         coord_size = self.x_a0.size
 

@@ -11,26 +11,30 @@ class MeldAssembler(object):
         n    = options['n']
         beta = options['beta']
 
-        self.meld = TransferScheme.pyMELD(comm,aero_comm,0,self.struct_comm,0,isym,n,beta)
+        self.meld = TransferScheme.pyMELD(comm,aero_comm,0,struct_comm,0,isym,n,beta)
 
         self.aero_nnodes   = aero_nnodes
         self.struct_nnodes = struct_nnodes
         self.struct_ndof   = struct_ndof
 
-    def add_components(self,model,scenario,fsi_group,connection_srcs):
+    def add_model_components(self,model,connection_srcs):
+        pass
+    def add_scenario_components(self,model,scenario,connection_srcs):
+        pass
+    def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
 
-        fsi_group.add_subsystem('disp_xfer',MeldDisplacementTransfer(self.meld,
-                                                                     self.aero_nnodes,
-                                                                     self.struct_nnodes,
-                                                                     self.struct_ndof))
+        fsi_group.add_subsystem('disp_xfer',MeldDisplacementTransfer(meld          = self.meld,
+                                                                     aero_nnodes   = self.aero_nnodes,
+                                                                     struct_nnodes = self.struct_nnodes,
+                                                                     struct_ndof   = self.struct_ndof))
 
-        fsi_group.add_subsystem('load_xfer',MeldLoadTransfer(self.meld,
-                                                             self.aero_nnodes,
-                                                             self.struct_nnodes,
-                                                             self.struct_ndof))
+        fsi_group.add_subsystem('load_xfer',MeldLoadTransfer(meld          = self.meld,
+                                                             aero_nnodes   = self.aero_nnodes,
+                                                             struct_nnodes = self.struct_nnodes,
+                                                             struct_ndof   = self.struct_ndof))
 
         connection_srcs['u_a'] = scenario.name+'.'+fsi_group.name+'.disp_xfer.u_a'
-        connection_srcs['f_s'] = scenario.name+'.'+fsi_group.name+'.load_xfer.f_a'
+        connection_srcs['f_s'] = scenario.name+'.'+fsi_group.name+'.load_xfer.f_s'
 
     def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
         model.connect(connection_srcs['u_s'],[scenario.name+'.'+fsi_group.name+'.disp_xfer.u_s',
@@ -70,6 +74,9 @@ class MeldDisplacementTransfer(ExplicitComponent):
         self.struct_ndof = self.options['struct_ndof']
         self.struct_nnodes = self.options['struct_nnodes']
         self.aero_nnodes = self.options['aero_nnodes']
+        struct_ndof   = self.struct_ndof
+        struct_nnodes = self.struct_nnodes
+        aero_nnodes   = self.aero_nnodes
 
         irank = self.comm.rank
 
@@ -188,6 +195,10 @@ class MeldLoadTransfer(ExplicitComponent):
         self.struct_ndof = self.options['struct_ndof']
         self.struct_nnodes = self.options['struct_nnodes']
         self.aero_nnodes = self.options['aero_nnodes']
+
+        struct_ndof   = self.struct_ndof
+        struct_nnodes = self.struct_nnodes
+        aero_nnodes   = self.aero_nnodes
 
         irank = self.comm.rank
 

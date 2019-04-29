@@ -11,8 +11,13 @@ class TacsOmfsiAssembler(object):
         self.solver_options = solver_options
 
         # create the tacs assembler
-        mesh_file        = self.tacs_setup['mesh_file']
-        add_elements     = self.tacs_setup['add_elements']
+        mesh_file        = solver_options['mesh_file']
+        add_elements     = solver_options['add_elements']
+        self.func_list   = solver_options['func_list']
+
+        self.f5_writer = None
+        if f5_writer is not None:
+            self.f5_writer = f5_writer
 
         mesh = TACS.MeshLoader(comm)
         mesh.scanBDFFile(mesh_file)
@@ -40,45 +45,50 @@ class TacsOmfsiAssembler(object):
         restarts = 2
         self.gmres = TACS.KSM(mat, pc, subspace, restarts)
 
-    def add_components(self,model,scenario,fsi_group,connection_srcs):
+    def add_model_components(self,model,connection_srcs):
+        model.add_subsystem('struct_mesh',TacsMesh(tacs = self.tacs))
+
+        connection_srcs['x_s0'] = 'struct_mesh.x_s0_mesh'
+
+    def add_scenario_components(self,model,scenario,connection_srcs):
+        scenario.add_subsystem('struct_funcs',TacsFunctions(tacs = self.tacs,
+                                                            ndv  = self.solver_dict['ndv'],
+                                                            mat  = self.mat,
+                                                            pc   = self.pc,
+                                                            func_list = self.func_list))
+        scenario.add_subsystem('struct_mass',TacsMass(tacs = self.tacs,
+                                                      ndv  = self.solver_dict['ndv'],
+                                                      mat  = self.mat,
+                                                      pc   = self.pc))
+
+        connection_srcs['f_struct'] = scenario.name+'.struct_funcs.f_struct'
+        connection_srcs['mass'] = scenario.name+'.struct_mass.mass'
+
+    def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
 
         # add the components to the group
-        model.add_subsystem('struct_mesh',TacsMesh(self.tacs))
 
-        fsi_group.add_subsystem('struct',TacsSolver(self.tacs,
-                                                    self.mat,
-                                                    self.pc,
-                                                    self.gmres,
-                                                    self.solver_dict['ndv'],
-                                                    self.f5_writer))
+        fsi_group.add_subsystem('struct',TacsSolver(tacs      = self.tacs,
+                                                    mat       = self.mat,
+                                                    pc        = self.pc,
+                                                    gmres     = self.gmres,
+                                                    ndv       = self.solver_dict['ndv'],
+                                                    f5_writer = self.f5_writer))
 
-        scenario.add_subsystem('struct_funcs',TacsFunctions(self.tacs,
-                                                            self.solver_dict['ndv'],
-                                                            self.mat,
-                                                            self.pc,
-                                                            self.func_list))
-        scenario.add_subsystem('struct_mass',TacsMass(self.tacs,
-                                                      self.solver_dict['ndv'],
-                                                      self.mat,
-                                                      self.pc,
-                                                      self.func_list))
-        connection_srcs['x_s0'] = 'struct_mesh.x_s0_mesh'
         connection_srcs['u_s'] = scenario.name+'.'+fsi_group.name+'.struct.u_s'
-        connection_srcs['f_struct'] = scenario.name+'.'+fsi_group.name+'.struct_funcs.f_struct'
-        connection_srcs['mass'] = scenario.name+'.'+fsi_group.name+'.struct_mass.mass'
 
     def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
 
-       model.connect(connection_srcs['x_s0'],[scenario.name+'.'+fsi_group.name+'struct.dv_struct',
-                                                 scenario.name+'.'+fsi_group.name+'struct_funcs.dv_struct',
-                                                 scenario.name+'.'+fsi_group.name+'struct_mass.dv_struct'])
+       model.connect(connection_srcs['dv_struct'],[scenario.name+'.'+fsi_group.name+'.struct.dv_struct',
+                                                 scenario.name+'.struct_funcs.dv_struct',
+                                                 scenario.name+'.struct_mass.dv_struct'])
 
-       model.connect(connection_srcs['u_s'],[scenario.name+'.'+fsi_group.name+'struct_funcs.xs_0'])
-       model.connect(connection_srcs['f_s'],[scenario.name+'.'+fsi_group.name+'struct.f_s'])
+       model.connect(connection_srcs['u_s'],[scenario.name+'.struct_funcs.u_s'])
+       model.connect(connection_srcs['f_s'],[scenario.name+'.'+fsi_group.name+'.struct.f_s'])
 
-       model.connect(connection_srcs['x_s0'],[scenario.name+'.'+fsi_group.name+'struct.xs_0',
-                                                 scenario.name+'.'+fsi_group.name+'struct_funcs.xs_0',
-                                                 scenario.name+'.'+fsi_group.name+'struct_mass.xs_0'])
+       model.connect(connection_srcs['x_s0'],[scenario.name+'.'+fsi_group.name+'.struct.x_s0',
+                                                 scenario.name+'.struct_funcs.x_s0',
+                                                 scenario.name+'.struct_mass.x_s0'])
 
 class TacsMesh(ExplicitComponent):
     """
@@ -150,7 +160,7 @@ class TacsSolver(ImplicitComponent):
         pc    = self.options['pc']
         gmres = self.options['gmres']
         ndv = self.options['ndv']
-        self.f5_writer = self.options['tacs_f5_writer']
+        self.f5_writer = self.options['f5_writer']
 
         self.tacs = tacs
         self.pc = pc
@@ -518,7 +528,7 @@ class TacsFunctions(ExplicitComponent):
                         prod_array = prod.getArray()
 
                         d_inputs['u_s'][:] += np.array(prod_array,dtype=float) * d_outputs['f_struct'][ifunc]
-class TacsMassFunction(ExplicitComponent):
+class TacsMass(ExplicitComponent):
     """
     Component to compute TACS mass
 
