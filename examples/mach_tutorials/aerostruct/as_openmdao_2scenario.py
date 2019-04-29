@@ -68,7 +68,6 @@ ap = AeroProblem(name='wing',
 ap.addDV('alpha',value=1.5,name='alpha')
 ap.addDV('mach',value=0.8,name='mach')
 
-
 aero_assembler = AdflowAssembler(comm,aero_options,ap)
 aero_nnodes    = aero_assembler.solver_dict['nnodes']
 
@@ -140,13 +139,12 @@ model.linear_solver = LinearRunOnce()
 indeps = IndepVarComp()
 indeps.add_output('dv_struct',np.array(810*[0.01]))
 indeps.add_output('alpha',np.array(1.5))
-indeps.add_output('mach',np.array(0.8))
+indeps.add_output('mach1',np.array(0.8))
+indeps.add_output('mach2',np.array(0.7))
 model.add_subsystem('dv',indeps)
 
 
 assembler.connection_srcs['dv_struct'] = 'dv.dv_struct'
-assembler.connection_srcs['alpha'] = 'dv.alpha'
-assembler.connection_srcs['mach'] = 'dv.mach'
 
 assembler.add_model_components(model)
 
@@ -154,13 +152,25 @@ scenario = model.add_subsystem('cruise1',Group())
 scenario.nonlinear_solver = NonlinearRunOnce()
 scenario.linear_solver = LinearRunOnce()
 
+assembler.connection_srcs['dv_struct'] = 'dv.dv_struct'
+assembler.connection_srcs['alpha'] = 'dv.alpha'
+assembler.connection_srcs['mach'] = 'dv.mach1'
+
 fsi_group = assembler.add_fsi_subsystem(model,scenario)
+fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100)
+fsi_group.linear_solver = LinearBlockGS(maxiter=100)
+
+assembler.connection_srcs['dv_struct'] = 'dv.dv_struct'
+assembler.connection_srcs['alpha'] = 'dv.alpha'
+assembler.connection_srcs['mach'] = 'dv.mach2'
+
+scenario2 = model.add_subsystem('cruise2',Group())
+scenario2.nonlinear_solver = NonlinearRunOnce()
+scenario2.linear_solver = LinearRunOnce()
+
+fsi_group = assembler.add_fsi_subsystem(model,scenario2)
 fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100)
 fsi_group.linear_solver = LinearBlockGS(maxiter=100)
 
 prob.setup()
 prob.run_model()
-
-if MPI.COMM_WORLD.rank == 0:
-    print('cl =',prob['aero_funcs.cl'])
-    print('cd =',prob['aero_funcs.cd'])
