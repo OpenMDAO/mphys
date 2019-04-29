@@ -12,6 +12,61 @@ from openmdao.core.analysis_error import AnalysisError
 
 from adflow.python.om_utils import get_dvs_and_cons
 
+class AdflowAssembler(object):
+    def __init__(self,options,ap):
+        self.solver = ADFLOW(options=options)
+        self.ap = ap
+
+        self.solver_dict['nnodes'] = int(self.solver.getSurfaceCoordinates().size /3)
+
+
+    def _solver_setup(self):
+        mat = self.tacs.createFEMat()
+        pc = TACS.Pc(mat)
+
+        self.mat = mat
+        self.pc = pc
+
+        subspace = 100
+        restarts = 2
+        self.gmres = TACS.KSM(mat, pc, subspace, restarts)
+
+    def add_components(self,model,scenario,fsi_group,connection_srcs):
+
+        # add the components to the group
+        mesh_comp     = AdflowMesh(ap=self.ap,solver=self.solver)
+        deformer_comp = AdflowWarper(ap=self.ap,solver=self.solver)
+        solver_comp   = AdflowSolver(ap=self.ap,solver=self.solver)
+        force_comp    = AdflowForces(ap=self.ap,solver=self.solver)
+        func_comp     = AdflowFunctions(ap=self.ap,solver=self.solver)
+
+        aero_group = Group()
+        aero_group.add_subsystem('deformer',deformer_comp)
+        aero_group.add_subsystem('solver',solver_comp)
+        aero_group.add_subsystem('forces',force_comp)
+
+        fsi_group.add_subsystem('aero_group',aero_group)
+        scenario.add_subsystem('aero_funcs',aero_funcs)
+
+        connection_srcs['x_a0'] = 'aero_mesh.x_a0_mesh'
+        connection_srcs['q'] = scenario.name+'.'+fsi_group.name+'.aero_group.solver.q'
+        connection_srcs['x_g'] = scenario.name+'.'+fsi_group.name+'.aero_group.deformer.x_g'
+        connection_srcs['f_a'] = scenario.name+'.'+fsi_group.name+'.aero_group.force.f_a'
+
+    def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
+
+       model.connect(connection_srcs['x_a'],[fsi_group.name+'aero_group.deformer.x_a'])
+
+       model.connect(connection_srcs['x_g'],[fsi_group.name+'aero_group.solver.x_g',
+                                                fsi_group.name+'aero_group.force.x_g',
+                                                'aero_funcs.x_g'])
+
+       model.connect(connection_srcs['q'],[fsi_group.name+'aero_group.force.q',
+                                              'aero_funcs.q'])
+
+
+       model.connect(connection_srcs['x_a0'],[fsi_group.name+'aero_group.deformer.x_a0'])
+
 class AdflowMesh(ExplicitComponent):
     """
     Component to get the partitioned initial surface mesh coordinates
@@ -31,10 +86,10 @@ class AdflowMesh(ExplicitComponent):
 
         coord_size = self.x_a0.size
 
-        self.add_output('x_a0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
+        self.add_output('x_a0_mesh', shape=coord_size, desc='initial aerodynamic surface node coordinates')
 
     def compute(self,inputs,outputs):
-        outputs['x_a0'] = self.x_a0
+        outputs['x_a0_mesh'] = self.x_a0
 
 class AdflowWarper(ExplicitComponent):
     """
