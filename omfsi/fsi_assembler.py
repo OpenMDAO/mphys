@@ -16,25 +16,25 @@ class FsiAssembler(object):
 
     def add_model_components(self,model):
         self.geodisp_assembler.add_model_components(model,self.connection_srcs)
+        self.xfer_assembler.add_model_components(model,self.connection_srcs)
         self.struct_assembler.add_model_components(model,self.connection_srcs)
         self.aero_assembler.add_model_components(model,self.connection_srcs)
-        self.xfer_assembler.add_model_components(model,self.connection_srcs)
 
     def add_fsi_subsystem(self,model,scenario):
         fsi_group = scenario.add_subsystem('fsi_group',Group())
 
-        self.xfer_assembler.add_fsi_components(model,scenario,fsi_group,self.connection_srcs)
         self.geodisp_assembler.add_fsi_components(model,scenario,fsi_group,self.connection_srcs)
+        self.xfer_assembler.add_fsi_components(model,scenario,fsi_group,self.connection_srcs)
         self.struct_assembler.add_fsi_components(model,scenario,fsi_group,self.connection_srcs)
         self.aero_assembler.add_fsi_components(model,scenario,fsi_group,self.connection_srcs)
 
-        self.xfer_assembler.add_scenario_components(model,scenario,self.connection_srcs)
         self.geodisp_assembler.add_scenario_components(model,scenario,self.connection_srcs)
+        self.xfer_assembler.add_scenario_components(model,scenario,self.connection_srcs)
         self.struct_assembler.add_scenario_components(model,scenario,self.connection_srcs)
         self.aero_assembler.add_scenario_components(model,scenario,self.connection_srcs)
 
-        self.xfer_assembler.connect_inputs(model,scenario,fsi_group,self.connection_srcs)
         self.geodisp_assembler.connect_inputs(model,scenario,fsi_group,self.connection_srcs)
+        self.xfer_assembler.connect_inputs(model,scenario,fsi_group,self.connection_srcs)
         self.struct_assembler.connect_inputs(model,scenario,fsi_group,self.connection_srcs)
         self.aero_assembler.connect_inputs(model,scenario,fsi_group,self.connection_srcs)
 
@@ -74,7 +74,7 @@ class GeoDisp(ExplicitComponent):
         n2 = np.sum(n_list[:irank+1])
 
         self.add_input('x_a0',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
-        self.add_input('u_a', shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface displacements')
+        self.add_input('u_a', shape=local_size,value=np.zeros(local_size),src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface displacements')
 
         self.add_output('x_a',shape=local_size,desc='deformed aerodynamic surface')
 

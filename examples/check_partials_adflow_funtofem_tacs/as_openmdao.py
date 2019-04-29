@@ -17,6 +17,8 @@ from openmdao.api import NonlinearBlockGS, LinearBlockGS
 
 from tacs import elements, constitutive
 
+comm = MPI.COMM_WORLD
+
 #ADflow options
 aero_options = {
     # I/O Parameters
@@ -68,6 +70,9 @@ ap = AeroProblem(name='debug',
 ap.addDV('alpha',value=1.5,name='alpha')
 ap.addDV('mach',value=0.3,name='mach')
 
+aero_assembler = AdflowAssembler(comm,aero_options,ap)
+aero_nnodes    = aero_assembler.solver_dict['nnodes']
+
 ################################################################################
 # TACS setup
 ################################################################################
@@ -102,6 +107,10 @@ tacs_setup = {'add_elements': add_elements,
               'mesh_file'   : 'debug.bdf',
               'func_list'   : func_list}
 
+struct_assembler = TacsOmfsiAssembler(comm,tacs_setup,add_elements)
+struct_nnodes = struct_assembler.solver_dict['nnodes']
+struct_ndof   = struct_assembler.solver_dict['ndof']
+
 ################################################################################
 # Transfer scheme setup
 ################################################################################
@@ -109,18 +118,11 @@ meld_setup = {'isym': 2,
               'n': 200,
               'beta': 0.5}
 
+xfer_assembler = MeldAssembler(comm,comm,comm,meld_setup,aero_nnodes,struct_nnodes,struct_ndof)
+
 ################################################################################
 # OpenMDAO setup
 ################################################################################
-comm = MPI.COMM_WORLD
-aero_assembler = AdflowAssembler(comm,aero_options,ap)
-struct_assembler = TacsOmfsiAssembler(comm,tacs_setup,add_elements)
-
-aero_nnodes   = aero_assembler.solver_dict['nnodes']
-struct_nnodes = struct_assembler.solver_dict['nnodes']
-struct_ndof   = struct_assembler.solver_dict['ndof']
-
-xfer_assembler = MeldAssembler(comm,comm,comm,meld_setup,aero_nnodes,struct_nnodes,struct_ndof)
 
 assembler = FsiAssembler(struct_assembler,aero_assembler,xfer_assembler)
 
