@@ -132,9 +132,6 @@ model = prob.model
 model.nonlinear_solver = NonlinearRunOnce()
 model.linear_solver = LinearRunOnce()
 
-scenario = model.add_subsystem('cruise1',Group())
-scenario.nonlinear_solver = NonlinearRunOnce()
-scenario.linear_solver = LinearRunOnce()
 
 #Add the components and groups to the model
 indeps = IndepVarComp()
@@ -143,11 +140,16 @@ indeps.add_output('alpha',np.array(1.5))
 indeps.add_output('mach',np.array(0.3))
 model.add_subsystem('dv',indeps)
 
+assembler.add_model_components(model)
+
+scenario = model.add_subsystem('cruise1',Group())
+scenario.nonlinear_solver = NonlinearRunOnce()
+scenario.linear_solver = LinearRunOnce()
+
 # Connect the components
 assembler.connection_srcs['dv_struct'] = 'dv.dv_struct'
 assembler.connection_srcs['alpha'] = 'dv.alpha'
 assembler.connection_srcs['mach'] = 'dv.mach'
-assembler.add_model_components(model)
 fsi_group = assembler.add_fsi_subsystem(model,scenario)
 fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100)
 fsi_group.linear_solver = LinearBlockGS(maxiter=100)

@@ -40,31 +40,31 @@ class AdflowAssembler(object):
         solver_comp   = AdflowSolver(ap=self.ap,solver=self.solver)
         force_comp    = AdflowForces(ap=self.ap,solver=self.solver)
 
-        aero_group = Group()
-        aero_group.add_subsystem('deformer',deformer_comp)
-        aero_group.add_subsystem('solver',solver_comp)
-        aero_group.add_subsystem('force',force_comp)
+        aero = Group()
+        aero.add_subsystem('deformer',deformer_comp)
+        aero.add_subsystem('solver',solver_comp)
+        aero.add_subsystem('force',force_comp)
 
-        fsi_group.add_subsystem('aero_group',aero_group)
+        fsi_group.add_subsystem('aero',aero)
 
-        connection_srcs['q'] = scenario.name+'.'+fsi_group.name+'.aero_group.solver.q'
-        connection_srcs['x_g'] = scenario.name+'.'+fsi_group.name+'.aero_group.deformer.x_g'
-        connection_srcs['f_a'] = scenario.name+'.'+fsi_group.name+'.aero_group.force.f_a'
+        connection_srcs['q'] = scenario.name+'.'+fsi_group.name+'.aero.solver.q'
+        connection_srcs['x_g'] = scenario.name+'.'+fsi_group.name+'.aero.deformer.x_g'
+        connection_srcs['f_a'] = scenario.name+'.'+fsi_group.name+'.aero.force.f_a'
 
     def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
 
-        model.connect(connection_srcs['x_a'],[scenario.name+'.'+fsi_group.name+'.aero_group.deformer.x_a'])
+        model.connect(connection_srcs['x_a'],[scenario.name+'.'+fsi_group.name+'.aero.deformer.x_a'])
 
-        model.connect(connection_srcs['x_g'],[scenario.name+'.'+fsi_group.name+'.aero_group.solver.x_g',
-                                                 scenario.name+'.'+fsi_group.name+'.aero_group.force.x_g',
+        model.connect(connection_srcs['x_g'],[scenario.name+'.'+fsi_group.name+'.aero.solver.x_g',
+                                                 scenario.name+'.'+fsi_group.name+'.aero.force.x_g',
                                                  scenario.name+'.'+'aero_funcs.x_g'])
 
-        model.connect(connection_srcs['q'],[scenario.name+'.'+fsi_group.name+'.aero_group.force.q',
+        model.connect(connection_srcs['q'],[scenario.name+'.'+fsi_group.name+'.aero.force.q',
                                                scenario.name+'.'+'aero_funcs.q'])
 
         for dv in self.ap.DVs:
-            model.connect(connection_srcs[dv],[scenario.name+'.'+fsi_group.name+'.aero_group.solver.'+dv,
-                                               scenario.name+'.'+fsi_group.name+'.aero_group.force.'+dv,
+            model.connect(connection_srcs[dv],[scenario.name+'.'+fsi_group.name+'.aero.solver.'+dv,
+                                               scenario.name+'.'+fsi_group.name+'.aero.force.'+dv,
                                                scenario.name+'.'+'aero_funcs.'+dv])
 
 

@@ -38,7 +38,32 @@ class FsiAssembler(object):
         self.struct_assembler.connect_inputs(model,scenario,fsi_group,self.connection_srcs)
         self.aero_assembler.connect_inputs(model,scenario,fsi_group,self.connection_srcs)
 
+        self._reorder_fsi_group(fsi_group)
+
         return fsi_group
+
+    def _reorder_fsi_group(self,fsi_group):
+
+        # pull out the component names
+        comp_list = []
+        for comp in fsi_group._static_subsystems_allprocs:
+            print(comp.name)
+            comp_list.append(comp.name)
+
+        # set the order of known fsi components if they exist
+        new_list = ['disp_xfer','geo_disp','aero','load_xfer','struct']
+        new_order = []
+        for comp_name in new_list:
+            print ('comp_match', comp_name, comp_name in comp_list)
+            if comp_name in comp_list:
+                new_order.append(comp_list.pop(comp_list.index(comp_name)))
+
+        # append any other components in the group
+        new_order.extend(comp_list)
+
+        print('new_order',new_order)
+
+        fsi_group.set_order(new_order)
 
 
 class GeoDispAssembler(object):
