@@ -69,11 +69,10 @@ ap.addDV('alpha',value=1.5,name='alpha')
 ap.addDV('mach',value=0.8,name='mach')
 
 
-aero_assembler = AdflowAssembler(comm,aero_options,ap)
-aero_nnodes    = aero_assembler.solver_dict['nnodes']
+aero_assembler = AdflowAssembler(aero_options,ap)
 
-aero_assembler.solver.addLiftDistribution(150, 'z')
-aero_assembler.solver.addSlices('z', numpy.linspace(0.1, 14, 10))
+#aero_assembler.solver.addLiftDistribution(150, 'z')
+#aero_assembler.solver.addSlices('z', numpy.linspace(0.1, 14, 10))
 
 ################################################################################
 # TACS setup
@@ -110,8 +109,6 @@ tacs_setup = {'add_elements': add_elements,
               'func_list'   : func_list}
 
 struct_assembler = TacsOmfsiAssembler(comm,tacs_setup,add_elements)
-struct_nnodes = struct_assembler.solver_dict['nnodes']
-struct_ndof   = struct_assembler.solver_dict['ndof']
 
 ################################################################################
 # Transfer scheme setup

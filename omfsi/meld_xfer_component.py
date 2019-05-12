@@ -17,14 +17,12 @@ class MeldAssembler(object):
         self.meld = None
 
     def _get_meld(self):
-        if self.meld is not None:
-            return self.meld
-        else:
+        if self.meld is None:
             self.meld = TransferScheme.pyMELD(self.comm,
                                               self.aero_assembler.comm,0,
                                               self.struct_assembler.comm,0,
                                               self.isym,self.n,self.beta)
-            return self.meld
+        return self.meld
 
     def add_model_components(self,model,connection_srcs):
         pass

@@ -11,7 +11,7 @@ class FsiAssembler(object):
         self.aero_assembler   = aero_assembler
         self.xfer_assembler   = xfer_assembler
         if geodisp_assembler is None:
-            self.geodisp_assembler = GeoDispAssembler(aero_assembler.solver_dict['nnodes'])
+            self.geodisp_assembler = GeoDispAssembler(aero_assembler)
         self.connection_srcs = {}
 
     def add_model_components(self,model):
@@ -67,15 +67,17 @@ class FsiAssembler(object):
 
 
 class GeoDispAssembler(object):
-    def __init__(self,aero_nnodes):
-        self.aero_nnodes = aero_nnodes
+    def __init__(self,aero_assembler):
+        self.aero_assembler = aero_assembler
+    def get_aero_nnodes(self):
+        return self.aero_assembler.solver_dict['nnodes']
 
     def add_model_components(self,model,connection_srcs):
         pass
     def add_scenario_components(self,model,scenario,connection_srcs):
         pass
     def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
-        fsi_group.add_subsystem('geo_disp',GeoDisp(aero_nnodes=self.aero_nnodes))
+        fsi_group.add_subsystem('geo_disp',GeoDisp(get_aero_nnodes=self.get_aero_nnodes))
         connection_srcs['x_a'] = scenario.name+'.'+fsi_group.name+'.geo_disp.x_a'
     def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
         model.connect(connection_srcs['x_a0'],scenario.name+'.'+fsi_group.name+'.geo_disp.x_a0')
@@ -87,11 +89,11 @@ class GeoDisp(ExplicitComponent):
     displacements to the geometry-changed aerodynamic surface
     """
     def initialize(self):
-        self.options.declare('aero_nnodes',default=None,desc='number of aerodynamic nodes')
+        self.options.declare('get_aero_nnodes',default=None,desc='function to get number of aerodynamic nodes')
         self.options['distributed'] = True
 
     def setup(self):
-        local_size = self.options['aero_nnodes'] * 3
+        local_size = self.options['get_aero_nnodes']() * 3
         n_list = self.comm.allgather(local_size)
         irank  = self.comm.rank
 
