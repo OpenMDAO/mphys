@@ -115,11 +115,11 @@ struct_ndof   = struct_assembler.solver_dict['ndof']
 ################################################################################
 # Transfer scheme setup
 ################################################################################
-meld_setup = {'isym': 2,
-              'n': 200,
-              'beta': 0.5}
+meld_options = {'isym': 2,
+                'n': 200,
+                'beta': 0.5}
 
-xfer_assembler = MeldAssembler(comm,comm,comm,meld_setup,aero_nnodes,struct_nnodes,struct_ndof)
+xfer_assembler = MeldAssembler(meld_options,struct_assembler,aero_assembler)
 
 
 ################################################################################

@@ -4,18 +4,27 @@ from openmdao.api import ExplicitComponent
 from funtofem import TransferScheme
 
 class MeldAssembler(object):
-    def __init__(self,comm,aero_comm,struct_comm,options,aero_nnodes,struct_nnodes,struct_ndof):
+    def __init__(self,options,struct_assembler,aero_assembler):
 
         # transfer scheme options
-        isym = options['isym']
-        n    = options['n']
-        beta = options['beta']
+        self.isym = options['isym']
+        self.n    = options['n']
+        self.beta = options['beta']
 
-        self.meld = TransferScheme.pyMELD(comm,aero_comm,0,struct_comm,0,isym,n,beta)
+        self.struct_assembler = struct_assembler
+        self.aero_assembler = aero_assembler
 
-        self.aero_nnodes   = aero_nnodes
-        self.struct_nnodes = struct_nnodes
-        self.struct_ndof   = struct_ndof
+        self.meld = None
+
+    def _get_meld(self):
+        if self.meld is not None:
+            return self.meld
+        else:
+            self.meld = TransferScheme.pyMELD(self.comm,
+                                              self.aero_assembler.comm,0,
+                                              self.struct_assembler.comm,0,
+                                              self.isym,self.n,self.beta)
+            return self.meld
 
     def add_model_components(self,model,connection_srcs):
         pass
@@ -23,15 +32,8 @@ class MeldAssembler(object):
         pass
     def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
 
-        fsi_group.add_subsystem('disp_xfer',MeldDisplacementTransfer(meld          = self.meld,
-                                                                     aero_nnodes   = self.aero_nnodes,
-                                                                     struct_nnodes = self.struct_nnodes,
-                                                                     struct_ndof   = self.struct_ndof))
-
-        fsi_group.add_subsystem('load_xfer',MeldLoadTransfer(meld          = self.meld,
-                                                             aero_nnodes   = self.aero_nnodes,
-                                                             struct_nnodes = self.struct_nnodes,
-                                                             struct_ndof   = self.struct_ndof))
+        fsi_group.add_subsystem('disp_xfer',MeldDisplacementTransfer(setup_function = self.xfer_setup))
+        fsi_group.add_subsystem('load_xfer',MeldLoadTransfer(setup_function = self.xfer_setup))
 
         connection_srcs['u_a'] = scenario.name+'.'+fsi_group.name+'.disp_xfer.u_a'
         connection_srcs['f_s'] = scenario.name+'.'+fsi_group.name+'.load_xfer.f_s'
@@ -46,16 +48,22 @@ class MeldAssembler(object):
                                                   scenario.name+'.'+fsi_group.name+'.load_xfer.x_s0'])
         model.connect(connection_srcs['x_a0'],[scenario.name+'.'+fsi_group.name+'.disp_xfer.x_a0',
                                                   scenario.name+'.'+fsi_group.name+'.load_xfer.x_a0'])
+    def xfer_setup(self,comm):
+        self.comm = comm
+        self.struct_assembler.comm = comm
+        meld = self._get_meld()
+        struct_ndof   = self.struct_assembler.solver_dict['ndof']
+        struct_nnodes = self.struct_assembler.solver_dict['nnodes']
+        aero_nnodes   = self.aero_assembler.solver_dict['nnodes']
+
+        return meld, struct_ndof, struct_nnodes, aero_nnodes
 
 class MeldDisplacementTransfer(ExplicitComponent):
     """
     Component to perform displacement transfer using MELD
     """
     def initialize(self):
-        self.options.declare('meld', desc='MELD xfer scheme object')
-        self.options.declare('aero_nnodes', desc='number of aerodynamic nodes on this processor')
-        self.options.declare('struct_nnodes', desc='number of structrual nodes on this processor')
-        self.options.declare('struct_ndof', desc='number of structrual degrees of freedom per node')
+        self.options.declare('setup_function', desc='function to get shared data')
 
         self.options['distributed'] = True
 
@@ -67,16 +75,12 @@ class MeldDisplacementTransfer(ExplicitComponent):
         self.aero_nnodes = None
 
     def setup(self):
-        #self.set_check_partial_options(wrt='*',directional=True)
+        meld, struct_ndof, struct_nnodes, aero_nnodes = self.options['setup_function'](self.comm)
 
-        # get the transfer scheme object
-        self.meld = self.options['meld']
-        self.struct_ndof = self.options['struct_ndof']
-        self.struct_nnodes = self.options['struct_nnodes']
-        self.aero_nnodes = self.options['aero_nnodes']
-        struct_ndof   = self.struct_ndof
-        struct_nnodes = self.struct_nnodes
-        aero_nnodes   = self.aero_nnodes
+        self.meld = meld
+        self.struct_ndof   = struct_ndof
+        self.struct_nnodes = struct_nnodes
+        self.aero_nnodes   = aero_nnodes
 
         irank = self.comm.rank
 
@@ -173,10 +177,7 @@ class MeldLoadTransfer(ExplicitComponent):
     Component to perform load transfers using MELD
     """
     def initialize(self):
-        self.options.declare('meld', desc='MELD xfer scheme object')
-        self.options.declare('aero_nnodes', desc='number of aerodynamic nodes on this processor')
-        self.options.declare('struct_nnodes', desc='number of structrual nodes on this processor')
-        self.options.declare('struct_ndof', desc='number of structrual degrees of freedom per node')
+        self.options.declare('setup_function', desc='function to get shared data')
 
         self.options['distributed'] = True
 
@@ -191,14 +192,12 @@ class MeldLoadTransfer(ExplicitComponent):
 
     def setup(self):
         # get the transfer scheme object
-        self.meld = self.options['meld']
-        self.struct_ndof = self.options['struct_ndof']
-        self.struct_nnodes = self.options['struct_nnodes']
-        self.aero_nnodes = self.options['aero_nnodes']
+        meld, struct_ndof, struct_nnodes, aero_nnodes = self.options['setup_function'](self.comm)
 
-        struct_ndof   = self.struct_ndof
-        struct_nnodes = self.struct_nnodes
-        aero_nnodes   = self.aero_nnodes
+        self.meld = meld
+        self.struct_ndof   = struct_ndof
+        self.struct_nnodes = struct_nnodes
+        self.aero_nnodes   = aero_nnodes
 
         irank = self.comm.rank
 
