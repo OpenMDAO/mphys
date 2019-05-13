@@ -24,6 +24,9 @@ class AdflowAssembler(object):
 
         self.funcs_in_fsi = False
 
+    def get_nnodes(self):
+        return self.solver_dict['nnodes']
+
     def add_model_components(self,model,connection_srcs):
         mesh_comp     = AdflowMesh(ap=self.ap,get_solver=self.get_solver)
         model.add_subsystem('aero_mesh',mesh_comp)

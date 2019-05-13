@@ -50,9 +50,9 @@ class MeldAssembler(object):
         self.comm = comm
         self.struct_assembler.comm = comm
         meld = self._get_meld()
-        struct_ndof   = self.struct_assembler.solver_dict['ndof']
-        struct_nnodes = self.struct_assembler.solver_dict['nnodes']
-        aero_nnodes   = self.aero_assembler.solver_dict['nnodes']
+        struct_ndof   = self.struct_assembler.get_ndof()
+        struct_nnodes = self.struct_assembler.get_nnodes()
+        aero_nnodes   = self.aero_assembler.get_nnodes()
 
         return meld, struct_ndof, struct_nnodes, aero_nnodes
 

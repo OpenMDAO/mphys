@@ -54,14 +54,11 @@ class FsiAssembler(object):
         new_list = ['disp_xfer','geo_disp','aero','load_xfer','struct']
         new_order = []
         for comp_name in new_list:
-            print ('comp_match', comp_name, comp_name in comp_list)
             if comp_name in comp_list:
                 new_order.append(comp_list.pop(comp_list.index(comp_name)))
 
         # append any other components in the group
         new_order.extend(comp_list)
-
-        print('new_order',new_order)
 
         fsi_group.set_order(new_order)
 
@@ -70,7 +67,7 @@ class GeoDispAssembler(object):
     def __init__(self,aero_assembler):
         self.aero_assembler = aero_assembler
     def get_aero_nnodes(self):
-        return self.aero_assembler.solver_dict['nnodes']
+        return self.aero_assembler.get_nnodes()
 
     def add_model_components(self,model,connection_srcs):
         pass

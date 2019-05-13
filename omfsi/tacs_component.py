@@ -23,6 +23,12 @@ class TacsOmfsiAssembler(object):
 
         self.funcs_in_fsi = False
 
+    def get_ndof(self):
+        return self.solver_dict['ndof']
+
+    def get_nnodes(self):
+        return self.solver_dict['nnodes']
+
     def add_model_components(self,model,connection_srcs):
         model.add_subsystem('struct_mesh',TacsMesh(get_tacs = self.get_tacs))
 
