@@ -1,7 +1,7 @@
 from __future__ import division, print_function
 import numpy as np
 
-from openmdao.api import ImplicitComponent, ExplicitComponent
+from openmdao.api import ImplicitComponent, ExplicitComponent, Group
 from tacs import TACS,functions
 
 class TacsOmfsiAssembler(object):
@@ -20,38 +20,62 @@ class TacsOmfsiAssembler(object):
         self.f5_writer = None
         if f5_writer is not None:
             self.f5_writer = f5_writer
+
+        self.funcs_in_fsi = False
+
     def add_model_components(self,model,connection_srcs):
         model.add_subsystem('struct_mesh',TacsMesh(get_tacs = self.get_tacs))
 
         connection_srcs['x_s0'] = 'struct_mesh.x_s0_mesh'
 
     def add_scenario_components(self,model,scenario,connection_srcs):
-        scenario.add_subsystem('struct_funcs',TacsFunctions(setup_func=self.setup_function_evaluator))
-        scenario.add_subsystem('struct_mass',TacsMass(setup_func=self.setup_mass_evaluator))
+        if not self.funcs_in_fsi:
+            scenario.add_subsystem('struct_funcs',TacsFunctions(setup_func=self.setup_function_evaluator))
+            scenario.add_subsystem('struct_mass',TacsMass(setup_func=self.setup_mass_evaluator))
 
-        connection_srcs['f_struct'] = scenario.name+'.struct_funcs.f_struct'
-        connection_srcs['mass'] = scenario.name+'.struct_mass.mass'
+            connection_srcs['f_struct'] = scenario.name+'.struct_funcs.f_struct'
+            connection_srcs['mass'] = scenario.name+'.struct_mass.mass'
 
     def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
 
         # add the components to the group
 
-        fsi_group.add_subsystem('struct',TacsSolver(setup_func=self.setup_solver))
+        if not self.funcs_in_fsi:
+            fsi_group.add_subsystem('struct',TacsSolver(setup_func=self.setup_solver))
 
-        connection_srcs['u_s'] = scenario.name+'.'+fsi_group.name+'.struct.u_s'
+            connection_srcs['u_s'] = scenario.name+'.'+fsi_group.name+'.struct.u_s'
+        else:
+            struct = Group()
+            struct.add_subsystem('solver',TacsSolver(setup_func=self.setup_solver))
+            struct.add_subsystem('struct_funcs',TacsFunctions(setup_func=self.setup_function_evaluator))
+            struct.add_subsystem('struct_mass',TacsMass(setup_func=self.setup_mass_evaluator))
+
+            fsi_group.add_subsystem('struct',struct)
+
+            connection_srcs['u_s'] = scenario.name+'.'+fsi_group.name+'.struct.solver.u_s'
+            connection_srcs['f_struct'] = scenario.name+'.struct.struct_funcs.f_struct'
+            connection_srcs['mass'] = scenario.name+'.struct.struct_mass.mass'
 
     def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
+        if self.funcs_in_fsi:
+            solver_path =  scenario.name+'.'+fsi_group.name+'.struct.solver'
+            funcs_path  =  scenario.name+'.'+fsi_group.name+'.struct.struct_funcs'
+            mass_path   =  scenario.name+'.'+fsi_group.name+'.struct.struct_mass'
+        else:
+            solver_path = scenario.name+'.'+fsi_group.name+'.struct'
+            funcs_path  = scenario.name+'.struct_funcs'
+            mass_path   = scenario.name+'.struct_mass'
 
-       model.connect(connection_srcs['dv_struct'],[scenario.name+'.'+fsi_group.name+'.struct.dv_struct',
-                                                 scenario.name+'.struct_funcs.dv_struct',
-                                                 scenario.name+'.struct_mass.dv_struct'])
+        model.connect(connection_srcs['dv_struct'],[solver_path+'.dv_struct',
+                                                    funcs_path+'.dv_struct',
+                                                    mass_path+'.dv_struct'])
 
-       model.connect(connection_srcs['u_s'],[scenario.name+'.struct_funcs.u_s'])
-       model.connect(connection_srcs['f_s'],[scenario.name+'.'+fsi_group.name+'.struct.f_s'])
+        model.connect(connection_srcs['u_s'],[funcs_path+'.u_s'])
+        model.connect(connection_srcs['f_s'],[solver_path+'.f_s'])
 
-       model.connect(connection_srcs['x_s0'],[scenario.name+'.'+fsi_group.name+'.struct.x_s0',
-                                                 scenario.name+'.struct_funcs.x_s0',
-                                                 scenario.name+'.struct_mass.x_s0'])
+        model.connect(connection_srcs['x_s0'],[solver_path+'.x_s0',
+                                               funcs_path+'.x_s0',
+                                               mass_path+'.x_s0'])
 
     def get_tacs(self,comm):
         if self.tacs is None:

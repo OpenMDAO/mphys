@@ -59,7 +59,7 @@ class AdflowAssembler(object):
     def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
         group_path = scenario.name+'.'+fsi_group.name+'.aero'
         if self.funcs_in_fsi:
-            funcs_path = scenario.name+'.'+fsi_group.name
+            funcs_path = group_path
         else:
             funcs_path = scenario.name
 
