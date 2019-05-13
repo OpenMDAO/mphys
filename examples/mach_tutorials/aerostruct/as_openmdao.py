@@ -108,7 +108,7 @@ tacs_setup = {'add_elements': add_elements,
               'mesh_file'   : 'wingbox.bdf',
               'func_list'   : func_list}
 
-struct_assembler = TacsOmfsiAssembler(comm,tacs_setup,add_elements)
+struct_assembler = TacsOmfsiAssembler(tacs_setup,add_elements)
 
 ################################################################################
 # Transfer scheme setup
