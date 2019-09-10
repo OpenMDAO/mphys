@@ -47,7 +47,6 @@ class FsiAssembler(object):
         # pull out the component names
         comp_list = []
         for comp in fsi_group._static_subsystems_allprocs:
-            print(comp.name)
             comp_list.append(comp.name)
 
         # set the order of known fsi components if they exist
