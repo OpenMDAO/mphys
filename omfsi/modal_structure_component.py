@@ -3,7 +3,7 @@ from __future__ import print_function
 import numpy as np
 from openmdao.api import ImplicitComponent, ExplicitComponent
 
-class ModalStep(ImplicitComponent):
+class ModalIntegrator(ImplicitComponent):
     """
     Modal structural BDF2 integrator
     Solves one time step of:
@@ -135,6 +135,39 @@ class ModalStep(ImplicitComponent):
                     d_inputs['znm1'] +=( self.beta[1] * m * d_residuals['zn']
                                        + self.alpha[1]* c * d_residuals['zn'])
 
+class ModalSolver(ExplicitComponent):
+    """
+    Steady Modal structural solver
+      K z - f = 0
+    """
+    def initialize(self):
+        self.options.declare('nmodes',default=1)
+    def setup(self):
+        nmodes = self.options['nmodes']
+        self.add_input('k', shape=nmodes, val=np.ones(nmodes), desc = 'modal stiffness')
+
+        self.add_input('f', shape=nmodes, val=np.ones(nmodes), desc = 'modal force')
+
+        self.add_output('z', shape=nmodes, val=np.ones(nmodes), desc = 'modal displacement')
+
+    def compute(self,inputs,outputs):
+        k = inputs['k']
+        outputs['z'] = inputs['f'] / inputs['k']
+
+    def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
+        if mode == 'fwd':
+            if 'z' in d_outputs:
+                if 'f' in d_inputs:
+                    d_outputs['z'] += d_inputs['f'] / inputs['k']
+                if 'k' in d_inputs:
+                    d_outputs['z'] += - inputs['f'] / (inputs['k']**2.0) * d_inputs['k']
+        if mode == 'rev':
+            if 'z' in d_outputs:
+                if 'f' in d_inputs:
+                    d_inputs['f'] += d_outputs['z'] / inputs['k']
+                if 'k' in d_inputs:
+                    d_inputs['k'] += - inputs['f'] / (inputs['k']**2.0) * d_outputs['z']
+
 class ModalInterface(ExplicitComponent):
     def initialize(self):
         self.options.declare('nmodes',default=1)
@@ -221,65 +254,35 @@ class ModalDisplacements(ModalInterface):
                             for k in range(3):
                                 d_inputs['md'][imode] += self.mdisp[imode,inode,k] * d_outputs['dx'][3*inode+k]
 
-class HarmonicForcer(ExplicitComponent):
+class HarmonicForcer(ModalInterface):
     def initialize(self):
-        self.options.declare('root_name',default='')
-
-    def _read_mode_shapes(self):
-        filename = self.options['root_name']+'_mode1.dat'
-        fh = open(filename)
-        while True:
-            line = fh.readline()
-            if 'zone' in line.lower():
-                self.nnodes = int(line.split('=')[2].split(',')[0])
-                return
+        self.options.declare('omega',default = 1.0)
+        self.options.declare('amp',default = 1.0)
+        self.options.declare('time',default=0.0)
+        super(HarmonicForcer,self).initialize()
 
     def setup(self):
         self._read_mode_shapes()
+        nnodes = self.nnodes
 
-        self.add_input('amp', desc = 'amplitude')
-        self.add_input('freq', desc = 'frequency')
-        self.add_input('time', desc = 'current time')
-        self.add_input('dx',shape=self.nnodes*3)
-        self.add_output('f',shape=self.nnodes*3)
+        self.add_input('dx',shape=nnodes*3, desc = 'displacements')
+        self.add_output('f',shape=nnodes*3,desc = 'forces')
 
     def compute(self,inputs,outputs):
-        amp  = inputs['amp']
-        freq = inputs['freq']
-        time = inputs['time']
-
-        outputs['f'] = amp * np.sin(freq*time) * np.ones(self.nnodes*3)
-
-    def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
-        amp  = inputs['amp']
-        freq = inputs['freq']
-        time = inputs['time']
-
-        if mode=='fwd':
-            if 'f' in d_outputs:
-                if 'amp' in d_inputs:
-                    d_outputs['f'] += np.sin(freq*time) * np.ones(self.nnodes*3) * d_inputs['amp']
-                if 'freq' in d_inputs:
-                    d_outputs['f'] += time * np.cos(freq*time) * np.ones(self.nnodes*3) * d_inputs['freq']
-                if 'time' in d_inputs:
-                    d_outputs['f'] += freq * np.cos(freq*time) * np.ones(self.nnodes*3) * d_inputs['time']
-
-        if mode=='rev':
-            if 'f' in d_outputs:
-                if 'amp' in d_inputs:
-                    d_inputs['amp'] += np.sin(freq*time) * np.sum(d_outputs['f'])
-                if 'freq' in d_inputs:
-                    d_inputs['freq'] += time * np.cos(freq*time) * np.sum(d_outputs['f'])
-                if 'time' in d_inputs:
-                    d_inputs['time'] += freq * np.cos(freq*time) * np.sum(d_outputs['f'])
+        omega = self.options['omega']
+        amp   = self.options['amp']
+        time  = self.options['time']
+        for inode in range(self.nnodes):
+            for k in range(3):
+                outputs['f'][3*inode+k] = amp * np.sin(omega * time)
 
 if __name__ == "__main__":
     from openmdao.api import Problem
     prob = Problem()
     prob.model.add_subsystem('modal_force',ModalForces(nmodes=2,root_name='sphere_body1'))
-    prob.model.add_subsystem('modal_step',ModalStep(nmodes=2,dt=0.1))
+    prob.model.add_subsystem('modal_step',ModalIntegrator(nmodes=2,dt=0.1))
+    prob.model.add_subsystem('modal_solver',ModalSolver(nmodes=2))
     prob.model.add_subsystem('modal_disp',ModalDisplacements(nmodes=2,root_name='sphere_body1'))
-    prob.model.add_subsystem('harmonic_forcer',HarmonicForcer(root_name='sphere_body1'))
 
     prob.setup(force_alloc_complex=True)
     prob.check_partials(method='cs',compact_print=True)
