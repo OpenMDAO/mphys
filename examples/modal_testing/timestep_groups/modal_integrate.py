@@ -5,7 +5,7 @@ import numpy as np
 
 from openmdao.api import Problem, Group, IndepVarComp
 from openmdao.api import NonlinearBlockGS, LinearBlockGS
-
+from openmdao.api import AddSubtractComp
 
 
 nsteps = 10
@@ -32,7 +32,7 @@ indeps.add_output('k',k)
 indeps.add_output('amp',amp)
 indeps.add_output('freq',omega)
 indeps.add_output('time',time)
-model.add_subsystem('Indeps',indeps)
+model.add_subsystem('indeps',indeps)
 
 for step in range(1,nsteps+1):
     step_group = Group()
@@ -51,14 +51,14 @@ for step in range(1,nsteps+1):
     model.connect('Step'+str(step)+'.forcer.f','Step'+str(step)+'.modal_forces.f')
 
     # modal properties
-    model.connect('Indeps.m','Step'+str(step)+'.modal_solver.m')
-    model.connect('Indeps.c','Step'+str(step)+'.modal_solver.c')
-    model.connect('Indeps.k','Step'+str(step)+'.modal_solver.k')
+    model.connect('indeps.m','Step'+str(step)+'.modal_solver.m')
+    model.connect('indeps.c','Step'+str(step)+'.modal_solver.c')
+    model.connect('indeps.k','Step'+str(step)+'.modal_solver.k')
 
     # forcer
-    model.connect('Indeps.time','Step'+str(step)+'.forcer.time',src_indices=step)
-    model.connect('Indeps.amp','Step'+str(step)+'.forcer.amp')
-    model.connect('Indeps.freq','Step'+str(step)+'.forcer.freq')
+    model.connect('indeps.time','Step'+str(step)+'.forcer.time',src_indices=step)
+    model.connect('indeps.amp','Step'+str(step)+'.forcer.amp')
+    model.connect('indeps.freq','Step'+str(step)+'.forcer.freq')
 
     # backplanes of data for bdf derivative
     for backplane in range(1,5):
@@ -66,10 +66,21 @@ for step in range(1,nsteps+1):
         if back_step > 0:
             model.connect('Step'+str(back_step)+'.modal_solver.zn','Step'+str(step)+'.modal_solver.znm'+str(backplane))
         else:
-            model.connect('Indeps.z0','Step'+str(step)+'.modal_solver.znm'+str(backplane))
+            model.connect('indeps.z0','Step'+str(step)+'.modal_solver.znm'+str(backplane))
+
+
+adder = AddSubtractComp('value',input_names=['z'],scaling_factors=[1.0],units=None,desc='')
+model.add_subsystem('objective',adder)
+
+model.connect('Step'+str(nsteps)+'.modal_solver.zn','objective.z',src_indices=0)
 
 prob.setup()
 prob.run_model()
 for step in range(1,nsteps+1):
     print('State',step,prob['Step'+str(step)+'.modal_solver.zn'][0])
 print('Final state',prob['Step'+str(nsteps)+'.modal_solver.zn'][0])
+
+derivs = prob.compute_totals(of=['objective.value'],wrt=['indeps.k'])
+print('Derivs',derivs)
+
+#prob.check_totals(of=['objective.value'],wrt=['indeps.k','indeps.m','indeps.z0'])

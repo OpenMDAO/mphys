@@ -5,6 +5,7 @@ import numpy as np
 
 from openmdao.api import Problem, Group, IndepVarComp
 from openmdao.api import NonlinearBlockGS, LinearBlockGS
+from openmdao.api import AddSubtractComp
 
 
 
@@ -45,8 +46,18 @@ model.connect('indeps.k','integrator.k')
 model.connect('indeps.amp','integrator.amp')
 model.connect('indeps.freq','integrator.freq')
 
+adder = AddSubtractComp('value',input_names=['z'],scaling_factors=[1.0],units=None,desc='')
+model.add_subsystem('objective',adder)
+
+model.connect('integrator.z_end','objective.z')
+
 prob.setup()
 prob.run_model()
 for step in range(1,nsteps+1):
     print('State',step,integrator.z[step,0])
 print('Final state',integrator.z[-1,0])
+
+derivs = prob.compute_totals(of=['objective.value'],wrt=['indeps.k'])
+print('Derivs',derivs)
+
+#prob.check_totals(of=['objective.value'],wrt=['indeps.k','indeps.m','indeps.z0'],method='fd',step=1e-6)

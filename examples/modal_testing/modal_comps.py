@@ -68,6 +68,9 @@ class ModalStep(ImplicitComponent):
         m = inputs['m']
         c = inputs['c']
         k = inputs['k']
+        self.m = m
+        self.c = c
+        self.k = k
 
         outputs['zn'] = ( inputs['f']
                         - self.beta[1]  * m * inputs['znm1']
@@ -79,6 +82,10 @@ class ModalStep(ImplicitComponent):
                         ) / (self.beta[0] * m + self.alpha[0] * c + k )
 
     def solve_linear(self,d_outputs,d_residuals,mode):
+        m = self.m
+        c = self.c
+        k = self.k
+
         if mode == 'fwd':
             d_outputs['zn'] = d_residuals['zn'] / (self.beta[0] * m + self.alpha[0] * c + k )
         if mode == 'rev':
