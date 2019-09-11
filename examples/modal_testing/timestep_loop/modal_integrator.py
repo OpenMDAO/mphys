@@ -130,6 +130,9 @@ class ModalIntegrator(ExplicitComponent):
         """
         d{}d{} is a total derivative
         p{}p{} is a partial derivative
+
+        df/dx = pf/px + sum_{time_steps}  pf/pz * dz/dx
+              = pf/px + sum_{time_steps}  pf/pz * ( pzpx + sum_{backplanes} pz/pz_{backplane} dz_{backplane}/dx )
         """
         dfdx = {}
         dznm_dx = {}
