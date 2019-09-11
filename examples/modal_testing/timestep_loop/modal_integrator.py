@@ -131,14 +131,22 @@ class ModalIntegrator(ExplicitComponent):
         d{}d{} is a total derivative
         p{}p{} is a partial derivative
         """
-        dfdm = 0.0
-        dfdk = 0.0
-        dznm_dm = np.zeros((5,self.options['nmodes'],self.options['nmodes']))
-        dznm_dk = np.zeros((5,self.options['nmodes'],self.options['nmodes']))
+        dfdx = {}
+        dznm_dx = {}
+        for var in d_inputs.keys():
+            if var == 'amp' or var=='freq':
+                dfdx[var] = 0.0
+                dznm_dx[var] =np.zeros((5,self.options['nmodes'],1))
+            else:
+                dfdx[var] = np.zeros(self.options['nmodes'])
+                dznm_dx[var] =np.zeros((5,self.options['nmodes'],self.options['nmodes']))
+
         for step in range(1,self.options['nsteps']+1):
+
             pfpz = np.array([1.0,0.0]) if step == self.options['nsteps'] else np.zeros(2)
+
             self._set_state(step,inputs)
-            self.problem.run_model()
+            self.problem.run_model() # if ALL the states are set I think this is unnecessary
             jacs = self.problem.compute_totals(of=['modal_solver.zn'],wrt=['indeps.m',
                                                                            'indeps.c',
                                                                            'indeps.k',
@@ -148,34 +156,28 @@ class ModalIntegrator(ExplicitComponent):
                                                                            'indeps.znm2',
                                                                            'indeps.znm3',
                                                                            'indeps.znm4'])
-            if 'm' in d_inputs:
-                pfpm = 0.0
-                dzdm = jacs[('modal_solver.zn','indeps.m')]
+            for var in d_inputs.keys():
+                pfpx = 0.0
+                if var == 'z0':
+                    dzdx = np.zeros((self.options['nmodes'],self.options['nmodes']))
+                else:
+                    dzdx = jacs[('modal_solver.zn','indeps.'+var)]
+
                 for j in range(1,5):
                     if step - j > 0:
-                        dzdm += jacs[('modal_solver.zn','indeps.znm'+str(j))].dot(dznm_dm[j,:,:])
-                dfdm += pfpz.dot(dzdm)
+                        dzdx += jacs[('modal_solver.zn','indeps.znm'+str(j))].dot(dznm_dx[var][j,:,:])
+                    elif var=='z0':
+                        dzdx += jacs[('modal_solver.zn','indeps.znm'+str(j))]
+                dfdx[var] += pfpz.dot(dzdx)
 
+                # shuffle the backplanes of dz/dx
                 for j in range(4,1,-1):
-                    dznm_dm[j,:,:] = dznm_dm[j-1,:,:]
-                dznm_dm[1,:,:] = dzdm
+                    dznm_dx[var][j,:,:] = dznm_dx[var][j-1,:,:]
+                dznm_dx[var][1,:,:] = dzdx
 
-            if 'k' in d_inputs:
-                pfpk = 0.0
-                dzdk = jacs[('modal_solver.zn','indeps.k')]
-                for j in range(1,5):
-                    if step - j > 0:
-                        dzdk += jacs[('modal_solver.zn','indeps.znm'+str(j))].dot(dznm_dk[j,:,:])
-                dfdk += pfpz.dot(dzdk)
-
-                for j in range(4,1,-1):
-                    dznm_dk[j,:,:] = dznm_dk[j-1,:,:]
-                dznm_dk[1,:,:] = dzdk
         if 'z_end' in d_outputs:
-            if 'm' in d_inputs:
-                d_outputs['z_end'] += dfdm.dot(d_inputs['m'])
-            if 'k' in d_inputs:
-                d_outputs['z_end'] += dfdk.dot(d_inputs['k'])
+            for var in d_inputs:
+                d_outputs['z_end'] += dfdx[var].dot(d_inputs[var])
 
     def _set_state(self,step,inputs):
         self._setup_step_backplanes(step,inputs)

@@ -60,4 +60,4 @@ print('Final state',integrator.z[-1,0])
 derivs = prob.compute_totals(of=['objective.value'],wrt=['indeps.k'])
 print('Derivs',derivs)
 
-#prob.check_totals(of=['objective.value'],wrt=['indeps.k','indeps.m','indeps.z0'],method='fd',step=1e-6)
+prob.check_totals(of=['objective.value'],wrt=['indeps.k','indeps.m','indeps.z0','indeps.amp'],method='fd',step=1e-6)
