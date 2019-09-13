@@ -123,8 +123,7 @@ class ModalIntegrator(ExplicitComponent):
         if mode=='fwd':
             self._forward_linearized_loop(inputs,d_inputs,d_outputs)
         if mode=='rev':
-            pass
-            #self._reverse_linearized_loop(inputs,d_inputs,d_outputs)
+            self._reverse_linearized_loop(inputs,d_inputs,d_outputs)
 
     def _forward_linearized_loop(self,inputs,d_inputs,d_outputs):
         """
@@ -150,6 +149,8 @@ class ModalIntegrator(ExplicitComponent):
 
             self._set_state(step,inputs)
             self.problem.run_model() # if ALL the states are set I think this is unnecessary
+
+            #semi-totals
             jacs = self.problem.compute_totals(of=['modal_solver.zn'],wrt=['indeps.m',
                                                                            'indeps.c',
                                                                            'indeps.k',
@@ -182,6 +183,67 @@ class ModalIntegrator(ExplicitComponent):
             for var in d_inputs:
                 d_outputs['z_end'] += dfdx[var].dot(d_inputs[var])
 
+    def _reverse_linearized_loop(self,inputs,d_inputs,d_outputs):
+        """
+        d{}d{} is a total derivative
+        p{}p{} is a partial derivative
+        """
+        dfdx = {}
+        for var in d_inputs.keys():
+            if var == 'amp' or var=='freq':
+                dfdx[var] = np.zeros(1)
+            else:
+                dfdx[var] = np.zeros((self.options['nmodes'],1))
+
+        psi_back = np.zeros((self.options['nmodes'],5))
+        for step in range(self.options['nsteps'],0,-1):
+            pfpz = np.array([1.0,0.0]) if step == self.options['nsteps'] else np.zeros(2)
+
+            self._set_state(step,inputs)
+            self.problem.run_model() # if ALL the states are set I think this is unnecessary
+            jacs = self.problem.compute_totals(of=['modal_solver.zn'],wrt=['indeps.m',
+                                                                           'indeps.c',
+                                                                           'indeps.k',
+                                                                           'indeps.amp',
+                                                                           'indeps.freq',
+                                                                           'indeps.znm1',
+                                                                           'indeps.znm2',
+                                                                           'indeps.znm3',
+                                                                           'indeps.znm4'])
+            # compute the current adjoint
+            psi = pfpz.copy()
+            psi += psi_back[:,1]
+
+            # add this step's contribution to the derivatives
+            for var in d_inputs.keys():
+                if var == 'z0':
+                    pzpx = np.zeros((self.options['nmodes'],self.options['nmodes']))
+                else:
+                    pzpx = jacs[('modal_solver.zn','indeps.'+var)]
+
+                for j in range(1,5):
+                    if var=='z0' and step - j < 1:
+                        pzpx += jacs[('modal_solver.zn','indeps.znm'+str(j))]
+                for k in range(pzpx.shape[1]):
+                    for j in range(psi.size):
+                        dfdx[var][k] += psi[j] * pzpx[j,k]
+
+            # shuffle the forwardplanes of adjoint variables and add this step's contributions
+            for j in range(1,5):
+                if j < 4:
+                    psi_back[:,j] = psi_back[:,j+1]
+                else:
+                    psi_back[:,j] = 0.0
+                jac = jacs[('modal_solver.zn','indeps.znm'+str(j))]
+                for n in range(psi.size):
+                    for k in range(psi.size):
+                        psi_back[n,j] += psi[k] * jac[k,n]
+
+        # compute the final jac vec product
+        if 'z_end' in d_outputs:
+            for var in d_inputs:
+                d_inputs[var] += dfdx[var].dot(d_outputs['z_end'])
+
     def _set_state(self,step,inputs):
         self._setup_step_backplanes(step,inputs)
         self.problem['modal_solver.zn'] = self.z[step,:]
@@ -190,6 +252,6 @@ class ModalIntegrator(ExplicitComponent):
 
 if __name__=='__main__':
     prob = Problem()
-    prob.model.add_subsystem('modal_integrator',ModalIntegrator(nmodes=2,nsteps=4,dt=1.0,root_name='sphere_body1'))
+    prob.model.add_subsystem('modal_integrator',ModalIntegrator(nmodes=2,nsteps=10,dt=1.0,root_name='sphere_body1'))
     prob.setup()
     prob.check_partials(compact_print=True)

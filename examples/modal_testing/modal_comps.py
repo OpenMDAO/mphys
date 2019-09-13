@@ -231,6 +231,7 @@ class ModalDisplacements(ModalInterface):
 class HarmonicForcer(ExplicitComponent):
     def initialize(self):
         self.options.declare('root_name',default='')
+        self.c1 = 1e-3
 
     def _read_mode_shapes(self):
         filename = self.options['root_name']+'_mode1.dat'
@@ -255,7 +256,7 @@ class HarmonicForcer(ExplicitComponent):
         freq = inputs['freq']
         time = inputs['time']
 
-        outputs['f'] = amp * np.sin(freq*time) * np.ones(self.nnodes*3)
+        outputs['f'] = amp * np.sin(freq*time) * np.ones(self.nnodes*3) - self.c1 * inputs['dx']
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
         amp  = inputs['amp']
@@ -270,6 +271,8 @@ class HarmonicForcer(ExplicitComponent):
                     d_outputs['f'] += time * np.cos(freq*time) * np.ones(self.nnodes*3) * d_inputs['freq']
                 if 'time' in d_inputs:
                     d_outputs['f'] += freq * np.cos(freq*time) * np.ones(self.nnodes*3) * d_inputs['time']
+                if 'dx' in d_inputs:
+                    d_outputs['f'] -= self.c1 * d_inputs['dx']
 
         if mode=='rev':
             if 'f' in d_outputs:
@@ -279,6 +282,8 @@ class HarmonicForcer(ExplicitComponent):
                     d_inputs['freq'] += time * np.cos(freq*time) * np.sum(d_outputs['f'])
                 if 'time' in d_inputs:
                     d_inputs['time'] += freq * np.cos(freq*time) * np.sum(d_outputs['f'])
+                if 'dx' in d_inputs:
+                    d_inputs['dx'] -= self.c1 * d_outputs['f']
 
 if __name__ == "__main__":
     from openmdao.api import Problem
