@@ -195,7 +195,7 @@ class ModalIntegrator(ExplicitComponent):
             else:
                 dfdx[var] = np.zeros((self.options['nmodes'],1))
 
-        psi_back = np.zeros((self.options['nmodes'],5))
+        lamb = np.zeros((self.options['nmodes'],5))
         for step in range(self.options['nsteps'],0,-1):
             pfpz = np.array([1.0,0.0]) if step == self.options['nsteps'] else np.zeros(2)
 
@@ -212,7 +212,7 @@ class ModalIntegrator(ExplicitComponent):
                                                                            'indeps.znm4'])
             # compute the current adjoint
             psi = pfpz.copy()
-            psi += psi_back[:,1]
+            psi += lamb[:,1]
 
             # add this step's contribution to the derivatives
             for var in d_inputs.keys():
@@ -231,13 +231,13 @@ class ModalIntegrator(ExplicitComponent):
             # shuffle the forwardplanes of adjoint variables and add this step's contributions
             for j in range(1,5):
                 if j < 4:
-                    psi_back[:,j] = psi_back[:,j+1]
+                    lamb[:,j] = lamb[:,j+1]
                 else:
-                    psi_back[:,j] = 0.0
+                    lamb[:,j] = 0.0
                 jac = jacs[('modal_solver.zn','indeps.znm'+str(j))]
                 for n in range(psi.size):
                     for k in range(psi.size):
-                        psi_back[n,j] += psi[k] * jac[k,n]
+                        lamb[n,j] += psi[k] * jac[k,n]
 
         # compute the final jac vec product
         if 'z_end' in d_outputs:
