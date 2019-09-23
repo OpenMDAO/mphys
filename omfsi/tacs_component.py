@@ -5,21 +5,26 @@ from openmdao.api import ImplicitComponent, ExplicitComponent, Group
 from tacs import TACS,functions
 
 class TacsOmfsiAssembler(object):
-    def __init__(self,solver_options,add_elements,f5_writer=None):
+    def __init__(self,solver_options,add_forcer=False):
         self.comm = None
         self.tacs = None
 
         self.solver_dict = {}
         self.solver_options = solver_options
 
-        # create the tacs assembler
         self.mesh_file    = solver_options['mesh_file']
+
+        # function pointers
         self.add_elements = solver_options['add_elements']
-        self.func_list    = solver_options['func_list']
+        self.get_funcs = solver_options['get_funcs']
+
+        self.add_forcer = add_forcer
+        if add_forcer:
+            self.forcer_func = solver_options['forcer_func']
 
         self.f5_writer = None
-        if f5_writer is not None:
-            self.f5_writer = f5_writer
+        if 'f5_writer' in solver_options.keys():
+            self.f5_writer = solver_options['f5_writer']
 
         self.funcs_in_fsi = False
 
@@ -46,29 +51,40 @@ class TacsOmfsiAssembler(object):
 
         # add the components to the group
 
-        if not self.funcs_in_fsi:
+        if not self.funcs_in_fsi and not self.add_forcer:
             fsi_group.add_subsystem('struct',TacsSolver(setup_func=self.setup_solver))
 
             connection_srcs['u_s'] = scenario.name+'.'+fsi_group.name+'.struct.u_s'
         else:
             struct = Group()
             struct.add_subsystem('solver',TacsSolver(setup_func=self.setup_solver))
-            struct.add_subsystem('struct_funcs',TacsFunctions(setup_func=self.setup_function_evaluator))
-            struct.add_subsystem('struct_mass',TacsMass(setup_func=self.setup_mass_evaluator))
+            if self.funcs_in_fsi:
+                struct.add_subsystem('struct_funcs',TacsFunctions(setup_func=self.setup_function_evaluator))
+                struct.add_subsystem('struct_mass',TacsMass(setup_func=self.setup_mass_evaluator))
+            if self.add_forcer:
+                struct.add_subsystem('forcer',PrescribedLoad(load_function=self.forcer_func,get_tacs=self.get_tacs))
 
             fsi_group.add_subsystem('struct',struct)
 
             connection_srcs['u_s'] = scenario.name+'.'+fsi_group.name+'.struct.solver.u_s'
-            connection_srcs['f_struct'] = scenario.name+'.struct.struct_funcs.f_struct'
-            connection_srcs['mass'] = scenario.name+'.struct.struct_mass.mass'
+
+            if self.funcs_in_fsi:
+                connection_srcs['f_struct'] = scenario.name+'.struct.struct_funcs.f_struct'
+                connection_srcs['mass'] = scenario.name+'.struct.struct_mass.mass'
+
+            if self.add_forcer:
+                connection_srcs['f_s'] = scenario.name+'.'+fsi_group.name+'.struct.forcer.f_s'
 
     def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
-        if self.funcs_in_fsi:
+        if self.funcs_in_fsi or self.add_forcer:
             solver_path =  scenario.name+'.'+fsi_group.name+'.struct.solver'
+        else:
+            solver_path = scenario.name+'.'+fsi_group.name+'.struct'
+
+        if self.funcs_in_fsi:
             funcs_path  =  scenario.name+'.'+fsi_group.name+'.struct.struct_funcs'
             mass_path   =  scenario.name+'.'+fsi_group.name+'.struct.struct_mass'
         else:
-            solver_path = scenario.name+'.'+fsi_group.name+'.struct'
             funcs_path  = scenario.name+'.struct_funcs'
             mass_path   = scenario.name+'.struct_mass'
 
@@ -82,6 +98,10 @@ class TacsOmfsiAssembler(object):
         model.connect(connection_srcs['x_s0'],[solver_path+'.x_s0',
                                                funcs_path+'.x_s0',
                                                mass_path+'.x_s0'])
+
+        if self.add_forcer:
+            forcer_path = scenario.name+'.'+fsi_group.name+'.struct.forcer'
+            model.connect(connection_srcs['x_s0'],forcer_path+'.x_s0')
 
     def get_tacs(self,comm):
         if self.tacs is None:
@@ -119,7 +139,8 @@ class TacsOmfsiAssembler(object):
 
     def setup_function_evaluator(self, comm):
         self.get_tacs(comm)
-        return self.tacs, self.mat, self.pc, self.solver_dict['ndv'], self.func_list
+        func_list = self.get_funcs(self.tacs)
+        return self.tacs, self.mat, self.pc, self.solver_dict['ndv'], func_list
 
     def setup_mass_evaluator(self, comm):
         self.get_tacs(comm)
@@ -643,7 +664,7 @@ class PrescribedLoad(ExplicitComponent):
     """
     def initialize(self):
         self.options.declare('load_function', default = None, desc='function that prescribes the loads')
-        self.options.declare('tacs', default = None, desc='tacs assembler')
+        self.options.declare('get_tacs', default = None, desc='function to get the tacs assembler')
 
         self.options['distributed'] = True
 
@@ -653,7 +674,7 @@ class PrescribedLoad(ExplicitComponent):
 #        self.set_check_partial_options(wrt='*',directional=True)
 
         # TACS assembler setup
-        tacs = self.options['tacs']
+        tacs = self.options['get_tacs'](self.comm)
 
         # create some TACS vectors so we can see what size they are
         xpts  = tacs.createNodeVec()
