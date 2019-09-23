@@ -102,13 +102,15 @@ def add_elements(mesh):
 
     return ndof, ndv
 
-func_list = ['ks_failure','mass']
-tacs_setup = {'add_elements': add_elements,
-              'nprocs'      : 4,
-              'mesh_file'   : 'wingbox.bdf',
-              'func_list'   : func_list}
+def get_funcs(tacs):
+    ks_weight = 50.0
+    return [ functions.KSFailure(tacs,ks_weight), functions.StructuralMass(tacs)]
 
-struct_assembler = TacsOmfsiAssembler(tacs_setup,add_elements)
+tacs_setup = {'add_elements': add_elements,
+              'mesh_file'   : 'wingbox.bdf',
+              'get_funcs'   : get_funcs}
+
+struct_assembler = TacsOmfsiAssembler(tacs_setup)
 
 ################################################################################
 # Transfer scheme setup
@@ -159,5 +161,5 @@ prob.setup()
 prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
-    print('cl =',prob['aero_funcs.cl'])
-    print('cd =',prob['aero_funcs.cd'])
+    print('cl =',prob[scenario.name+'.aero_funcs.cl'])
+    print('cd =',prob[scenario.name+'.aero_funcs.cd'])

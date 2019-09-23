@@ -68,11 +68,7 @@ ap = AeroProblem(name='wing',
 ap.addDV('alpha',value=1.5,name='alpha')
 ap.addDV('mach',value=0.8,name='mach')
 
-aero_assembler = AdflowAssembler(comm,aero_options,ap)
-aero_nnodes    = aero_assembler.solver_dict['nnodes']
-
-aero_assembler.solver.addLiftDistribution(150, 'z')
-aero_assembler.solver.addSlices('z', numpy.linspace(0.1, 14, 10))
+aero_assembler = AdflowAssembler(aero_options,ap)
 
 ################################################################################
 # TACS setup
@@ -102,15 +98,15 @@ def add_elements(mesh):
 
     return ndof, ndv
 
-func_list = ['ks_failure','mass']
-tacs_setup = {'add_elements': add_elements,
-              'nprocs'      : 4,
-              'mesh_file'   : 'wingbox.bdf',
-              'func_list'   : func_list}
+def get_funcs(tacs):
+    ks_weight = 50.0
+    return [ functions.KSFailure(tacs,ks_weight), functions.StructuralMass(tacs)]
 
-struct_assembler = TacsOmfsiAssembler(comm,tacs_setup,add_elements)
-struct_nnodes = struct_assembler.solver_dict['nnodes']
-struct_ndof   = struct_assembler.solver_dict['ndof']
+tacs_setup = {'add_elements': add_elements,
+              'mesh_file'   : 'wingbox.bdf',
+              'get_funcs'   : get_funcs}
+
+struct_assembler = TacsOmfsiAssembler(tacs_setup)
 
 ################################################################################
 # Transfer scheme setup

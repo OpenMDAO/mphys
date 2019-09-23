@@ -12,10 +12,9 @@ from openmdao.api import NonlinearRunOnce, LinearRunOnce
 
 
 use_openmdao = True
-#use_openmdao = False
 
 #rst ADflow options
-aeroOptions = {
+aero_options = {
     # I/O Parameters
     'gridFile':'wing_vol.cgns',
     'outputDirectory':'.',
@@ -27,8 +26,8 @@ aeroOptions = {
 
     # Solver Parameters
     'smoother':'dadi',
-    'CFL':1.5,
-    'CFLCoarse':1.25,
+    'CFL':0.5,
+    'CFLCoarse':0.25,
     'MGCycle':'3w',
     'MGStartLevel':-1,
     'nCyclesCoarse':250,
@@ -47,13 +46,6 @@ aeroOptions = {
     'nCycles':1000,
 }
 
-#rst Start ADflow
-# Create solver
-CFDSolver = ADFLOW(options=aeroOptions)
-
-# Add features
-CFDSolver.addLiftDistribution(150, 'z')
-CFDSolver.addSlices('z', numpy.linspace(0.1, 14, 10))
 
 #rst Create AeroProblem
 ap = AeroProblem(name='wing',
@@ -65,13 +57,24 @@ ap = AeroProblem(name='wing',
     evalFuncs=['cl','cd']
 )
 
-if use_openmdao:
-    # Adflow components set up
-    mesh_comp   = AdflowMesh(ap=ap,solver=CFDSolver,options=aeroOptions)
-    warp_comp   = AdflowWarper(ap=ap,solver=CFDSolver)
-    solver_comp = AdflowSolver(ap=ap,solver=CFDSolver)
-    func_comp   = AdflowFunctions(ap=ap,solver=CFDSolver)
+class AdflowSimpleAssembler(object):
+    def __init__(self,options):
+        self.options = options
+        self.solver = None
+    def get_solver(self,comm):
+        if self.solver is None:
+            self.solver = ADFLOW(options=self.options)
+            self.mesh = MBMesh(comm=comm,options=self.options)
+            self.solver.setMesh(self.mesh)
+        return self.solver
 
+if use_openmdao:
+    assembler = AdflowSimpleAssembler(aero_options)
+    # Adflow components set up
+    mesh_comp   = AdflowMesh(ap=ap,get_solver=assembler.get_solver)
+    warp_comp   = AdflowWarper(ap=ap,get_solver=assembler.get_solver)
+    solver_comp = AdflowSolver(ap=ap,get_solver=assembler.get_solver)
+    func_comp   = AdflowFunctions(ap=ap,get_solver=assembler.get_solver)
 
     # OpenMDAO set up
     prob = Problem()
@@ -81,7 +84,7 @@ if use_openmdao:
     model.add_subsystem('warp',warp_comp)
     model.add_subsystem('solver',solver_comp)
     model.add_subsystem('funcs',func_comp)
-    model.connect('mesh.x_a0',['warp.x_a'])
+    model.connect('mesh.x_a0_mesh',['warp.x_a'])
     model.connect('warp.x_g',['solver.x_g','funcs.x_g'])
     model.connect('solver.q',['funcs.q'])
 
@@ -96,6 +99,7 @@ if use_openmdao:
         print('cd =',prob['funcs.cd'])
 
 else:
+    CFDSolver = ADFLOW(options=aero_options)
     #rst Run ADflow
     # Solve
     CFDSolver(ap)
