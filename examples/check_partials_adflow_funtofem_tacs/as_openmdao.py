@@ -70,8 +70,7 @@ ap = AeroProblem(name='debug',
 ap.addDV('alpha',value=1.5,name='alpha')
 ap.addDV('mach',value=0.3,name='mach')
 
-aero_assembler = AdflowAssembler(comm,aero_options,ap)
-aero_nnodes    = aero_assembler.solver_dict['nnodes']
+aero_assembler = AdflowAssembler(aero_options,ap)
 
 ################################################################################
 # TACS setup
@@ -101,15 +100,24 @@ def add_elements(mesh):
 
     return ndof, ndv
 
-func_list = ['ks_failure','mass']
-tacs_setup = {'add_elements': add_elements,
-              'nprocs'      : 1,
-              'mesh_file'   : 'debug.bdf',
-              'func_list'   : func_list}
+def get_funcs(tacs):
+    ks_weight = 50.0
+    return [ functions.KSFailure(tacs,ks_weight), functions.StructuralMass(tacs)]
 
-struct_assembler = TacsOmfsiAssembler(comm,tacs_setup,add_elements)
-struct_nnodes = struct_assembler.solver_dict['nnodes']
-struct_ndof   = struct_assembler.solver_dict['ndof']
+def f5_writer(tacs):
+    flag = (TACS.ToFH5.NODES |
+            TACS.ToFH5.DISPLACEMENTS |
+            TACS.ToFH5.STRAINS |
+            TACS.ToFH5.EXTRAS)
+    f5 = TACS.ToFH5(tacs, TACS.PY_SHELL, flag)
+    f5.writeToFile('debug.f5')
+
+tacs_setup = {'add_elements': add_elements,
+              'mesh_file'   : 'debug.bdf',
+              'get_funcs'   : get_funcs,
+              'f5_writer'   : f5_writer}
+
+struct_assembler = TacsOmfsiAssembler(tacs_setup)
 
 ################################################################################
 # Transfer scheme setup
@@ -118,7 +126,7 @@ meld_setup = {'isym': 2,
               'n': 200,
               'beta': 0.5}
 
-xfer_assembler = MeldAssembler(comm,comm,comm,meld_setup,aero_nnodes,struct_nnodes,struct_ndof)
+xfer_assembler = MeldAssembler(meld_setup,struct_assembler,aero_assembler)
 
 ################################################################################
 # OpenMDAO setup
@@ -160,5 +168,5 @@ prob.run_model()
 #prob.check_partials(step=1e-8,compact_print=True)
 
 if MPI.COMM_WORLD.rank == 0:
-    print('lift =',prob['aero_funcs.lift'])
-    print('drag =',prob['aero_funcs.drag'])
+    print('lift =',prob[scenario.name + '.aero_funcs.lift'])
+    print('drag =',prob[scenario.name + '.aero_funcs.drag'])
