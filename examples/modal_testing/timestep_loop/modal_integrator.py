@@ -201,32 +201,31 @@ class ModalIntegrator(ExplicitComponent):
 
             self._set_state(step,inputs)
             self.problem.run_model() # if ALL the states are set I think this is unnecessary
-            jacs = self.problem.compute_totals(of=['modal_solver.zn'],wrt=['indeps.m',
-                                                                           'indeps.c',
-                                                                           'indeps.k',
-                                                                           'indeps.amp',
-                                                                           'indeps.freq',
-                                                                           'indeps.znm1',
-                                                                           'indeps.znm2',
-                                                                           'indeps.znm3',
-                                                                           'indeps.znm4'])
+
             # compute the current adjoint
-            psi = pfpz.copy()
-            psi += lamb[:,1]
+            psi = pfpz + lamb[:,1]
+
+            # jacobian vector products
+            self.problem.model._vectors['output']['linear']._data[:] = 0
+            self.problem.model._vectors['residual']['linear']._data[:] = 0
+            jac_vecs = self.problem.compute_jacvec_product(of=['modal_solver.zn'],wrt=['indeps.m',
+                                                                                       'indeps.c',
+                                                                                       'indeps.k',
+                                                                                       'indeps.amp',
+                                                                                       'indeps.freq',
+                                                                                       'indeps.znm1',
+                                                                                       'indeps.znm2',
+                                                                                       'indeps.znm3',
+                                                                                       'indeps.znm4'],mode='rev',seed={'modal_solver.zn':psi})
 
             # add this step's contribution to the derivatives
             for var in d_inputs.keys():
-                if var == 'z0':
-                    pzpx = np.zeros((self.options['nmodes'],self.options['nmodes']))
-                else:
-                    pzpx = jacs[('modal_solver.zn','indeps.'+var)]
+                if var != 'z0':
+                    dfdx[var] += jac_vecs['indeps.'+var].reshape(dfdx[var].shape)
 
                 for j in range(1,5):
                     if var=='z0' and step - j < 1:
-                        pzpx += jacs[('modal_solver.zn','indeps.znm'+str(j))]
-                for k in range(pzpx.shape[1]):
-                    for j in range(psi.size):
-                        dfdx[var][k] += psi[j] * pzpx[j,k]
+                        dfdx[var] += jac_vecs['indeps.znm'+str(j)].reshape(dfdx[var].shape)
 
             # shuffle the forwardplanes of adjoint variables and add this step's contributions
             for j in range(1,5):
@@ -234,10 +233,7 @@ class ModalIntegrator(ExplicitComponent):
                     lamb[:,j] = lamb[:,j+1]
                 else:
                     lamb[:,j] = 0.0
-                jac = jacs[('modal_solver.zn','indeps.znm'+str(j))]
-                for n in range(psi.size):
-                    for k in range(psi.size):
-                        lamb[n,j] += psi[k] * jac[k,n]
+                lamb[:,j] += jac_vecs['indeps.znm'+str(j)]
 
         # compute the final jac vec product
         if 'z_end' in d_outputs:
