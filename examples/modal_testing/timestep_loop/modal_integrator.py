@@ -137,7 +137,7 @@ class ModalIntegrator(ExplicitComponent):
         dznm_dx = {}
         for var in d_inputs.keys():
             if var == 'amp' or var=='freq':
-                dfdx[var] = 0.0
+                dfdx[var] = np.zeros(1)
                 dznm_dx[var] =np.zeros((5,self.options['nmodes'],1))
             else:
                 dfdx[var] = np.zeros(self.options['nmodes'])
@@ -150,34 +150,43 @@ class ModalIntegrator(ExplicitComponent):
             self._set_state(step,inputs)
             self.problem.run_model() # if ALL the states are set I think this is unnecessary
 
-            #semi-totals
-            jacs = self.problem.compute_totals(of=['modal_solver.zn'],wrt=['indeps.m',
-                                                                           'indeps.c',
-                                                                           'indeps.k',
-                                                                           'indeps.amp',
-                                                                           'indeps.freq',
-                                                                           'indeps.znm1',
-                                                                           'indeps.znm2',
-                                                                           'indeps.znm3',
-                                                                           'indeps.znm4'])
             for var in d_inputs.keys():
-                pfpx = 0.0
-                if var == 'z0':
-                    dzdx = np.zeros((self.options['nmodes'],self.options['nmodes']))
+                seed = {}
+                wrt = ['indeps.znm1','indeps.znm2','indeps.znm3','indeps.znm4']
+                if var == 'amp' or var == 'freq':
+                    var_length = 1
                 else:
-                    dzdx = jacs[('modal_solver.zn','indeps.'+var)]
+                    var_length = 2
+                if var != 'z0':
+                    wrt.append('indeps.'+var)
+                for var_index in range(var_length):
+                    if var != 'z0':
+                        if var == 'amp' or var == 'freq':
+                            seed['indeps.'+var] = 1.0
+                        else:
+                            seed['indeps.'+var] = np.zeros(self.options['nmodes'])
+                            seed['indeps.'+var][var_index] = 1.0
 
-                for j in range(1,5):
-                    if step - j > 0:
-                        dzdx += jacs[('modal_solver.zn','indeps.znm'+str(j))].dot(dznm_dx[var][j,:,:])
-                    elif var=='z0':
-                        dzdx += jacs[('modal_solver.zn','indeps.znm'+str(j))]
-                dfdx[var] += pfpz.dot(dzdx)
+                    for j in range(1,5):
+                        if step - j > 0:
+                            seed['indeps.znm'+str(j)] = dznm_dx[var][j,:,var_index]
+                        elif var=='z0':
+                            seed['indeps.znm'+str(j)] =  np.zeros(self.options['nmodes'])
+                            seed['indeps.znm'+str(j)][var_index] = 1.0
+                        else:
+                            seed['indeps.znm'+str(j)] = np.zeros(self.options['nmodes'])
 
+                    #semi-totals
+                    self.problem.model._vectors['output']['linear']._data[:] = 0
+                    self.problem.model._vectors['residual']['linear']._data[:] = 0
+                    jac_vecs = self.problem.compute_jacvec_product(of=['modal_solver.zn'],wrt=wrt,mode='fwd',seed=seed)
+
+                    dfdx[var] += pfpz.dot(jac_vecs['modal_solver.zn'])
+
+                    dznm_dx[var][0,:,var_index] = jac_vecs['modal_solver.zn'].reshape(dznm_dx[var][0,:,var_index].shape)
                 # shuffle the backplanes of dz/dx
-                for j in range(4,1,-1):
+                for j in range(4,0,-1):
                     dznm_dx[var][j,:,:] = dznm_dx[var][j-1,:,:]
-                dznm_dx[var][1,:,:] = dzdx
 
         if 'z_end' in d_outputs:
             for var in d_inputs:
