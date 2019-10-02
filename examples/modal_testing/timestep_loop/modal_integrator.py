@@ -177,8 +177,6 @@ class ModalIntegrator(ExplicitComponent):
                             seed['indeps.znm'+str(j)] = np.zeros(self.options['nmodes'])
 
                     #semi-totals
-                    self.problem.model._vectors['output']['linear']._data[:] = 0
-                    self.problem.model._vectors['residual']['linear']._data[:] = 0
                     jac_vecs = self.problem.compute_jacvec_product(of=['modal_solver.zn'],wrt=wrt,mode='fwd',seed=seed)
 
                     dfdx[var] += pfpz.dot(jac_vecs['modal_solver.zn'])
@@ -215,8 +213,6 @@ class ModalIntegrator(ExplicitComponent):
             psi = pfpz + lamb[:,1]
 
             # jacobian vector products
-            self.problem.model._vectors['output']['linear']._data[:] = 0
-            self.problem.model._vectors['residual']['linear']._data[:] = 0
             jac_vecs = self.problem.compute_jacvec_product(of=['modal_solver.zn'],wrt=['indeps.m',
                                                                                        'indeps.c',
                                                                                        'indeps.k',
