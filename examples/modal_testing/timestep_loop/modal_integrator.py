@@ -179,9 +179,10 @@ class ModalIntegrator(ExplicitComponent):
                     #semi-totals
                     jac_vecs = self.problem.compute_jacvec_product(of=['modal_solver.zn'],wrt=wrt,mode='fwd',seed=seed)
 
-                    dfdx[var] += pfpz.dot(jac_vecs['modal_solver.zn'])
+                    dfdx[var][var_index] += pfpz.dot(jac_vecs['modal_solver.zn'])
 
                     dznm_dx[var][0,:,var_index] = jac_vecs['modal_solver.zn'].reshape(dznm_dx[var][0,:,var_index].shape)
+
                 # shuffle the backplanes of dz/dx
                 for j in range(4,0,-1):
                     dznm_dx[var][j,:,:] = dznm_dx[var][j-1,:,:]
