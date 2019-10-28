@@ -5,11 +5,11 @@ from openmdao.api import ImplicitComponent, ExplicitComponent, Group
 from vlm_solver import VLM_solver, VLM_forces
 
 class VlmAssembler(object):
-   def __init__(self,options):
+   def __init__(self,options,comm):
 
       ## flow parameters
 
-      self.comm = None
+      self.comm = comm
 
       self.mach = options['mach']
       self.q_inf = options['q_inf']

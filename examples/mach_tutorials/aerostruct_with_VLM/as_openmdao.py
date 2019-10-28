@@ -57,7 +57,7 @@ aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_
 
 # VLM assembler
 
-aero_assembler = VlmAssembler(aero_options)
+aero_assembler = VlmAssembler(aero_options,comm)
 
 # TACS setup
 
