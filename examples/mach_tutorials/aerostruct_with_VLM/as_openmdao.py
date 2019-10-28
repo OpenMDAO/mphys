@@ -24,7 +24,7 @@ aero_options = {
     'mesh_file':'wing_VLM.dat',
     'mach':0.85,
     'alpha':2*np.pi/180.,
-    'q_inf':100.,
+    'q_inf':100000.,
     'vel':178.,
     'mu':3.5E-5,
 }
@@ -90,9 +90,19 @@ def get_funcs(tacs):
     ks_weight = 50.0
     return [ functions.KSFailure(tacs,ks_weight), functions.StructuralMass(tacs)]
 
+def f5_writer(tacs):
+    flag = (TACS.ToFH5.NODES |
+            TACS.ToFH5.DISPLACEMENTS |
+            TACS.ToFH5.STRAINS |
+            TACS.ToFH5.EXTRAS)
+    f5 = TACS.ToFH5(tacs, TACS.PY_SHELL, flag)
+    f5.writeToFile('wingbox.f5')
+
+
 tacs_setup = {'add_elements': add_elements,
               'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
-              'get_funcs'   : get_funcs}
+              'get_funcs'   : get_funcs,
+              'f5_writer'   : f5_writer}
 
 # TACS assembler
 
