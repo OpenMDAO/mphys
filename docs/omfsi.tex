@@ -1,0 +1,167 @@
+\documentclass{article}
+\usepackage{omfsi}
+
+\title{OMFSI - OpenMDAO Fluid Structure Interactions}
+\author{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+
+\section{Introduction}
+
+OMFSI is a set of interface conventions and model assembly tools to perform fluid-structure interaction problems with OpenMDAO.
+While OMFSI does provide these conventions, it is not absolutely necessary to follow these guidelines in order to solve fluid-structure interaction problems with OpenMDAO given its very general coupling capability.
+However, by following a standard set of variable names and model development conventions, the usage of OpenMDAO for fluid-structure interaction analysis will be modular across groups.
+This eases technology transfer and collaboration in this area of research.
+
+
+This documents describes the conventions of OMFSI.
+
+\section{Group Levels of the OpenMDAO model}\label{sect:group_levels}
+
+Coupled optimizations can involve multiple analysis conditions (such as flight conditions) as well as multiple solver components per analysis condition.
+To organize these complex models, the OpenMDAO model are divided into three levels of groups: the model level, the scenario level, and the FSI level.
+
+The FSI level is the coupled analysis group.
+It is the lowest level the OMFSI hierarchy.
+For a standard FSI problem it would contain a group or component for a flow solver, structural solver, and load and displacement transfers.
+It can be extended to include other disciplines that require two-way coupling with any of the FSI components.
+Each part of the FSI level can be a single component or a group that contains multiple components.
+This will be discussed further in \sect{sect:analysis_blocks}.
+
+The scenario level is an OpenMDAO group that represents a specific condition in a multipoint optimization.
+For example, a scenario could be a cruise flight condition that requires a FSI group to determine the lift and drag.
+The scenario group contains a FSI group and any scenario-specific computation that needs to occur before or after the associated FSI problem is solved.
+For example, a sonic boom propagator requires the flow solution as an input but this one-way coupling does not require it to be in the FSI group; therefore, it should be put in the scenario group to be solved after the FSI group converges.
+
+The model level is the highest group level of the OpenMDAO model.
+It can contain multiple scenario groups as well as any other computations that affect or are affected by multiple scenario groups.
+An example of a component that computes before the scenarios would be a geometry engine that affects the shape of the bodies in all scenarios.
+An example of a component that computes after the scenarios would be a cost function evaluation that averages the lift to drag ratio over a set of cruise scenarios that have different flight conditions.
+
+\section{OMFSI Model Assembler Description}
+The most of the assembly of OpenMDAO model with OMFSI is handled by a set of assembler helper objects.
+There is a primary fsi\_assembler as well as one associated with each code/discipline connected with OMFSI.
+The code/discipline assembler each must perform three tasks.
+Some disciplines have some discipline-specific functionality required as well.
+The three tasks common to all the code assemblers are
+1) define functions to add its components to the appropriate group level described in \sect{sect:group_levels};
+2) identify the outputs of its components by adding them the {\tt connection\_srcs} dictionary;
+3) connect its components' inputs from the {\tt connection\_srcs} dictionary.
+
+The aerodynamic assembler must provide two additional getter functions: {\tt get\_comm} and {\tt get\_nnodes} which get the mpi communicator and number of nodes owned by the local processor, respectively.
+
+The structural assembler must provide three additional getter functions: {\tt get\_comm}, {\tt get\_nnodes}, and {\tt get\_ndof} which get the mpi communicator, number of nodes owned by the local processor, and the number of degrees of freedom per node, respectively.
+\section{Parallelism}
+Coupling with high-fidelity analysis components requires communication of parallel data in OpenMDAO.
+This can create difficulty coupling when mesh sizes or internal solver differences make the solvers more efficient with an unequal number of processors.
+To make this problem less extensive, all components in OMFSI should expect to be called on every MPI rank.
+If the component is desired to operate on a subset of those processors, it is should specify that on the extra ranks the output exists but is of size zero on that rank.
+
+
+\section{Description of Analysis Blocks}
+\label{sect:analysis_blocks}
+
+Disciplinary solvers in the FSI group can be a single OpenMDAO component or a group.
+The term \textbf{block} will be used to mean either the single component or the group.
+
+
+\begin{itemize}
+  \item All inputs and outputs are flattened in row-major ordering.
+  \item All vectors are in the global reference frame
+\end{itemize}
+
+\FloatBarrier
+\subsection{Flow Solver Block}
+
+The fluid solver block requirements for variables are given in \tab{tab:flow_vars}.
+
+\begin{itemize}
+\item Block name: ``aero''
+\end{itemize}
+
+\red{Questions:}
+\begin{itemize}
+\item \red{Switch aero name to flow or fluid to be more general}
+\item \red{Standardize CFD state vector representation? i.e., primitive versus conserved variables. Standardizing this could lead to easier integration other disciplines like thermal transfers which will need temperature or boom propagation which needs pressure}
+\end{itemize}
+
+\begin{table}[H]
+  \centering
+  \caption{Flow solver block required variables}
+  \label{tab:flow_vars}
+  \begin{tabular}{c|c|c|c|c}
+    Variable Name in OpenMDAO & Input or Output? & Variable Location   & Description \\
+    \midrule
+    $x_a$                     & Input            & fluid surface nodes & Coordinates of surface nodes \\
+    $f_a$                     & Output           & fluid surface nodes & Forces applied by the flow on the surface \\
+  \end{tabular}
+\end{table}
+
+
+\FloatBarrier
+\subsection{Structural Solver Block}
+
+The structural solver block requirements for variables are given in \tab{tab:struct_vars}.
+
+\begin{itemize}
+\item Block name: ``struct''
+\end{itemize}
+
+\red{Questions:}
+\begin{itemize}
+\item \red{Temperature and heat flux for thermal transfer}
+\item \red{Standardize rotation representation?}
+\end{itemize}
+
+
+\begin{table}[H]
+  \centering
+  \caption{Structural solver block required variables}
+  \label{tab:struct_vars}
+  \begin{tabular}{c|c|c|c|c}
+    Variable Name in OpenMDAO & Input or Output? & Variable Location   & Description \\
+    \midrule
+    $f_s$                     & Input            & structural nodes & External forces acting on the structure \\
+    $u_s$                     & Output           & structural nodes & Displacements of the structural nodes \\
+  \end{tabular}
+\end{table}
+
+
+\FloatBarrier
+\subsection{Load and Displacement Transfer}
+
+The displacement transfer and load transfer block requirements for variables are given in \tab{tab:disp_xfer_vars} and \tab{tab:load_xfer_vars}.
+
+\begin{itemize}
+\item Displacement transfer block name: ``disp\_xfer''
+\item Load transfer block name: ``load\_xfer''
+\end{itemize}
+
+\begin{table}[H]
+  \centering
+  \caption{Displacement transfer block required variables}
+  \label{tab:disp_xfer_vars}
+  \begin{tabular}{c|c|c|c|c}
+    Variable Name in OpenMDAO & Input or Output? & Variable Location   & Description \\
+    \midrule
+    $u_s$                     & Input            & structural nodes    & Displacements of the structural nodes \\
+    $u_a$                     & Output           & fluid surface nodes & Displacements of the fluid surface nodes \\
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Load transfer block required variables}
+  \label{tab:load_xfer_vars}
+  \begin{tabular}{c|c|c|c|c}
+    Variable Name in OpenMDAO & Input or Output? & Variable Location   & Description \\
+    \midrule
+    $f_a$                     & Input            & fluid surface nodes & Flow fores acting on the surface \\
+    $f_s$                     & Output           & structural nodes    & Forces acting on the structures \\
+  \end{tabular}
+\end{table}
+
+\end{document}
