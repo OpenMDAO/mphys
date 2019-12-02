@@ -7,6 +7,7 @@ from tacs import elements, constitutive
 
 from omfsi.fsi_assembler import *
 from omfsi.vlm_component import *
+from omfsi.modal_structure_component import *
 from omfsi.tacs_component import *
 from omfsi.meld_xfer_component import *
 
@@ -16,6 +17,7 @@ from openmdao.api import NonlinearRunOnce, LinearRunOnce
 from openmdao.api import NonlinearBlockGS, LinearBlockGS
 from openmdao.api import view_model
 
+use_modal = True
 comm = MPI.COMM_WORLD
 
 # VLM options
@@ -99,14 +101,19 @@ def f5_writer(tacs):
     f5.writeToFile('wingbox.f5')
 
 
+# common setup options
 tacs_setup = {'add_elements': add_elements,
-              'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
-              'get_funcs'   : get_funcs,
-              'f5_writer'   : f5_writer}
+              'mesh_file'   : 'wingbox_Y_Z_flip.bdf'}
 
 # TACS assembler
 
-struct_assembler = TacsOmfsiAssembler(tacs_setup)
+if use_modal:
+    tacs_setup['nmodes'] = 15
+    struct_assembler = ModalStructAssembler(tacs_setup)
+else:
+    tacs_setup['get_funcs'] = get_funcs
+    tacs_setup['f5_writer'] = f5_writer
+    struct_assembler = TacsOmfsiAssembler(tacs_setup)
 
 # MELD setup
 

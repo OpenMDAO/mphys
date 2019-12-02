@@ -1,331 +1,238 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import numpy as np
-from openmdao.api import ImplicitComponent, ExplicitComponent
+from tacs import TACS, elements, functions
+from openmdao.api import ImplicitComponent, ExplicitComponent, Group
 
-class ModalStep(ImplicitComponent):
-    """
-    Modal structural BDF2 integrator
-    Solves one time step of:
-      M ddot(z) + C dot(z) + K z - f = 0
+class ModalStructAssembler(object):
+    def __init__(self,solver_options):
+        self.add_elements = solver_options['add_elements']
+        self.mesh_file = solver_options['mesh_file']
+        self.nmodes = solver_options['nmodes']
 
-    This a simpler model to work on time integration in OMFSI
-    It could be an explicit component but it written as an implicit
-    since the FEM solvers will be implicit
-    """
+        self.tacs = None
+
+    def get_tacs(self,comm):
+        if self.tacs is None:
+            self.comm = comm
+            mesh = TACS.MeshLoader(comm)
+            mesh.scanBDFFile(self.mesh_file)
+
+            self.ndof, self.ndv = self.add_elements(mesh)
+
+            self.tacs = mesh.createTACS(self.ndof)
+            self.nnodes = int(self.tacs.createNodeVec().getArray().size / 3)
+        return self.tacs
+
+    def get_ndv(self):
+        return self.ndv
+
+    def get_ndof(self):
+        return 3
+
+    def get_nnodes(self):
+        return self.nnodes
+
+    def get_modal_sizes(self):
+        return self.nmodes, self.nnodes*3
+
+    def add_model_components(self,model,connection_srcs):
+        model.add_subsystem('struct_modal_decomp',ModalDecomp(get_tacs = self.get_tacs,
+                                                              get_ndv = self.get_ndv,
+                                                              nmodes = self.nmodes))
+
+        connection_srcs['x_s0'] = 'struct_modal_decomp.x_s0'
+        connection_srcs['mode_shape'] = 'struct_modal_decomp.mode_shape'
+        connection_srcs['modal_mass'] = 'struct_modal_decomp.modal_mass'
+        connection_srcs['modal_stiffness'] = 'struct_modal_decomp.modal_stiffness'
+
+    def add_scenario_components(self,model,scenario,connection_srcs):
+        pass
+
+    def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
+
+        struct = Group()
+        struct.add_subsystem('modal_forces',ModalForces(get_modal_sizes=self.get_modal_sizes))
+        struct.add_subsystem('modal_solver',ModalSolver(nmodes=self.nmodes))
+        struct.add_subsystem('modal_disps',ModalDisplacements(get_modal_sizes=self.get_modal_sizes))
+
+        fsi_group.add_subsystem('struct',struct)
+
+        connection_srcs['mf']  = scenario.name+'.'+fsi_group.name+'.struct.modal_forces.mf'
+        connection_srcs['z']   = scenario.name+'.'+fsi_group.name+'.struct.modal_solver.z'
+        connection_srcs['u_s'] = scenario.name+'.'+fsi_group.name+'.struct.modal_disps.u_s'
+
+    def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
+
+        forces_path =  scenario.name+'.'+fsi_group.name+'.struct.modal_forces'
+        solver_path =  scenario.name+'.'+fsi_group.name+'.struct.modal_solver'
+        disps_path  =  scenario.name+'.'+fsi_group.name+'.struct.modal_disps'
+
+        model.connect(connection_srcs['dv_struct'],'struct_modal_decomp.dv_struct')
+
+        model.connect(connection_srcs['f_s'],[forces_path+'.f_s'])
+        model.connect(connection_srcs['mf'],[solver_path+'.mf'])
+        model.connect(connection_srcs['z'],[disps_path+'.z'])
+
+        model.connect(connection_srcs['mode_shape'],forces_path+'.mode_shape')
+        model.connect(connection_srcs['mode_shape'],disps_path+'.mode_shape')
+        model.connect(connection_srcs['modal_stiffness'],[solver_path+'.k'])
+
+class ModalDecomp(ExplicitComponent):
     def initialize(self):
-        self.options.declare('nmodes',default=1)
-        self.options.declare('dt',default = 0.0)
+        self.options.declare('get_tacs', default = None, desc='function to get tacs')
+        self.options.declare('get_ndv', default = None, desc='function to get number of design variables in tacs')
+        self.options.declare('nmodes', default = 1, desc = 'number of modes to kept')
+        self.options['distributed'] = True
+
     def setup(self):
-        # BDF coefficients - 1st and 2nd derivatives
-        dt = self.options['dt']
-        self.alpha = np.zeros(3)
-        self.alpha[0] = 3.0/2.0/dt
-        self.alpha[1] = -2.0/dt
-        self.alpha[2] = 1.0/2.0/dt
 
-        self.beta = np.zeros(5)
-        for i in range(3):
-           for j in range(3):
-               self.beta[i+j] += self.alpha[i] * self.alpha[j]
+        # TACS assembler setup
+        self.tacs = self.options['get_tacs'](self.comm)
+        self.ndv = self.options['get_ndv']()
+        self.nmodes = self.options['nmodes']
 
-        # OM setup
-        nmodes = self.options['nmodes']
-        self.add_input('m', shape=nmodes, val=np.ones(nmodes), desc = 'modal mass')
-        self.add_input('c', shape=nmodes, val=np.ones(nmodes), desc = 'modal damping')
-        self.add_input('k', shape=nmodes, val=np.ones(nmodes), desc = 'modal stiffness')
+        # create some TACS bvecs that will be needed later
+        self.xpts  = self.tacs.createNodeVec()
+        self.tacs.getNodes(self.xpts)
 
-        self.add_input('f', shape=nmodes, val=np.ones(nmodes), desc = 'modal force')
+        self.vec  = self.tacs.createVec()
 
-        self.add_input('znm4', shape=nmodes, val=np.ones(nmodes), desc = 'z at step n-4')
-        self.add_input('znm3', shape=nmodes, val=np.ones(nmodes), desc = 'z at step n-3')
-        self.add_input('znm2', shape=nmodes, val=np.ones(nmodes), desc = 'z at step n-2')
-        self.add_input('znm1', shape=nmodes, val=np.zeros(nmodes), desc = 'z at step n-1')
+        # OpenMDAO setup
+        node_size  =     self.xpts.getArray().size
+        self.ndof = int(self.vec.getArray().size / (node_size/3))
 
-        self.add_output('zn', shape=nmodes, val=np.ones(nmodes), desc = 'current displacement (step n)')
+        self.add_input('dv_struct',shape=self.ndv, desc='structural design variables')
 
-    def _get_accel_and_vel(self,inputs,outputs):
-        accel = ( self.beta[0] * outputs['zn']
-                + self.beta[1] * inputs['znm1']
-                + self.beta[2] * inputs['znm2']
-                + self.beta[3] * inputs['znm3']
-                + self.beta[4] * inputs['znm4'] )
+        self.add_output('mode_shape', shape=(self.nmodes,node_size), desc='structural mode shapes')
+        self.add_output('modal_mass', shape=self.nmodes, desc='modal mass')
+        self.add_output('modal_stiffness', shape=self.nmodes, desc='modal stiffness')
+        self.add_output('x_s0', shape = node_size, desc = 'undeformed nodal coordinates')
 
-        vel = ( self.alpha[0] * outputs['zn']
-              + self.alpha[1] * inputs['znm1']
-              + self.alpha[2] * inputs['znm2'] )
-        return accel, vel
+    def compute(self,inputs,outputs):
 
-    def apply_nonlinear(self, inputs, outputs, residuals):
-        accel,vel = self._get_accel_and_vel(inputs,outputs)
+        self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
 
-        residuals['zn'] = ( inputs['m']*accel
-                          + inputs['c']*vel
-                          + inputs['k']*outputs['zn']
-                          - inputs['f'] )
+        kmat = self.tacs.createFEMat()
+        self.tacs.assembleMatType(TACS.PY_STIFFNESS_MATRIX,kmat)
+        pc = TACS.Pc(kmat)
+        subspace = 100
+        restarts = 2
+        self.gmres = TACS.KSM(kmat, pc, subspace, restarts)
 
-    def solve_nonlinear(self,inputs,outputs):
-        m = inputs['m']
-        c = inputs['c']
-        k = inputs['k']
-        self.m = m
-        self.c = c
-        self.k = k
+        # Guess for the lowest natural frequency
+        sigma_hz = 1.0
+        sigma = 2.0*np.pi*sigma_hz
 
-        outputs['zn'] = ( inputs['f']
-                        - self.beta[1]  * m * inputs['znm1']
-                        - self.beta[2]  * m * inputs['znm2']
-                        - self.beta[3]  * m * inputs['znm3']
-                        - self.beta[4]  * m * inputs['znm4']
-                        - self.alpha[1] * c * inputs['znm1']
-                        - self.alpha[2] * c * inputs['znm2']
-                        ) / (self.beta[0] * m + self.alpha[0] * c + k )
+        mmat = self.tacs.createFEMat()
+        self.tacs.assembleMatType(TACS.PY_MASS_MATRIX,mmat)
 
-    def solve_linear(self,d_outputs,d_residuals,mode):
-        m = self.m
-        c = self.c
-        k = self.k
+        self.freq = TACS.FrequencyAnalysis(self.tacs, sigma, mmat, kmat, self.gmres,
+                                      num_eigs=self.nmodes, eig_tol=1e-12)
+        self.freq.solve()
 
-        if mode == 'fwd':
-            d_outputs['zn'] = d_residuals['zn'] / (self.beta[0] * m + self.alpha[0] * c + k )
-        if mode == 'rev':
-            d_residuals['zn'] = d_outputs['zn'] / (self.beta[0] * m + self.alpha[0] * c + k )
+        outputs['x_s0'] = self.xpts.getArray()
+        for imode in range(self.nmodes):
+            eig, err = self.freq.extractEigenvector(imode,self.vec)
+            outputs['modal_mass'][imode] = 1.0
+            outputs['modal_stiffness'][imode] = eig
+            for idof in range(3):
+                outputs['mode_shape'][imode,idof::3] = self.vec.getArray()[idof::self.ndof]
 
-    def apply_linear(self,inputs,outputs,d_inputs,d_outputs,d_residuals,mode):
-        accel, vel = self._get_accel_and_vel(inputs,outputs)
-        m = inputs['m']
-        c = inputs['c']
-        k = inputs['k']
-
-        if mode == 'fwd':
-            if 'zn' in d_residuals:
-                if 'zn' in d_outputs:
-                    d_residuals['zn'] += (self.beta[0] * m + self.alpha[0] * c + k ) * d_outputs['zn']
-                if 'm' in d_inputs:
-                    d_residuals['zn'] += accel * d_inputs['m']
-                if 'c' in d_inputs:
-                    d_residuals['zn'] += vel * d_inputs['c']
-                if 'k' in d_inputs:
-                    d_residuals['zn'] += outputs['zn'] * d_inputs['k']
-                if 'f' in d_inputs:
-                    d_residuals['zn'] -= d_inputs['f']
-                if 'znm4' in d_inputs:
-                    d_residuals['zn'] +=  self.beta[4] * m * d_inputs['znm4']
-                if 'znm3' in d_inputs:
-                    d_residuals['zn'] +=  self.beta[3] * m * d_inputs['znm3']
-                if 'znm2' in d_inputs:
-                    d_residuals['zn'] +=( self.beta[2] * m * d_inputs['znm2']
-                                        + self.alpha[2]* c * d_inputs['znm2'])
-                if 'znm1' in d_inputs:
-                    d_residuals['zn'] +=( self.beta[1] * m * d_inputs['znm1']
-                                        + self.alpha[1]* c * d_inputs['znm1'])
-        if mode == 'rev':
-            if 'zn' in d_residuals:
-                if 'zn' in d_outputs:
-                    d_outputs['zn'] += (self.beta[0] * m + self.alpha[0] * c + k ) * d_residuals['zn']
-                if 'm' in d_inputs:
-                    d_inputs['m'] += accel * d_residuals['zn']
-                if 'c' in d_inputs:
-                    d_inputs['c'] += vel * d_residuals['zn']
-                if 'k' in d_inputs:
-                    d_inputs['k'] += outputs['zn'] * d_residuals['zn']
-                if 'f' in d_inputs:
-                    d_inputs['f'] -= d_residuals['zn']
-                if 'znm4' in d_inputs:
-                    d_inputs['znm4'] +=  self.beta[4] * m * d_residuals['zn']
-                if 'znm3' in d_inputs:
-                    d_inputs['znm3'] +=  self.beta[3] * m * d_residuals['zn']
-                if 'znm2' in d_inputs:
-                    d_inputs['znm2'] +=( self.beta[2] * m * d_residuals['zn']
-                                       + self.alpha[2]* c * d_residuals['zn'])
-                if 'znm1' in d_inputs:
-                    d_inputs['znm1'] +=( self.beta[1] * m * d_residuals['zn']
-                                       + self.alpha[1]* c * d_residuals['zn'])
+            # debugging
+            #matrix = np.zeros((int(self.xpts.getArray().size/3),6))
+            #matrix[:,0] = self.xpts.getArray()[ ::3]
+            #matrix[:,1] = self.xpts.getArray()[1::3]
+            #matrix[:,2] = self.xpts.getArray()[2::3]
+            #matrix[:,3] = self.vec.getArray()[ ::6]
+            #matrix[:,4] = self.vec.getArray()[1::6]
+            #matrix[:,5] = self.vec.getArray()[2::6]
+            #np.savetxt('mode_shape'+str(imode)+'.dat',matrix)
 
 class ModalSolver(ExplicitComponent):
     """
     Steady Modal structural solver
-      K z - f = 0
+      K z - mf = 0
     """
     def initialize(self):
         self.options.declare('nmodes',default=1)
     def setup(self):
         nmodes = self.options['nmodes']
         self.add_input('k', shape=nmodes, val=np.ones(nmodes), desc = 'modal stiffness')
-
-        self.add_input('f', shape=nmodes, val=np.ones(nmodes), desc = 'modal force')
+        self.add_input('mf', shape=nmodes, val=np.ones(nmodes), desc = 'modal force')
 
         self.add_output('z', shape=nmodes, val=np.ones(nmodes), desc = 'modal displacement')
 
     def compute(self,inputs,outputs):
         k = inputs['k']
-        outputs['z'] = inputs['f'] / inputs['k']
+        outputs['z'] = inputs['mf'] / inputs['k']
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
         if mode == 'fwd':
             if 'z' in d_outputs:
-                if 'f' in d_inputs:
-                    d_outputs['z'] += d_inputs['f'] / inputs['k']
+                if 'mf' in d_inputs:
+                    d_outputs['z'] += d_inputs['mf'] / inputs['k']
                 if 'k' in d_inputs:
-                    d_outputs['z'] += - inputs['f'] / (inputs['k']**2.0) * d_inputs['k']
+                    d_outputs['z'] += - inputs['mf'] / (inputs['k']**2.0) * d_inputs['k']
         if mode == 'rev':
             if 'z' in d_outputs:
-                if 'f' in d_inputs:
-                    d_inputs['f'] += d_outputs['z'] / inputs['k']
+                if 'mf' in d_inputs:
+                    d_inputs['mf'] += d_outputs['z'] / inputs['k']
                 if 'k' in d_inputs:
-                    d_inputs['k'] += - inputs['f'] / (inputs['k']**2.0) * d_outputs['z']
+                    d_inputs['k'] += - inputs['mf'] / (inputs['k']**2.0) * d_outputs['z']
 
-class ModalInterface(ExplicitComponent):
+class ModalForces(ExplicitComponent):
     def initialize(self):
-        self.options.declare('nmodes',default=1)
-        self.options.declare('root_name')
-    def _read_mode_shapes(self):
-        nmodes = self.options['nmodes']
-        for imode in range(nmodes):
-            filename = self.options['root_name']+'_mode'+str(imode+1)+'.dat'
-            fh = open(filename)
-            while True:
-                line = fh.readline()
-                if 'zone' in line.lower():
-                    self.nnodes = int(line.split('=')[2].split(',')[0])
-                    if imode == 0:
-                        self.mdisp = np.zeros((nmodes,self.nnodes,3))
-                    for inode in range(self.nnodes):
-                        line = fh.readline()
-                        self.mdisp[imode,inode,0] = float(line.split()[4])
-                        self.mdisp[imode,inode,1] = float(line.split()[5])
-                        self.mdisp[imode,inode,2] = float(line.split()[6])
-                if not line:
-                    break
-            fh.close()
+        self.options.declare('get_modal_sizes')
 
-class ModalForces(ModalInterface):
     def setup(self):
-        self._read_mode_shapes()
-        nmodes = self.options['nmodes']
-        nnodes = self.nnodes
+        self.nmodes, self.node_size = self.options['get_modal_sizes']()
 
-        self.add_input('f',shape=nnodes*3,desc = 'nodal force')
-        self.add_output('mf',shape=nmodes, desc = 'modal force')
+        self.add_input('mode_shape',shape=(self.nmodes,self.node_size), desc='structural mode shapes')
+        self.add_input('f_s',shape=self.node_size,desc = 'nodal force')
+        self.add_output('mf',shape=self.nmodes, desc = 'modal force')
 
     def compute(self,inputs,outputs):
-        outputs['mf'] = 0.0
-        for imode in range(self.options['nmodes']):
-            for inode in range(self.nnodes):
-                for k in range(3):
-                    outputs['mf'][imode] += self.mdisp[imode,inode,k] * inputs['f'][3*inode+k]
+        outputs['mf'][:] = 0.0
+        for imode in range(self.nmodes):
+            outputs['mf'][imode] = np.sum(inputs['mode_shape'][imode,:] * inputs['f_s'][:])
+
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
         if mode=='fwd':
             if 'mf' in d_outputs:
-                if 'f' in d_inputs:
+                if 'f_s' in d_inputs:
                     for imode in range(self.options['nmodes']):
-                        for inode in range(self.nnodes):
-                            for k in range(3):
-                                d_outputs['mf'][imode] += self.mdisp[imode,inode,k] * d_inputs['f'][3*inode+k]
+                        d_outputs['mf'][imode] += np.sum(inputs['mode_shape'][imode,:] * d_inputs['f_s'][:])
         if mode=='rev':
             if 'mf' in d_outputs:
-                if 'f' in d_inputs:
+                if 'f_s' in d_inputs:
                     for imode in range(self.options['nmodes']):
-                        for inode in range(self.nnodes):
-                            for k in range(3):
-                                d_inputs['f'][3*inode+k] += self.mdisp[imode,inode,k] * d_outputs['mf'][imode]
+                        d_inputs['f_s'][:] += inputs['mode_shape'][imode,:] * d_outputs['mf'][imode]
 
-class ModalDisplacements(ModalInterface):
-    def setup(self):
-        self._read_mode_shapes()
-        nmodes = self.options['nmodes']
-        nnodes = self.nnodes
-
-        self.add_input('md',shape=nmodes, desc = 'modal displacement')
-        self.add_output('dx',shape=nnodes*3,desc = 'nodal displacement')
-
-    def compute(self,inputs,outputs):
-        outputs['dx'] = 0.0
-        for imode in range(self.options['nmodes']):
-            for inode in range(self.nnodes):
-                for k in range(3):
-                    outputs['dx'][3*inode+k] += self.mdisp[imode,inode,k] * inputs['md'][imode]
-    def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
-        if mode=='fwd':
-            if 'dx' in d_outputs:
-                if 'md' in d_inputs:
-                    for imode in range(self.options['nmodes']):
-                        for inode in range(self.nnodes):
-                            for k in range(3):
-                                d_outputs['dx'][3*inode+k] += self.mdisp[imode,inode,k] * d_inputs['md'][imode]
-        if mode=='rev':
-            if 'dx' in d_outputs:
-                if 'md' in d_inputs:
-                    for imode in range(self.options['nmodes']):
-                        for inode in range(self.nnodes):
-                            for k in range(3):
-                                d_inputs['md'][imode] += self.mdisp[imode,inode,k] * d_outputs['dx'][3*inode+k]
-
-class HarmonicForcer(ExplicitComponent):
+class ModalDisplacements(ExplicitComponent):
     def initialize(self):
-        self.options.declare('root_name',default='')
-        self.c1 = 1e-3
-
-    def _read_mode_shapes(self):
-        filename = self.options['root_name']+'_mode1.dat'
-        fh = open(filename)
-        while True:
-            line = fh.readline()
-            if 'zone' in line.lower():
-                self.nnodes = int(line.split('=')[2].split(',')[0])
-                return
+        self.options.declare('get_modal_sizes')
 
     def setup(self):
-        self._read_mode_shapes()
+        self.nmodes, self.node_size = self.options['get_modal_sizes']()
 
-        self.add_input('amp', desc = 'amplitude')
-        self.add_input('freq', desc = 'frequency')
-        self.add_input('time', desc = 'current time')
-        self.add_input('dx',shape=self.nnodes*3)
-        self.add_output('f',shape=self.nnodes*3)
+        self.add_input('mode_shape',shape=(self.nmodes,self.node_size), desc='structural mode shapes')
+        self.add_input('z',shape=self.nmodes, desc = 'modal displacement')
+        self.add_output('u_s',shape=self.node_size,desc = 'nodal displacement')
 
     def compute(self,inputs,outputs):
-        amp  = inputs['amp']
-        freq = inputs['freq']
-        time = inputs['time']
-
-        outputs['f'] = amp * np.sin(freq*time) * np.ones(self.nnodes*3) - self.c1 * inputs['dx']
+        outputs['u_s'][:] = 0.0
+        for imode in range(self.nmodes):
+            outputs['u_s'][:] += inputs['mode_shape'][imode,:] * inputs['z'][imode]
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
-        amp  = inputs['amp']
-        freq = inputs['freq']
-        time = inputs['time']
-
         if mode=='fwd':
-            if 'f' in d_outputs:
-                if 'amp' in d_inputs:
-                    d_outputs['f'] += np.sin(freq*time) * np.ones(self.nnodes*3) * d_inputs['amp']
-                if 'freq' in d_inputs:
-                    d_outputs['f'] += time * np.cos(freq*time) * np.ones(self.nnodes*3) * d_inputs['freq']
-                if 'time' in d_inputs:
-                    d_outputs['f'] += freq * np.cos(freq*time) * np.ones(self.nnodes*3) * d_inputs['time']
-                if 'dx' in d_inputs:
-                    d_outputs['f'] -= self.c1 * d_inputs['dx']
-
+            if 'u_s' in d_outputs:
+                if 'z' in d_inputs:
+                    for imode in range(self.options['nmodes']):
+                        d_outputs['u_s'][:] += inputs['mode_shape'][imode,:] * d_inputs['z'][imode]
         if mode=='rev':
-            if 'f' in d_outputs:
-                if 'amp' in d_inputs:
-                    d_inputs['amp'] += np.sin(freq*time) * np.sum(d_outputs['f'])
-                if 'freq' in d_inputs:
-                    d_inputs['freq'] += time * np.cos(freq*time) * np.sum(d_outputs['f'])
-                if 'time' in d_inputs:
-                    d_inputs['time'] += freq * np.cos(freq*time) * np.sum(d_outputs['f'])
-                if 'dx' in d_inputs:
-                    d_inputs['dx'] -= self.c1 * d_outputs['f']
-
-if __name__ == "__main__":
-    from openmdao.api import Problem
-    prob = Problem()
-    prob.model.add_subsystem('modal_force',ModalForces(nmodes=2,root_name='sphere_body1'))
-    prob.model.add_subsystem('modal_step',ModalStep(nmodes=2,dt=0.1))
-    prob.model.add_subsystem('modal_solver',ModalSolver(nmodes=2))
-    prob.model.add_subsystem('modal_disp',ModalDisplacements(nmodes=2,root_name='sphere_body1'))
-    prob.model.add_subsystem('harmonic_forcer',HarmonicForcer(root_name='sphere_body1'))
-
-    prob.setup(force_alloc_complex=True)
-    prob.check_partials(method='cs',compact_print=True)
+            if 'u_s' in d_outputs:
+                if 'z' in d_inputs:
+                    for imode in range(self.options['nmodes']):
+                        d_inputs['z'][imode] += np.sum(inputs['mode_shape'][imode,:] * d_outputs['u_s'][:])
