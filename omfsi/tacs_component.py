@@ -34,6 +34,9 @@ class TacsOmfsiAssembler(object):
     def get_nnodes(self):
         return self.solver_dict['nnodes']
 
+    def get_ndv(self):
+        return self.solver_dict['ndv']
+
     def add_model_components(self,model,connection_srcs):
         model.add_subsystem('struct_mesh',TacsMesh(get_tacs = self.get_tacs))
 
@@ -41,8 +44,8 @@ class TacsOmfsiAssembler(object):
 
     def add_scenario_components(self,model,scenario,connection_srcs):
         if not self.funcs_in_fsi:
-            scenario.add_subsystem('struct_funcs',TacsFunctions(setup_func=self.setup_function_evaluator))
-            scenario.add_subsystem('struct_mass',TacsMass(setup_func=self.setup_mass_evaluator))
+            scenario.add_subsystem('struct_funcs',TacsFunctions(get_tacs=self.get_tacs,get_ndv=self.get_ndv,get_funcs=self.get_funcs,f5_writer=self.f5_writer))
+            scenario.add_subsystem('struct_mass',TacsMass(get_tacs=self.get_tacs,get_ndv=self.get_ndv))
 
             connection_srcs['f_struct'] = scenario.name+'.struct_funcs.f_struct'
             connection_srcs['mass'] = scenario.name+'.struct_mass.mass'
@@ -59,8 +62,8 @@ class TacsOmfsiAssembler(object):
             struct = Group()
             struct.add_subsystem('solver',TacsSolver(setup_func=self.setup_solver))
             if self.funcs_in_fsi:
-                struct.add_subsystem('struct_funcs',TacsFunctions(setup_func=self.setup_function_evaluator))
-                struct.add_subsystem('struct_mass',TacsMass(setup_func=self.setup_mass_evaluator))
+                struct.add_subsystem('struct_funcs',TacsFunctions(get_tacs=self.get_tacs,get_ndv=self.get_ndv,get_funcs=self.get_funcs,f5_writer=self.f5_writer))
+                struct.add_subsystem('struct_mass',TacsMass(get_tacs=self.get_tacs,get_ndv=self.get_ndv))
             if self.add_forcer:
                 struct.add_subsystem('forcer',PrescribedLoad(load_function=self.forcer_func,get_tacs=self.get_tacs))
 
@@ -135,16 +138,7 @@ class TacsOmfsiAssembler(object):
 
     def setup_solver(self, comm):
         self.get_tacs(comm)
-        return self.tacs, self.mat, self.pc, self.gmres, self.solver_dict['ndv'], self.f5_writer
-
-    def setup_function_evaluator(self, comm):
-        self.get_tacs(comm)
-        func_list = self.get_funcs(self.tacs)
-        return self.tacs, self.mat, self.pc, self.solver_dict['ndv'], func_list
-
-    def setup_mass_evaluator(self, comm):
-        self.get_tacs(comm)
-        return self.tacs, self.mat, self.pc, self.solver_dict['ndv']
+        return self.tacs, self.mat, self.pc, self.gmres, self.solver_dict['ndv']
 
 class TacsMesh(ExplicitComponent):
     """
@@ -202,7 +196,7 @@ class TacsSolver(ImplicitComponent):
 
     def setup(self):
 #        self.set_check_partial_options(wrt='*',directional=True)
-        tacs, mat, pc, gmres, ndv, f5_writer = self.options['setup_func'](self.comm)
+        tacs, mat, pc, gmres, ndv = self.options['setup_func'](self.comm)
 
         # TACS assembler setup
         self.tacs      = tacs
@@ -210,7 +204,6 @@ class TacsSolver(ImplicitComponent):
         self.pc        = pc
         self.gmres     = gmres
         self.ndv       = ndv
-        self.f5_writer = f5_writer
 
         # create some TACS bvecs that will be needed later
         self.res        = tacs.createVec()
@@ -320,9 +313,6 @@ class TacsSolver(ImplicitComponent):
         ans_array = ans.getArray()
         outputs['u_s'] = ans_array[:]
         tacs.setVariables(ans)
-
-        if self.f5_writer is not None:
-            self.f5_writer(tacs)
 
     def solve_linear(self,d_outputs,d_residuals,mode):
         if mode == 'fwd':
@@ -440,7 +430,10 @@ class TacsFunctions(ExplicitComponent):
           => func_list, tacs, struct_ndv = tacs_func_setup(comm)
     """
     def initialize(self):
-        self.options.declare('setup_func', default= None, desc='setup function')
+        self.options.declare('get_tacs', default = None, desc='func pointer to get the tacs assembler')
+        self.options.declare('get_ndv', default = None, desc='func pointer to get the number of tacs DVs')
+        self.options.declare('get_funcs', default = None, desc='func pointer to get list of tacs functions')
+        self.options.declare('f5_writer', default = None, desc='func pointer for f5 writer')
 
         self.ans = None
         self.tacs = None
@@ -449,12 +442,12 @@ class TacsFunctions(ExplicitComponent):
 
     def setup(self):
 #        self.set_check_partial_options(wrt='*',directional=True)
-        tacs, mat, pc, ndv, func_list = self.options['setup_func'](self.comm)
+        tacs = self.options['get_tacs'](self.comm)
+        ndv = self.options['get_ndv']()
+        func_list = self.options['get_funcs'](tacs)
 
         # TACS part of setup
         self.tacs      = tacs
-        self.mat       = mat
-        self.pc        = pc
         self.ndv       = ndv
         self.func_list = func_list
 
@@ -501,7 +494,8 @@ class TacsFunctions(ExplicitComponent):
         xpts_array[:] = inputs['x_s0']
         self.tacs.setNodes(xpts)
 
-        pc     = self.pc
+        mat    = self.tacs.createFEMat()
+        pc     = TACS.Pc(mat)
         alpha = 1.0
         beta  = 0.0
         gamma = 0.0
@@ -516,7 +510,7 @@ class TacsFunctions(ExplicitComponent):
         res_array = res.getArray()
         res_array[:] = 0.0
 
-        self.tacs.assembleJacobian(alpha,beta,gamma,res,self.mat)
+        self.tacs.assembleJacobian(alpha,beta,gamma,res,mat)
         pc.factor()
 
         ans = self.ans
@@ -532,6 +526,9 @@ class TacsFunctions(ExplicitComponent):
 
         if 'f_struct' in outputs:
             outputs['f_struct'] = self.tacs.evalFunctions(self.func_list)
+
+        if self.options['f5_writer'] is not None:
+            self.options['f5_writer'](self.tacs)
 
     def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
@@ -574,7 +571,8 @@ class TacsMass(ExplicitComponent):
           => func_list, tacs, struct_ndv = tacs_func_setup(comm)
     """
     def initialize(self):
-        self.options.declare('setup_func', default = None, desc='setup function')
+        self.options.declare('get_tacs', default = None, desc='function pointer to get the tacs assembler')
+        self.options.declare('get_ndv', default = None, desc='func pointer to get the number of tacs DVs')
 
         self.ans = None
         self.tacs = None
@@ -585,12 +583,11 @@ class TacsMass(ExplicitComponent):
 
     def setup(self):
 #        self.set_check_partial_options(wrt='*',directional=True)
-        tacs, mat, pc, ndv = self.options['setup_func'](self.comm)
+        tacs = self.options['get_tacs'](self.comm)
+        ndv = self.options['get_ndv']()
 
         # TACS part of setup
         self.tacs = tacs
-        self.mat  = mat
-        self.pc   = pc
         self.ndv  = ndv
 
         self.xpt_sens = tacs.createNodeVec()

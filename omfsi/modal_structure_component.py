@@ -3,12 +3,15 @@ from __future__ import print_function
 import numpy as np
 from tacs import TACS, elements, functions
 from openmdao.api import ImplicitComponent, ExplicitComponent, Group
+from .tacs_component import TacsMass, TacsFunctions
 
 class ModalStructAssembler(object):
     def __init__(self,solver_options):
         self.add_elements = solver_options['add_elements']
-        self.mesh_file = solver_options['mesh_file']
-        self.nmodes = solver_options['nmodes']
+        self.mesh_file    = solver_options['mesh_file']
+        self.nmodes       = solver_options['nmodes']
+        self.get_funcs    = solver_options['get_funcs']
+        self.f5_writer    = solver_options['f5_writer']
 
         self.tacs = None
 
@@ -28,13 +31,13 @@ class ModalStructAssembler(object):
         return self.ndv
 
     def get_ndof(self):
-        return 3
+        return self.ndof
 
     def get_nnodes(self):
         return self.nnodes
 
     def get_modal_sizes(self):
-        return self.nmodes, self.nnodes*3
+        return self.nmodes, self.nnodes*self.ndof
 
     def add_model_components(self,model,connection_srcs):
         model.add_subsystem('struct_modal_decomp',ModalDecomp(get_tacs = self.get_tacs,
@@ -47,7 +50,11 @@ class ModalStructAssembler(object):
         connection_srcs['modal_stiffness'] = 'struct_modal_decomp.modal_stiffness'
 
     def add_scenario_components(self,model,scenario,connection_srcs):
-        pass
+        scenario.add_subsystem('struct_funcs',TacsFunctions(get_tacs=self.get_tacs,get_ndv=self.get_ndv,get_funcs=self.get_funcs,f5_writer=self.f5_writer))
+        scenario.add_subsystem('struct_mass',TacsMass(get_tacs=self.get_tacs,get_ndv=self.get_ndv))
+
+        connection_srcs['f_struct'] = scenario.name+'.struct_funcs.f_struct'
+        connection_srcs['mass'] = scenario.name+'.struct_mass.mass'
 
     def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
 
@@ -78,6 +85,13 @@ class ModalStructAssembler(object):
         model.connect(connection_srcs['mode_shape'],disps_path+'.mode_shape')
         model.connect(connection_srcs['modal_stiffness'],[solver_path+'.k'])
 
+        model.connect(connection_srcs['x_s0'],scenario.name+'.struct_funcs.x_s0')
+        model.connect(connection_srcs['u_s'],scenario.name+'.struct_funcs.u_s')
+        model.connect(connection_srcs['dv_struct'],scenario.name+'.struct_funcs.dv_struct')
+        model.connect(connection_srcs['x_s0'],scenario.name+'.struct_mass.x_s0')
+        model.connect(connection_srcs['dv_struct'],scenario.name+'.struct_mass.dv_struct')
+
+
 class ModalDecomp(ExplicitComponent):
     def initialize(self):
         self.options.declare('get_tacs', default = None, desc='function to get tacs')
@@ -100,11 +114,12 @@ class ModalDecomp(ExplicitComponent):
 
         # OpenMDAO setup
         node_size  =     self.xpts.getArray().size
-        self.ndof = int(self.vec.getArray().size / (node_size/3))
+        self.state_size = self.vec.getArray().size
+        self.ndof = int(self.state_size / (node_size/3))
 
         self.add_input('dv_struct',shape=self.ndv, desc='structural design variables')
 
-        self.add_output('mode_shape', shape=(self.nmodes,node_size), desc='structural mode shapes')
+        self.add_output('mode_shape', shape=(self.nmodes,self.state_size), desc='structural mode shapes')
         self.add_output('modal_mass', shape=self.nmodes, desc='modal mass')
         self.add_output('modal_stiffness', shape=self.nmodes, desc='modal stiffness')
         self.add_output('x_s0', shape = node_size, desc = 'undeformed nodal coordinates')
@@ -137,7 +152,7 @@ class ModalDecomp(ExplicitComponent):
             outputs['modal_mass'][imode] = 1.0
             outputs['modal_stiffness'][imode] = eig
             for idof in range(3):
-                outputs['mode_shape'][imode,idof::3] = self.vec.getArray()[idof::self.ndof]
+                outputs['mode_shape'][imode,:] = self.vec.getArray()
 
             # debugging
             #matrix = np.zeros((int(self.xpts.getArray().size/3),6))
@@ -186,10 +201,10 @@ class ModalForces(ExplicitComponent):
         self.options.declare('get_modal_sizes')
 
     def setup(self):
-        self.nmodes, self.node_size = self.options['get_modal_sizes']()
+        self.nmodes, self.mode_size = self.options['get_modal_sizes']()
 
-        self.add_input('mode_shape',shape=(self.nmodes,self.node_size), desc='structural mode shapes')
-        self.add_input('f_s',shape=self.node_size,desc = 'nodal force')
+        self.add_input('mode_shape',shape=(self.nmodes,self.mode_size), desc='structural mode shapes')
+        self.add_input('f_s',shape=self.mode_size,desc = 'nodal force')
         self.add_output('mf',shape=self.nmodes, desc = 'modal force')
 
     def compute(self,inputs,outputs):
@@ -214,11 +229,11 @@ class ModalDisplacements(ExplicitComponent):
         self.options.declare('get_modal_sizes')
 
     def setup(self):
-        self.nmodes, self.node_size = self.options['get_modal_sizes']()
+        self.nmodes, self.mode_size = self.options['get_modal_sizes']()
 
-        self.add_input('mode_shape',shape=(self.nmodes,self.node_size), desc='structural mode shapes')
+        self.add_input('mode_shape',shape=(self.nmodes,self.mode_size), desc='structural mode shapes')
         self.add_input('z',shape=self.nmodes, desc = 'modal displacement')
-        self.add_output('u_s',shape=self.node_size,desc = 'nodal displacement')
+        self.add_output('u_s',shape=self.mode_size,desc = 'nodal displacement')
 
     def compute(self,inputs,outputs):
         outputs['u_s'][:] = 0.0

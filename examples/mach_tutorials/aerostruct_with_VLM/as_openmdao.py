@@ -18,6 +18,7 @@ from openmdao.api import NonlinearBlockGS, LinearBlockGS
 from openmdao.api import view_model
 
 use_modal = True
+use_modal = False
 comm = MPI.COMM_WORLD
 
 # VLM options
@@ -26,7 +27,7 @@ aero_options = {
     'mesh_file':'wing_VLM.dat',
     'mach':0.85,
     'alpha':2*np.pi/180.,
-    'q_inf':100000.,
+    'q_inf':1000.,
     'vel':178.,
     'mu':3.5E-5,
 }
@@ -69,7 +70,7 @@ def add_elements(mesh):
     nu = 0.33               # poisson's ratio
     kcorr = 5.0 / 6.0       # shear correction factor
     ys = 324.0e6            # yield stress, Pa
-    thickness= 0.020
+    thickness= 0.003
     min_thickness = 0.002
     max_thickness = 0.05
 
@@ -103,7 +104,9 @@ def f5_writer(tacs):
 
 # common setup options
 tacs_setup = {'add_elements': add_elements,
-              'mesh_file'   : 'wingbox_Y_Z_flip.bdf'}
+              'get_funcs'   : get_funcs,
+              'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
+              'f5_writer'   : f5_writer }
 
 # TACS assembler
 
@@ -111,13 +114,11 @@ if use_modal:
     tacs_setup['nmodes'] = 15
     struct_assembler = ModalStructAssembler(tacs_setup)
 else:
-    tacs_setup['get_funcs'] = get_funcs
-    tacs_setup['f5_writer'] = f5_writer
     struct_assembler = TacsOmfsiAssembler(tacs_setup)
 
 # MELD setup
 
-meld_options = {'isym': 2,
+meld_options = {'isym': 1,
                 'n': 200,
                 'beta': 0.5}
 
@@ -163,3 +164,7 @@ prob.setup()
 #view_model(prob)
 prob.run_model()
 
+if MPI.COMM_WORLD.rank == 0:
+    print('f_struct =',prob[scenario.name+'.struct_funcs.f_struct'])
+    print('mass =',prob[scenario.name+'.struct_mass.mass'])
+    print('cl =',prob[scenario.name+'.aero_funcs.CL_out'])
