@@ -3,9 +3,10 @@ from __future__ import print_function
 import numpy as np
 from tacs import TACS, elements, functions
 from openmdao.api import ImplicitComponent, ExplicitComponent, Group
-from .tacs_component import TacsMass, TacsFunctions
+from omfsi.assembler import OmfsiSolverAssembler
+from omfsi.tacs_component import TacsMass, TacsFunctions
 
-class ModalStructAssembler(object):
+class ModalStructAssembler(OmfsiSolverAssembler):
     def __init__(self,solver_options):
         self.add_elements = solver_options['add_elements']
         self.mesh_file    = solver_options['mesh_file']

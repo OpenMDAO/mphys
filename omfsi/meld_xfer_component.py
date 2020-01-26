@@ -2,8 +2,9 @@ import numpy as np
 
 from openmdao.api import ExplicitComponent
 from funtofem import TransferScheme
+from omfsi import OmfsiAssembler
 
-class MeldAssembler(object):
+class MeldAssembler(OmfsiAssembler):
     def __init__(self,options,struct_assembler,aero_assembler):
 
         # transfer scheme options

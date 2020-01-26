@@ -2,11 +2,12 @@ from __future__ import division, print_function
 import numpy as np
 
 from openmdao.api import ImplicitComponent, ExplicitComponent, Group
+from omfsi.assembler import OmfsiSolverAssembler, OmfsiAssembler
 """
 Fake FSI components for testing, debugging etc
 """
 
-class FakeStructAssembler(object):
+class FakeStructAssembler(OmfsiSolverAssembler):
     def __init__(self,c0,c1,symmetry,nodes=None):
         self.c0 = c0
         self.c1 = c1
@@ -33,7 +34,7 @@ class FakeStructAssembler(object):
     def add_scenario_components(self,model,scenario,connection_srcs):
         pass
 
-    def add_fsi_components(self,model,scenario,fsi_groupconnection_srcs):
+    def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
         fake_struct = FakeStructSolver(self.nnodes, self.c0, self.c1, self.symmetry)
         fsi_group.add_subsystem('fake_struct',fake_struct)
 
@@ -51,7 +52,7 @@ class FakeStructSolver(ExplicitComponent):
         self.options.declare('c0', default= 0.0, desc='constant offset')
         self.options.declare('c1', default= 0.0, desc='linear coeff')
         self.options.declare('symmetry', default = False, desc='symmetry-only use z equation')
-    
+
     def setup(self):
         self.add_input('f_s',size=int(3*self.options['nnodes']))
         self.add_output('u_s',size=int(3*self.options['nnodes']))
@@ -86,7 +87,7 @@ class FakeStructSolver(ExplicitComponent):
                 if 'f_s' in d_inputs:
                     d_inputs['f_s'][start::skip] = c1 * d_outputs['u_s'][start::skip]
 
-class FakeAeroAssembler(object):
+class FakeAeroAssembler(OmfsiSolverAssembler):
     def __init__(self,c0,c1,symmetry,nodes=None):
         self.c0 = c0
         self.c1 = c1
@@ -129,7 +130,7 @@ class FakeAeroSolver(ExplicitComponent):
         self.options.declare('c0', default= 0.0, desc='constant offset')
         self.options.declare('c1', default= 0.0, desc='linear coeff')
         self.options.declare('symmetry', default = False, desc='symmetry-only use z equation')
-    
+
     def setup(self):
         self.add_input('x_a',size=int(3*self.options['nnodes']))
         self.add_output('f_a',size=int(3*self.options['nnodes']))
@@ -164,7 +165,7 @@ class FakeAeroSolver(ExplicitComponent):
                 if 'x_a' in d_inputs:
                     d_inputs['x_a'][start::skip] = c1 * d_outputs['f_a'][start::skip]
 
-class FakeXferAssembler(object):
+class FakeXferAssembler(OmfsiAssembler):
     def __init__(self,struct_assembler,aero_assembler):
         self.struct_ndof   = self.struct_assembler.get_ndof()
         self.struct_nnodes = self.struct_assembler.get_nnodes()
@@ -213,7 +214,7 @@ class FakeDispXfer(ExplicitComponent):
         self.options.declare('c0', default= 0.0, desc='constant offset')
         self.options.declare('c1', default= 0.0, desc='linear coeff')
         self.options.declare('symmetry', default = False, desc='symmetry-only use z equation')
-    
+
     def setup(self):
         self.add_input('u_s',size=int(self.options['struct_ndof']*self.options['struct_nnodes']))
         self.add_output('u_a',size=int(3*self.options['aero_nnodes']))
@@ -254,7 +255,7 @@ class FakeLoadXfer(ExplicitComponent):
         self.options.declare('c0', default= 0.0, desc='constant offset')
         self.options.declare('c1', default= 0.0, desc='linear coeff')
         self.options.declare('symmetry', default = False, desc='symmetry-only use z equation')
-    
+
     def setup(self):
         self.add_input('f_a',size=int(3*self.options['aero_nnodes']))
         self.add_output('f_s',size=int(self.options['struct_ndof']*self.options['struct_nnodes']))

@@ -4,6 +4,7 @@ from __future__ import print_function, division
 import numpy as np
 
 from openmdao.api import Group, ExplicitComponent
+from omfsi.assembler import OmfsiAssembler
 
 class FsiAssembler(object):
     def __init__(self,struct_assembler,aero_assembler,xfer_assembler,geodisp_assembler=None):
@@ -62,7 +63,7 @@ class FsiAssembler(object):
         fsi_group.set_order(new_order)
 
 
-class GeoDispAssembler(object):
+class GeoDispAssembler(OmfsiAssembler):
     def __init__(self,aero_assembler):
         self.aero_assembler = aero_assembler
     def get_aero_nnodes(self):
