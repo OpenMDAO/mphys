@@ -8,6 +8,29 @@ from omfsi.assembler import OmfsiAssembler
 
 class FsiAssembler(object):
     def __init__(self,struct_assembler,aero_assembler,xfer_assembler,geodisp_assembler=None):
+        """
+        Fluid structure interaction problem assembler.
+        Given :mod:`OmfsiAssemblers` for
+        the structural solver, the aerodynamic solver, and the transfer scheme
+        (load and displacement transfer modules), the FsiAssembler wraps the
+        subsystem assembler calls so that adding the fsi modules to a model
+        requires only two calls
+
+
+        Parameters
+        ----------
+        struct_assembler : :mod:`OmfsiAssembler`
+            The structural solver assembler
+        aero_assembler : :mod:`OmfsiAssembler`
+            The aerodynamic solver assembler
+        xfer_assembler : :mod:`OmfsiAssembler`
+            The load and displacement transfer scheme assembler
+        geodisp_assembler : :mod:`OmfsiAssembler`
+            The geometry displacement addition assembler. This module adds
+            aeroelastic surface displaces to the geometry-modified aerodynamic
+            surface. If a geodisp_assembler is not provided, the default
+            assembler and geodisp component will be used.
+        """
         self.struct_assembler = struct_assembler
         self.aero_assembler   = aero_assembler
         self.xfer_assembler   = xfer_assembler
@@ -16,12 +39,33 @@ class FsiAssembler(object):
         self.connection_srcs = {}
 
     def add_model_components(self,model):
+        """
+        Add model-level FSI subsystem modules.
+
+        Parameters
+        ----------
+        model : openmdao model
+            The model to which the fsi modules will be added
+        """
         self.geodisp_assembler.add_model_components(model,self.connection_srcs)
         self.xfer_assembler.add_model_components(model,self.connection_srcs)
         self.struct_assembler.add_model_components(model,self.connection_srcs)
         self.aero_assembler.add_model_components(model,self.connection_srcs)
 
     def add_fsi_subsystem(self,model,scenario):
+        """
+        Add FSI subsystem modules to a scenario in three phases.
+          | 1) Add the FSI group and fsi level subsystem components
+          | 2) Add the scenario level components
+          | 3) Form the input connections for the added components
+
+        Parameters
+        ----------
+        model : openmdao model
+            The openmdao model which
+        scenario : openmdao group
+            The scenario to which the fsi modules will be added
+        """
         fsi_group = scenario.add_subsystem('fsi_group',Group())
 
         self.geodisp_assembler.add_fsi_components(model,scenario,fsi_group,self.connection_srcs)
@@ -82,7 +126,7 @@ class GeoDispAssembler(OmfsiAssembler):
 
 class GeoDisp(ExplicitComponent):
     """
-    This components is a component that adds the aerodynamic
+    This component adds the aerodynamic
     displacements to the geometry-changed aerodynamic surface
     """
     def initialize(self):
