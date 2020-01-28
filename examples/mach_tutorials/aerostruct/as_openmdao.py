@@ -5,10 +5,10 @@ from adflow import ADFLOW
 from baseclasses import *
 from mpi4py import MPI
 
-from omfsi.fsi_assembler import *
-from omfsi.adflow_component import *
-from omfsi.tacs_component import *
-from omfsi.meld_xfer_component import *
+from omfsi import FsiAssembler, GeoDispAssembler, GeoDisp
+from omfsi import AdflowAssembler, AdflowMesh, AdflowWarper, AdflowSolver, AdflowFunctions
+from omfsi import TacsOmfsiAssembler, functions
+from omfsi import MeldAssembler, MeldDisplacementTransfer
 
 from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
@@ -34,7 +34,7 @@ aero_options = {
     'smoother':'dadi',
     'CFL':1.5,
     'CFLCoarse':1.25,
-    'MGCycle':'3w',
+    'MGCycle':'2w',
     'MGStartLevel':-1,
     'nCyclesCoarse':250,
 
@@ -48,6 +48,7 @@ aero_options = {
 
     # Termination Criteria
     'L2Convergence':1e-14,
+    'L2convergencerel':1e-2,
     'L2ConvergenceCoarse':1e-2,
     'nCycles':10000,
 
@@ -137,9 +138,9 @@ model.linear_solver = LinearRunOnce()
 
 #Add the components and groups to the model
 indeps = IndepVarComp()
-indeps.add_output('dv_struct',np.array(810*[0.01]))
-indeps.add_output('alpha',np.array(1.5))
-indeps.add_output('mach',np.array(0.8))
+indeps.add_output('dv_struct',numpy.array(810*[0.02]))
+indeps.add_output('alpha',numpy.array(1.5))
+indeps.add_output('mach',numpy.array(0.8))
 model.add_subsystem('dv',indeps)
 
 
@@ -154,12 +155,12 @@ scenario.nonlinear_solver = NonlinearRunOnce()
 scenario.linear_solver = LinearRunOnce()
 
 fsi_group = assembler.add_fsi_subsystem(model,scenario)
-fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100)
+fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100, rtol=1e-5)
 fsi_group.linear_solver = LinearBlockGS(maxiter=100)
 
 prob.setup()
 prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
-    print('cl =',prob[scenario.name+'.aero_funcs.cl'])
-    print('cd =',prob[scenario.name+'.aero_funcs.cd'])
+    print('cl =',prob[scenario.name+'.aero_funcs.lift'])
+    print('cd =',prob[scenario.name+'.aero_funcs.drag'])

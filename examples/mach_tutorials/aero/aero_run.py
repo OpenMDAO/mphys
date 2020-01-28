@@ -2,9 +2,10 @@
 from __future__ import print_function
 import numpy
 from adflow import ADFLOW
-from baseclasses import *
+from baseclasses import AeroProblem
+from idwarp import USMesh
 from mpi4py import MPI
-from omfsi.adflow_component import *
+from omfsi import AdflowAssembler, AdflowMesh, AdflowWarper, AdflowSolver
 
 from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
@@ -28,7 +29,7 @@ aero_options = {
     'smoother':'dadi',
     'CFL':0.5,
     'CFLCoarse':0.25,
-    'MGCycle':'3w',
+    'MGCycle':'2w',
     'MGStartLevel':-1,
     'nCyclesCoarse':250,
 
@@ -64,7 +65,7 @@ class AdflowSimpleAssembler(object):
     def get_solver(self,comm):
         if self.solver is None:
             self.solver = ADFLOW(options=self.options)
-            self.mesh = MBMesh(comm=comm,options=self.options)
+            self.mesh = USMesh(comm=comm,options=self.options)
             self.solver.setMesh(self.mesh)
         return self.solver
 

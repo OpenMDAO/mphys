@@ -5,7 +5,7 @@ import pprint
 from baseclasses import AeroProblem
 
 from adflow import ADFLOW
-from pywarp import MBMesh
+from idwarp import USMesh
 
 from openmdao.api import Group, ImplicitComponent, ExplicitComponent
 from openmdao.core.analysis_error import AnalysisError
@@ -83,7 +83,7 @@ class AdflowAssembler(object):
         self.comm = comm
         if self.solver is None:
             self.solver = ADFLOW(options=self.options)
-            self.mesh = MBMesh(comm=self.comm,options=self.options)
+            self.mesh = USMesh(comm=self.comm,options=self.options)
             self.solver.setMesh(self.mesh)
 
             self.solver_dict['nnodes'] = int(self.solver.getSurfaceCoordinates().size /3)
