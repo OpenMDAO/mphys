@@ -2,8 +2,9 @@ import numpy as np
 
 from openmdao.api import ExplicitComponent
 from funtofem import TransferScheme
+from omfsi import OmfsiAssembler
 
-class MeldAssembler(object):
+class MeldAssembler(OmfsiAssembler):
     def __init__(self,options,struct_assembler,aero_assembler):
 
         # transfer scheme options
@@ -71,6 +72,8 @@ class MeldDisplacementTransfer(ExplicitComponent):
         self.struct_ndof = None
         self.struct_nnodes = None
         self.aero_nnodes = None
+
+        self.check_partials = False
 
     def setup(self):
         meld, struct_ndof, struct_nnodes, aero_nnodes = self.options['setup_function'](self.comm)
@@ -144,10 +147,16 @@ class MeldDisplacementTransfer(ExplicitComponent):
                     d_outputs['u_a'] -= np.array(prod,dtype=float)
 
                 if 'x_a0' in d_inputs:
-                    raise ValueError('forward mode requested but not implemented')
+                    if self.check_partials:
+                        pass
+                    else:
+                        raise ValueError('forward mode requested but not implemented')
 
                 if 'x_s0' in d_inputs:
-                    raise ValueError('forward mode requested but not implemented')
+                    if self.check_partials:
+                        pass
+                    else:
+                        raise ValueError('forward mode requested but not implemented')
 
         if mode == 'rev':
             if 'u_a' in d_outputs:
@@ -279,10 +288,16 @@ class MeldLoadTransfer(ExplicitComponent):
                         d_outputs['f_s'][i::self.struct_ndof] -= np.array(prod[i::3],dtype=float)
 
                 if 'x_a0' in d_inputs:
-                    raise ValueError('forward mode requested but not implemented')
+                    if self.check_partials:
+                        pass
+                    else:
+                        raise ValueError('forward mode requested but not implemented')
 
                 if 'x_s0' in d_inputs:
-                    raise ValueError('forward mode requested but not implemented')
+                    if self.check_partials:
+                        pass
+                    else:
+                        raise ValueError('forward mode requested but not implemented')
 
         if mode == 'rev':
             if 'f_s' in d_outputs:

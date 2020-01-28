@@ -3,8 +3,9 @@ import numpy as np
 
 from openmdao.api import ImplicitComponent, ExplicitComponent, Group
 from tacs import TACS,functions
+from omfsi.assembler import OmfsiSolverAssembler
 
-class TacsOmfsiAssembler(object):
+class TacsOmfsiAssembler(OmfsiSolverAssembler):
     def __init__(self,solver_options,add_forcer=False):
         self.comm = None
         self.tacs = None

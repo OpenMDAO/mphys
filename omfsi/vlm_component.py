@@ -3,8 +3,9 @@ import numpy as np
 
 from openmdao.api import ImplicitComponent, ExplicitComponent, Group
 from vlm_solver import VLM_solver, VLM_forces
+from omfsi.assembler import OmfsiSolverAssembler
 
-class VlmAssembler(object):
+class VlmAssembler(OmfsiSolverAssembler):
    def __init__(self,options,comm):
 
       ## flow parameters
