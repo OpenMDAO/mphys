@@ -2,11 +2,26 @@ import numpy as np
 
 from openmdao.api import ExplicitComponent
 from rlt import SimpleLDTransfer
+from omfsi import OmfsiAssembler
 
 transfer_dtype = 'd'
 
-class RLTAssembler(object):
-    def __init__(self,options,struct_assembler,aero_assembler):
+class RLTAssembler(OmfsiAssembler):
+    """
+    Rigid link load and displacement transfer
+
+    Variables
+        x_s0 : structural node coordinates (pre-deformation)
+        x_a0 : aerodynamic surface node coordinates (pre-deformation)
+
+        u_s : structural nodal displacements
+        u_a : aerodynamic surface nodal displacements
+
+        f_s : structural nodal forces
+        f_a : aerodynamic surface nodal forces
+    """
+
+    def __init__(self, options, struct_assembler, aero_assembler):
 
         # transfer scheme options
         self.transferOptions = {
@@ -15,44 +30,62 @@ class RLTAssembler(object):
 
         self.struct_assembler = struct_assembler
         self.aero_assembler = aero_assembler
-
         self.RLT = None
 
     def _get_transfer(self):
         if self.RLT is None:
+            #TODO: make this better. RLT is expecting a pytacs object to be
+            # passed in, but it only needs the actual TACS object and the
+            # structural comm. So I just created a dummy object for now that
+            # references the attributes of the struct_assembler. I could have
+            # passed in the struct_assembler, but wasn't sure if that was
+            # bad practice.
             class dummy_pytacs: pass
             dummy_pytacs.structure = self.struct_assembler.tacs
             dummy_pytacs.comm = self.struct_assembler.comm
             self.RLT = SimpleLDTransfer(self.aero_assembler.solver,
-                                        dummy_pytacs, #TODO: change RLT inputs
+                                        dummy_pytacs,
                                         comm=self.comm,
                                         options=self.transferOptions)
 
         return self.RLT
 
-    def add_model_components(self,model,connection_srcs):
+    def add_model_components(self, model, connection_srcs):
         pass
-    def add_scenario_components(self,model,scenario,connection_srcs):
+
+    def add_scenario_components(self, model, scenario, connection_srcs):
         pass
-    def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
 
-        fsi_group.add_subsystem('disp_xfer',RLTDisplacementTransfer(setup_function=self.xfer_setup))
-        fsi_group.add_subsystem('load_xfer',RLTLoadTransfer(setup_function=self.xfer_setup))
+    def add_fsi_components(self, model, scenario, fsi_group, connection_srcs):
+        # Add displacement transfer component
+        fsi_group.add_subsystem(
+            'disp_xfer',
+            RLTDisplacementTransfer(setup_function=self.xfer_setup))
 
-        connection_srcs['u_a'] = scenario.name+'.'+fsi_group.name+'.disp_xfer.u_a'
-        connection_srcs['f_s'] = scenario.name+'.'+fsi_group.name+'.load_xfer.f_s'
+        # Add load transfer component
+        fsi_group.add_subsystem(
+            'load_xfer',
+            RLTLoadTransfer(setup_function=self.xfer_setup))
 
-    def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
-        model.connect(connection_srcs['u_s'],[scenario.name+'.'+fsi_group.name+'.disp_xfer.u_s',
-                                                 scenario.name+'.'+fsi_group.name+'.load_xfer.u_s'])
+        # Connect variables
+        base_name = scenario.name + '.' + fsi_group.name
+        connection_srcs['u_a'] = base_name + '.disp_xfer.u_a'
+        connection_srcs['f_s'] = base_name + '.load_xfer.f_s'
 
-        model.connect(connection_srcs['f_a'],[scenario.name+'.'+fsi_group.name+'.load_xfer.f_a'])
+    def connect_inputs(self, model, scenario, fsi_group, connection_srcs):
+        # Make connections between components
+        base_name = scenario.name+'.'+fsi_group.name
+        model.connect(connection_srcs['u_s'], [base_name + '.disp_xfer.u_s'])
+        model.connect(connection_srcs['f_a'], [base_name + '.load_xfer.f_a'])
+        model.connect(
+            connection_srcs['x_a0'],
+            [base_name + '.disp_xfer.x_a0', base_name + '.load_xfer.x_a0'])
 
-        model.connect(connection_srcs['x_s0'],[scenario.name+'.'+fsi_group.name+'.disp_xfer.x_s0',
-                                                  scenario.name+'.'+fsi_group.name+'.load_xfer.x_s0'])
-        model.connect(connection_srcs['x_a0'],[scenario.name+'.'+fsi_group.name+'.disp_xfer.x_a0',
-                                                  scenario.name+'.'+fsi_group.name+'.load_xfer.x_a0'])
     def xfer_setup(self, comm):
+        # We want the displacement transfer and the load transfer components to
+        # use the same RLT transfer class. So we create one RLT transfer object
+        # and then pass it to the displacement and load transfer components
+        # when they ask for it.
         self.comm = comm
         self.struct_assembler.comm = comm
         RLT = self._get_transfer()
@@ -67,17 +100,19 @@ class RLTDisplacementTransfer(ExplicitComponent):
     Component to perform displacement transfer using RLT
     """
     def initialize(self):
+        # Set options
         self.options.declare('setup_function', desc='function to get shared data')
-
         self.options['distributed'] = True
 
+        # Set everything we need to None before setup
         self.tacs = None
         self.transfer = None
-        self.initialized_transfer = False
-
         self.struct_ndof = None
         self.struct_nnodes = None
         self.aero_nnodes = None
+
+        # Flag used to prevent warning for fwd derivative d(u_a)/d(x_a0)
+        self.check_partials = True
 
     def setup(self):
         RLT, struct_ndof, struct_nnodes, aero_nnodes = self.options['setup_function'](self.comm)
@@ -89,6 +124,7 @@ class RLTDisplacementTransfer(ExplicitComponent):
 
         self.tacs = RLT.structSolver.structure
         self.ustruct = self.tacs.createVec()
+        self.struct_seed = self.tacs.createVec()
 
         irank = self.comm.rank
 
@@ -105,9 +141,9 @@ class RLTDisplacementTransfer(ExplicitComponent):
         su2 = np.sum(su_list[:irank+1])
 
         # inputs
-        self.add_input('x_s0', shape=struct_nnodes*3,
-                        src_indices=np.arange(sx1, sx2, dtype=int),
-                        desc='initial structural node coordinates')
+        # self.add_input('x_s0', shape=struct_nnodes*3,
+        #                 src_indices=np.arange(sx1, sx2, dtype=int),
+        #                 desc='initial structural node coordinates')
         self.add_input('x_a0', shape=aero_nnodes*3,
                         src_indices=np.arange(ax1, ax2, dtype=int),
                         desc='initial aerodynamic surface node coordinates')
@@ -119,83 +155,67 @@ class RLTDisplacementTransfer(ExplicitComponent):
         self.add_output('u_a', shape=aero_nnodes*3, val=np.zeros(aero_nnodes*3), desc='aerodynamic surface displacements')
 
         # partials
-        #self.declare_partials('u_a',['x_s0','x_a0','u_s'])
+        self.declare_partials('u_a', ['x_a0','u_s'])
 
     def compute(self, inputs, outputs):
-        x_s0 = np.array(inputs['x_s0'], dtype=transfer_dtype)
         x_a0 = np.array(inputs['x_a0'], dtype=transfer_dtype)
+        u_s  = np.array(inputs['u_s'], dtype=transfer_dtype)
         u_a  = np.array(outputs['u_a'], dtype=transfer_dtype)
 
-        # u_s  = np.zeros(self.struct_nnodes*3,dtype=transfer_dtype)
-        # for i in range(3):
-        #     u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
-        u_s = inputs['u_s']
-
-        # self.meld.setStructNodes(x_s0)
-        # self.meld.setAeroNodes(x_a0)
-
-        # if not self.initialized_meld:
-        #     self.meld.initialize()
-        #     self.initialized_meld = True
+        # Update transfer object with the current set of CFD points
+        self.transfer.setAeroSurfaceNodes(np.ravel(x_a0))
 
         ustruct_array = self.ustruct.getArray()
         ustruct_array[:] = u_s
-        print('norm u_s:', np.linalg.norm(u_s))
-        print('u_s[0]:', u_s[0])
-        print('u_s[5000]:', u_s[5000])
 
         self.transfer.setDisplacements(self.ustruct)
         self.transfer.getDisplacements(np.ravel(u_a))
-        print('norm u_a:', np.linalg.norm(u_a))
-
-        # self.meld.transferDisps(u_s,u_a)
 
         outputs['u_a'] = u_a
 
-    # def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
-    #     """
-    #     The explicit component is defined as:
-    #         u_a = g(u_s,x_a0,x_s0)
-    #     The MELD residual is defined as:
-    #         D = u_a - g(u_s,x_a0,x_s0)
-    #     So explicit partials below for u_a are negative partials of D
-    #     """
-    #     if mode == 'fwd':
-    #         if 'u_a' in d_outputs:
-    #             if 'u_s' in d_inputs:
-    #                 d_in = np.zeros(self.struct_nnodes*3,dtype=transfer_dtype)
-    #                 for i in range(3):
-    #                     d_in[i::3] = d_inputs['u_s'][i::self.struct_ndof]
-    #                 prod = np.zeros(self.aero_nnodes*3,dtype=transfer_dtype)
-    #                 self.meld.applydDduS(d_in,prod)
-    #                 d_outputs['u_a'] -= np.array(prod,dtype=float)
+    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
+        """
 
-    #             if 'x_a0' in d_inputs:
-    #                 raise ValueError('forward mode requested but not implemented')
+        """
+        if mode == 'fwd':
+            if 'u_a' in d_outputs:
+                if 'u_s' in d_inputs:
+                    d_in = d_inputs['u_s']
+                    self.struct_seed.zeroEntries()
+                    seed_array = self.struct_seed.getArray()
+                    seed_array[:] = d_in
 
-    #             if 'x_s0' in d_inputs:
-    #                 raise ValueError('forward mode requested but not implemented')
+                    prod = np.zeros(self.aero_nnodes*3,dtype=transfer_dtype)
 
-    #     if mode == 'rev':
-    #         if 'u_a' in d_outputs:
-    #             du_a = np.array(d_outputs['u_a'],dtype=transfer_dtype)
-    #             if 'u_s' in d_inputs:
-    #                 # du_a/du_s^T * psi = - dD/du_s^T psi
-    #                 prod = np.zeros(self.struct_nnodes*3,dtype=transfer_dtype)
-    #                 self.meld.applydDduSTrans(du_a,prod)
-    #                 for i in range(3):
-    #                     d_inputs['u_s'][i::self.struct_ndof] -= np.array(prod[i::3],dtype=float)
+                    self.transfer.setDisplacements(self.struct_seed)
+                    self.transfer.getDisplacements(np.ravel(prod))
 
-    #             # du_a/dx_a0^T * psi = - psi^T * dD/dx_a0 in F2F terminology
-    #             if 'x_a0' in d_inputs:
-    #                 prod = np.zeros(d_inputs['x_a0'].size,dtype=transfer_dtype)
-    #                 self.meld.applydDdxA0(du_a,prod)
-    #                 d_inputs['x_a0'] -= np.array(prod,dtype=float)
+                    d_outputs['u_a'] += np.array(prod, dtype=float)
 
-    #             if 'x_s0' in d_inputs:
-    #                 prod = np.zeros(self.struct_nnodes*3,dtype=transfer_dtype)
-    #                 self.meld.applydDdxS0(du_a,prod)
-    #                 d_inputs['x_s0'] -= np.array(prod,dtype=float)
+                if 'x_a0' in d_inputs:
+                    if self.check_partials:
+                        pass
+                    else:
+                        raise ValueError('Forward mode requested but not implemented')
+
+        if mode == 'rev':
+            if 'u_a' in d_outputs:
+                du_a = np.array(d_outputs['u_a'],dtype=transfer_dtype)
+                if 'u_s' in d_inputs:
+                    self.struct_seed.zeroEntries()
+                    self.transfer.addAdjointDisplacements(np.ravel(du_a), self.struct_seed)
+                    # Could also use setDisplacementsSens
+
+                    seed_array = self.struct_seed.getArray()
+                    d_inputs['u_s'] += seed_array[:]
+
+                if 'x_a0' in d_inputs:
+                    self.transfer.zeroReverseSeeds()
+                    self.transfer.setDisplacementsSens(self.ustruct, self.struct_seed, np.ravel(du_a))
+                    prod = np.zeros(d_inputs['x_a0'].size, dtype=transfer_dtype)
+                    self.transfer.setAeroSurfaceNodesSens(np.ravel(prod))
+                    d_inputs['x_a0'] += np.array(prod,dtype=float)
+
 
 class RLTLoadTransfer(ExplicitComponent):
     """
@@ -214,7 +234,7 @@ class RLTLoadTransfer(ExplicitComponent):
         self.struct_nnodes = None
         self.aero_nnodes = None
 
-        self.check_partials = False
+        self.check_partials = True
 
     def setup(self):
         # get the transfer scheme object
@@ -227,6 +247,7 @@ class RLTLoadTransfer(ExplicitComponent):
 
         self.tacs = RLT.structSolver.structure
         self.fstruct = self.tacs.createVec()
+        self.struct_seed = self.tacs.createVec()
 
         irank = self.comm.rank
 
@@ -243,15 +264,9 @@ class RLTLoadTransfer(ExplicitComponent):
         su2 = np.sum(su_list[:irank+1])
 
         # inputs
-        self.add_input('x_s0', shape=struct_nnodes*3,
-                        src_indices=np.arange(sx1, sx2, dtype=int),
-                        desc='initial structural node coordinates')
         self.add_input('x_a0', shape=aero_nnodes*3,
                         src_indices=np.arange(ax1, ax2, dtype=int),
                         desc='initial aerodynamic surface node coordinates')
-        self.add_input('u_s',  shape=struct_nnodes*struct_ndof,
-                        src_indices=np.arange(su1, su2, dtype=int),
-                        desc='structural node displacements')
         self.add_input('f_a',  shape=aero_nnodes*3,
                         src_indices=np.arange(ax1, ax2, dtype=int),
                         desc='aerodynamic force vector')
@@ -261,106 +276,61 @@ class RLTLoadTransfer(ExplicitComponent):
                         desc='structural force vector')
 
         # partials
-        #self.declare_partials('f_s',['x_s0','x_a0','u_s','f_a'])
+        self.declare_partials('f_s', ['x_a0','f_a'])
 
     def compute(self, inputs, outputs):
-        # u_s  = np.zeros(self.struct_nnodes*3)
-        # for i in range(3):
-        #     u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
+        x_a0 = np.array(inputs['x_a0'], dtype=transfer_dtype)
+        f_a = np.array(inputs['f_a'], dtype=transfer_dtype)
 
-        u_s = inputs['u_s']
+        # Update transfer object with the current set of CFD points
+        self.transfer.setAeroSurfaceNodes(np.ravel(x_a0))
 
-        f_a = np.array(inputs['f_a'],dtype=transfer_dtype)
-
-        # if self.check_partials:
-        #     x_s0 = np.array(inputs['x_s0'],dtype=transfer_dtype)
-        #     x_a0 = np.array(inputs['x_a0'],dtype=transfer_dtype)
-        #     self.meld.setStructNodes(x_s0)
-        #     self.meld.setAeroNodes(x_a0)
-        #     #TODO meld needs a set state rather requiring transferDisps to update the internal state
-        #     u_s  = np.zeros(self.struct_nnodes*3,dtype=transfer_dtype)
-        #     for i in range(3):
-        #         u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
-        #     u_a = np.zeros(inputs['f_a'].size,dtype=transfer_dtype)
-        #     self.meld.transferDisps(u_s,u_a)
-
-        # self.meld.transferLoads(f_a,f_s)
         self.fstruct.zeroEntries()
         self.transfer.addAeroForces(np.ravel(f_a), self.fstruct)
-        print('norm f_a:', np.linalg.norm(f_a))
 
-        # outputs['f_s'][:] = 0.0
-        # for i in range(3):
-        #     outputs['f_s'][i::self.struct_ndof] = f_s[i::3]
         f_s = self.fstruct.getArray()
-        print('norm f_s:', np.linalg.norm(f_s))
-        print('f_s[0]:', f_s[0])
-        print('f_s[5000]:', f_s[5000])
-        outputs['f_s'] = -f_s[:]
+        outputs['f_s'] = -f_s[:] #TODO: we need to formalize how this force should be passed
 
-    # def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
-    #     """
-    #     The explicit component is defined as:
-    #         f_s = g(f_a,u_s,x_a0,x_s0)
-    #     The MELD internal residual is defined as:
-    #         L = f_s - g(f_a,u_s,x_a0,x_s0)
-    #     So explicit partials below for f_s are negative partials of L
-    #     """
+    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
+        """
 
+        """
 
-    #     if mode == 'fwd':
-    #         if 'f_s' in d_outputs:
-    #             if 'u_s' in d_inputs:
-    #                 d_in = np.zeros(self.struct_nnodes*3,dtype=transfer_dtype)
-    #                 for i in range(3):
-    #                     d_in[i::3] = d_inputs['u_s'][i::self.struct_ndof]
-    #                 prod = np.zeros(self.struct_nnodes*3,dtype=transfer_dtype)
-    #                 self.meld.applydLduS(d_in,prod)
-    #                 for i in range(3):
-    #                     d_outputs['f_s'][i::self.struct_ndof] -= np.array(prod[i::3],dtype=float)
+        if mode == 'fwd':
+            if 'f_s' in d_outputs:
+                if 'f_a' in d_inputs:
+                    df_a = np.array(d_inputs['f_a'],dtype=transfer_dtype)
+                    self.struct_seed.zeroEntries()
+                    self.transfer.addAeroForces(np.ravel(df_a), self.struct_seed)
+                    seed_array = self.struct_seed.getArray()
+                    d_outputs['f_s'] -= seed_array[:]
 
-    #             if 'f_a' in d_inputs:
-    #                 # df_s/df_a psi = - dL/df_a * psi = -dD/du_s^T * psi
-    #                 prod = np.zeros(self.struct_nnodes*3,dtype=transfer_dtype)
-    #                 df_a = np.array(d_inputs['f_a'],dtype=transfer_dtype)
-    #                 self.meld.applydDduSTrans(df_a,prod)
-    #                 for i in range(3):
-    #                     d_outputs['f_s'][i::self.struct_ndof] -= np.array(prod[i::3],dtype=float)
+                if 'x_a0' in d_inputs:
+                    if self.check_partials:
+                        pass
+                    else:
+                        raise ValueError('Forward mode requested but not implemented')
 
-    #             if 'x_a0' in d_inputs:
-    #                 raise ValueError('forward mode requested but not implemented')
+        if mode == 'rev':
+            if 'f_s' in d_outputs:
+                self.transfer.zeroReverseSeeds()
+                f_sb = np.array(d_outputs['f_s'], dtype=transfer_dtype)
+                self.struct_seed.zeroEntries()
+                seed_array = self.struct_seed.getArray()
+                seed_array[:] = f_sb
 
-    #             if 'x_s0' in d_inputs:
-    #                 raise ValueError('forward mode requested but not implemented')
+                if 'f_a' in d_inputs:
+                    f_ab = np.zeros(self.aero_nnodes*3, dtype=transfer_dtype)
+                    self.transfer.addAeroForcesSens(np.ravel(inputs['f_a']),
+                                            np.ravel(f_ab), self.struct_seed)
+                    d_inputs['f_a'] = -f_ab
 
-    #     if mode == 'rev':
-    #         if 'f_s' in d_outputs:
-    #             d_out = np.zeros(self.struct_nnodes*3,dtype=transfer_dtype)
-    #             for i in range(3):
-    #                 d_out[i::3] = d_outputs['f_s'][i::self.struct_ndof]
+                if 'x_a0' in d_inputs:
+                    prod = np.zeros(self.aero_nnodes*3,dtype=transfer_dtype)
 
-    #             if 'u_s' in d_inputs:
-    #                 d_in = np.zeros(self.struct_nnodes*3,dtype=transfer_dtype)
-    #                 # df_s/du_s^T * psi = - dL/du_s^T * psi
-    #                 self.meld.applydLduSTrans(d_out,d_in)
+                    self.transfer.zeroReverseSeeds()
+                    tmp = np.zeros_like(prod)
+                    self.transfer.addAeroForcesSens(np.ravel(inputs['f_a']), np.ravel(tmp), self.struct_seed)
+                    self.transfer.setAeroSurfaceNodesSens(np.ravel(prod))
+                    d_inputs['x_a0'] -= np.array(prod, dtype=float)
 
-    #                 for i in range(3):
-    #                     d_inputs['u_s'][i::self.struct_ndof] -= np.array(d_in[i::3],dtype=float)
-
-    #             if 'f_a' in d_inputs:
-    #                 # df_s/df_a^T psi = - dL/df_a^T * psi = -dD/du_s * psi
-    #                 prod = np.zeros(self.aero_nnodes*3,dtype=transfer_dtype)
-    #                 self.meld.applydDduS(d_out,prod)
-    #                 d_inputs['f_a'] -= np.array(prod,dtype=float)
-
-    #             if 'x_a0' in d_inputs:
-    #                 # df_s/dx_a0^T * psi = - psi^T * dL/dx_a0 in F2F terminology
-    #                 prod = np.zeros(self.aero_nnodes*3,dtype=transfer_dtype)
-    #                 self.meld.applydLdxA0(d_out,prod)
-    #                 d_inputs['x_a0'] -= np.array(prod,dtype=float)
-
-    #             if 'x_s0' in d_inputs:
-    #                 # df_s/dx_s0^T * psi = - psi^T * dL/dx_s0 in F2F terminology
-    #                 prod = np.zeros(self.struct_nnodes*3,dtype=transfer_dtype)
-    #                 self.meld.applydLdxS0(d_out,prod)
-    #                 d_inputs['x_s0'] -= np.array(prod,dtype=float)
