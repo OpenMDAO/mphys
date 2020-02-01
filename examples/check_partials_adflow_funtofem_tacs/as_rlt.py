@@ -8,7 +8,7 @@ from mpi4py import MPI
 from omfsi import FsiAssembler, GeoDispAssembler, GeoDisp
 from omfsi import AdflowAssembler, AdflowMesh, AdflowWarper, AdflowSolver, AdflowFunctions
 from omfsi import TacsOmfsiAssembler, functions, TACS
-from omfsi import MeldAssembler, MeldDisplacementTransfer
+from omfsi import RLTAssembler, RLTDisplacementTransfer
 
 from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
@@ -53,6 +53,7 @@ aero_options = {
 
     # Termination Criteria
     'L2Convergence':1e-12,
+    'L2convergencerel':1e-1,
     'L2ConvergenceCoarse':1e-2,
     'nCycles':200,
 
@@ -125,11 +126,11 @@ struct_assembler = TacsOmfsiAssembler(tacs_setup)
 ################################################################################
 # Transfer scheme setup
 ################################################################################
-meld_setup = {'isym': 2,
-              'n': 200,
-              'beta': 0.5}
+transfer_options = {
+    'transfergaussorder': 2,
+}
 
-xfer_assembler = MeldAssembler(meld_setup,struct_assembler,aero_assembler)
+xfer_assembler = RLTAssembler(transfer_options,struct_assembler,aero_assembler)
 
 ################################################################################
 # OpenMDAO setup

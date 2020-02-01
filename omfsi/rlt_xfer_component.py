@@ -10,6 +10,12 @@ class RLTAssembler(OmfsiAssembler):
     """
     Rigid link load and displacement transfer
 
+    Sizes
+        nn_a : number of aerodynamic surface nodes
+        nn_s : number of structural nodes
+        ndof_a : number of aerodynamic degrees of freedom (spatial)
+        ndof_s : number of structural degrees of freedom
+
     Variables
         x_s0 : structural node coordinates (pre-deformation)
         x_a0 : aerodynamic surface node coordinates (pre-deformation)
@@ -89,11 +95,12 @@ class RLTAssembler(OmfsiAssembler):
         self.comm = comm
         self.struct_assembler.comm = comm
         RLT = self._get_transfer()
-        struct_ndof   = self.struct_assembler.get_ndof()
-        struct_nnodes = self.struct_assembler.get_nnodes()
-        aero_nnodes   = self.aero_assembler.get_nnodes()
+        ndof_s = self.struct_assembler.get_ndof()
+        nn_s = self.struct_assembler.get_nnodes()
+        ndof_a = 3 #TODO: currently hard-coded, but maybe should be generalized
+        nn_a = self.aero_assembler.get_nnodes()
 
-        return RLT, struct_ndof, struct_nnodes, aero_nnodes
+        return RLT, ndof_s, nn_s, ndof_a, nn_a
 
 class RLTDisplacementTransfer(ExplicitComponent):
     """
@@ -107,90 +114,85 @@ class RLTDisplacementTransfer(ExplicitComponent):
         # Set everything we need to None before setup
         self.tacs = None
         self.transfer = None
-        self.struct_ndof = None
-        self.struct_nnodes = None
-        self.aero_nnodes = None
+        self.ndof_s = None
+        self.nn_s = None
+        self.ndof_a = None
+        self.nn_a = None
 
         # Flag used to prevent warning for fwd derivative d(u_a)/d(x_a0)
         self.check_partials = True
 
     def setup(self):
-        RLT, struct_ndof, struct_nnodes, aero_nnodes = self.options['setup_function'](self.comm)
+        RLT, ndof_s, nn_s, ndof_a, nn_a = self.options['setup_function'](self.comm)
 
         self.transfer = RLT.transfer
-        self.struct_ndof = struct_ndof
-        self.struct_nnodes = struct_nnodes
-        self.aero_nnodes = aero_nnodes
+        self.ndof_s = ndof_s
+        self.nn_s = nn_s
+        self.ndof_a = ndof_a
+        self.nn_a = nn_a
+        total_dof_struct = self.nn_s * self.ndof_s
+        total_dof_aero = self.nn_a * self.ndof_a
 
+        # RLT depends on TACS vector types.
+        #   ustruct : holds the structural states
+        #   struct_seed : used as a seed for structural displacements and forces
         self.tacs = RLT.structSolver.structure
         self.ustruct = self.tacs.createVec()
         self.struct_seed = self.tacs.createVec()
 
+        # Get the source indices for each of the distributed inputs.
         irank = self.comm.rank
 
-        ax_list = self.comm.allgather(aero_nnodes*3)
+        ax_list = self.comm.allgather(total_dof_aero)
         ax1 = np.sum(ax_list[:irank])
         ax2 = np.sum(ax_list[:irank+1])
 
-        sx_list = self.comm.allgather(struct_nnodes*3)
-        sx1 = np.sum(sx_list[:irank])
-        sx2 = np.sum(sx_list[:irank+1])
-
-        su_list = self.comm.allgather(struct_nnodes*struct_ndof)
+        su_list = self.comm.allgather(total_dof_struct)
         su1 = np.sum(su_list[:irank])
         su2 = np.sum(su_list[:irank+1])
 
-        # inputs
-        # self.add_input('x_s0', shape=struct_nnodes*3,
-        #                 src_indices=np.arange(sx1, sx2, dtype=int),
-        #                 desc='initial structural node coordinates')
-        self.add_input('x_a0', shape=aero_nnodes*3,
-                        src_indices=np.arange(ax1, ax2, dtype=int),
-                        desc='initial aerodynamic surface node coordinates')
-        self.add_input('u_s', shape=struct_nnodes*struct_ndof,
-                        src_indices=np.arange(su1, su2, dtype=int),
-                        desc='structural node displacements')
+        # Inputs
+        self.add_input('x_a0', shape=total_dof_aero,
+                       src_indices=np.arange(ax1, ax2, dtype=int),
+                       desc='Initial aerodynamic surface node coordinates')
+        self.add_input('u_s', shape=total_dof_struct,
+                       src_indices=np.arange(su1, su2, dtype=int),
+                       desc='Structural node displacements')
 
-        # outputs
-        self.add_output('u_a', shape=aero_nnodes*3, val=np.zeros(aero_nnodes*3), desc='aerodynamic surface displacements')
+        # Outputs
+        self.add_output('u_a', shape=total_dof_aero,
+                        val=np.zeros(total_dof_aero),
+                        desc='Aerodynamic surface displacements')
 
-        # partials
+        # Partials
         self.declare_partials('u_a', ['x_a0','u_s'])
 
     def compute(self, inputs, outputs):
-        x_a0 = np.array(inputs['x_a0'], dtype=transfer_dtype)
-        u_s  = np.array(inputs['u_s'], dtype=transfer_dtype)
-        u_a  = np.array(outputs['u_a'], dtype=transfer_dtype)
-
         # Update transfer object with the current set of CFD points
-        self.transfer.setAeroSurfaceNodes(np.ravel(x_a0))
+        self.transfer.setAeroSurfaceNodes(inputs['x_a0'])
 
+        # Set the structural displacements
         ustruct_array = self.ustruct.getArray()
-        ustruct_array[:] = u_s
-
+        ustruct_array[:] = inputs['u_s']
         self.transfer.setDisplacements(self.ustruct)
-        self.transfer.getDisplacements(np.ravel(u_a))
 
-        outputs['u_a'] = u_a
+        # Get out the aerodynamic displacements
+        self.transfer.getDisplacements(outputs['u_a'])
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
-        """
-
-        """
         if mode == 'fwd':
             if 'u_a' in d_outputs:
                 if 'u_s' in d_inputs:
-                    d_in = d_inputs['u_s']
+                    # Set the forward seed from the structural displacements
                     self.struct_seed.zeroEntries()
                     seed_array = self.struct_seed.getArray()
-                    seed_array[:] = d_in
+                    seed_array[:] = d_inputs['u_s']
+                    self.transfer.setDisplacementPerturbation(self.struct_seed)
 
-                    prod = np.zeros(self.aero_nnodes*3,dtype=transfer_dtype)
-
-                    self.transfer.setDisplacements(self.struct_seed)
-                    self.transfer.getDisplacements(np.ravel(prod))
-
-                    d_outputs['u_a'] += np.array(prod, dtype=float)
+                    # Retrieve the seed from the aerodynamic displacements
+                    u_ad = np.zeros(self.nn_a*self.ndof_a, dtype=transfer_dtype)
+                    self.transfer.getAeroSurfacePerturbation(u_ad)
+                    d_outputs['u_a'] += u_ad
 
                 if 'x_a0' in d_inputs:
                     if self.check_partials:
@@ -200,21 +202,30 @@ class RLTDisplacementTransfer(ExplicitComponent):
 
         if mode == 'rev':
             if 'u_a' in d_outputs:
-                du_a = np.array(d_outputs['u_a'],dtype=transfer_dtype)
                 if 'u_s' in d_inputs:
+                    # Set the reverse seed from the aero displacements and
+                    # retrieve the seed on the structural displacements.
+                    # Note: Could also use setDisplacementsSens.
+                    self.transfer.zeroReverseSeeds()
                     self.struct_seed.zeroEntries()
-                    self.transfer.addAdjointDisplacements(np.ravel(du_a), self.struct_seed)
-                    # Could also use setDisplacementsSens
+                    self.transfer.addAdjointDisplacements(d_outputs['u_a'],
+                                                          self.struct_seed)
 
+                    # Pull the seed out of the TACS vector and accumulate
                     seed_array = self.struct_seed.getArray()
                     d_inputs['u_s'] += seed_array[:]
 
                 if 'x_a0' in d_inputs:
+                    # Set the reverse seed from the aero displacements
                     self.transfer.zeroReverseSeeds()
-                    self.transfer.setDisplacementsSens(self.ustruct, self.struct_seed, np.ravel(du_a))
-                    prod = np.zeros(d_inputs['x_a0'].size, dtype=transfer_dtype)
-                    self.transfer.setAeroSurfaceNodesSens(np.ravel(prod))
-                    d_inputs['x_a0'] += np.array(prod,dtype=float)
+                    self.transfer.setDisplacementsSens(self.ustruct,
+                                                       self.struct_seed,
+                                                       d_outputs['u_a'])
+
+                    # Retrieve the seed on the aerodynamic surface nodes.
+                    x_a0d = np.zeros(self.nn_a*self.ndof_a, dtype=transfer_dtype)
+                    self.transfer.setAeroSurfaceNodesSens(x_a0d)
+                    d_inputs['x_a0'] += x_a0d
 
 
 class RLTLoadTransfer(ExplicitComponent):
@@ -230,20 +241,20 @@ class RLTLoadTransfer(ExplicitComponent):
         self.tacs = None
         self.initialized_meld = False
 
-        self.struct_ndof = None
-        self.struct_nnodes = None
-        self.aero_nnodes = None
+        self.ndof_s = None
+        self.nn_s = None
+        self.nn_a = None
 
         self.check_partials = True
 
     def setup(self):
         # get the transfer scheme object
-        RLT, struct_ndof, struct_nnodes, aero_nnodes = self.options['setup_function'](self.comm)
+        RLT, ndof_s, nn_s, ndof_a, nn_a = self.options['setup_function'](self.comm)
 
         self.transfer = RLT.transfer
-        self.struct_ndof = struct_ndof
-        self.struct_nnodes = struct_nnodes
-        self.aero_nnodes = aero_nnodes
+        self.ndof_s = ndof_s
+        self.nn_s = nn_s
+        self.nn_a = nn_a
 
         self.tacs = RLT.structSolver.structure
         self.fstruct = self.tacs.createVec()
@@ -251,28 +262,20 @@ class RLTLoadTransfer(ExplicitComponent):
 
         irank = self.comm.rank
 
-        ax_list = self.comm.allgather(aero_nnodes*3)
+        ax_list = self.comm.allgather(nn_a*3)
         ax1 = np.sum(ax_list[:irank])
         ax2 = np.sum(ax_list[:irank+1])
 
-        sx_list = self.comm.allgather(struct_nnodes*3)
-        sx1 = np.sum(sx_list[:irank])
-        sx2 = np.sum(sx_list[:irank+1])
-
-        su_list = self.comm.allgather(struct_nnodes*struct_ndof)
-        su1 = np.sum(su_list[:irank])
-        su2 = np.sum(su_list[:irank+1])
-
         # inputs
-        self.add_input('x_a0', shape=aero_nnodes*3,
+        self.add_input('x_a0', shape=nn_a*3,
                         src_indices=np.arange(ax1, ax2, dtype=int),
                         desc='initial aerodynamic surface node coordinates')
-        self.add_input('f_a',  shape=aero_nnodes*3,
+        self.add_input('f_a',  shape=nn_a*3,
                         src_indices=np.arange(ax1, ax2, dtype=int),
                         desc='aerodynamic force vector')
 
         # outputs
-        self.add_output('f_s', shape=struct_nnodes*struct_ndof,
+        self.add_output('f_s', shape=nn_s*ndof_s,
                         desc='structural force vector')
 
         # partials
@@ -320,13 +323,13 @@ class RLTLoadTransfer(ExplicitComponent):
                 seed_array[:] = f_sb
 
                 if 'f_a' in d_inputs:
-                    f_ab = np.zeros(self.aero_nnodes*3, dtype=transfer_dtype)
+                    f_ab = np.zeros(self.nn_a*3, dtype=transfer_dtype)
                     self.transfer.addAeroForcesSens(np.ravel(inputs['f_a']),
                                             np.ravel(f_ab), self.struct_seed)
                     d_inputs['f_a'] = -f_ab
 
                 if 'x_a0' in d_inputs:
-                    prod = np.zeros(self.aero_nnodes*3,dtype=transfer_dtype)
+                    prod = np.zeros(self.nn_a*3,dtype=transfer_dtype)
 
                     self.transfer.zeroReverseSeeds()
                     tmp = np.zeros_like(prod)
