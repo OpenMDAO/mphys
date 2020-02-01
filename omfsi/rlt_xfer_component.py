@@ -291,7 +291,7 @@ class RLTLoadTransfer(ExplicitComponent):
 
     def compute(self, inputs, outputs):
         # Update transfer object with the current set of CFD points
-        self.transfer.setAeroSurfaceNodes(np.ravel(x_a0))
+        self.transfer.setAeroSurfaceNodes(inputs['x_a0'])
 
         # Set the aerodynamic forces and extract structural forces
         self.fstruct.zeroEntries()
