@@ -113,7 +113,7 @@ class OmfsiSolverAssembler(OmfsiAssembler):
         """
         Getter to retrieve the number of degrees of freedom of this solver's
         output state. Note, this is the number of degrees of the output associated
-        with the coupling, so a CFD code should return the number of degrees of 
+        with the coupling, so a CFD code should return the number of degrees of
         freedom of the surface loads, not the flow state vector size if FSI coupling is
         being performed.
 
@@ -131,6 +131,6 @@ class OmfsiSolverAssembler(OmfsiAssembler):
         Returns
         -------
         comm : MPI communicator
-            The solver's mpi communicator  
+            The solver's mpi communicator
         """
-        return 
+        return
