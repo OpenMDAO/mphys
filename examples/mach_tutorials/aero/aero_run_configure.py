@@ -13,6 +13,8 @@ class AeroSolver(om.Group):
         self.options.declare('aeroOpts', allow_none=False)
         # we may have a component for mesh warping embedded in the aero group
         self.options.declare('meshOpts', allow_none=True, default=None)
+        self.options.declare('geo', allow_none=True, default=None)
+        self.options.declare('geoOpts', allow_none=True, default=None)
 
     def setup(self):
 
@@ -31,9 +33,9 @@ class AeroSolver(om.Group):
 
 
 class Top(om.Group):
-    
+
     def setup(self):
-        
+
         aero_options = {
             # I/O Parameters
             'gridFile':'wing_vol.cgns',
@@ -48,13 +50,14 @@ class Top(om.Group):
             'smoother':'dadi',
             'CFL':0.5,
             'CFLCoarse':0.25,
-            'MGCycle':'3w',
+            'MGCycle':'sg',
             'MGStartLevel':-1,
             'nCyclesCoarse':250,
 
             # ANK Solver Parameters
             'useANKSolver':True,
-            'ankswitchtol':1e-1,
+            # 'ankswitchtol':1e-1,
+            'nsubiterturb': 5,
 
             # NK Solver Parameters
             'useNKSolver':True,
@@ -72,10 +75,10 @@ class Top(om.Group):
     def configure(self):
         aero = self.aero_adflow.aero
 
-        # this methods is adflow specific 
+        # this methods is adflow specific
         aero.setAeroProblem(name='wing', mach=0.8, altitude=10000, alpha=1.5,
                             areaRef=45.5, chordRef=3.25, evaluFuncs=['cl','cd'])
-        
+
 # OpenMDAO set up
 prob = om.Problem()
 
