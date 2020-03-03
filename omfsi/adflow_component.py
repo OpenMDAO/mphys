@@ -5,7 +5,7 @@ import pprint
 from baseclasses import AeroProblem
 
 from adflow import ADFLOW
-from pywarp import MBMesh
+from idwarp import USMesh
 
 from openmdao.api import Group, ImplicitComponent, ExplicitComponent
 from openmdao.core.analysis_error import AnalysisError
@@ -84,7 +84,7 @@ class AdflowAssembler(OmfsiSolverAssembler):
         self.comm = comm
         if self.solver is None:
             self.solver = ADFLOW(options=self.options)
-            self.mesh = MBMesh(comm=self.comm,options=self.options)
+            self.mesh = USMesh(comm=self.comm,options=self.options)
             self.solver.setMesh(self.mesh)
 
             self.solver_dict['nnodes'] = int(self.solver.getSurfaceCoordinates().size /3)
@@ -98,7 +98,7 @@ class AdflowMesh(ExplicitComponent):
 
     """
     def initialize(self):
-        self.options.declare('ap', types=AeroProblem)
+        #self.options.declare('ap', types=AeroProblem)
         self.options.declare('get_solver')
         self.options['distributed'] = True
 
@@ -121,7 +121,7 @@ class AdflowWarper(ExplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare('ap', types=AeroProblem)
+        #self.options.declare('ap', types=AeroProblem)
         self.options.declare('get_solver')
         #self.options.declare('use_OM_KSP', default=False, types=bool,
         #    desc="uses OpenMDAO's PestcKSP linear solver with ADflow's preconditioner to solve the adjoint.")
@@ -133,9 +133,9 @@ class AdflowWarper(ExplicitComponent):
 
         self.solver = self.options['get_solver'](self.comm)
         solver = self.solver
-        ap = self.options['ap']
+        #ap = self.ap
 
-        self.ap_vars,_ = get_dvs_and_cons(ap=ap)
+        #self.ap_vars,_ = get_dvs_and_cons(ap=ap)
 
         # state inputs and outputs
         local_coord_size = solver.getSurfaceCoordinates().size
@@ -164,7 +164,7 @@ class AdflowWarper(ExplicitComponent):
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
 
         solver = self.solver
-        ap = self.options['ap']
+        ap = self.ap
 
         if mode == 'fwd':
             if 'x_g' in d_outputs:
@@ -188,7 +188,7 @@ class AdflowSolver(ImplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare('ap', types=AeroProblem)
+        #self.options.declare('ap', types=AeroProblem)
         self.options.declare('get_solver')
         #self.options.declare('use_OM_KSP', default=False, types=bool,
         #    desc="uses OpenMDAO's PestcKSP linear solver with ADflow's preconditioner to solve the adjoint.")
@@ -204,9 +204,9 @@ class AdflowSolver(ImplicitComponent):
 
         self.solver = self.options['get_solver'](self.comm)
         solver = self.solver
-        ap = self.options['ap']
+        #ap = self.ap
 
-        self.ap_vars,_ = get_dvs_and_cons(ap=ap)
+        #self.ap_vars,_ = get_dvs_and_cons(ap=ap)
 
         # parameter inputs
         if self.comm.rank == 0:
@@ -239,7 +239,7 @@ class AdflowSolver(ImplicitComponent):
             name = args[0]
             tmp[name] = inputs[name]
 
-        self.options['ap'].setDesignVars(tmp)
+        self.ap.setDesignVars(tmp)
 
     def _set_states(self, outputs):
         self.solver.setStates(outputs['q'])
@@ -252,7 +252,7 @@ class AdflowSolver(ImplicitComponent):
         self._set_states(outputs)
         self._set_ap(inputs)
 
-        ap = self.options['ap']
+        ap = self.ap
 
         # Set the warped mesh
         #solver.mesh.setSolverGrid(inputs['x_g'])
@@ -265,7 +265,7 @@ class AdflowSolver(ImplicitComponent):
     def solve_nonlinear(self, inputs, outputs):
 
         solver = self.solver
-        ap = self.options['ap']
+        ap = self.ap
 
         if self._do_solve:
 
@@ -295,7 +295,7 @@ class AdflowSolver(ImplicitComponent):
     def apply_linear(self, inputs, outputs, d_inputs, d_outputs, d_residuals, mode):
 
         solver = self.solver
-        ap = self.options['ap']
+        ap = self.ap
 
         if mode == 'fwd':
             if 'q' in d_residuals:
@@ -337,7 +337,7 @@ class AdflowSolver(ImplicitComponent):
 
     def solve_linear(self, d_outputs, d_residuals, mode):
         solver = self.solver
-        ap = self.options['ap']
+        ap = self.ap
         if mode == 'fwd':
             d_outputs['q'] = solver.solveDirectForRHS(d_residuals['q'])
         elif mode == 'rev':
@@ -353,7 +353,7 @@ class AdflowForces(ExplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare('ap', types=AeroProblem)
+        #self.options.declare('ap', types=AeroProblem)
         self.options.declare('get_solver')
 
         self.distributed = True
@@ -363,9 +363,9 @@ class AdflowForces(ExplicitComponent):
 
         self.solver = self.options['get_solver'](self.comm)
         solver = self.solver
-        ap = self.options['ap']
+        # ap = self.ap
 
-        self.ap_vars,_ = get_dvs_and_cons(ap=ap)
+        #self.ap_vars,_ = get_dvs_and_cons(ap=ap)
 
         if self.comm.rank == 0:
             print('adding ap var inputs')
@@ -401,7 +401,7 @@ class AdflowForces(ExplicitComponent):
             name = args[0]
             tmp[name] = inputs[name]
 
-        self.options['ap'].setDesignVars(tmp)
+        self.ap.setDesignVars(tmp)
 
     def _set_states(self, inputs):
         self.solver.setStates(inputs['q'])
@@ -409,7 +409,7 @@ class AdflowForces(ExplicitComponent):
     def compute(self, inputs, outputs):
 
         solver = self.solver
-        ap = self.options['ap']
+        ap = self.ap
 
         self._set_ap(inputs)
 
@@ -423,7 +423,7 @@ class AdflowForces(ExplicitComponent):
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
 
         solver = self.solver
-        ap = self.options['ap']
+        ap = self.ap
 
         if mode == 'fwd':
             if 'f_a' in d_outputs:
@@ -494,7 +494,7 @@ FUNCS_UNITS={
 class AdflowFunctions(ExplicitComponent):
 
     def initialize(self):
-        self.options.declare('ap', types=AeroProblem,)
+        #self.options.declare('ap', types=AeroProblem,)
         self.options.declare('get_solver')
 
         # testing flag used for unit-testing to prevent the call to actually solve
@@ -507,9 +507,9 @@ class AdflowFunctions(ExplicitComponent):
 
         self.solver = self.options['get_solver'](self.comm)
         solver = self.solver
-        ap = self.options['ap']
+        #ap = self.ap
 
-        self.ap_vars,_ = get_dvs_and_cons(ap=ap)
+        #self.ap_vars,_ = get_dvs_and_cons(ap=ap)
 
         for (args, kwargs) in self.ap_vars:
             name = args[0]
@@ -534,7 +534,7 @@ class AdflowFunctions(ExplicitComponent):
         self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size)
         self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
 
-        for f_name in self.options['ap'].evalFuncs:
+        for f_name in self.ap.evalFuncs:
         #for f_name, f_meta in solver.adflowCostFunctions.items():
         #    f_type = f_meta[1]
         #    units = None
@@ -554,18 +554,18 @@ class AdflowFunctions(ExplicitComponent):
             name = args[0]
             tmp[name] = inputs[name][0]
 
-        self.options['ap'].setDesignVars(tmp)
+        self.ap.setDesignVars(tmp)
         #self.options['solver'].setAeroProblem(self.options['ap'])
 
     def _set_states(self, inputs):
         self.solver.setStates(inputs['q'])
 
     def _get_func_name(self, name):
-        return '%s_%s' % (self.options['ap'].name, name.lower())
+        return '%s_%s' % (self.ap.name, name.lower())
 
     def compute(self, inputs, outputs):
         solver = self.solver
-        ap = self.options['ap']
+        ap = self.ap
         #print('funcs compute')
         #actually setting things here triggers some kind of reset, so we only do it if you're actually solving
         if self._do_solve:
@@ -577,17 +577,17 @@ class AdflowFunctions(ExplicitComponent):
 
         funcs = {}
 
-        eval_funcs = [f_name for f_name in self.options['ap'].evalFuncs]
+        eval_funcs = [f_name for f_name in self.ap.evalFuncs]
         solver.evalFunctions(ap, funcs, eval_funcs)
 
-        for name in self.options['ap'].evalFuncs:
+        for name in self.ap.evalFuncs:
             f_name = self._get_func_name(name)
             if f_name in funcs:
                 outputs[name.lower()] = funcs[f_name]
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         solver = self.solver
-        ap = self.options['ap']
+        ap = self.ap
 
         if mode == 'fwd':
             xDvDot = {}
@@ -620,7 +620,7 @@ class AdflowFunctions(ExplicitComponent):
         elif mode == 'rev':
             funcsBar = {}
 
-            for name  in self.options['ap'].evalFuncs:
+            for name  in self.ap.evalFuncs:
                 func_name = name.lower()
 
                 # we have to check for 0 here, so we don't include any unnecessary variables in funcsBar
