@@ -14,6 +14,7 @@ from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
 from openmdao.api import NonlinearRunOnce, LinearRunOnce
 from openmdao.api import NonlinearBlockGS, LinearBlockGS
+import openmdao.api as om
 
 from tacs import elements, constitutive
 
@@ -34,7 +35,7 @@ aero_options = {
     'smoother':'dadi',
     'CFL':1.5,
     'CFLCoarse':1.25,
-    'MGCycle':'3w',
+    'MGCycle':'sg',
     'MGStartLevel':-1,
     'nCyclesCoarse':250,
 
@@ -169,4 +170,6 @@ fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100)
 fsi_group.linear_solver = LinearBlockGS(maxiter=100)
 
 prob.setup()
+
+om.n2(prob, show_browser=False, outfile='omfsi_2pt_as.html')
 prob.run_model()

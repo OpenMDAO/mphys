@@ -14,6 +14,7 @@ from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
 from openmdao.api import NonlinearRunOnce, LinearRunOnce
 from openmdao.api import NonlinearBlockGS, LinearBlockGS
+import openmdao.api as om
 
 from tacs import elements, constitutive
 
@@ -25,7 +26,9 @@ aero_options = {
     'gridFile':'wing_vol.cgns',
     'outputDirectory':'.',
     'monitorvariables':['resrho','cl','cd'],
-    'writeTecplotSurfaceSolution':True,
+    'writeTecplotSurfaceSolution':False,
+    'writevolumesolution':False,
+    'writesurfacesolution':False,
 
     # Physics Parameters
     'equationType':'RANS',
@@ -34,13 +37,14 @@ aero_options = {
     'smoother':'dadi',
     'CFL':1.5,
     'CFLCoarse':1.25,
-    'MGCycle':'3w',
+    'MGCycle':'sg',
     'MGStartLevel':-1,
     'nCyclesCoarse':250,
 
     # ANK Solver Parameters
     'useANKSolver':True,
-    'ankswitchtol':1e-1,
+    # 'ankswitchtol':1e-1,
+    'nsubiterturb': 5,
 
     # NK Solver Parameters
     'useNKSolver':True,
@@ -62,7 +66,7 @@ ap = AeroProblem(name='wing',
     alpha=1.5,
     areaRef=45.5,
     chordRef=3.25,
-    evalFuncs=['lift','drag']
+    evalFuncs=['lift','drag', 'cl', 'cd']
 )
 
 ap.addDV('alpha',value=1.5,name='alpha')
@@ -157,9 +161,12 @@ fsi_group = assembler.add_fsi_subsystem(model,scenario)
 fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100)
 fsi_group.linear_solver = LinearBlockGS(maxiter=100)
 
-prob.setup()
-prob.run_model()
+fsi_group.nonlinear_solver.options['iprint']=2
 
+prob.setup()
+om.n2(prob, show_browser=False, outfile='omfsi_as.html')
+prob.run_model()
+# prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
     print('cl =',prob[scenario.name+'.aero_funcs.cl'])
     print('cd =',prob[scenario.name+'.aero_funcs.cd'])

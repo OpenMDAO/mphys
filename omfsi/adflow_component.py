@@ -126,7 +126,7 @@ class AdflowWarper(ExplicitComponent):
         #self.options.declare('use_OM_KSP', default=False, types=bool,
         #    desc="uses OpenMDAO's PestcKSP linear solver with ADflow's preconditioner to solve the adjoint.")
 
-        self.distributed = True
+        self.options['distributed'] = True
 
     def setup(self):
         #self.set_check_partial_options(wrt='*',directional=True)
@@ -193,7 +193,7 @@ class AdflowSolver(ImplicitComponent):
         #self.options.declare('use_OM_KSP', default=False, types=bool,
         #    desc="uses OpenMDAO's PestcKSP linear solver with ADflow's preconditioner to solve the adjoint.")
 
-        self.distributed = True
+        self.options['distributed'] = True
 
         # testing flag used for unit-testing to prevent the call to actually solve
         # NOT INTENDED FOR USERS!!! FOR TESTING ONLY
@@ -356,7 +356,7 @@ class AdflowForces(ExplicitComponent):
         #self.options.declare('ap', types=AeroProblem)
         self.options.declare('get_solver')
 
-        self.distributed = True
+        self.options['distributed'] = True
 
     def setup(self):
         #self.set_check_partial_options(wrt='*',directional=True)
