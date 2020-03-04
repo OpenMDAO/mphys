@@ -26,7 +26,7 @@ aero_options = {
     'gridFile':'wing_vol.cgns',
     'outputDirectory':'.',
     'monitorvariables':['resrho','cl','cd'],
-    'writeTecplotSurfaceSolution':False,
+    # 'writeTecplotSurfaceSolution':False,
     # 'writevolumesolution':False,
     # 'writesurfacesolution':False,
 
@@ -43,6 +43,7 @@ aero_options = {
 
     # ANK Solver Parameters
     'useANKSolver':True,
+    # 'ankswitchtol':1e-1,
     'nsubiterturb': 5,
 
     # NK Solver Parameters
@@ -163,7 +164,7 @@ fsi_group.linear_solver = LinearBlockGS(maxiter=100)
 fsi_group.nonlinear_solver.options['iprint']=2
 
 prob.setup()
-# om.n2(prob, show_browser=False, outfile='omfsi_as.html')
+# om.n2(prob, show_browser=False, outfile='as_configure.html')
 prob.run_model()
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
