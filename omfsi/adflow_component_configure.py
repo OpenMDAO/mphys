@@ -123,8 +123,8 @@ class AdflowWarper(ExplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare('ap', types=AeroProblem)
-        self.options.declare('get_solver')
+        # self.options.declare('ap', types=AeroProblem)
+        self.options.declare('aero_solver')
         #self.options.declare('use_OM_KSP', default=False, types=bool,
         #    desc="uses OpenMDAO's PestcKSP linear solver with ADflow's preconditioner to solve the adjoint.")
 
@@ -133,26 +133,26 @@ class AdflowWarper(ExplicitComponent):
     def setup(self):
         #self.set_check_partial_options(wrt='*',directional=True)
 
-        self.solver = self.options['get_solver'](self.comm)
-        solver = self.solver
-        ap = self.options['ap']
+        self.solver = self.options['aero_solver']
+        # solver = self.solver
+        # ap = self.options['ap']
 
-        self.ap_vars,_ = get_dvs_and_cons(ap=ap)
+        # self.ap_vars,_ = get_dvs_and_cons(ap=ap)
 
-        # state inputs and outputs
-        local_coord_size = solver.getSurfaceCoordinates().size
-        local_volume_coord_size = solver.mesh.getSolverGrid().size
+        # # state inputs and outputs
+        # local_coord_size = solver.getSurfaceCoordinates().size
+        # local_volume_coord_size = solver.mesh.getSolverGrid().size
 
-        n_list = self.comm.allgather(local_coord_size)
-        irank  = self.comm.rank
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
+        # n_list = self.comm.allgather(local_coord_size)
+        # irank  = self.comm.rank
+        # n1 = np.sum(n_list[:irank])
+        # n2 = np.sum(n_list[:irank+1])
 
-        self.add_input('x_a', src_indices=np.arange(n1,n2,dtype=int),shape=local_coord_size)
+        # self.add_input('x_a', src_indices=np.arange(n1,n2,dtype=int),shape=local_coord_size)
 
-        self.add_output('x_g', shape=local_volume_coord_size)
+        # self.add_output('x_g', shape=local_volume_coord_size)
 
-        #self.declare_partials(of='x_g', wrt='x_s')
+        # #self.declare_partials(of='x_g', wrt='x_s')
 
     def compute(self, inputs, outputs):
 
@@ -190,8 +190,7 @@ class AdflowSolver(ImplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare('ap', types=AeroProblem)
-        self.options.declare('get_solver')
+        self.options.declare('aero_solver')
         #self.options.declare('use_OM_KSP', default=False, types=bool,
         #    desc="uses OpenMDAO's PestcKSP linear solver with ADflow's preconditioner to solve the adjoint.")
 
@@ -204,34 +203,34 @@ class AdflowSolver(ImplicitComponent):
     def setup(self):
         #self.set_check_partial_options(wrt='*',directional=True)
 
-        self.solver = self.options['get_solver'](self.comm)
-        solver = self.solver
-        ap = self.options['ap']
+        self.solver = self.options['aero_solver']
+        # solver = self.solver
+        # ap = self.options['ap']
 
-        self.ap_vars,_ = get_dvs_and_cons(ap=ap)
+        # self.ap_vars,_ = get_dvs_and_cons(ap=ap)
 
-        # parameter inputs
-        if self.comm.rank == 0:
-            print('adding ap var inputs')
-        for (args, kwargs) in self.ap_vars:
-            name = args[0]
-            size = args[1]
-            self.add_input(name, shape=size, units=kwargs['units'])
-            if self.comm.rank == 0:
-                print(name)
+        # # parameter inputs
+        # if self.comm.rank == 0:
+        #     print('adding ap var inputs')
+        # for (args, kwargs) in self.ap_vars:
+        #     name = args[0]
+        #     size = args[1]
+        #     self.add_input(name, shape=size, units=kwargs['units'])
+        #     if self.comm.rank == 0:
+        #         print(name)
 
-        # state inputs and outputs
-        local_state_size = solver.getStateSize()
-        local_coord_size = solver.mesh.getSolverGrid().size
+        # # state inputs and outputs
+        # local_state_size = solver.getStateSize()
+        # local_coord_size = solver.mesh.getSolverGrid().size
 
-        n_list = self.comm.allgather(local_coord_size)
-        irank  = self.comm.rank
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
+        # n_list = self.comm.allgather(local_coord_size)
+        # irank  = self.comm.rank
+        # n1 = np.sum(n_list[:irank])
+        # n2 = np.sum(n_list[:irank+1])
 
-        self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int),shape=local_coord_size)
+        # self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int),shape=local_coord_size)
 
-        self.add_output('q', shape=local_state_size)
+        # self.add_output('q', shape=local_state_size)
 
         #self.declare_partials(of='q', wrt='*')
 
@@ -355,45 +354,45 @@ class AdflowForces(ExplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare('ap', types=AeroProblem)
-        self.options.declare('get_solver')
+        # self.options.declare('ap', types=AeroProblem)
+        self.options.declare('aero_solver')
 
         self.options['distributed'] = True
 
     def setup(self):
         #self.set_check_partial_options(wrt='*',directional=True)
 
-        self.solver = self.options['get_solver'](self.comm)
-        solver = self.solver
-        ap = self.options['ap']
+        self.solver = self.options['aero_solver']
+        # solver = self.solver
+        # ap = self.options['ap']
 
-        self.ap_vars,_ = get_dvs_and_cons(ap=ap)
+        # self.ap_vars,_ = get_dvs_and_cons(ap=ap)
 
-        if self.comm.rank == 0:
-            print('adding ap var inputs')
-        for (args, kwargs) in self.ap_vars:
-            name = args[0]
-            size = args[1]
-            self.add_input(name, shape=size, units=kwargs['units'])
-            if self.comm.rank == 0:
-                print(name)
+        # if self.comm.rank == 0:
+        #     print('adding ap var inputs')
+        # for (args, kwargs) in self.ap_vars:
+        #     name = args[0]
+        #     size = args[1]
+        #     self.add_input(name, shape=size, units=kwargs['units'])
+        #     if self.comm.rank == 0:
+        #         print(name)
 
-        local_state_size = solver.getStateSize()
-        local_coord_size = solver.mesh.getSolverGrid().size
-        s_list = self.comm.allgather(local_state_size)
-        n_list = self.comm.allgather(local_coord_size)
-        irank  = self.comm.rank
+        # local_state_size = solver.getStateSize()
+        # local_coord_size = solver.mesh.getSolverGrid().size
+        # s_list = self.comm.allgather(local_state_size)
+        # n_list = self.comm.allgather(local_coord_size)
+        # irank  = self.comm.rank
 
-        s1 = np.sum(s_list[:irank])
-        s2 = np.sum(s_list[:irank+1])
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
+        # s1 = np.sum(s_list[:irank])
+        # s2 = np.sum(s_list[:irank+1])
+        # n1 = np.sum(n_list[:irank])
+        # n2 = np.sum(n_list[:irank+1])
 
-        self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size)
-        self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
+        # self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size)
+        # self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
 
-        local_surface_coord_size = solver.mesh.getSurfaceCoordinates().size
-        self.add_output('f_a', shape=local_surface_coord_size)
+        # local_surface_coord_size = solver.mesh.getSurfaceCoordinates().size
+        # self.add_output('f_a', shape=local_surface_coord_size)
 
         #self.declare_partials(of='f_a', wrt='*')
 
@@ -496,8 +495,7 @@ FUNCS_UNITS={
 class AdflowFunctions(ExplicitComponent):
 
     def initialize(self):
-        self.options.declare('ap', types=AeroProblem,)
-        self.options.declare('get_solver')
+        self.options.declare('aero_solver')
 
         # testing flag used for unit-testing to prevent the call to actually solve
         # NOT INTENDED FOR USERS!!! FOR TESTING ONLY
@@ -505,50 +503,52 @@ class AdflowFunctions(ExplicitComponent):
 
 
     def setup(self):
+
+        self.solver = self.options['aero_solver']
         #self.set_check_partial_options(wrt='*',directional=True)
 
-        self.solver = self.options['get_solver'](self.comm)
-        solver = self.solver
-        ap = self.options['ap']
+        # self.solver = self.options['get_solver'](self.comm)
+        # solver = self.solver
+        # ap = self.options['ap']
 
-        self.ap_vars,_ = get_dvs_and_cons(ap=ap)
+        # self.ap_vars,_ = get_dvs_and_cons(ap=ap)
 
-        for (args, kwargs) in self.ap_vars:
-            name = args[0]
-            size = args[1]
-            value = 1.
-            if 'value' in kwargs:
-                value = kwargs['value']
+        # for (args, kwargs) in self.ap_vars:
+        #     name = args[0]
+        #     size = args[1]
+        #     value = 1.
+        #     if 'value' in kwargs:
+        #         value = kwargs['value']
 
-            self.add_input(name, shape=size, units=kwargs['units'])
+        #     self.add_input(name, shape=size, units=kwargs['units'])
 
-        local_state_size = solver.getStateSize()
-        local_coord_size = solver.mesh.getSolverGrid().size
-        s_list = self.comm.allgather(local_state_size)
-        n_list = self.comm.allgather(local_coord_size)
-        irank  = self.comm.rank
+        # local_state_size = solver.getStateSize()
+        # local_coord_size = solver.mesh.getSolverGrid().size
+        # s_list = self.comm.allgather(local_state_size)
+        # n_list = self.comm.allgather(local_coord_size)
+        # irank  = self.comm.rank
 
-        s1 = np.sum(s_list[:irank])
-        s2 = np.sum(s_list[:irank+1])
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
+        # s1 = np.sum(s_list[:irank])
+        # s2 = np.sum(s_list[:irank+1])
+        # n1 = np.sum(n_list[:irank])
+        # n2 = np.sum(n_list[:irank+1])
 
-        self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size)
-        self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
+        # self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size)
+        # self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
 
-        for f_name in self.options['ap'].evalFuncs:
-        #for f_name, f_meta in solver.adflowCostFunctions.items():
-        #    f_type = f_meta[1]
-        #    units = None
-        #    if f_type in FUNCS_UNITS:
-        #        units = FUNCS_UNITS[f_type]
+        # for f_name in self.options['ap'].evalFuncs:
+        # #for f_name, f_meta in solver.adflowCostFunctions.items():
+        # #    f_type = f_meta[1]
+        # #    units = None
+        # #    if f_type in FUNCS_UNITS:
+        # #        units = FUNCS_UNITS[f_type]
 
-            if self.comm.rank == 0:
-                print("adding adflow func as output: {}".format(f_name))
-            self.add_output(f_name, shape=1)
-            #self.add_output(f_name, shape=1, units=units)
+        #     if self.comm.rank == 0:
+        #         print("adding adflow func as output: {}".format(f_name))
+        #     self.add_output(f_name, shape=1)
+        #     #self.add_output(f_name, shape=1, units=units)
 
-            #self.declare_partials(of=f_name, wrt='*')
+        #     #self.declare_partials(of=f_name, wrt='*')
 
     def _set_ap(self, inputs):
         tmp = {}
@@ -656,3 +656,62 @@ class AdflowFunctions(ExplicitComponent):
             for dv_name, dv_bar in xDVBar.items():
                 if dv_name in d_inputs:
                     d_inputs[dv_name] += dv_bar.flatten()
+
+class AdflowGroup(Group):
+
+    def initialize(self):
+        self.options.declare('aero_solver')
+
+    def setup(self):
+        self.aero_solver = self.options['aero_solver']
+
+        self.add_subsystem('deformer', AdflowWarper(
+            aero_solver=self.aero_solver
+        ))
+        self.add_subsystem('solver', AdflowSolver(
+            aero_solver=self.aero_solver
+        ))
+        self.add_subsystem('force', AdflowForces(
+            aero_solver=self.aero_solver
+        ))
+
+class GeoDisp(ExplicitComponent):
+    """
+    This component adds the aerodynamic
+    displacements to the geometry-changed aerodynamic surface
+    """
+    def initialize(self):
+        # self.options.declare('get_aero_nnodes',default=None,desc='function to get number of aerodynamic nodes')
+        self.options['distributed'] = True
+
+    def setup(self):
+        return
+
+        # local_size = self.options['get_aero_nnodes']() * 3
+        # n_list = self.comm.allgather(local_size)
+        # irank  = self.comm.rank
+
+        # n1 = np.sum(n_list[:irank])
+        # n2 = np.sum(n_list[:irank+1])
+
+        # self.add_input('x_a0',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
+        # self.add_input('u_a', shape=local_size,val=np.zeros(local_size),src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface displacements')
+
+        # self.add_output('x_a',shape=local_size,desc='deformed aerodynamic surface')
+
+    def compute(self,inputs,outputs):
+        outputs['x_a'] = inputs['x_a0'] + inputs['u_a']
+
+    def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
+        if mode == 'fwd':
+            if 'x_a' in d_outputs:
+                if 'x_a0' in d_inputs:
+                    d_outputs['x_a'] += d_inputs['x_a0']
+                if 'u_a' in d_inputs:
+                    d_outputs['x_a'] += d_inputs['u_a']
+        if mode == 'rev':
+            if 'x_a' in d_outputs:
+                if 'x_a0' in d_inputs:
+                    d_inputs['x_a0'] += d_outputs['x_a']
+                if 'u_a' in d_inputs:
+                    d_inputs['u_a']  += d_outputs['x_a']

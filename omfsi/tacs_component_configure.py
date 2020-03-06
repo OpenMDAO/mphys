@@ -178,7 +178,10 @@ class TacsSolver(ImplicitComponent):
     """
     def initialize(self):
 
-        self.options.declare('setup_func', default = None, desc='setup function')
+        self.options.declare('struct_solver')
+        self.options.declare('struct_objects')
+
+        # self.options.declare('setup_func', default = None, desc='setup function')
         self.options['distributed'] = True
 
         self.tacs = None
@@ -195,47 +198,49 @@ class TacsSolver(ImplicitComponent):
         self.check_partials = True
 
     def setup(self):
+        self.struct_solver = self.options['struct_solver']
+        self.struct_objects = self.options['struct_objects']
 #        self.set_check_partial_options(wrt='*',directional=True)
-        tacs, mat, pc, gmres, ndv = self.options['setup_func'](self.comm)
+        # tacs, mat, pc, gmres, ndv = self.options['setup_func'](self.comm)
 
-        # TACS assembler setup
-        self.tacs      = tacs
-        self.mat       = mat
-        self.pc        = pc
-        self.gmres     = gmres
-        self.ndv       = ndv
+        # # TACS assembler setup
+        # self.tacs      = tacs
+        # self.mat       = mat
+        # self.pc        = pc
+        # self.gmres     = gmres
+        # self.ndv       = ndv
 
-        # create some TACS bvecs that will be needed later
-        self.res        = tacs.createVec()
-        self.force      = tacs.createVec()
-        self.ans        = tacs.createVec()
-        self.struct_rhs = tacs.createVec()
-        self.psi_s      = tacs.createVec()
-        self.xpt_sens   = tacs.createNodeVec()
+        # # create some TACS bvecs that will be needed later
+        # self.res        = tacs.createVec()
+        # self.force      = tacs.createVec()
+        # self.ans        = tacs.createVec()
+        # self.struct_rhs = tacs.createVec()
+        # self.psi_s      = tacs.createVec()
+        # self.xpt_sens   = tacs.createNodeVec()
 
-        # OpenMDAO setup
+        # # OpenMDAO setup
 
-        state_size = self.ans.getArray().size
-        node_size  = self.xpt_sens.getArray().size
-        self.ndof = int(state_size/(node_size/3))
+        # state_size = self.ans.getArray().size
+        # node_size  = self.xpt_sens.getArray().size
+        # self.ndof = int(state_size/(node_size/3))
 
-        s_list = self.comm.allgather(state_size)
-        n_list = self.comm.allgather(node_size)
-        irank  = self.comm.rank
+        # s_list = self.comm.allgather(state_size)
+        # n_list = self.comm.allgather(node_size)
+        # irank  = self.comm.rank
 
-        s1 = np.sum(s_list[:irank])
-        s2 = np.sum(s_list[:irank+1])
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
+        # s1 = np.sum(s_list[:irank])
+        # s2 = np.sum(s_list[:irank+1])
+        # n1 = np.sum(n_list[:irank])
+        # n2 = np.sum(n_list[:irank+1])
 
 
-        # inputs
-        self.add_input('dv_struct', shape=ndv                                                 , desc='tacs design variables')
-        self.add_input('x_s0',      shape=node_size , src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
-        self.add_input('f_s',       shape=state_size, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
+        # # inputs
+        # self.add_input('dv_struct', shape=ndv                                                 , desc='tacs design variables')
+        # self.add_input('x_s0',      shape=node_size , src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
+        # self.add_input('f_s',       shape=state_size, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
 
-        # outputs
-        self.add_output('u_s',      shape=state_size, val = np.zeros(state_size),desc='structural state vector')
+        # # outputs
+        # self.add_output('u_s',      shape=state_size, val = np.zeros(state_size),desc='structural state vector')
 
         # partials
         #self.declare_partials('u_s',['dv_struct','x_s0','f_s'])
@@ -430,10 +435,7 @@ class TacsFunctions(ExplicitComponent):
           => func_list, tacs, struct_ndv = tacs_func_setup(comm)
     """
     def initialize(self):
-        self.options.declare('get_tacs', default = None, desc='func pointer to get the tacs assembler')
-        self.options.declare('get_ndv', default = None, desc='func pointer to get the number of tacs DVs')
-        self.options.declare('get_funcs', default = None, desc='func pointer to get list of tacs functions')
-        self.options.declare('f5_writer', default = None, desc='func pointer for f5 writer')
+        self.options.declare('struct_solver')
 
         self.ans = None
         self.tacs = None
@@ -441,46 +443,48 @@ class TacsFunctions(ExplicitComponent):
         self.check_partials = True
 
     def setup(self):
-#        self.set_check_partial_options(wrt='*',directional=True)
-        tacs = self.options['get_tacs'](self.comm)
-        ndv = self.options['get_ndv']()
-        func_list = self.options['get_funcs'](tacs)
 
-        # TACS part of setup
-        self.tacs      = tacs
-        self.ndv       = ndv
-        self.func_list = func_list
+        self.tacs = self.options['struct_solver']
 
-        self.ans = tacs.createVec()
-        state_size = self.ans.getArray().size
+        # tacs = self.options['get_tacs'](self.comm)
+        # ndv = self.options['get_ndv']()
+        # func_list = self.options['get_funcs'](tacs)
 
-        self.xpt_sens = tacs.createNodeVec()
-        node_size = self.xpt_sens.getArray().size
+        # # TACS part of setup
+        # self.tacs      = tacs
+        # self.ndv       = ndv
+        # self.func_list = func_list
 
-        s_list = self.comm.allgather(state_size)
-        n_list = self.comm.allgather(node_size)
-        irank  = self.comm.rank
+        # self.ans = tacs.createVec()
+        # state_size = self.ans.getArray().size
 
-        s1 = np.sum(s_list[:irank])
-        s2 = np.sum(s_list[:irank+1])
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
+        # self.xpt_sens = tacs.createNodeVec()
+        # node_size = self.xpt_sens.getArray().size
 
-        # OpenMDAO part of setup
-        self.add_input('dv_struct', shape=ndv,                                                    desc='tacs design variables')
-        self.add_input('x_s0',      shape=node_size,  src_indices=np.arange(n1, n2, dtype=int),   desc='structural node coordinates')
-        self.add_input('u_s',       shape=state_size, src_indices=np.arange(s1, s2, dtype=int),   desc='structural state vector')
+        # s_list = self.comm.allgather(state_size)
+        # n_list = self.comm.allgather(node_size)
+        # irank  = self.comm.rank
 
-        # Remove the mass function from the func list if it is there
-        # since it is not dependent on the structural state
-        func_no_mass = []
-        for i,func in enumerate(func_list):
-            if not isinstance(func,functions.StructuralMass):
-                func_no_mass.append(func)
+        # s1 = np.sum(s_list[:irank])
+        # s2 = np.sum(s_list[:irank+1])
+        # n1 = np.sum(n_list[:irank])
+        # n2 = np.sum(n_list[:irank+1])
 
-        self.func_list = func_no_mass
-        if len(self.func_list) > 0:
-            self.add_output('f_struct', shape=len(self.func_list), desc='structural function values')
+        # # OpenMDAO part of setup
+        # self.add_input('dv_struct', shape=ndv,                                                    desc='tacs design variables')
+        # self.add_input('x_s0',      shape=node_size,  src_indices=np.arange(n1, n2, dtype=int),   desc='structural node coordinates')
+        # self.add_input('u_s',       shape=state_size, src_indices=np.arange(s1, s2, dtype=int),   desc='structural state vector')
+
+        # # Remove the mass function from the func list if it is there
+        # # since it is not dependent on the structural state
+        # func_no_mass = []
+        # for i,func in enumerate(func_list):
+        #     if not isinstance(func,functions.StructuralMass):
+        #         func_no_mass.append(func)
+
+        # self.func_list = func_no_mass
+        # if len(self.func_list) > 0:
+        #     self.add_output('f_struct', shape=len(self.func_list), desc='structural function values')
 
             # declare the partials
             #self.declare_partials('f_struct',['dv_struct','x_s0','u_s'])
@@ -571,8 +575,7 @@ class TacsMass(ExplicitComponent):
           => func_list, tacs, struct_ndv = tacs_func_setup(comm)
     """
     def initialize(self):
-        self.options.declare('get_tacs', default = None, desc='function pointer to get the tacs assembler')
-        self.options.declare('get_ndv', default = None, desc='func pointer to get the number of tacs DVs')
+        self.options.declare('struct_solver')
 
         self.ans = None
         self.tacs = None
@@ -582,29 +585,32 @@ class TacsMass(ExplicitComponent):
         self.check_partials = True
 
     def setup(self):
-#        self.set_check_partial_options(wrt='*',directional=True)
-        tacs = self.options['get_tacs'](self.comm)
-        ndv = self.options['get_ndv']()
 
-        # TACS part of setup
-        self.tacs = tacs
-        self.ndv  = ndv
+        self.tacs = self.options['struct_solver']
 
-        self.xpt_sens = tacs.createNodeVec()
-        node_size = self.xpt_sens.getArray().size
+# #        self.set_check_partial_options(wrt='*',directional=True)
+#         tacs = self.options['get_tacs'](self.comm)
+#         ndv = self.options['get_ndv']()
 
-        n_list = self.comm.allgather(node_size)
-        irank  = self.comm.rank
+#         # TACS part of setup
+#         self.tacs = tacs
+#         self.ndv  = ndv
 
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
+#         self.xpt_sens = tacs.createNodeVec()
+#         node_size = self.xpt_sens.getArray().size
 
-        # OpenMDAO part of setup
-        self.add_input('dv_struct', shape=ndv,                                                    desc='tacs design variables')
-        self.add_input('x_s0',      shape=node_size,  src_indices=np.arange(n1, n2, dtype=int),   desc='structural node coordinates')
+#         n_list = self.comm.allgather(node_size)
+#         irank  = self.comm.rank
 
-        self.add_output('mass', 0.0, desc = 'structural mass')
-        #self.declare_partials('mass',['dv_struct','x_s0'])
+#         n1 = np.sum(n_list[:irank])
+#         n2 = np.sum(n_list[:irank+1])
+
+#         # OpenMDAO part of setup
+#         self.add_input('dv_struct', shape=ndv,                                                    desc='tacs design variables')
+#         self.add_input('x_s0',      shape=node_size,  src_indices=np.arange(n1, n2, dtype=int),   desc='structural node coordinates')
+
+#         self.add_output('mass', 0.0, desc = 'structural mass')
+#         #self.declare_partials('mass',['dv_struct','x_s0'])
 
     def _update_internal(self,inputs):
         self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))

@@ -47,10 +47,12 @@ class as_group(om.Group):
         # create the cruise cases
         n_scenario = self.options['n_scenario']
         for i in range(n_scenario):
-            self.add_subsystem('cruise%d'%i, omfsi_scenario(aero_solver=self.aero_solver,
-                                                            struct_solver=self.struct_solver,
-                                                            struct_objects=self.struct_objects,
-                                                            xfer_object=self.xfer_object))
+            self.add_subsystem('cruise%d'%i, omfsi_scenario(
+                aero_solver=self.aero_solver,
+                struct_solver=self.struct_solver,
+                struct_objects=self.struct_objects,
+                xfer_object=self.xfer_object
+            ))
 
         # set solvers
         self.nonlinear_solver = om.NonlinearRunOnce()

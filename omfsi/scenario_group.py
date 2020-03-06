@@ -1,4 +1,7 @@
 import openmdao.api as om
+from omfsi.fsi_group import fsi_group
+from omfsi.tacs_component_configure import TacsFunctions, TacsMass
+from omfsi.adflow_component_configure import AdflowFunctions
 
 class omfsi_scenario(om.Group):
 
@@ -12,19 +15,28 @@ class omfsi_scenario(om.Group):
 
     def setup(self):
 
-        # # add an ivc to this level for DVs that are shared between the two scenarios
-        # dvs = om.IndepVarComp()
-        # dvs.add_output{'foo', val=1}
-        # self.add_subsystem('dvs', dvs)
+        # get all the initialized objects for computations
+        self.aero_solver = self.options['aero_solver']
+        self.struct_solver = self.options['struct_solver']
+        self.struct_objects = self.options['struct_objects']
+        self.xfer_object = self.options['xfer_object']
 
-        # # add the meshes
-        # self.add_subsystem('struct_mesh', TacsMesh())
-        # self.add_subsystem('aero_mesh', AdflowMesh())
-
-        # # create the cruise cases
-        # n_scenario = self.options['n_scenario']
-        # for i in range(n_scenario):
-        #     self.add_subsystem('cruise%d'%i, omfsi_scenario())
+        # create the components and groups
+        self.add_subsystem('fsi_group', fsi_group(
+            aero_solver=self.aero_solver,
+            struct_solver=self.struct_solver,
+            struct_objects=self.struct_objects,
+            xfer_object=self.xfer_object
+        ))
+        self.add_subsystem('struct_funcs', TacsFunctions(
+            struct_solver=self.struct_solver
+        ))
+        self.add_subsystem('struct_mass', TacsMass(
+            struct_solver=self.struct_solver
+        ))
+        self.add_subsystem('aero_funcs', AdflowFunctions(
+            aero_solver=self.aero_solver
+        ))
 
         # set solvers
         self.nonlinear_solver=om.NonlinearRunOnce()

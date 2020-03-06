@@ -1,36 +1,44 @@
 import openmdao.api as om
 
+from omfsi.tacs_component_configure import TacsSolver
+from omfsi.adflow_component_configure import AdflowGroup, GeoDisp
+from omfsi.meld_xfer_component_configure import MeldDisplacementTransfer, MeldLoadTransfer
+
 class fsi_group(om.Group):
 
-    # def initialize(self):
+    def initialize(self):
 
-    #     # define the inputs we need
-    #     self.options.declare('aero_options', allow_none=False)
-    #     self.options.declare('struct_options', allow_none=False)
-    #     self.options.declare('transfer_options', allow_none=False)
-    #     self.options.declare('n_scenario', default=1)
+        self.options.declare('aero_solver', allow_none=False)
+        self.options.declare('struct_solver', allow_none=False)
+        self.options.declare('struct_objects', allow_none=False)
+        self.options.declare('xfer_object', allow_none=False)
 
     def setup(self):
 
-        # # add an ivc to this level for DVs that are shared between the two scenarios
-        # dvs = om.IndepVarComp()
-        # dvs.add_output{'foo', val=1}
-        # self.add_subsystem('dvs', dvs)
+        self.aero_solver = self.options['aero_solver']
+        self.struct_solver = self.options['struct_solver']
+        self.struct_objects = self.options['struct_objects']
+        self.xfer_object = self.options['xfer_object']
 
-        # # add the meshes
-        # self.add_subsystem('struct_mesh', TacsMesh())
-        # self.add_subsystem('aero_mesh', AdflowMesh())
-
-        # # create the cruise cases
-        # n_scenario = self.options['n_scenario']
-        # for i in range(n_scenario):
-        #     self.add_subsystem('cruise%d'%i, omfsi_scenario())
+        self.add_subsystem('disp_xfer', MeldDisplacementTransfer(
+            xfer_object=self.xfer_object
+        ))
+        self.add_subsystem('geo_disp', GeoDisp())
+        self.add_subsystem('aero', AdflowGroup(
+            aero_solver=self.aero_solver
+        ))
+        self.add_subsystem('load_xfer', MeldLoadTransfer(
+            xfer_object=self.xfer_object
+        ))
+        self.add_subsystem('struct', TacsSolver(
+            struct_solver=self.struct_solver,
+            struct_objects=self.struct_objects
+        ))
 
         # set solvers
-        self.nonlinear_solver=om.NonlinearRunOnce()
-        self.linear_solver = om.LinearRunOnce()
+        self.nonlinear_solver=om.NonlinearBlockGS(maxiter=100)
+        self.linear_solver = om.LinearBlockGS(maxiter=100)
 
     # def configure(self):
 
         # now we need to connect all these components...
-
