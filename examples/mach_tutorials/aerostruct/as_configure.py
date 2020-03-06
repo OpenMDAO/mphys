@@ -1,6 +1,6 @@
 #rst Imports
 from __future__ import print_function, division
-import numpy
+import numpy as np
 from mpi4py import MPI
 
 import openmdao.api as om
@@ -8,7 +8,7 @@ import openmdao.api as om
 from omfsi.as_group import as_group
 
 from baseclasses import *
-from tacs import elements, constitutive
+from tacs import elements, constitutive, functions
 
 # set these for convenience
 comm = MPI.COMM_WORLD
@@ -28,9 +28,9 @@ class Top(om.Group):
             'gridFile':'wing_vol.cgns',
             'outputDirectory':'.',
             'monitorvariables':['resrho','cl','cd'],
-            # 'writeTecplotSurfaceSolution':False,
-            # 'writevolumesolution':False,
-            # 'writesurfacesolution':False,
+            'writeTecplotSurfaceSolution':False,
+            'writevolumesolution':False,
+            'writesurfacesolution':False,
 
             # Physics Parameters
             'equationType':'RANS',
@@ -98,7 +98,7 @@ class Top(om.Group):
                     'get_funcs'   : get_funcs}
 
         ################################################################################
-        # Transfer scheme setup
+        # Transfer scheme options
         ################################################################################
         meld_options = {'isym': 2,
                         'n': 200,
@@ -110,54 +110,32 @@ class Top(om.Group):
                                                 transfer_options = meld_options,
                                                 n_scenario       = 1))
 
-    # def configure(self):
-    #     # # set the solvers
-    #     # self.nonlinear_solver = om.NonlinearRunOnce()
-    #     # self.linear_solver = om.LinearRunOnce()
+    def configure(self):
 
-    #     # set the solver for the scenario group
-    #     self.cruise1.nonlinear_solver = om.NonlinearRunOnce()
-    #     self.cruise1.linear_solver = om.LinearRunOnce()
+        # Create AeroProblem
+        ap = AeroProblem(name='wing',
+            mach=0.8,
+            altitude=10000,
+            alpha=1.5,
+            areaRef=45.5,
+            chordRef=3.25,
+            evalFuncs=['lift','drag', 'cl', 'cd']
+        )
+        ap.addDV('alpha',value=1.5,name='alpha')
+        ap.addDV('mach',value=0.8,name='mach')
 
-    #     self.cruise1.fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100)
-    #     self.cruise1.fsi_group.linear_solver = LinearBlockGS(maxiter=100)
-    #     self.cruise1.fsi_group.nonlinear_solver.options['iprint'] = 2
+        # here we set the aero problems for every cruise case we have.
+        # this can also be called set_flow_conditions, we don't need to create and pass an AP,
+        # just flow conditions is probably a better general API
+        # this call automatically adds the DVs for the respective scenario
+        self.as_group.set_aero_problems([ap])
 
-    #     # in the configure method, we have script-specific calls to add DVs, set flow conditions, etc.
+        # adding struct DVs can be streamlined a bit for generality
+        self.as_group.add_dv_struct('dv_struct', np.array(self.as_group.n_dv_struct*[0.01]))
 
-    #     # move all of these inside respective components
-    #     # Create AeroProblem
-    #     ap = AeroProblem(name='wing',
-    #         mach=0.8,
-    #         altitude=10000,
-    #         alpha=1.5,
-    #         areaRef=45.5,
-    #         chordRef=3.25,
-    #         evalFuncs=['lift','drag', 'cl', 'cd']
-    #     )
-    #     ap.addDV('alpha',value=1.5,name='alpha')
-    #     ap.addDV('mach',value=0.8,name='mach')
-    #     self.dv.add_output('dv_struct',np.array(810*[0.01]))
-    #     self.dv.add_output('alpha',np.array(1.5))
-    #     self.dv.add_output('mach',np.array(0.8))
-
-        # we can also add design variables, constraints and set the objective function here.
+        # we can also add additional design variables, constraints and set the objective function here.
         # every solver is already initialized, so we can perform solver-specific calls
         # that are not in default OMFSI API.
-
-# # before setup
-# aero_assembler = AdflowAssembler(aero_options,ap)
-# #aero_assembler.solver.addLiftDistribution(150, 'z')
-# #aero_assembler.solver.addSlices('z', numpy.linspace(0.1, 14, 10))
-# struct_assembler = TacsOmfsiAssembler(tacs_setup)
-# xfer_assembler = MeldAssembler(meld_options,struct_assembler,aero_assembler)
-# assembler = FsiAssembler(struct_assembler,aero_assembler,xfer_assembler)
-# # after setup
-# assembler.connection_srcs['dv_struct'] = 'dv.dv_struct'
-# assembler.connection_srcs['alpha'] = 'dv.alpha'
-# assembler.connection_srcs['mach'] = 'dv.mach'
-# assembler.add_model_components(model)
-# fsi_group = assembler.add_fsi_subsystem(model,scenario)
 
 ################################################################################
 # OpenMDAO setup

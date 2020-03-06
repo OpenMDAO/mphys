@@ -39,6 +39,24 @@ class fsi_group(om.Group):
         self.nonlinear_solver=om.NonlinearBlockGS(maxiter=100)
         self.linear_solver = om.LinearBlockGS(maxiter=100)
 
-    # def configure(self):
+    def configure(self):
 
-        # now we need to connect all these components...
+        # add the i/o calls that have a size dependancy
+        # this can also be done in the setup for this case since we have the solvers created already
+        # but in general, this may not hold. On the other hand, during configure, every component
+        # will be created, and we definitely can access this information.
+        struct_ndof   = self.struct.get_ndof()
+        struct_nnodes = self.struct.get_nnodes()
+        aero_nnodes   = int(self.aero_solver.getSurfaceCoordinates().size /3)
+
+        self.disp_xfer.add_io(struct_ndof, struct_nnodes, aero_nnodes)
+        self.load_xfer.add_io(struct_ndof, struct_nnodes, aero_nnodes)
+        self.geo_disp.add_io(aero_nnodes)
+
+        # make connections
+        self.connect('disp_xfer.u_a', 'geo_disp.u_a')
+        self.connect('geo_disp.x_a', 'aero.deformer.x_a')
+        self.connect('aero.force.f_a', 'load_xfer.f_a')
+        self.connect('load_xfer.f_s', 'struct.f_s')
+        self.connect('struct.u_s', ['disp_xfer.u_s', 'load_xfer.u_s'])
+

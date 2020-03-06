@@ -33,12 +33,12 @@ class as_group(om.Group):
         self.create_solvers()
 
         # add an ivc to this level for DVs that are shared between the two scenarios
-        dvs = om.IndepVarComp()
+        dv = om.IndepVarComp()
         # add the foo output here bec. we may not have any DVs
         # (even though we most likely will),
         # and w/o any output for the ivc, om will complain
-        dvs.add_output('foo', val=1)
-        self.add_subsystem('dvs', dvs)
+        dv.add_output('foo', val=1)
+        self.add_subsystem('dv', dv)
 
         # add the meshes
         self.add_subsystem('struct_mesh', TacsMesh(tacs=self.struct_solver))
@@ -58,10 +58,33 @@ class as_group(om.Group):
         self.nonlinear_solver = om.NonlinearRunOnce()
         self.linear_solver    = om.LinearRunOnce()
 
-    # def configure(self):
+    def configure(self):
 
-        # now we need to connect all these components...
+        # connect the initial mesh coordinates.
+        # with the configure-based approach, we do not need to have
+        # separate components just to carry the initial mesh coordinates,
+        # but we can directly pass them to all of the components here.
+        # at this stage, everything is allocated and every group/component
+        # below this level is set up.
 
+        # loop over scenarios and connect them all
+        n_scenario = self.options['n_scenario']
+        for i in range(n_scenario):
+            target_x_s0 = [
+                'cruise%d.fsi_group.disp_xfer.x_s0'%i,
+                'cruise%d.fsi_group.load_xfer.x_s0'%i,
+                'cruise%d.fsi_group.struct.x_s0'%i,
+                'cruise%d.struct_funcs.x_s0'%i,
+                'cruise%d.struct_mass.x_s0'%i
+            ]
+            self.connect('struct_mesh.x_s0_mesh', target_x_s0)
+
+            target_x_a0 = [
+                'cruise%d.fsi_group.disp_xfer.x_a0'%i,
+                'cruise%d.fsi_group.geo_disp.x_a0'%i,
+                'cruise%d.fsi_group.load_xfer.x_a0'%i
+            ]
+            self.connect('aero_mesh.x_a0_mesh', target_x_a0)
 
     def create_solvers(self):
         """ This method is called from the setup method of this group.
@@ -109,6 +132,7 @@ class as_group(om.Group):
         mesh.scanBDFFile(self.options['struct_options']['mesh_file'])
 
         ndof, ndv = self.options['struct_options']['add_elements'](mesh)
+        self.n_dv_struct = ndv
 
         tacs = mesh.createTACS(ndof)
 
@@ -124,15 +148,32 @@ class as_group(om.Group):
         solver_dict['ndv']    = ndv
         solver_dict['ndof']   = ndof
         solver_dict['nnodes'] = nnodes
+        solver_dict['get_funcs'] = self.options['struct_options']['get_funcs']
 
         # put the rest of the stuff in a tuple
         solver_objects = [mat, pc, gmres, solver_dict]
 
         return tacs, solver_objects
 
+    def set_aero_problems(self, ap_list):
+        # set the aero problems for each of the scenarios
+        n_scenario = self.options['n_scenario']
+        for i in range(n_scenario):
+            ap = ap_list[i]
+            scenario = getattr(self, 'cruise%d'%i)
+            scenario.set_ap(ap)
 
+    def add_dv_struct(self, name, val, **kwargs):
+        self.dv.add_output(name, val)
+        # connect to struct DVs at each scenario
+        n_scenario = self.options['n_scenario']
+        for i in range(n_scenario):
+            target_dv_sturct = [
+                'cruise%d.fsi_group.struct.dv_struct'%i,
+                'cruise%d.struct_funcs.dv_struct'%i,
+                'cruise%d.struct_mass.dv_struct'%i
+            ]
+            self.connect('dv.dv_struct', target_dv_sturct)
 
-
-
-
+        self.add_design_var('dv.dv_struct', val, **kwargs)
 
