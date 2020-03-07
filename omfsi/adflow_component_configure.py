@@ -13,101 +13,20 @@ from openmdao.core.analysis_error import AnalysisError
 from adflow.python.om_utils import get_dvs_and_cons
 from omfsi.assembler import OmfsiSolverAssembler
 
-class AdflowAssembler(OmfsiSolverAssembler):
-    def __init__(self,options,ap):
-        self.options = options
-        self.ap = ap
-
-        self.solver_dict = {}
-
-        self.comm = None
-        self.solver = None
-
-        self.funcs_in_fsi = False
-
-    def get_nnodes(self):
-        return self.solver_dict['nnodes']
-
-    def add_model_components(self,model,connection_srcs):
-        mesh_comp     = AdflowMesh(ap=self.ap,get_solver=self.get_solver)
-        model.add_subsystem('aero_mesh',mesh_comp)
-
-        connection_srcs['x_a0'] = 'aero_mesh.x_a0_mesh'
-
-    def add_scenario_components(self,model,scenario,connection_srcs):
-        if not self.funcs_in_fsi:
-            func_comp     = AdflowFunctions(ap=self.ap,get_solver=self.get_solver)
-            scenario.add_subsystem('aero_funcs',func_comp)
-
-    def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
-        # add the components to the group
-        deformer_comp = AdflowWarper(ap=self.ap,get_solver=self.get_solver)
-        solver_comp   = AdflowSolver(ap=self.ap,get_solver=self.get_solver)
-        force_comp    = AdflowForces(ap=self.ap,get_solver=self.get_solver)
-        if self.funcs_in_fsi:
-            func_comp     = AdflowFunctions(ap=self.ap,get_solver=self.get_solver)
-
-        aero = Group()
-        aero.add_subsystem('deformer',deformer_comp)
-        aero.add_subsystem('solver',solver_comp)
-        aero.add_subsystem('force',force_comp)
-        if self.funcs_in_fsi:
-            aero.add_subsystem('aero_funcs',func_comp)
-
-        fsi_group.add_subsystem('aero',aero)
-
-        connection_srcs['q'] = scenario.name+'.'+fsi_group.name+'.aero.solver.q'
-        connection_srcs['x_g'] = scenario.name+'.'+fsi_group.name+'.aero.deformer.x_g'
-        connection_srcs['f_a'] = scenario.name+'.'+fsi_group.name+'.aero.force.f_a'
-
-    def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
-        group_path = scenario.name+'.'+fsi_group.name+'.aero'
-        if self.funcs_in_fsi:
-            funcs_path = group_path
-        else:
-            funcs_path = scenario.name
-
-        model.connect(connection_srcs['x_a'],[group_path+'.deformer.x_a'])
-
-        model.connect(connection_srcs['x_g'],[group_path+'.solver.x_g',
-                                              group_path+'.force.x_g',
-                                              funcs_path+'.aero_funcs.x_g'])
-
-        model.connect(connection_srcs['q'],[group_path+'.force.q',
-                                            funcs_path+'.aero_funcs.q'])
-
-        for dv in self.ap.DVs:
-            model.connect(connection_srcs[dv],[group_path+'.solver.'+dv,
-                                               group_path+'.force.'+dv,
-                                               funcs_path+'.aero_funcs.'+dv])
-    def get_solver(self,comm):
-        self.comm = comm
-        if self.solver is None:
-            self.solver = ADFLOW(options=self.options)
-            self.mesh = USMesh(comm=self.comm,options=self.options)
-            self.solver.setMesh(self.mesh)
-
-            self.solver_dict['nnodes'] = int(self.solver.getSurfaceCoordinates().size /3)
-
-        return  self.solver
-
-
 class AdflowMesh(ExplicitComponent):
     """
     Component to get the partitioned initial surface mesh coordinates
 
     """
     def initialize(self):
-        # self.options.declare('ap', types=AeroProblem)
-        # self.options.declare('get_solver')
-        self.options.declare('adflow')
+        self.options.declare('aero_solver')
         self.options['distributed'] = True
 
     def setup(self):
 
-        self.adflow = self.options['adflow']
+        self.aero_solver = self.options['aero_solver']
 
-        self.x_a0 = self.adflow.mesh.getSurfaceCoordinates().flatten(order='C')
+        self.x_a0 = self.aero_solver.mesh.getSurfaceCoordinates().flatten(order='C')
 
         coord_size = self.x_a0.size
 
@@ -123,7 +42,6 @@ class AdflowWarper(ExplicitComponent):
     """
 
     def initialize(self):
-        # self.options.declare('ap', types=AeroProblem)
         self.options.declare('aero_solver')
         #self.options.declare('use_OM_KSP', default=False, types=bool,
         #    desc="uses OpenMDAO's PestcKSP linear solver with ADflow's preconditioner to solve the adjoint.")
@@ -292,8 +210,6 @@ class AdflowSolver(ImplicitComponent):
         self._set_ap(inputs)
         self._set_states(outputs)
 
-        #print('om_states linearize')
-
 
     def apply_linear(self, inputs, outputs, d_inputs, d_outputs, d_residuals, mode):
 
@@ -356,7 +272,6 @@ class AdflowForces(ExplicitComponent):
     """
 
     def initialize(self):
-        # self.options.declare('ap', types=AeroProblem)
         self.options.declare('aero_solver')
 
         self.options['distributed'] = True
@@ -366,17 +281,6 @@ class AdflowForces(ExplicitComponent):
 
         self.solver = self.options['aero_solver']
         solver = self.solver
-
-        # self.ap_vars,_ = get_dvs_and_cons(ap=ap)
-
-        # if self.comm.rank == 0:
-        #     print('adding ap var inputs')
-        # for (args, kwargs) in self.ap_vars:
-        #     name = args[0]
-        #     size = args[1]
-        #     self.add_input(name, shape=size, units=kwargs['units'])
-        #     if self.comm.rank == 0:
-        #         print(name)
 
         local_state_size = solver.getStateSize()
         local_coord_size = solver.mesh.getSolverGrid().size
@@ -525,17 +429,6 @@ class AdflowFunctions(ExplicitComponent):
         solver = self.solver
         #self.set_check_partial_options(wrt='*',directional=True)
 
-        # self.ap_vars,_ = get_dvs_and_cons(ap=ap)
-
-        # for (args, kwargs) in self.ap_vars:
-        #     name = args[0]
-        #     size = args[1]
-        #     value = 1.
-        #     if 'value' in kwargs:
-        #         value = kwargs['value']
-
-        #     self.add_input(name, shape=size, units=kwargs['units'])
-
         local_state_size = solver.getStateSize()
         local_coord_size = solver.mesh.getSolverGrid().size
         s_list = self.comm.allgather(local_state_size)
@@ -549,19 +442,6 @@ class AdflowFunctions(ExplicitComponent):
 
         self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size)
         self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
-
-        # TODO add the AP outputs automatically
-        # for f_name in self.options['ap'].evalFuncs:
-        # #for f_name, f_meta in solver.adflowCostFunctions.items():
-        # #    f_type = f_meta[1]
-        # #    units = None
-        # #    if f_type in FUNCS_UNITS:
-        # #        units = FUNCS_UNITS[f_type]
-
-        #     if self.comm.rank == 0:
-        #         print("adding adflow func as output: {}".format(f_name))
-        #     self.add_output(f_name, shape=1)
-        #     #self.add_output(f_name, shape=1, units=units)
 
             #self.declare_partials(of=f_name, wrt='*')
 
@@ -723,7 +603,6 @@ class GeoDisp(ExplicitComponent):
     displacements to the geometry-changed aerodynamic surface
     """
     def initialize(self):
-        # self.options.declare('get_aero_nnodes',default=None,desc='function to get number of aerodynamic nodes')
         self.options['distributed'] = True
 
     def setup(self):

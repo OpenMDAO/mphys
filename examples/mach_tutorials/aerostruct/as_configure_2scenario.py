@@ -155,7 +155,7 @@ prob = om.Problem()
 prob.model = Top()
 model = prob.model
 prob.setup()
-om.n2(prob, show_browser=False, outfile='as_configure.html')
+om.n2(prob, show_browser=False, outfile='as_configure_2scenario.html')
 prob.run_model()
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:

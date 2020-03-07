@@ -5,142 +5,6 @@ from openmdao.api import ImplicitComponent, ExplicitComponent, Group
 from tacs import TACS,functions
 from omfsi.assembler import OmfsiSolverAssembler
 
-class TacsOmfsiAssembler(OmfsiSolverAssembler):
-    def __init__(self,solver_options,add_forcer=False):
-        self.comm = None
-        self.tacs = None
-
-        self.solver_dict = {}
-        self.solver_options = solver_options
-
-        self.mesh_file    = solver_options['mesh_file']
-
-        # function pointers
-        self.add_elements = solver_options['add_elements']
-        self.get_funcs = solver_options['get_funcs']
-
-        self.add_forcer = add_forcer
-        if add_forcer:
-            self.forcer_func = solver_options['forcer_func']
-
-        self.f5_writer = None
-        if 'f5_writer' in solver_options.keys():
-            self.f5_writer = solver_options['f5_writer']
-
-        self.funcs_in_fsi = False
-
-    def get_ndof(self):
-        return self.solver_dict['ndof']
-
-    def get_nnodes(self):
-        return self.solver_dict['nnodes']
-
-    def get_ndv(self):
-        return self.solver_dict['ndv']
-
-    def add_model_components(self,model,connection_srcs):
-        model.add_subsystem('struct_mesh',TacsMesh(get_tacs = self.get_tacs))
-
-        connection_srcs['x_s0'] = 'struct_mesh.x_s0_mesh'
-
-    def add_scenario_components(self,model,scenario,connection_srcs):
-        if not self.funcs_in_fsi:
-            scenario.add_subsystem('struct_funcs',TacsFunctions(get_tacs=self.get_tacs,get_ndv=self.get_ndv,get_funcs=self.get_funcs,f5_writer=self.f5_writer))
-            scenario.add_subsystem('struct_mass',TacsMass(get_tacs=self.get_tacs,get_ndv=self.get_ndv))
-
-            connection_srcs['f_struct'] = scenario.name+'.struct_funcs.f_struct'
-            connection_srcs['mass'] = scenario.name+'.struct_mass.mass'
-
-    def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
-
-        # add the components to the group
-
-        if not self.funcs_in_fsi and not self.add_forcer:
-            fsi_group.add_subsystem('struct',TacsSolver(setup_func=self.setup_solver))
-
-            connection_srcs['u_s'] = scenario.name+'.'+fsi_group.name+'.struct.u_s'
-        else:
-            struct = Group()
-            struct.add_subsystem('solver',TacsSolver(setup_func=self.setup_solver))
-            if self.funcs_in_fsi:
-                struct.add_subsystem('struct_funcs',TacsFunctions(get_tacs=self.get_tacs,get_ndv=self.get_ndv,get_funcs=self.get_funcs,f5_writer=self.f5_writer))
-                struct.add_subsystem('struct_mass',TacsMass(get_tacs=self.get_tacs,get_ndv=self.get_ndv))
-            if self.add_forcer:
-                struct.add_subsystem('forcer',PrescribedLoad(load_function=self.forcer_func,get_tacs=self.get_tacs))
-
-            fsi_group.add_subsystem('struct',struct)
-
-            connection_srcs['u_s'] = scenario.name+'.'+fsi_group.name+'.struct.solver.u_s'
-
-            if self.funcs_in_fsi:
-                connection_srcs['f_struct'] = scenario.name+'.struct.struct_funcs.f_struct'
-                connection_srcs['mass'] = scenario.name+'.struct.struct_mass.mass'
-
-            if self.add_forcer:
-                connection_srcs['f_s'] = scenario.name+'.'+fsi_group.name+'.struct.forcer.f_s'
-
-    def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
-        if self.funcs_in_fsi or self.add_forcer:
-            solver_path =  scenario.name+'.'+fsi_group.name+'.struct.solver'
-        else:
-            solver_path = scenario.name+'.'+fsi_group.name+'.struct'
-
-        if self.funcs_in_fsi:
-            funcs_path  =  scenario.name+'.'+fsi_group.name+'.struct.struct_funcs'
-            mass_path   =  scenario.name+'.'+fsi_group.name+'.struct.struct_mass'
-        else:
-            funcs_path  = scenario.name+'.struct_funcs'
-            mass_path   = scenario.name+'.struct_mass'
-
-        model.connect(connection_srcs['dv_struct'],[solver_path+'.dv_struct',
-                                                    funcs_path+'.dv_struct',
-                                                    mass_path+'.dv_struct'])
-
-        model.connect(connection_srcs['u_s'],[funcs_path+'.u_s'])
-        model.connect(connection_srcs['f_s'],[solver_path+'.f_s'])
-
-        model.connect(connection_srcs['x_s0'],[solver_path+'.x_s0',
-                                               funcs_path+'.x_s0',
-                                               mass_path+'.x_s0'])
-
-        if self.add_forcer:
-            forcer_path = scenario.name+'.'+fsi_group.name+'.struct.forcer'
-            model.connect(connection_srcs['x_s0'],forcer_path+'.x_s0')
-
-    def get_tacs(self,comm):
-        if self.tacs is None:
-            self.comm = comm
-            mesh = TACS.MeshLoader(comm)
-            mesh.scanBDFFile(self.mesh_file)
-
-            ndof, ndv = self.add_elements(mesh)
-
-            self.tacs = mesh.createTACS(ndof)
-
-            nnodes = int(self.tacs.createNodeVec().getArray().size / 3)
-
-            self._solver_setup()
-
-            self.solver_dict['ndv']    = ndv
-            self.solver_dict['ndof']   = ndof
-            self.solver_dict['nnodes'] = nnodes
-        return self.tacs
-
-    def _solver_setup(self):
-        mat = self.tacs.createFEMat()
-        pc = TACS.Pc(mat)
-
-        self.mat = mat
-        self.pc = pc
-
-        subspace = 100
-        restarts = 2
-        self.gmres = TACS.KSM(mat, pc, subspace, restarts)
-
-    def setup_solver(self, comm):
-        self.get_tacs(comm)
-        return self.tacs, self.mat, self.pc, self.gmres, self.solver_dict['ndv']
-
 class TacsMesh(ExplicitComponent):
     """
     Component to read the initial mesh coordinates with TACS
@@ -148,12 +12,12 @@ class TacsMesh(ExplicitComponent):
     """
     def initialize(self):
         # self.options.declare('get_tacs', default = None, desc='function to get tacs')
-        self.options.declare('tacs', default = None, desc='the tacs object itself')
+        self.options.declare('struct_solver', default = None, desc='the tacs object itself')
         self.options['distributed'] = True
 
     def setup(self):
 
-        tacs = self.options['tacs']
+        tacs = self.options['struct_solver']
         # create some TACS bvecs that will be needed later
         self.xpts  = tacs.createNodeVec()
         tacs.getNodes(self.xpts)

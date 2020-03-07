@@ -4,59 +4,6 @@ from openmdao.api import ExplicitComponent
 from funtofem import TransferScheme
 from omfsi.assembler import OmfsiAssembler
 
-class MeldAssembler(OmfsiAssembler):
-    def __init__(self,options,struct_assembler,aero_assembler):
-
-        # transfer scheme options
-        self.isym = options['isym']
-        self.n    = options['n']
-        self.beta = options['beta']
-
-        self.struct_assembler = struct_assembler
-        self.aero_assembler = aero_assembler
-
-        self.meld = None
-
-    def _get_meld(self):
-        if self.meld is None:
-            self.meld = TransferScheme.pyMELD(self.comm,
-                                              self.aero_assembler.comm,0,
-                                              self.struct_assembler.comm,0,
-                                              self.isym,self.n,self.beta)
-        return self.meld
-
-    def add_model_components(self,model,connection_srcs):
-        pass
-    def add_scenario_components(self,model,scenario,connection_srcs):
-        pass
-    def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
-
-        fsi_group.add_subsystem('disp_xfer',MeldDisplacementTransfer(setup_function = self.xfer_setup))
-        fsi_group.add_subsystem('load_xfer',MeldLoadTransfer(setup_function = self.xfer_setup))
-
-        connection_srcs['u_a'] = scenario.name+'.'+fsi_group.name+'.disp_xfer.u_a'
-        connection_srcs['f_s'] = scenario.name+'.'+fsi_group.name+'.load_xfer.f_s'
-
-    def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
-        model.connect(connection_srcs['u_s'],[scenario.name+'.'+fsi_group.name+'.disp_xfer.u_s',
-                                                 scenario.name+'.'+fsi_group.name+'.load_xfer.u_s'])
-
-        model.connect(connection_srcs['f_a'],[scenario.name+'.'+fsi_group.name+'.load_xfer.f_a'])
-
-        model.connect(connection_srcs['x_s0'],[scenario.name+'.'+fsi_group.name+'.disp_xfer.x_s0',
-                                                  scenario.name+'.'+fsi_group.name+'.load_xfer.x_s0'])
-        model.connect(connection_srcs['x_a0'],[scenario.name+'.'+fsi_group.name+'.disp_xfer.x_a0',
-                                                  scenario.name+'.'+fsi_group.name+'.load_xfer.x_a0'])
-    def xfer_setup(self,comm):
-        self.comm = comm
-        self.struct_assembler.comm = comm
-        meld = self._get_meld()
-        struct_ndof   = self.struct_assembler.get_ndof()
-        struct_nnodes = self.struct_assembler.get_nnodes()
-        aero_nnodes   = self.aero_assembler.get_nnodes()
-
-        return meld, struct_ndof, struct_nnodes, aero_nnodes
-
 class MeldDisplacementTransfer(ExplicitComponent):
     """
     Component to perform displacement transfer using MELD

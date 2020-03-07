@@ -41,8 +41,8 @@ class as_group(om.Group):
         self.add_subsystem('dv', dv)
 
         # add the meshes
-        self.add_subsystem('struct_mesh', TacsMesh(tacs=self.struct_solver))
-        self.add_subsystem('aero_mesh', AdflowMesh(adflow=self.aero_solver))
+        self.add_subsystem('struct_mesh', TacsMesh(struct_solver=self.struct_solver))
+        self.add_subsystem('aero_mesh', AdflowMesh(aero_solver=self.aero_solver))
 
         # create the cruise cases
         n_scenario = self.options['n_scenario']
