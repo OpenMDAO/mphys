@@ -1,178 +1,168 @@
 #rst Imports
 from __future__ import print_function, division
-import numpy
-from adflow import ADFLOW
-from baseclasses import *
+import numpy as np
 from mpi4py import MPI
 
-from omfsi.fsi_assembler import *
-from omfsi.adflow_component import *
-from omfsi.tacs_component import *
-from omfsi.meld_xfer_component import *
-
-from openmdao.api import Problem, ScipyOptimizeDriver
-from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
-from openmdao.api import NonlinearRunOnce, LinearRunOnce
-from openmdao.api import NonlinearBlockGS, LinearBlockGS
 import openmdao.api as om
 
-from tacs import elements, constitutive
+from omfsi.as_group import as_group
 
+from baseclasses import *
+from tacs import elements, constitutive, functions
+
+# set these for convenience
 comm = MPI.COMM_WORLD
+rank = comm.rank
 
-#ADflow options
-aero_options = {
-    # I/O Parameters
-    'gridFile':'wing_vol.cgns',
-    'outputDirectory':'.',
-    'monitorvariables':['resrho','cl','cd'],
-    'writeTecplotSurfaceSolution':False,
-    # 'writevolumesolution':False,
-    # 'writesurfacesolution':False,
+class Top(om.Group):
 
-    # Physics Parameters
-    'equationType':'RANS',
+    def setup(self):
+        # in the setup method, we add all components
+        # we need the options to create the components, so we set them here
 
-    # Solver Parameters
-    'smoother':'dadi',
-    'CFL':1.5,
-    'CFLCoarse':1.25,
-    'MGCycle':'sg',
-    'MGStartLevel':-1,
-    'nCyclesCoarse':250,
+        ################################################################################
+        # ADflow options
+        ################################################################################
+        aero_options = {
+            # I/O Parameters
+            'gridFile':'wing_vol.cgns',
+            'outputDirectory':'.',
+            'monitorvariables':['resrho','cl','cd'],
+            'writeTecplotSurfaceSolution':False,
+            'writevolumesolution':False,
+            'writesurfacesolution':False,
 
-    # ANK Solver Parameters
-    'useANKSolver':True,
-    'nsubiterturb':5,
+            # Physics Parameters
+            'equationType':'RANS',
 
-    # NK Solver Parameters
-    'useNKSolver':True,
-    'nkswitchtol':1e-4,
+            # Solver Parameters
+            'smoother':'dadi',
+            'CFL':1.5,
+            'CFLCoarse':1.25,
+            'MGCycle':'sg',
+            'MGStartLevel':-1,
+            'nCyclesCoarse':250,
 
-    # Termination Criteria
-    'L2Convergence':1e-14,
-    'L2ConvergenceCoarse':1e-2,
-    'nCycles':10000,
+            # ANK Solver Parameters
+            'useANKSolver':True,
+            # 'ankswitchtol':1e-1,
+            'nsubiterturb': 5,
 
-    # force integration
-    'forcesAsTractions':False,
-}
+            # NK Solver Parameters
+            'useNKSolver':True,
+            'nkswitchtol':1e-4,
 
-# Create AeroProblem
-ap = AeroProblem(name='wing',
-    mach=0.8,
-    altitude=10000,
-    alpha=1.5,
-    areaRef=45.5,
-    chordRef=3.25,
-    evalFuncs=['lift','drag', 'cl', 'cd']
-)
+            # Termination Criteria
+            'L2Convergence':1e-14,
+            'L2ConvergenceCoarse':1e-2,
+            'nCycles':10000,
 
-ap.addDV('alpha',value=1.5,name='alpha')
-ap.addDV('mach',value=0.8,name='mach')
+            # force integration
+            'forcesAsTractions':False,
+        }
 
-aero_assembler = AdflowAssembler(aero_options,ap)
+        ################################################################################
+        # TACS options
+        ################################################################################
+        def add_elements(mesh):
+            rho = 2780.0            # density, kg/m^3
+            E = 73.1e9              # elastic modulus, Pa
+            nu = 0.33               # poisson's ratio
+            kcorr = 5.0 / 6.0       # shear correction factor
+            ys = 324.0e6            # yield stress, Pa
+            thickness= 0.020
+            min_thickness = 0.002
+            max_thickness = 0.05
 
-################################################################################
-# TACS setup
-################################################################################
-def add_elements(mesh):
-    rho = 2780.0            # density, kg/m^3
-    E = 73.1e9              # elastic modulus, Pa
-    nu = 0.33               # poisson's ratio
-    kcorr = 5.0 / 6.0       # shear correction factor
-    ys = 324.0e6            # yield stress, Pa
-    thickness= 0.020
-    min_thickness = 0.002
-    max_thickness = 0.05
+            num_components = mesh.getNumComponents()
+            for i in range(num_components):
+                descript = mesh.getElementDescript(i)
+                stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
+                                            min_thickness, max_thickness)
+                element = None
+                if descript in ["CQUAD", "CQUADR", "CQUAD4"]:
+                    element = elements.MITCShell(2,stiff,component_num=i)
+                mesh.setElement(i, element)
 
-    num_components = mesh.getNumComponents()
-    for i in range(num_components):
-        descript = mesh.getElementDescript(i)
-        stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
-                                     min_thickness, max_thickness)
-        element = None
-        if descript in ["CQUAD", "CQUADR", "CQUAD4"]:
-            element = elements.MITCShell(2,stiff,component_num=i)
-        mesh.setElement(i, element)
+            ndof = 6
+            ndv = num_components
 
-    ndof = 6
-    ndv = num_components
+            return ndof, ndv
 
-    return ndof, ndv
+        def get_funcs(tacs):
+            ks_weight = 50.0
+            return [ functions.KSFailure(tacs,ks_weight), functions.StructuralMass(tacs)]
 
-def get_funcs(tacs):
-    ks_weight = 50.0
-    return [ functions.KSFailure(tacs,ks_weight), functions.StructuralMass(tacs)]
+        tacs_setup = {'add_elements': add_elements,
+                    'mesh_file'   : 'wingbox.bdf',
+                    'get_funcs'   : get_funcs}
 
-tacs_setup = {'add_elements': add_elements,
-              'mesh_file'   : 'wingbox.bdf',
-              'get_funcs'   : get_funcs}
+        ################################################################################
+        # Transfer scheme options
+        ################################################################################
+        meld_options = {'isym': 2,
+                        'n': 200,
+                        'beta': 0.5}
 
-struct_assembler = TacsOmfsiAssembler(tacs_setup)
+        # add the aerostructural group
+        self.add_subsystem('as_group', as_group(aero_options     = aero_options,
+                                                struct_options   = tacs_setup,
+                                                transfer_options = meld_options,
+                                                n_scenario       = 2))
 
-################################################################################
-# Transfer scheme setup
-################################################################################
-meld_options = {'isym': 2,
-                'n': 200,
-                'beta': 0.5}
+    def configure(self):
 
-xfer_assembler = MeldAssembler(meld_options,struct_assembler,aero_assembler)
+        # Create the AeroProblems
+        ap0 = AeroProblem(name='wing0',
+            mach=0.8,
+            altitude=10000,
+            alpha=1.5,
+            areaRef=45.5,
+            chordRef=3.25,
+            evalFuncs=['lift','drag', 'cl', 'cd']
+        )
+        ap0.addDV('alpha',value=1.5,name='alpha')
+        ap0.addDV('mach',value=0.8,name='mach')
 
+        ap1 = AeroProblem(name='wing1',
+            mach=0.7,
+            altitude=10000,
+            alpha=1.5,
+            areaRef=45.5,
+            chordRef=3.25,
+            evalFuncs=['lift','drag', 'cl', 'cd']
+        )
+        ap1.addDV('alpha',value=1.5,name='alpha')
+        ap1.addDV('mach',value=0.7,name='mach')
+
+        # here we set the aero problems for every cruise case we have.
+        # this can also be called set_flow_conditions, we don't need to create and pass an AP,
+        # just flow conditions is probably a better general API
+        # this call automatically adds the DVs for the respective scenario
+        self.as_group.set_aero_problems([ap0, ap1])
+
+        # adding struct DVs can be streamlined a bit for generality
+        self.as_group.add_dv_struct('dv_struct', np.array(self.as_group.n_dv_struct*[0.01]))
+
+        # we can also add additional design variables, constraints and set the objective function here.
+        # every solver is already initialized, so we can perform solver-specific calls
+        # that are not in default OMFSI API.
 
 ################################################################################
 # OpenMDAO setup
 ################################################################################
-assembler = FsiAssembler(struct_assembler,aero_assembler,xfer_assembler)
-
-# OpenMDAO problem set up
-prob = Problem()
+prob = om.Problem()
+prob.model = Top()
 model = prob.model
-
-model.nonlinear_solver = NonlinearRunOnce()
-model.linear_solver = LinearRunOnce()
-
-
-#Add the components and groups to the model
-indeps = IndepVarComp()
-indeps.add_output('dv_struct',np.array(810*[0.01]))
-indeps.add_output('alpha',np.array(1.5))
-indeps.add_output('mach1',np.array(0.8))
-indeps.add_output('mach2',np.array(0.7))
-model.add_subsystem('dv',indeps)
-
-
-assembler.connection_srcs['dv_struct'] = 'dv.dv_struct'
-
-assembler.add_model_components(model)
-
-scenario = model.add_subsystem('cruise1',Group())
-scenario.nonlinear_solver = NonlinearRunOnce()
-scenario.linear_solver = LinearRunOnce()
-
-assembler.connection_srcs['dv_struct'] = 'dv.dv_struct'
-assembler.connection_srcs['alpha'] = 'dv.alpha'
-assembler.connection_srcs['mach'] = 'dv.mach1'
-
-fsi_group = assembler.add_fsi_subsystem(model,scenario)
-fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100)
-fsi_group.linear_solver = LinearBlockGS(maxiter=100)
-
-assembler.connection_srcs['dv_struct'] = 'dv.dv_struct'
-assembler.connection_srcs['alpha'] = 'dv.alpha'
-assembler.connection_srcs['mach'] = 'dv.mach2'
-
-scenario2 = model.add_subsystem('cruise2',Group())
-scenario2.nonlinear_solver = NonlinearRunOnce()
-scenario2.linear_solver = LinearRunOnce()
-
-fsi_group = assembler.add_fsi_subsystem(model,scenario2)
-fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100)
-fsi_group.linear_solver = LinearBlockGS(maxiter=100)
-fsi_group.nonlinear_solver.options['iprint']=2
-
 prob.setup()
-
-# om.n2(prob, show_browser=False, outfile='as_configure_2pt.html')
+om.n2(prob, show_browser=False, outfile='as_configure.html')
 prob.run_model()
+# prob.model.list_outputs()
+if MPI.COMM_WORLD.rank == 0:
+    print("Scenario 0")
+    print('cl =',prob['as_group.cruise0.aero_funcs.cl'])
+    print('cd =',prob['as_group.cruise0.aero_funcs.cd'])
+
+    print("Scenario 1")
+    print('cl =',prob['as_group.cruise1.aero_funcs.cl'])
+    print('cd =',prob['as_group.cruise1.aero_funcs.cd'])

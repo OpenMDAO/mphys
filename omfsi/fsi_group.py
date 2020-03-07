@@ -37,6 +37,7 @@ class fsi_group(om.Group):
 
         # set solvers
         self.nonlinear_solver=om.NonlinearBlockGS(maxiter=100)
+        self.nonlinear_solver.options['iprint']=2
         self.linear_solver = om.LinearBlockGS(maxiter=100)
 
     def configure(self):

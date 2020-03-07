@@ -550,8 +550,9 @@ class TacsFunctions(ExplicitComponent):
         if 'f_struct' in outputs:
             outputs['f_struct'] = self.tacs.evalFunctions(self.func_list)
 
-        if self.options['f5_writer'] is not None:
-            self.options['f5_writer'](self.tacs)
+        # TODO fix this with the configure based approach
+        # if self.options['f5_writer'] is not None:
+        #     self.options['f5_writer'](self.tacs)
 
     def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':

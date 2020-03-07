@@ -148,5 +148,5 @@ om.n2(prob, show_browser=False, outfile='as_configure.html')
 prob.run_model()
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
-    print('cl =',prob[scenario.name+'.aero_funcs.cl'])
-    print('cd =',prob[scenario.name+'.aero_funcs.cd'])
+    print('cl =',prob['as_group.cruise0.aero_funcs.cl'])
+    print('cd =',prob['as_group.cruise0.aero_funcs.cd'])
