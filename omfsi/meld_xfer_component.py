@@ -5,7 +5,8 @@ from funtofem import TransferScheme
 from omfsi.assembler import OmfsiAssembler
 
 class MeldAssembler(OmfsiAssembler):
-    def __init__(self,options,struct_assembler,aero_assembler):
+    def __init__(self,options,struct_assembler,aero_assembler,check_partials=False):
+        self.check_partials = check_partials
 
         # transfer scheme options
         self.isym = options['isym']
@@ -31,8 +32,11 @@ class MeldAssembler(OmfsiAssembler):
         pass
     def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
 
-        fsi_group.add_subsystem('disp_xfer',MeldDisplacementTransfer(setup_function = self.xfer_setup))
-        fsi_group.add_subsystem('load_xfer',MeldLoadTransfer(setup_function = self.xfer_setup))
+        disp = fsi_group.add_subsystem('disp_xfer',MeldDisplacementTransfer(setup_function = self.xfer_setup))
+        load = fsi_group.add_subsystem('load_xfer',MeldLoadTransfer(setup_function = self.xfer_setup))
+
+        disp.check_partials = self.check_partials
+        load.check_partials = self.check_partials
 
         connection_srcs['u_a'] = scenario.name+'.'+fsi_group.name+'.disp_xfer.u_a'
         connection_srcs['f_s'] = scenario.name+'.'+fsi_group.name+'.load_xfer.f_s'
@@ -107,6 +111,8 @@ class MeldDisplacementTransfer(ExplicitComponent):
 
         # partials
         #self.declare_partials('u_a',['x_s0','x_a0','u_s'])
+
+        #self.set_check_partial_options(wrt='*',directional=True,method='cs')
 
     def compute(self, inputs, outputs):
         x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
@@ -231,6 +237,8 @@ class MeldLoadTransfer(ExplicitComponent):
 
         # partials
         #self.declare_partials('f_s',['x_s0','x_a0','u_s','f_a'])
+
+        #self.set_check_partial_options(wrt='*',directional=True,method='cs')
 
     def compute(self, inputs, outputs):
         u_s  = np.zeros(self.struct_nnodes*3)
