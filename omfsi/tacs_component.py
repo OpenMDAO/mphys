@@ -6,7 +6,8 @@ from tacs import TACS,functions
 from omfsi.assembler import OmfsiSolverAssembler
 
 class TacsOmfsiAssembler(OmfsiSolverAssembler):
-    def __init__(self,solver_options,add_forcer=False):
+    def __init__(self,solver_options,check_partials=False,add_forcer=False):
+
         self.comm = None
         self.tacs = None
 
@@ -14,6 +15,8 @@ class TacsOmfsiAssembler(OmfsiSolverAssembler):
         self.solver_options = solver_options
 
         self.mesh_file    = solver_options['mesh_file']
+
+        self.check_partials = check_partials
 
         # function pointers
         self.add_elements = solver_options['add_elements']
@@ -45,8 +48,11 @@ class TacsOmfsiAssembler(OmfsiSolverAssembler):
 
     def add_scenario_components(self,model,scenario,connection_srcs):
         if not self.funcs_in_fsi:
-            scenario.add_subsystem('struct_funcs',TacsFunctions(get_tacs=self.get_tacs,get_ndv=self.get_ndv,get_funcs=self.get_funcs,f5_writer=self.f5_writer))
-            scenario.add_subsystem('struct_mass',TacsMass(get_tacs=self.get_tacs,get_ndv=self.get_ndv))
+            funcs = scenario.add_subsystem('struct_funcs',TacsFunctions(get_tacs=self.get_tacs,get_ndv=self.get_ndv,get_funcs=self.get_funcs,f5_writer=self.f5_writer))
+            mass = scenario.add_subsystem('struct_mass',TacsMass(get_tacs=self.get_tacs,get_ndv=self.get_ndv))
+
+            funcs.check_partials = self.check_partials
+            mass.check_partials  = self.check_partials
 
             connection_srcs['f_struct'] = scenario.name+'.struct_funcs.f_struct'
             connection_srcs['mass'] = scenario.name+'.struct_mass.mass'
@@ -56,17 +62,21 @@ class TacsOmfsiAssembler(OmfsiSolverAssembler):
         # add the components to the group
 
         if not self.funcs_in_fsi and not self.add_forcer:
-            fsi_group.add_subsystem('struct',TacsSolver(setup_func=self.setup_solver))
+            solver = fsi_group.add_subsystem('struct',TacsSolver(setup_func=self.setup_solver))
 
             connection_srcs['u_s'] = scenario.name+'.'+fsi_group.name+'.struct.u_s'
         else:
             struct = Group()
-            struct.add_subsystem('solver',TacsSolver(setup_func=self.setup_solver))
+            solver = struct.add_subsystem('solver',TacsSolver(setup_func=self.setup_solver))
             if self.funcs_in_fsi:
-                struct.add_subsystem('struct_funcs',TacsFunctions(get_tacs=self.get_tacs,get_ndv=self.get_ndv,get_funcs=self.get_funcs,f5_writer=self.f5_writer))
-                struct.add_subsystem('struct_mass',TacsMass(get_tacs=self.get_tacs,get_ndv=self.get_ndv))
+                funcs = struct.add_subsystem('struct_funcs',TacsFunctions(get_tacs=self.get_tacs,get_ndv=self.get_ndv,get_funcs=self.get_funcs,f5_writer=self.f5_writer))
+                mass = struct.add_subsystem('struct_mass',TacsMass(get_tacs=self.get_tacs,get_ndv=self.get_ndv))
+
+                funcs.check_partials = self.check_partials
+                mass.check_partials  = self.check_partials
             if self.add_forcer:
                 struct.add_subsystem('forcer',PrescribedLoad(load_function=self.forcer_func,get_tacs=self.get_tacs))
+
 
             fsi_group.add_subsystem('struct',struct)
 
@@ -78,6 +88,8 @@ class TacsOmfsiAssembler(OmfsiSolverAssembler):
 
             if self.add_forcer:
                 connection_srcs['f_s'] = scenario.name+'.'+fsi_group.name+'.struct.forcer.f_s'
+
+        solver.check_partials = self.check_partials
 
     def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
         if self.funcs_in_fsi or self.add_forcer:
@@ -193,7 +205,7 @@ class TacsSolver(ImplicitComponent):
 
         self.transposed = False
 
-        self.check_partials = True
+        self.check_partials = False
 
     def setup(self):
 #        self.set_check_partial_options(wrt='*',directional=True)
