@@ -54,8 +54,8 @@ class FakeStructSolver(ExplicitComponent):
         self.options.declare('symmetry', default = False, desc='symmetry-only use z equation')
 
     def setup(self):
-        self.add_input('f_s',size=int(3*self.options['nnodes']))
-        self.add_output('u_s',size=int(3*self.options['nnodes']))
+        self.add_input('f_s',shape=int(3*self.options['nnodes']))
+        self.add_output('u_s',shape=int(3*self.options['nnodes']))
 
     def _symmetry_indices(self):
         if self.options['symmetry']:
@@ -132,8 +132,8 @@ class FakeAeroSolver(ExplicitComponent):
         self.options.declare('symmetry', default = False, desc='symmetry-only use z equation')
 
     def setup(self):
-        self.add_input('x_a',size=int(3*self.options['nnodes']))
-        self.add_output('f_a',size=int(3*self.options['nnodes']))
+        self.add_input('x_a',shape=int(3*self.options['nnodes']))
+        self.add_output('f_a',shape=int(3*self.options['nnodes']))
 
     def _symmetry_indices(self):
         if self.options['symmetry']:
@@ -171,12 +171,12 @@ class FakeXferAssembler(OmfsiAssembler):
         self.struct_nnodes = self.struct_assembler.get_nnodes()
         self.aero_nnodes   = self.aero_assembler.get_nnodes()
 
-    def set_disp_xfer_properties(c0=0.0,c1=0.0,symmetry=False)
+    def set_disp_xfer_properties(c0=0.0,c1=0.0,symmetry=False):
         self.c0_disp = c0
         self.c1_disp = c1
         self.symmtery_disp = symmtery
 
-    def set_load_xfer_properties(c0=0.0,c1=0.0,symmetry=False)
+    def set_load_xfer_properties(c0=0.0,c1=0.0,symmetry=False):
         self.c0_load = c0
         self.c1_load = c1
         self.symmtery_load = symmtery
@@ -210,14 +210,14 @@ class FakeDispXfer(ExplicitComponent):
     def initialize(self):
         self.options.declare('struct_ndof',default=0, desc='number of struct dofs')
         self.options.declare('struct_nnodes',default=0, desc='number of struct nodes')
-        self.options.declare('aero_nnodes',default=0 desc='number of aero nodes')
+        self.options.declare('aero_nnodes',default=0, desc='number of aero nodes')
         self.options.declare('c0', default= 0.0, desc='constant offset')
         self.options.declare('c1', default= 0.0, desc='linear coeff')
         self.options.declare('symmetry', default = False, desc='symmetry-only use z equation')
 
     def setup(self):
-        self.add_input('u_s',size=int(self.options['struct_ndof']*self.options['struct_nnodes']))
-        self.add_output('u_a',size=int(3*self.options['aero_nnodes']))
+        self.add_input('u_s',shape=int(self.options['struct_ndof']*self.options['struct_nnodes']))
+        self.add_output('u_a',shape=int(3*self.options['aero_nnodes']))
 
         self.start_indices = [2] if self.options['symmetry'] else [0,1,2]
 
@@ -251,14 +251,14 @@ class FakeLoadXfer(ExplicitComponent):
     def initialize(self):
         self.options.declare('struct_ndof',default=0, desc='number of struct dofs')
         self.options.declare('struct_nnodes',default=0, desc='number of struct nodes')
-        self.options.declare('aero_nnodes',default=0 desc='number of aero nodes')
+        self.options.declare('aero_nnodes',default=0, desc='number of aero nodes')
         self.options.declare('c0', default= 0.0, desc='constant offset')
         self.options.declare('c1', default= 0.0, desc='linear coeff')
         self.options.declare('symmetry', default = False, desc='symmetry-only use z equation')
 
     def setup(self):
-        self.add_input('f_a',size=int(3*self.options['aero_nnodes']))
-        self.add_output('f_s',size=int(self.options['struct_ndof']*self.options['struct_nnodes']))
+        self.add_input('f_a',shape=int(3*self.options['aero_nnodes']))
+        self.add_output('f_s',shape=int(self.options['struct_ndof']*self.options['struct_nnodes']))
 
         self.start_indices = [2] if self.options['symmetry'] else [0,1,2]
 
