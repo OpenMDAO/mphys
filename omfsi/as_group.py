@@ -102,11 +102,9 @@ class as_group(om.Group):
         comm = self.comm
 
         # create the aero solver
-        self.aero_solver = ADFLOW(options=self.options['aero_options'], comm=self.comm)
+        #self.aero_solver = ADFLOW(options=self.options['aero_options'], comm=self.comm)
+        self.aero_solver.get_solver(<get_local_scenario_comm>) 
 
-        # create and set the mesh. this can be moved inside adflow, or left outside
-        mesh = USMesh(comm=self.comm,options=self.options['aero_options'])
-        self.aero_solver.setMesh(mesh)
 
         # create the TACS object and the other solver objects it needs
         self.struct_solver, self.struct_objects = self.create_tacs()

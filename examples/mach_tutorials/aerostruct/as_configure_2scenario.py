@@ -61,6 +61,8 @@ class Top(om.Group):
             'forcesAsTractions':False,
         }
 
+        ADFLOW_builder = ADFLOW(aero_options) 
+
         ################################################################################
         # TACS options
         ################################################################################
@@ -97,6 +99,8 @@ class Top(om.Group):
                     'mesh_file'   : 'wingbox.bdf',
                     'get_funcs'   : get_funcs}
 
+        TACS_builder = TACS(tacs_setup) 
+
         ################################################################################
         # Transfer scheme options
         ################################################################################
@@ -104,27 +108,50 @@ class Top(om.Group):
                         'n': 200,
                         'beta': 0.5}
 
+        MELD_builder = MELD(meld_options)
+        
         # add the aerostructural group
-        self.add_subsystem('as_group', as_group(aero_options     = aero_options,
-                                                struct_options   = tacs_setup,
-                                                transfer_options = meld_options,
-                                                n_scenario       = 2))
+        #self.add_subsystem('mp_group', AS_Multipoint(aero_builder       = ADFLOW_builder,
+        #                                             struct_builder     = TACS_builder,
+        #                                             xfer_builder       = MELD_builder
+        #                                             n_scenario       = 2))
+
+        mp = self.add_subsystem('mp_group', AS_Multipoint(n_scenario=2))
+        
+        mp.mphy_add_scenario('s1', Scenario(aero_builder=ADflow_builder,
+                                            struct_builder=TACS_builder,
+                                            xfer_builder=MELD_builder),
+                             min_procs=1,
+                             max_procs=None,
+        #                     promotes_inputs['dv_struct']
+        )
+        mp.mphy_add_scenario('s2', Scenario(aero_builder=VLM_builder, # could also be another ADflow builder with different options 
+                                            struct_builder=TACS_builder,
+                                            xfer_builder=MELD_builder),
+                             min_procs=1,
+                             max_procs=None,
+        #                     promotes_inputs=['dv_struct']
+        )
+
+        dvs = self.mp.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
+        dvs.add_output('dv_struct', np.ones(1000)))
 
     def configure(self):
 
-        # Create the AeroProblems
-        ap0 = AeroProblem(name='wing0',
-            mach=0.8,
-            altitude=10000,
-            alpha=1.5,
-            areaRef=45.5,
+
+        # CREATE THE AEROPROBLEMS
+        AP0 = AEROPROBLEM(NAME='WING0',
+            MACH=0.8,
+            ALTITUDE=10000,
+            ALPHA=1.5,
+            AREAREF=45.5,
             chordRef=3.25,
             evalFuncs=['lift','drag', 'cl', 'cd']
         )
         ap0.addDV('alpha',value=1.5,name='alpha')
         ap0.addDV('mach',value=0.8,name='mach')
 
-        ap1 = AeroProblem(name='wing1',
+        AP1 = AeroProblem(name='wing1',
             mach=0.7,
             altitude=10000,
             alpha=1.5,
@@ -139,10 +166,14 @@ class Top(om.Group):
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
-        self.as_group.set_aero_problems([ap0, ap1])
+        self.mp_group.s1.aero.set_ap(AP0)
+        self.mp_group.s2.aero.set_ap(AP1) 
 
-        # adding struct DVs can be streamlined a bit for generality
-        self.as_group.add_dv_struct('dv_struct', np.array(self.as_group.n_dv_struct*[0.01]))
+        # TODO: this is a structural dv that should be configured ina  more clean way...
+        self.mp_group.add_dv_struct('dv_struct', np.array(self.as_group.n_dv_struct*[0.01]))
+
+        self.mp_group.promote('s1', inputs=['dv_struct'])
+        self.mp_group.promote('s2', inputs=['dv_struct'])
 
         # we can also add additional design variables, constraints and set the objective function here.
         # every solver is already initialized, so we can perform solver-specific calls
