@@ -23,7 +23,7 @@ class Top(om.Group):
         ################################################################################
         # ADflow options
         ################################################################################
-        aero_options = {
+        aero_stuff = {
             # I/O Parameters
             'gridFile':'wing_vol.cgns',
             'outputDirectory':'.',
@@ -61,8 +61,55 @@ class Top(om.Group):
             'forcesAsTractions':False,
         }
 
-        ADFLOW_builder = ADFLOW(aero_options) 
+        ADFLOW_builder = ADFLOW(aero_options)
 
+
+        # NOTE: This would be moved to adflow repo
+        class ADflow_builder(object):
+
+            def __init__(aero_options, mesh_options=None):
+                self.aero_options
+                self.mesh_options
+
+            # api level method for all builders
+            def init_solver(comm):
+                self.solver = ADFLOW(comm, aero_options)
+                mesh = USMESH(comm, mesh_options)
+                self.solver.set_mesh(mesh)
+
+            # api level method for all builders
+            def get_solver():
+                return self.solver 
+
+            # api level method for all builders
+            def get_element():
+                
+                return OM_ADFLOW(solver=self.solver)
+
+        class RLT_builder(object):
+
+            def __init__(struct_builder, aero_builder, xfer_options=None):
+                self.struct_builder = struct_builder
+                self.aero_builder = aero_builder
+
+            # api level method for all builders
+            def init_solver(comm):
+                self.aero_solver = self.aero_builder.get_solver()
+                self.struct_solver = self.solver_builder.get_solver()
+                
+            # api level method for all builders
+            def get_solver():
+                return self.solver 
+
+            # api level method for all builders
+            def get_element():
+                pass 
+                #return load_xfer_element, aero_builder_element
+
+           
+        adflow_builder = adflow_lib.ADflow_builder(aero_options)
+
+        
         ################################################################################
         # TACS options
         ################################################################################
@@ -99,42 +146,41 @@ class Top(om.Group):
                     'mesh_file'   : 'wingbox.bdf',
                     'get_funcs'   : get_funcs}
 
-        TACS_builder = TACS(tacs_setup) 
+        tacs_builder = TACS_lib.TACS_builder(add_elements=add_elements, mesh_file='wingbox.bdf', get_funcs=get_funcs)
 
+        
         ################################################################################
         # Transfer scheme options
         ################################################################################
-        meld_options = {'isym': 2,
-                        'n': 200,
-                        'beta': 0.5}
 
-        MELD_builder = MELD(meld_options)
+        meld_builder = MELD_lib.MELD_builder(tacs_builder, adflow_builder, isym=2, n=200, beta=0.5)
         
         # add the aerostructural group
         #self.add_subsystem('mp_group', AS_Multipoint(aero_builder       = ADFLOW_builder,
         #                                             struct_builder     = TACS_builder,
         #                                             xfer_builder       = MELD_builder
         #                                             n_scenario       = 2))
+        self.mp.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
 
-        mp = self.add_subsystem('mp_group', AS_Multipoint(n_scenario=2))
         
-        mp.mphy_add_scenario('s1', Scenario(aero_builder=ADflow_builder,
-                                            struct_builder=TACS_builder,
-                                            xfer_builder=MELD_builder),
-                             min_procs=1,
-                             max_procs=None,
+        mp = self.add_subsystem('mp_group', AS_Multipoint(aero_builder=adflow_builder,
+                                                          struct_builder=tacs_builder,
+                                                          xfer_builder=meld_builder),
+                                max_procs=10
+        )
+
+
+        
+        # scenario kwargs will overload any kwargs defaults from the MP group, useful if you wanted to change solver settings or something
+        mp.mphy_add_scenario('s1',  min_procs=1, max_procs=5, aero_kwargs={}, struct_kwargs={}, xfer_kwargs={},
         #                     promotes_inputs['dv_struct']
         )
-        mp.mphy_add_scenario('s2', Scenario(aero_builder=VLM_builder, # could also be another ADflow builder with different options 
-                                            struct_builder=TACS_builder,
-                                            xfer_builder=MELD_builder),
-                             min_procs=1,
-                             max_procs=None,
+        mp.mphy_add_scenario('s2', min_procs=1, max_procs=5, aero_kwargs={}, struct_kwargs={}, xfer_kwargs={},
         #                     promotes_inputs=['dv_struct']
         )
 
-        dvs = self.mp.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
-        dvs.add_output('dv_struct', np.ones(1000)))
+
+
 
     def configure(self):
 
@@ -169,11 +215,11 @@ class Top(om.Group):
         self.mp_group.s1.aero.set_ap(AP0)
         self.mp_group.s2.aero.set_ap(AP1) 
 
-        # TODO: this is a structural dv that should be configured ina  more clean way...
-        self.mp_group.add_dv_struct('dv_struct', np.array(self.as_group.n_dv_struct*[0.01]))
 
+        self.dvs.add_output('dv_struct', np.array(self.as_group.n_dv_struct*[0.01])))
         self.mp_group.promote('s1', inputs=['dv_struct'])
         self.mp_group.promote('s2', inputs=['dv_struct'])
+        self.connect('dv_struct', 'mp_group.dv_struct')
 
         # we can also add additional design variables, constraints and set the objective function here.
         # every solver is already initialized, so we can perform solver-specific calls
