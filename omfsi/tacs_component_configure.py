@@ -1,55 +1,10 @@
 from __future__ import division, print_function
 import numpy as np
 
+import openmdao.api as om
 from openmdao.api import ImplicitComponent, ExplicitComponent, Group
 from tacs import TACS,functions
 from omfsi.assembler import OmfsiSolverAssembler
-
-class TACS_builder(object):
-
-    def __init__(self, options):
-        self.options
-
-    # api level method for all builders
-    def init_solver(self, comm):
-
-        solver_dict={}
-
-        mesh = TACS.MeshLoader(comm)
-        mesh.scanBDFFile(self.options['mesh_file'])
-
-        ndof, ndv = self.options['add_elements'](mesh)
-        self.n_dv_struct = ndv
-
-        tacs = mesh.createTACS(ndof)
-
-        nnodes = int(tacs.createNodeVec().getArray().size / 3)
-
-        mat = tacs.createFEMat()
-        pc = TACS.Pc(mat)
-
-        subspace = 100
-        restarts = 2
-        gmres = TACS.KSM(mat, pc, subspace, restarts)
-
-        solver_dict['ndv']    = ndv
-        solver_dict['ndof']   = ndof
-        solver_dict['nnodes'] = nnodes
-        solver_dict['get_funcs'] = self.options['get_funcs']
-
-        # put the rest of the stuff in a tuple
-        solver_objects = [mat, pc, gmres, solver_dict]
-
-        self.solver = tacs
-        self.solver_objects = solver_objects
-
-    # api level method for all builders
-    def get_solver(self):
-        return self.solver
-
-    # api level method for all builders
-    def get_element(self):
-        return TACS_group(solver=self.solver)
 
 class TacsMesh(ExplicitComponent):
     """
@@ -634,3 +589,58 @@ class PrescribedLoad(ExplicitComponent):
         load_function = self.options['load_function']
         outputs['f_s'] = load_function(inputs['x_s0'],self.ndof)
 
+class TACS_group(om.Group):
+    def initialize(self):
+        self.options.declare('solver')
+        self.options.declare('solver_objects')
+
+    def setup(self):
+
+        # self.add_subsystem('foo', om.IndepVarComp())
+        return
+
+class TACS_builder(object):
+
+    def __init__(self, options):
+        self.options = options
+
+    # api level method for all builders
+    def init_solver(self, comm):
+
+        solver_dict={}
+
+        mesh = TACS.MeshLoader(comm)
+        mesh.scanBDFFile(self.options['mesh_file'])
+
+        ndof, ndv = self.options['add_elements'](mesh)
+        self.n_dv_struct = ndv
+
+        tacs = mesh.createTACS(ndof)
+
+        nnodes = int(tacs.createNodeVec().getArray().size / 3)
+
+        mat = tacs.createFEMat()
+        pc = TACS.Pc(mat)
+
+        subspace = 100
+        restarts = 2
+        gmres = TACS.KSM(mat, pc, subspace, restarts)
+
+        solver_dict['ndv']    = ndv
+        solver_dict['ndof']   = ndof
+        solver_dict['nnodes'] = nnodes
+        solver_dict['get_funcs'] = self.options['get_funcs']
+
+        # put the rest of the stuff in a tuple
+        solver_objects = [mat, pc, gmres, solver_dict]
+
+        self.solver = tacs
+        self.solver_objects = solver_objects
+
+    # api level method for all builders
+    def get_solver(self):
+        return self.solver
+
+    # api level method for all builders
+    def get_element(self):
+        return TACS_group(solver=self.solver, solver_objects=self.solver_objects)

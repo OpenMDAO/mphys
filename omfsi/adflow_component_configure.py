@@ -8,29 +8,8 @@ from adflow import ADFLOW
 from idwarp import USMesh
 
 from openmdao.api import Group, ImplicitComponent, ExplicitComponent
-from openmdao.core.analysis_error import AnalysisError
 
 from adflow.python.om_utils import get_dvs_and_cons
-from omfsi.assembler import OmfsiSolverAssembler
-
-class ADflow_builder(object):
-
-    def __init__(self, options):
-        self.options = options
-
-    # api level method for all builders
-    def init_solver(self, comm):
-        self.solver = ADFLOW(options=self.options, comm=comm)
-        mesh = USMESH(options=self.options)
-        self.solver.set_mesh(mesh)
-
-    # api level method for all builders
-    def get_solver(self):
-        return self.solver
-
-    # api level method for all builders
-    def get_element(self):
-        return ADflow_group(solver=self.solver)
 
 class AdflowMesh(ExplicitComponent):
     """
@@ -600,60 +579,39 @@ class ADflow_group(Group):
         self.options.declare('solver')
 
     def setup(self):
-        self.aero_solver = self.options['solver']
-
-        self.add_subsystem('deformer', AdflowWarper(
-            aero_solver=self.aero_solver
-        ))
-        self.add_subsystem('solver', AdflowSolver(
-            aero_solver=self.aero_solver
-        ))
-        self.add_subsystem('force', AdflowForces(
-            aero_solver=self.aero_solver
-        ))
-
-    def configure(self):
-        self.connect('deformer.x_g', ['solver.x_g', 'force.x_g'])
-        self.connect('solver.q', 'force.q')
-
-class GeoDisp(ExplicitComponent):
-    """
-    This component adds the aerodynamic
-    displacements to the geometry-changed aerodynamic surface
-    """
-    def initialize(self):
-        self.options['distributed'] = True
-
-    def setup(self):
         return
+    #     self.aero_solver = self.options['solver']
 
-    def add_io(self, aero_nnodes):
+    #     self.add_subsystem('deformer', AdflowWarper(
+    #         aero_solver=self.aero_solver
+    #     ))
+    #     self.add_subsystem('solver', AdflowSolver(
+    #         aero_solver=self.aero_solver
+    #     ))
+    #     self.add_subsystem('force', AdflowForces(
+    #         aero_solver=self.aero_solver
+    #     ))
 
-        local_size = aero_nnodes * 3
-        n_list = self.comm.allgather(local_size)
-        irank  = self.comm.rank
+    # def configure(self):
+    #     return
+        # self.connect('deformer.x_g', ['solver.x_g', 'force.x_g'])
+        # self.connect('solver.q', 'force.q')
 
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
+class ADflow_builder(object):
 
-        self.add_input('x_a0',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
-        self.add_input('u_a', shape=local_size,val=np.zeros(local_size),src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface displacements')
+    def __init__(self, options):
+        self.options = options
 
-        self.add_output('x_a',shape=local_size,desc='deformed aerodynamic surface')
+    # api level method for all builders
+    def init_solver(self, comm):
+        self.solver = ADFLOW(options=self.options, comm=comm)
+        mesh = USMesh(options=self.options)
+        self.solver.setMesh(mesh)
 
-    def compute(self,inputs,outputs):
-        outputs['x_a'] = inputs['x_a0'] + inputs['u_a']
+    # api level method for all builders
+    def get_solver(self):
+        return self.solver
 
-    def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
-        if mode == 'fwd':
-            if 'x_a' in d_outputs:
-                if 'x_a0' in d_inputs:
-                    d_outputs['x_a'] += d_inputs['x_a0']
-                if 'u_a' in d_inputs:
-                    d_outputs['x_a'] += d_inputs['u_a']
-        if mode == 'rev':
-            if 'x_a' in d_outputs:
-                if 'x_a0' in d_inputs:
-                    d_inputs['x_a0'] += d_outputs['x_a']
-                if 'u_a' in d_inputs:
-                    d_inputs['u_a']  += d_outputs['x_a']
+    # api level method for all builders
+    def get_element(self):
+        return ADflow_group(solver=self.solver)

@@ -1,65 +1,53 @@
 import openmdao.api as om
-from omfsi.fsi_group import fsi_group
+from omfsi.geo_disp import Geo_Disp
 
 class AS_Scenario(om.Group):
 
     def initialize(self):
 
         # define the inputs we need
-        self.options.declare('aero_solver', allow_none=False)
-        self.options.declare('struct_solver', allow_none=False)
-        self.options.declare('struct_objects', allow_none=False)
-        self.options.declare('xfer_object', allow_none=False)
+        self.options.declare('aero_builder', allow_none=False)
+        self.options.declare('struct_builder', allow_none=False)
+        self.options.declare('xfer_builder', allow_none=False)
 
     def setup(self):
 
-        # create the dv component to store the dvs for this scenario
-        dv = om.IndepVarComp()
-        # add the foo output here bec. we may not have any DVs
-        # (even though we most likely will),
-        # and w/o any output for the ivc, om will complain
-        dv.add_output('foo', val=1)
-        self.add_subsystem('dv', dv)
+        # set the builders
+        self.aero_builder = self.options['aero_builder']
+        self.struct_builder = self.options['struct_builder']
+        self.xfer_builder = self.options['xfer_builder']
 
-        # get all the initialized objects for computations
-        self.aero_solver = self.options['aero_solver']
-        self.struct_solver = self.options['struct_solver']
-        self.struct_objects = self.options['struct_objects']
-        self.xfer_object = self.options['xfer_object']
+        # get the elements from each builder
+        aero = self.aero_builder.get_element()
+        struct = self.struct_builder.get_element()
+        disp_xfer, load_xfer = self.xfer_builder.get_element()
+        # component that only adds a geoemtric displacement to the aero surface. might remove
+        geo_disp = Geo_Disp()
 
-        # create the components and groups
-        self.add_subsystem('fsi_group', fsi_group(
-            aero_solver=self.aero_solver,
-            struct_solver=self.struct_solver,
-            struct_objects=self.struct_objects,
-            xfer_object=self.xfer_object
-        ))
-        self.add_subsystem('struct_funcs', TacsFunctions(
-            struct_solver=self.struct_solver
-        ))
-        self.add_subsystem('struct_mass', TacsMass(
-            struct_solver=self.struct_solver
-        ))
-        self.add_subsystem('aero_funcs', AdflowFunctions(
-            aero_solver=self.aero_solver
-        ))
+        # add the subgroups
+        self.add_subsystem('disp_xfer', disp_xfer)
+        self.add_subsystem('geo_disp', geo_disp)
+        self.add_subsystem('aero', aero)
+        self.add_subsystem('load_xfer', load_xfer)
+        self.add_subsystem('struct', struct)
 
         # set solvers
-        self.nonlinear_solver=om.NonlinearRunOnce()
-        self.linear_solver = om.LinearRunOnce()
+        self.nonlinear_solver=om.NonlinearBlockGS(maxiter=100)
+        self.nonlinear_solver.options['iprint']=2
+        self.linear_solver = om.LinearBlockGS(maxiter=100)
 
     def configure(self):
+        return
+        # # add any io that has a size dependency
+        # ndv = self.fsi_group.struct.get_ndv()
+        # get_funcs = self.fsi_group.struct.get_funcs()
+        # self.struct_funcs.add_io(ndv, get_funcs)
+        # self.struct_mass.add_io(ndv)
 
-        # add any io that has a size dependency
-        ndv = self.fsi_group.struct.get_ndv()
-        get_funcs = self.fsi_group.struct.get_funcs()
-        self.struct_funcs.add_io(ndv, get_funcs)
-        self.struct_mass.add_io(ndv)
-
-        # do the connections
-        self.connect('fsi_group.struct.u_s', 'struct_funcs.u_s')
-        self.connect('fsi_group.aero.deformer.x_g', 'aero_funcs.x_g')
-        self.connect('fsi_group.aero.solver.q', 'aero_funcs.q')
+        # # do the connections
+        # self.connect('fsi_group.struct.u_s', 'struct_funcs.u_s')
+        # self.connect('fsi_group.aero.deformer.x_g', 'aero_funcs.x_g')
+        # self.connect('fsi_group.aero.solver.q', 'aero_funcs.q')
 
     def set_ap(self, ap):
         # this function sets the aero problem in all relevant spots

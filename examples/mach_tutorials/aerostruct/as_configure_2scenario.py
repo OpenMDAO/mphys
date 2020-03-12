@@ -115,14 +115,15 @@ class Top(om.Group):
             'beta': 0.5,
         }
 
-        meld_builder = MELD_builder(xfer_options, aero_builder, struct_builder)
+        meld_builder = MELD_builder(xfer_options, adflow_builder, tacs_builder)
 
         ################################################################################
         # MPHY setup
         ################################################################################
 
         # ivc to keep the top level DVs
-        self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
+        dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
+        dvs.add_output('foo')
 
         # each AS_Multipoint instance can keep multiple points with the SAME FORMULATION
         # e.g. these cases will have the same aero struct and xfer formulation and meshes
@@ -164,7 +165,7 @@ class Top(om.Group):
         mp.mphy_add_scenario('s1')
 
     def configure(self):
-
+        return
         # create the aero problems for both analysis point.
         # this is custom to the ADflow based approach we chose here.
         # any solver can have their own custom approach here, and we don't
@@ -203,7 +204,7 @@ class Top(om.Group):
         self.mp_group.s2.aero.set_ap(AP1)
 
         # add the structural thickness DVs
-        self.dvs.add_output('dv_struct', np.array(self.as_group.n_dv_struct*[0.01])))
+        self.dvs.add_output('dv_struct', np.array(self.as_group.n_dv_struct*[0.01]))
         self.mp_group.promote('s1', inputs=['dv_struct'])
         self.mp_group.promote('s2', inputs=['dv_struct'])
         self.connect('dv_struct', 'mp_group.dv_struct')

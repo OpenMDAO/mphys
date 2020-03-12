@@ -1,34 +1,8 @@
 import numpy as np
-from openmdao.api as om
+import openmdao.api as om
 from funtofem import TransferScheme
 
-class MELD_builder(object):
-
-    def __init__(self, options, aero_builder, struct_builder):
-        self.options=options
-        self.aero_builder = aero_builder
-        self.struct_builder = struct_builder
-
-    # api level method for all builders
-    def init_xfer_object(self, comm):
-        # create the transfer
-        self.xfer_object = TransferScheme.pyMELD(comm,
-                                                 comm, 0,
-                                                 comm, 0,
-                                                 options['isym'],
-                                                 options['n'],
-                                                 options['beta'])
-        # TODO also do the necessary calls to the struct and aero builders to initialize MELD
-
-    # api level method for all builders
-    def get_xfer_object(self):
-        return self.xfer_object
-
-    # api level method for all builders
-    def get_element(self):
-        return MELD_disp_xfer(self.xfer_object), MELD_load_xfer(self.xfer_object)
-
-class MeldDisplacementTransfer(om.ExplicitComponent):
+class MELD_disp_xfer(om.ExplicitComponent):
     """
     Component to perform displacement transfer using MELD
     """
@@ -150,7 +124,7 @@ class MeldDisplacementTransfer(om.ExplicitComponent):
                     self.meld.applydDdxS0(du_a,prod)
                     d_inputs['x_s0'] -= np.array(prod,dtype=float)
 
-class MeldLoadTransfer(om.ExplicitComponent):
+class MELD_load_xfer(om.ExplicitComponent):
     """
     Component to perform load transfers using MELD
     """
@@ -301,3 +275,29 @@ class MeldLoadTransfer(om.ExplicitComponent):
                     prod = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
                     self.meld.applydLdxS0(d_out,prod)
                     d_inputs['x_s0'] -= np.array(prod,dtype=float)
+
+class MELD_builder(object):
+
+    def __init__(self, options, aero_builder, struct_builder):
+        self.options=options
+        self.aero_builder = aero_builder
+        self.struct_builder = struct_builder
+
+    # api level method for all builders
+    def init_xfer_object(self, comm):
+        # create the transfer
+        self.xfer_object = TransferScheme.pyMELD(comm,
+                                                 comm, 0,
+                                                 comm, 0,
+                                                 self.options['isym'],
+                                                 self.options['n'],
+                                                 self.options['beta'])
+        # TODO also do the necessary calls to the struct and aero builders to initialize MELD
+
+    # api level method for all builders
+    def get_xfer_object(self):
+        return self.xfer_object
+
+    # api level method for all builders
+    def get_element(self):
+        return MELD_disp_xfer(xfer_object=self.xfer_object), MELD_load_xfer(xfer_object=self.xfer_object)
