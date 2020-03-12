@@ -4,6 +4,27 @@ from openmdao.api import ExplicitComponent
 from funtofem import TransferScheme
 from omfsi.assembler import OmfsiAssembler
 
+class MELD_builder(object):
+
+    def __init__(struct_builder, aero_builder, xfer_options=None):
+        self.struct_builder = struct_builder
+        self.aero_builder = aero_builder
+
+    # api level method for all builders
+    def init_solver(comm):
+        self.aero_solver = self.aero_builder.get_solver()
+        self.struct_solver = self.solver_builder.get_solver()
+
+    # api level method for all builders
+    def get_solver():
+        return self.solver
+
+    # api level method for all builders
+    def get_element():
+        pass
+        #return load_xfer_element, aero_builder_element
+
+
 class MeldDisplacementTransfer(ExplicitComponent):
     """
     Component to perform displacement transfer using MELD

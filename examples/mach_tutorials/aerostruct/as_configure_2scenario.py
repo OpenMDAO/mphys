@@ -5,7 +5,12 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from omfsi.as_group import as_group
+from omfsi.as_multipoint import AS_Multipoint
+
+# these imports will be from the respective codes' repos rather than omfsi
+from omfsi.adflow_component_configure import ADflow_builder
+from omfsi.tacs_component_configure import TACS_builder
+from omfsi.meld_xfer_component_configure import MELD_builder
 
 from baseclasses import *
 from tacs import elements, constitutive, functions
@@ -17,13 +22,11 @@ rank = comm.rank
 class Top(om.Group):
 
     def setup(self):
-        # in the setup method, we add all components
-        # we need the options to create the components, so we set them here
 
         ################################################################################
         # ADflow options
         ################################################################################
-        aero_stuff = {
+        aero_options = {
             # I/O Parameters
             'gridFile':'wing_vol.cgns',
             'outputDirectory':'.',
@@ -61,55 +64,8 @@ class Top(om.Group):
             'forcesAsTractions':False,
         }
 
-        ADFLOW_builder = ADFLOW(aero_options)
+        adflow_builder = ADflow_builder(aero_options)
 
-
-        # NOTE: This would be moved to adflow repo
-        class ADflow_builder(object):
-
-            def __init__(aero_options, mesh_options=None):
-                self.aero_options
-                self.mesh_options
-
-            # api level method for all builders
-            def init_solver(comm):
-                self.solver = ADFLOW(comm, aero_options)
-                mesh = USMESH(comm, mesh_options)
-                self.solver.set_mesh(mesh)
-
-            # api level method for all builders
-            def get_solver():
-                return self.solver 
-
-            # api level method for all builders
-            def get_element():
-                
-                return OM_ADFLOW(solver=self.solver)
-
-        class RLT_builder(object):
-
-            def __init__(struct_builder, aero_builder, xfer_options=None):
-                self.struct_builder = struct_builder
-                self.aero_builder = aero_builder
-
-            # api level method for all builders
-            def init_solver(comm):
-                self.aero_solver = self.aero_builder.get_solver()
-                self.struct_solver = self.solver_builder.get_solver()
-                
-            # api level method for all builders
-            def get_solver():
-                return self.solver 
-
-            # api level method for all builders
-            def get_element():
-                pass 
-                #return load_xfer_element, aero_builder_element
-
-           
-        adflow_builder = adflow_lib.ADflow_builder(aero_options)
-
-        
         ################################################################################
         # TACS options
         ################################################################################
@@ -142,62 +98,93 @@ class Top(om.Group):
             ks_weight = 50.0
             return [ functions.KSFailure(tacs,ks_weight), functions.StructuralMass(tacs)]
 
-        tacs_setup = {'add_elements': add_elements,
-                    'mesh_file'   : 'wingbox.bdf',
-                    'get_funcs'   : get_funcs}
+        tacs_options = {
+            'add_elements': add_elements,
+            'mesh_file'   : 'wingbox.bdf',
+            'get_funcs'   : get_funcs
+        }
 
-        tacs_builder = TACS_lib.TACS_builder(add_elements=add_elements, mesh_file='wingbox.bdf', get_funcs=get_funcs)
+        tacs_builder = TACS_builder(tacs_options)
 
-        
         ################################################################################
         # Transfer scheme options
         ################################################################################
+        xfer_options = {
+            'isym': 2,
+            'n': 200,
+            'beta': 0.5,
+        }
 
-        meld_builder = MELD_lib.MELD_builder(tacs_builder, adflow_builder, isym=2, n=200, beta=0.5)
-        
-        # add the aerostructural group
-        #self.add_subsystem('mp_group', AS_Multipoint(aero_builder       = ADFLOW_builder,
-        #                                             struct_builder     = TACS_builder,
-        #                                             xfer_builder       = MELD_builder
-        #                                             n_scenario       = 2))
-        self.mp.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
+        meld_builder = MELD_builder(xfer_options, aero_builder, struct_builder)
 
-        
-        mp = self.add_subsystem('mp_group', AS_Multipoint(aero_builder=adflow_builder,
-                                                          struct_builder=tacs_builder,
-                                                          xfer_builder=meld_builder),
-                                max_procs=10
+        ################################################################################
+        # MPHY setup
+        ################################################################################
+
+        # ivc to keep the top level DVs
+        self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
+
+        # each AS_Multipoint instance can keep multiple points with the SAME FORMULATION
+        # e.g. these cases will have the same aero struct and xfer formulation and meshes
+        # solver-specific options can be different, and they can be adjusted in configure.
+        mp = self.add_subsystem(
+            'mp_group',
+            # this AS_Multipoint instance uses ADflow, TACS and MELD. This mp_group
+            # can contain multiple points (scenarios, flow conditions, etc.); however,
+            # all of these cases must use the same numerical formulation. If the user
+            # wants to add additional points with a different numerical formulation,
+            # they need to create another instance of AS_Multipoint with desired
+            # builders.
+            AS_Multipoint(
+                aero_builder   = adflow_builder,
+                struct_builder = tacs_builder,
+                xfer_builder   = meld_builder
+            ),
+            # the user can define a custom limit on proc count for this group of
+            # multipoint cases here
+            max_procs=MPI.COMM_WORLD.size
         )
 
-
-        
-        # scenario kwargs will overload any kwargs defaults from the MP group, useful if you wanted to change solver settings or something
-        mp.mphy_add_scenario('s1',  min_procs=1, max_procs=5, aero_kwargs={}, struct_kwargs={}, xfer_kwargs={},
-        #                     promotes_inputs['dv_struct']
+        # this is the method that needs to be called for every point in this mp_group
+        mp.mphy_add_scenario(
+            # name of the point
+            's0',
+            # The users can specify the proc counts here using an API very similar
+            # to the default OpenMDAO API (Note this is not a default OpenMDAO call)
+            min_procs=1,
+            max_procs=MPI.COMM_WORLD.size,
+            # scenario kwargs will overload any kwargs defaults from the MP group,
+            # useful if you wanted to customize this point
+            aero_kwargs={},
+            struct_kwargs={},
+            xfer_kwargs={},
         )
-        mp.mphy_add_scenario('s2', min_procs=1, max_procs=5, aero_kwargs={}, struct_kwargs={}, xfer_kwargs={},
-        #                     promotes_inputs=['dv_struct']
-        )
 
-
-
+        # similarly, add a second point. the optional arguments above are all defaults
+        mp.mphy_add_scenario('s1')
 
     def configure(self):
 
-
-        # CREATE THE AEROPROBLEMS
-        AP0 = AEROPROBLEM(NAME='WING0',
-            MACH=0.8,
-            ALTITUDE=10000,
-            ALPHA=1.5,
-            AREAREF=45.5,
+        # create the aero problems for both analysis point.
+        # this is custom to the ADflow based approach we chose here.
+        # any solver can have their own custom approach here, and we don't
+        # need to use a common API. AND, if we wanted to define a common API,
+        # it can easily be defined on the mp group, or the aero group.
+        ap0 = AeroProblem(
+            name='ap0',
+            mach=0.8,
+            altitude=10000,
+            alpha=1.5,
+            areaRef=45.5,
             chordRef=3.25,
             evalFuncs=['lift','drag', 'cl', 'cd']
         )
         ap0.addDV('alpha',value=1.5,name='alpha')
         ap0.addDV('mach',value=0.8,name='mach')
 
-        AP1 = AeroProblem(name='wing1',
+        # similarly, add the aero problem for the second analysis point
+        ap1 = AeroProblem(
+            name='ap1',
             mach=0.7,
             altitude=10000,
             alpha=1.5,
@@ -213,9 +200,9 @@ class Top(om.Group):
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
         self.mp_group.s1.aero.set_ap(AP0)
-        self.mp_group.s2.aero.set_ap(AP1) 
+        self.mp_group.s2.aero.set_ap(AP1)
 
-
+        # add the structural thickness DVs
         self.dvs.add_output('dv_struct', np.array(self.as_group.n_dv_struct*[0.01])))
         self.mp_group.promote('s1', inputs=['dv_struct'])
         self.mp_group.promote('s2', inputs=['dv_struct'])
@@ -223,7 +210,7 @@ class Top(om.Group):
 
         # we can also add additional design variables, constraints and set the objective function here.
         # every solver is already initialized, so we can perform solver-specific calls
-        # that are not in default OMFSI API.
+        # that are not in default MPHY API.
 
 ################################################################################
 # OpenMDAO setup
@@ -237,9 +224,9 @@ prob.run_model()
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
     print("Scenario 0")
-    print('cl =',prob['as_group.cruise0.aero_funcs.cl'])
-    print('cd =',prob['as_group.cruise0.aero_funcs.cd'])
+    print('cl =',prob['mp_group.s0.aero.funcs.cl'])
+    print('cd =',prob['mp_group.s0.aero.funcs.cd'])
 
     print("Scenario 1")
-    print('cl =',prob['as_group.cruise1.aero_funcs.cl'])
-    print('cd =',prob['as_group.cruise1.aero_funcs.cd'])
+    print('cl =',prob['mp_group.s1.aero.funcs.cl'])
+    print('cd =',prob['mp_group.s1.aero.funcs.cd'])

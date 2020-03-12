@@ -1,58 +1,32 @@
 import openmdao.api as om
-
-# get the mesh components. Ideally, these classes will come from whatever
-# solver we pick and will not be specific to adflow and tacs
-from omfsi.scenario_group import omfsi_scenario
-from omfsi.tacs_component_configure import TacsMesh
-from omfsi.adflow_component_configure import AdflowMesh
-
-from baseclasses import AeroProblem
-from adflow import ADFLOW
-from idwarp import USMesh
-
-from tacs import TACS
-
-from funtofem import TransferScheme
-
-
+from collections import OrderedDict
 
 class AS_Multipoint(om.Group):
 
     def initialize(self):
 
         # define the inputs we need
-        self.options.declare('aero_options', allow_none=False)
-        self.options.declare('struct_options', allow_none=False)
-        self.options.declare('transfer_options', allow_none=False)
-        self.options.declare('n_scenario', default=1)
+        self.options.declare('aero_builder', allow_none=False)
+        self.options.declare('struct_builder', allow_none=False)
+        self.options.declare('xfer_builder', allow_none=False)
 
     def setup(self):
 
-        # create solvers
-        # this puts in the aero solver in self.aero_solver etc
-        self.create_solvers()
+        # set the builders
+        self.aero_builder = self.options['aero_builder']
+        self.struct_builder = self.options['struct_builder']
+        self.xfer_builder = self.options['xfer_builder']
 
-        # add an ivc to this level for DVs that are shared between the two scenarios
-        dv = om.IndepVarComp()
-        # add the foo output here bec. we may not have any DVs
-        # (even though we most likely will),
-        # and w/o any output for the ivc, om will complain
-        dv.add_output('foo', val=1)
-        self.add_subsystem('dv', dv)
+        # we need to initialize the aero and struct objects before the xfer one
+        # potentially need to do fancy stuff with the comms here if user wants to run in parallel
+        # in that case, the scenarios themselves would likely need to initialize solvers themselves
+        self.aero_builder.init_solver(self.comm)
+        self.struct_builder.init_solver(self.comm)
+        self.xfer_builder.init_solver(self.comm)
 
-        # add the meshes
-        self.add_subsystem('struct_mesh', TacsMesh(struct_solver=self.struct_solver))
-        self.add_subsystem('aero_mesh', AdflowMesh(aero_solver=self.aero_solver))
-
-        # create the cruise cases
-        n_scenario = self.options['n_scenario']
-        for i in range(n_scenario):
-            self.add_subsystem('cruise%d'%i, omfsi_scenario(
-                aero_solver=self.aero_solver,
-                struct_solver=self.struct_solver,
-                struct_objects=self.struct_objects,
-                xfer_object=self.xfer_object
-            ))
+        # add openmdao groups for each scenario
+        for name, kwargs in self.scenarios.items():
+            self._mphy_add_scenario(name, **kwargs)
 
         # set solvers
         self.nonlinear_solver = om.NonlinearRunOnce()
@@ -86,7 +60,32 @@ class AS_Multipoint(om.Group):
             ]
             self.connect('aero_mesh.x_a0_mesh', target_x_a0)
 
-    def create_solvers(self):
+    def mphy_add_scenario(self, name, **kwargs):
+        # save all the inputs here until we are ready to do the initialization
+
+        # create the dict if we haven't done already
+        if self.scenarios is None:
+            # we want to maintain the order of addition
+            self.scenarios = OrderedDict()
+
+        # save all the data until we are ready to initialize the objects themselves
+        self.scenarios[name] = kwargs
+
+    def _mphy_add_scenario(self, name, min_procs=None, max_procs=None, aero_kwargs={}, struct_kwargs={}, xfer_kwargs={}):
+        # this is the actual routine that does the addition of the OpenMDAO groups
+        # this is called during the setup of this class
+        self.add_subsystem(
+            s_name,
+            AS_Scenario(
+                aero_builder   = self.aero_builder,
+                struct_builder = self.struct_builder,
+                xfer_builder   = self.xfer_builder,
+
+            )
+            # also set the min/max procs here
+        )
+
+    def mphy_create_solvers(self):
         """ This method is called from the setup method of this group.
         Here, we have a comm. Defined on the group. This method will
         create the python objects required from each scenario we will
@@ -118,7 +117,7 @@ class AS_Multipoint(om.Group):
                                                  transfer_options['n'],
                                                  transfer_options['beta'])
 
-    def create_tacs(self):
+    def mphy_create_tacs(self):
         """ This method creates the TACS object. This is all tacs specific code,
         instead, maybe we can use pyTACS to provide the common initialization API
         for the TACS solver
@@ -153,7 +152,7 @@ class AS_Multipoint(om.Group):
 
         return tacs, solver_objects
 
-    def set_aero_problems(self, ap_list):
+    def mphy_set_aero_problems(self, ap_list):
         # set the aero problems for each of the scenarios
         n_scenario = self.options['n_scenario']
         for i in range(n_scenario):
@@ -161,7 +160,7 @@ class AS_Multipoint(om.Group):
             scenario = getattr(self, 'cruise%d'%i)
             scenario.set_ap(ap)
 
-    def add_dv_struct(self, name, val, **kwargs):
+    def mphy_add_dv_struct(self, name, val, **kwargs):
         self.dv.add_output(name, val)
         # connect to struct DVs at each scenario
         n_scenario = self.options['n_scenario']

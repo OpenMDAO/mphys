@@ -5,6 +5,27 @@ from openmdao.api import ImplicitComponent, ExplicitComponent, Group
 from tacs import TACS,functions
 from omfsi.assembler import OmfsiSolverAssembler
 
+class TACS_builder(object):
+
+    def __init__(aero_options, mesh_options=None):
+        self.aero_options
+        self.mesh_options
+
+    # api level method for all builders
+    def init_solver(comm):
+        self.solver = ADFLOW(comm, aero_options)
+        mesh = USMESH(comm, mesh_options)
+        self.solver.set_mesh(mesh)
+
+    # api level method for all builders
+    def get_solver():
+        return self.solver
+
+    # api level method for all builders
+    def get_element():
+
+        return OM_ADFLOW(solver=self.solver)
+
 class TacsMesh(ExplicitComponent):
     """
     Component to read the initial mesh coordinates with TACS

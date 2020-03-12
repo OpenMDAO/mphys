@@ -13,6 +13,27 @@ from openmdao.core.analysis_error import AnalysisError
 from adflow.python.om_utils import get_dvs_and_cons
 from omfsi.assembler import OmfsiSolverAssembler
 
+class ADflow_builder(object):
+
+    def __init__(aero_options, mesh_options=None):
+        self.aero_options
+        self.mesh_options
+
+    # api level method for all builders
+    def init_solver(comm):
+        self.solver = ADFLOW(comm, aero_options)
+        mesh = USMESH(comm, mesh_options)
+        self.solver.set_mesh(mesh)
+
+    # api level method for all builders
+    def get_solver():
+        return self.solver
+
+    # api level method for all builders
+    def get_element():
+
+        return OM_ADFLOW(solver=self.solver)
+
 class AdflowMesh(ExplicitComponent):
     """
     Component to get the partitioned initial surface mesh coordinates
