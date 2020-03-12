@@ -1,31 +1,34 @@
 import numpy as np
-
-from openmdao.api import ExplicitComponent
+from openmdao.api as om
 from funtofem import TransferScheme
-from omfsi.assembler import OmfsiAssembler
 
 class MELD_builder(object):
 
-    def __init__(struct_builder, aero_builder, xfer_options=None):
-        self.struct_builder = struct_builder
+    def __init__(self, options, aero_builder, struct_builder):
+        self.options=options
         self.aero_builder = aero_builder
+        self.struct_builder = struct_builder
 
     # api level method for all builders
-    def init_solver(comm):
-        self.aero_solver = self.aero_builder.get_solver()
-        self.struct_solver = self.solver_builder.get_solver()
+    def init_xfer_object(self, comm):
+        # create the transfer
+        self.xfer_object = TransferScheme.pyMELD(comm,
+                                                 comm, 0,
+                                                 comm, 0,
+                                                 options['isym'],
+                                                 options['n'],
+                                                 options['beta'])
+        # TODO also do the necessary calls to the struct and aero builders to initialize MELD
 
     # api level method for all builders
-    def get_solver():
-        return self.solver
+    def get_xfer_object(self):
+        return self.xfer_object
 
     # api level method for all builders
-    def get_element():
-        pass
-        #return load_xfer_element, aero_builder_element
+    def get_element(self):
+        return MELD_disp_xfer(self.xfer_object), MELD_load_xfer(self.xfer_object)
 
-
-class MeldDisplacementTransfer(ExplicitComponent):
+class MeldDisplacementTransfer(om.ExplicitComponent):
     """
     Component to perform displacement transfer using MELD
     """
@@ -147,7 +150,7 @@ class MeldDisplacementTransfer(ExplicitComponent):
                     self.meld.applydDdxS0(du_a,prod)
                     d_inputs['x_s0'] -= np.array(prod,dtype=float)
 
-class MeldLoadTransfer(ExplicitComponent):
+class MeldLoadTransfer(om.ExplicitComponent):
     """
     Component to perform load transfers using MELD
     """

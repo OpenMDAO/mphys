@@ -1,10 +1,7 @@
 import openmdao.api as om
 from omfsi.fsi_group import fsi_group
-from omfsi.tacs_component_configure import TacsFunctions, TacsMass
-from omfsi.adflow_component_configure import AdflowFunctions
-from adflow.python.om_utils import get_dvs_and_cons
 
-class omfsi_scenario(om.Group):
+class AS_Scenario(om.Group):
 
     def initialize(self):
 

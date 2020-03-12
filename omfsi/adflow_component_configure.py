@@ -15,24 +15,22 @@ from omfsi.assembler import OmfsiSolverAssembler
 
 class ADflow_builder(object):
 
-    def __init__(aero_options, mesh_options=None):
-        self.aero_options
-        self.mesh_options
+    def __init__(self, options):
+        self.options = options
 
     # api level method for all builders
-    def init_solver(comm):
-        self.solver = ADFLOW(comm, aero_options)
-        mesh = USMESH(comm, mesh_options)
+    def init_solver(self, comm):
+        self.solver = ADFLOW(options=self.options, comm=comm)
+        mesh = USMESH(options=self.options)
         self.solver.set_mesh(mesh)
 
     # api level method for all builders
-    def get_solver():
+    def get_solver(self):
         return self.solver
 
     # api level method for all builders
-    def get_element():
-
-        return OM_ADFLOW(solver=self.solver)
+    def get_element(self):
+        return ADflow_group(solver=self.solver)
 
 class AdflowMesh(ExplicitComponent):
     """
@@ -596,13 +594,13 @@ class AdflowFunctions(ExplicitComponent):
                 if dv_name in d_inputs:
                     d_inputs[dv_name] += dv_bar.flatten()
 
-class AdflowGroup(Group):
+class ADflow_group(Group):
 
     def initialize(self):
-        self.options.declare('aero_solver')
+        self.options.declare('solver')
 
     def setup(self):
-        self.aero_solver = self.options['aero_solver']
+        self.aero_solver = self.options['solver']
 
         self.add_subsystem('deformer', AdflowWarper(
             aero_solver=self.aero_solver

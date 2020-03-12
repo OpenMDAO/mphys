@@ -7,24 +7,49 @@ from omfsi.assembler import OmfsiSolverAssembler
 
 class TACS_builder(object):
 
-    def __init__(aero_options, mesh_options=None):
-        self.aero_options
-        self.mesh_options
+    def __init__(self, options):
+        self.options
 
     # api level method for all builders
-    def init_solver(comm):
-        self.solver = ADFLOW(comm, aero_options)
-        mesh = USMESH(comm, mesh_options)
-        self.solver.set_mesh(mesh)
+    def init_solver(self, comm):
+
+        solver_dict={}
+
+        mesh = TACS.MeshLoader(comm)
+        mesh.scanBDFFile(self.options['mesh_file'])
+
+        ndof, ndv = self.options['add_elements'](mesh)
+        self.n_dv_struct = ndv
+
+        tacs = mesh.createTACS(ndof)
+
+        nnodes = int(tacs.createNodeVec().getArray().size / 3)
+
+        mat = tacs.createFEMat()
+        pc = TACS.Pc(mat)
+
+        subspace = 100
+        restarts = 2
+        gmres = TACS.KSM(mat, pc, subspace, restarts)
+
+        solver_dict['ndv']    = ndv
+        solver_dict['ndof']   = ndof
+        solver_dict['nnodes'] = nnodes
+        solver_dict['get_funcs'] = self.options['get_funcs']
+
+        # put the rest of the stuff in a tuple
+        solver_objects = [mat, pc, gmres, solver_dict]
+
+        self.solver = tacs
+        self.solver_objects = solver_objects
 
     # api level method for all builders
-    def get_solver():
+    def get_solver(self):
         return self.solver
 
     # api level method for all builders
-    def get_element():
-
-        return OM_ADFLOW(solver=self.solver)
+    def get_element(self):
+        return TACS_group(solver=self.solver)
 
 class TacsMesh(ExplicitComponent):
     """
