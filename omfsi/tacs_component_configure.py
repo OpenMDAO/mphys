@@ -59,7 +59,8 @@ class TacsSolver(ImplicitComponent):
 
         self.transposed = False
 
-        self.check_partials = True
+        # TODO enable to check partials
+        self.check_partials = False
 
     def setup(self):
         # self.set_check_partial_options(wrt='*',directional=True)
@@ -323,7 +324,8 @@ class TacsFunctions(ExplicitComponent):
         self.ans = None
         self.tacs = None
 
-        self.check_partials = True
+        # TODO enable to check partials
+        self.check_partials = False
 
     def setup(self):
 
@@ -471,7 +473,8 @@ class TacsMass(ExplicitComponent):
 
         self.mass = False
 
-        self.check_partials = True
+        # TODO enable to check partials
+        self.check_partials = False
 
     def setup(self):
 

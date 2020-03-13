@@ -199,8 +199,29 @@ class Top(om.Group):
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
-        # self.mp_group.s1.aero.mphy_set_ap(AP0)
-        # self.mp_group.s2.aero.mphy_set_ap(AP1)
+        self.mp_group.s0.aero.mphy_set_ap(ap0)
+        # we can either set the same or a different aero problem
+        # if we use the same, adflow will re-use the state from previous analysis
+        # if we use different APs, adflow will start second analysis from free stream
+        # because the second aero problem will have its own states.
+        # this is preferred because in an optimization, the previous state for both
+        # aero problems will be conserved as the design changes and this will result
+        # in faster convergence.
+        self.mp_group.s1.aero.mphy_set_ap(ap1)
+
+        # define the aero DVs in the IVC
+        # s0
+        self.dvs.add_output('alpha0', val=1.5)
+        self.dvs.add_output('mach0', val=0.8)
+        # s1
+        self.dvs.add_output('alpha1', val=1.5)
+        self.dvs.add_output('mach1', val=0.7)
+
+        # connect to the aero for each scenario
+        self.connect('alpha0', 'mp_group.s0.aero.alpha')
+        self.connect('mach0', 'mp_group.s0.aero.mach')
+        self.connect('alpha1', 'mp_group.s1.aero.alpha')
+        self.connect('mach1', 'mp_group.s1.aero.mach')
 
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()

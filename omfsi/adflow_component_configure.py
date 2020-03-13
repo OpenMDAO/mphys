@@ -647,7 +647,19 @@ class ADflow_group(Group):
 
     def mphy_set_ap(self, ap):
         # set the ap, add inputs and outputs, promote?
-        return
+        self.solver.set_ap(ap)
+        self.force.set_ap(ap)
+        self.funcs.set_ap(ap)
+
+        # promote the DVs for this ap
+        ap_vars,_ = get_dvs_and_cons(ap=ap)
+
+        for (args, kwargs) in ap_vars:
+            name = args[0]
+            size = args[1]
+            self.promotes('solver', inputs=[name])
+            self.promotes('force', inputs=[name])
+            self.promotes('funcs', inputs=[name])
 
 class ADflow_builder(object):
 
