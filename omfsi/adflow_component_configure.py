@@ -624,7 +624,7 @@ class ADflow_group(Group):
 
         self.add_subsystem('geo_disp', Geo_Disp(
             nnodes=int(self.aero_solver.getSurfaceCoordinates().size /3)),
-            promotes_inputs=['u_a']
+            promotes_inputs=['u_a', 'x_a0']
         )
         self.add_subsystem('deformer', AdflowWarper(
             aero_solver=self.aero_solver
@@ -667,6 +667,9 @@ class ADflow_builder(object):
     # api level method for all builders
     def get_element(self):
         return ADflow_group(solver=self.solver)
+
+    def get_mesh_element(self):
+        return AdflowMesh(aero_solver=self.solver)
 
     def get_nnodes(self):
         return int(self.solver.getSurfaceCoordinates().size /3)

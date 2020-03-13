@@ -25,6 +25,12 @@ class AS_Multipoint(om.Group):
         self.struct_builder.init_solver(self.comm)
         self.xfer_builder.init_xfer_object(self.comm)
 
+        # get the mesh elements from both components
+        aero_mesh = self.aero_builder.get_mesh_element()
+        struct_mesh = self.struct_builder.get_mesh_element()
+        self.add_subsystem('aero_mesh', aero_mesh)
+        self.add_subsystem('struct_mesh', struct_mesh)
+
         # add openmdao groups for each scenario
         for name, kwargs in self.scenarios.items():
             self._mphy_add_scenario(name, **kwargs)
@@ -34,32 +40,28 @@ class AS_Multipoint(om.Group):
         self.linear_solver    = om.LinearRunOnce()
 
     def configure(self):
-        return
-        # # connect the initial mesh coordinates.
-        # # with the configure-based approach, we do not need to have
-        # # separate components just to carry the initial mesh coordinates,
-        # # but we can directly pass them to all of the components here.
-        # # at this stage, everything is allocated and every group/component
-        # # below this level is set up.
+        # connect the initial mesh coordinates.
+        # with the configure-based approach, we do not need to have
+        # separate components just to carry the initial mesh coordinates,
+        # but we can directly pass them to all of the components here.
+        # at this stage, everything is allocated and every group/component
+        # below this level is set up.
 
-        # # loop over scenarios and connect them all
-        # n_scenario = self.options['n_scenario']
-        # for i in range(n_scenario):
-        #     target_x_s0 = [
-        #         'cruise%d.fsi_group.disp_xfer.x_s0'%i,
-        #         'cruise%d.fsi_group.load_xfer.x_s0'%i,
-        #         'cruise%d.fsi_group.struct.x_s0'%i,
-        #         'cruise%d.struct_funcs.x_s0'%i,
-        #         'cruise%d.struct_mass.x_s0'%i
-        #     ]
-        #     self.connect('struct_mesh.x_s0_mesh', target_x_s0)
+        # loop over scenarios and connect them all
+        for name in self.scenarios:
+            target_x_s0 = [
+                '%s.disp_xfer.x_s0'%name,
+                '%s.load_xfer.x_s0'%name,
+                '%s.struct.x_s0'%name,
+            ]
+            self.connect('struct_mesh.x_s0_mesh', target_x_s0)
 
-        #     target_x_a0 = [
-        #         'cruise%d.fsi_group.disp_xfer.x_a0'%i,
-        #         'cruise%d.fsi_group.geo_disp.x_a0'%i,
-        #         'cruise%d.fsi_group.load_xfer.x_a0'%i
-            # ]
-            # self.connect('aero_mesh.x_a0_mesh', target_x_a0)
+            target_x_a0 = [
+                '%s.disp_xfer.x_a0'%name,
+                '%s.aero.x_a0'%name,
+                '%s.load_xfer.x_a0'%name,
+            ]
+            self.connect('aero_mesh.x_a0_mesh', target_x_a0)
 
     def mphy_add_scenario(self, name, **kwargs):
         # save all the inputs here until we are ready to do the initialization

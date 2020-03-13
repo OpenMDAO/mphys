@@ -605,19 +605,21 @@ class TACS_group(om.Group):
         self.add_subsystem('solver', TacsSolver(
             struct_solver=self.struct_solver,
             struct_objects=self.struct_objects,),
-            promotes_inputs=['f_s'],
+            promotes_inputs=['f_s', 'x_s0', 'dv_struct'],
             promotes_outputs=['u_s']
         )
 
         self.add_subsystem('funcs', TacsFunctions(
             struct_solver=self.struct_solver,
-            struct_objects=self.struct_objects,
-        ))
+            struct_objects=self.struct_objects),
+            promotes_inputs=['x_s0', 'dv_struct']
+        )
 
         self.add_subsystem('mass', TacsMass(
             struct_solver=self.struct_solver,
-            struct_objects=self.struct_objects,
-        ))
+            struct_objects=self.struct_objects),
+            promotes_inputs=['x_s0', 'dv_struct']
+        )
 
     def configure(self):
         self.connect('u_s', 'funcs.u_s')
@@ -669,8 +671,14 @@ class TACS_builder(object):
     def get_element(self):
         return TACS_group(solver=self.solver, solver_objects=self.solver_objects)
 
+    def get_mesh_element(self):
+        return TacsMesh(struct_solver=self.solver)
+
     def get_ndof(self):
         return self.solver_dict['ndof']
 
     def get_nnodes(self):
         return self.solver_dict['nnodes']
+
+    def get_ndv(self):
+        return self.solver_dict['ndv']

@@ -123,7 +123,7 @@ class Top(om.Group):
 
         # ivc to keep the top level DVs
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
-        dvs.add_output('foo')
+        # dvs.add_output('foo')
 
         # each AS_Multipoint instance can keep multiple points with the SAME FORMULATION
         # e.g. these cases will have the same aero struct and xfer formulation and meshes
@@ -165,7 +165,6 @@ class Top(om.Group):
         mp.mphy_add_scenario('s1')
 
     def configure(self):
-        return
         # create the aero problems for both analysis point.
         # this is custom to the ADflow based approach we chose here.
         # any solver can have their own custom approach here, and we don't
@@ -200,14 +199,13 @@ class Top(om.Group):
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
-        self.mp_group.s1.aero.mphy_set_ap(AP0)
-        self.mp_group.s2.aero.mphy_set_ap(AP1)
+        # self.mp_group.s1.aero.mphy_set_ap(AP0)
+        # self.mp_group.s2.aero.mphy_set_ap(AP1)
 
         # add the structural thickness DVs
-        self.dvs.add_output('dv_struct', np.array(self.as_group.n_dv_struct*[0.01]))
-        self.mp_group.promote('s1', inputs=['dv_struct'])
-        self.mp_group.promote('s2', inputs=['dv_struct'])
-        self.connect('dv_struct', 'mp_group.dv_struct')
+        ndv_struct = self.mp_group.struct_builder.get_ndv()
+        self.dvs.add_output('dv_struct', np.array(ndv_struct*[0.01]))
+        self.connect('dv_struct', ['mp_group.s0.struct.dv_struct', 'mp_group.s1.struct.dv_struct'])
 
         # we can also add additional design variables, constraints and set the objective function here.
         # every solver is already initialized, so we can perform solver-specific calls
