@@ -200,8 +200,8 @@ class Top(om.Group):
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
-        self.mp_group.s1.aero.set_ap(AP0)
-        self.mp_group.s2.aero.set_ap(AP1)
+        self.mp_group.s1.aero.mphy_set_ap(AP0)
+        self.mp_group.s2.aero.mphy_set_ap(AP1)
 
         # add the structural thickness DVs
         self.dvs.add_output('dv_struct', np.array(self.as_group.n_dv_struct*[0.01]))

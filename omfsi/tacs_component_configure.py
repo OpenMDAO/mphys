@@ -318,6 +318,7 @@ class TacsFunctions(ExplicitComponent):
     """
     def initialize(self):
         self.options.declare('struct_solver')
+        self.options.declare('struct_objects')
 
         self.ans = None
         self.tacs = None
@@ -327,8 +328,10 @@ class TacsFunctions(ExplicitComponent):
     def setup(self):
 
         self.tacs = self.options['struct_solver']
+        self.struct_objects = self.options['struct_objects']
 
-    def add_io(self, ndv, get_funcs):
+        ndv = self.struct_objects[3]['ndv']
+        get_funcs = self.struct_objects[3]['get_funcs']
 
         tacs = self.tacs
 
@@ -461,6 +464,7 @@ class TacsMass(ExplicitComponent):
     """
     def initialize(self):
         self.options.declare('struct_solver')
+        self.options.declare('struct_objects')
 
         self.ans = None
         self.tacs = None
@@ -472,15 +476,15 @@ class TacsMass(ExplicitComponent):
     def setup(self):
 
         self.tacs = self.options['struct_solver']
+        self.struct_objects = self.options['struct_objects']
 
         # self.set_check_partial_options(wrt='*',directional=True)
 
-    def add_io(self, ndv):
         tacs = self.tacs
 
         # TACS part of setup
         self.tacs = tacs
-        self.ndv  = ndv
+        ndv  = self.struct_objects[3]['ndv']
 
         self.xpt_sens = tacs.createNodeVec()
         node_size = self.xpt_sens.getArray().size
@@ -595,9 +599,28 @@ class TACS_group(om.Group):
         self.options.declare('solver_objects')
 
     def setup(self):
+        self.struct_solver = self.options['solver']
+        self.struct_objects = self.options['solver_objects']
 
-        # self.add_subsystem('foo', om.IndepVarComp())
-        return
+        self.add_subsystem('solver', TacsSolver(
+            struct_solver=self.struct_solver,
+            struct_objects=self.struct_objects,),
+            promotes_inputs=['f_s'],
+            promotes_outputs=['u_s']
+        )
+
+        self.add_subsystem('funcs', TacsFunctions(
+            struct_solver=self.struct_solver,
+            struct_objects=self.struct_objects,
+        ))
+
+        self.add_subsystem('mass', TacsMass(
+            struct_solver=self.struct_solver,
+            struct_objects=self.struct_objects,
+        ))
+
+    def configure(self):
+        self.connect('u_s', 'funcs.u_s')
 
 class TACS_builder(object):
 
@@ -630,6 +653,7 @@ class TACS_builder(object):
         solver_dict['ndof']   = ndof
         solver_dict['nnodes'] = nnodes
         solver_dict['get_funcs'] = self.options['get_funcs']
+        self.solver_dict=solver_dict
 
         # put the rest of the stuff in a tuple
         solver_objects = [mat, pc, gmres, solver_dict]
@@ -644,3 +668,9 @@ class TACS_builder(object):
     # api level method for all builders
     def get_element(self):
         return TACS_group(solver=self.solver, solver_objects=self.solver_objects)
+
+    def get_ndof(self):
+        return self.solver_dict['ndof']
+
+    def get_nnodes(self):
+        return self.solver_dict['nnodes']

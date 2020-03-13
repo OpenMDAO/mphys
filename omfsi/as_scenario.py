@@ -26,7 +26,6 @@ class AS_Scenario(om.Group):
 
         # add the subgroups
         self.add_subsystem('disp_xfer', disp_xfer)
-        self.add_subsystem('geo_disp', geo_disp)
         self.add_subsystem('aero', aero)
         self.add_subsystem('load_xfer', load_xfer)
         self.add_subsystem('struct', struct)
@@ -37,17 +36,12 @@ class AS_Scenario(om.Group):
         self.linear_solver = om.LinearBlockGS(maxiter=100)
 
     def configure(self):
-        return
-        # # add any io that has a size dependency
-        # ndv = self.fsi_group.struct.get_ndv()
-        # get_funcs = self.fsi_group.struct.get_funcs()
-        # self.struct_funcs.add_io(ndv, get_funcs)
-        # self.struct_mass.add_io(ndv)
 
-        # # do the connections
-        # self.connect('fsi_group.struct.u_s', 'struct_funcs.u_s')
-        # self.connect('fsi_group.aero.deformer.x_g', 'aero_funcs.x_g')
-        # self.connect('fsi_group.aero.solver.q', 'aero_funcs.q')
+        # do the connections, this can be also done in setup
+        self.connect('disp_xfer.u_a', 'aero.u_a')
+        self.connect('aero.f_a', 'load_xfer.f_a')
+        self.connect('load_xfer.f_s', 'struct.f_s')
+        self.connect('struct.u_s', ['disp_xfer.u_s', 'load_xfer.u_s'])
 
     def set_ap(self, ap):
         # this function sets the aero problem in all relevant spots

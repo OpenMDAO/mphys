@@ -8,6 +8,9 @@ class MELD_disp_xfer(om.ExplicitComponent):
     """
     def initialize(self):
         self.options.declare('xfer_object')
+        self.options.declare('struct_ndof')
+        self.options.declare('struct_nnodes')
+        self.options.declare('aero_nnodes')
 
         self.options['distributed'] = True
 
@@ -23,10 +26,13 @@ class MELD_disp_xfer(om.ExplicitComponent):
     def setup(self):
         self.meld = self.options['xfer_object']
 
-    def add_io(self, struct_ndof, struct_nnodes, aero_nnodes):
-        self.struct_ndof   = struct_ndof
-        self.struct_nnodes = struct_nnodes
-        self.aero_nnodes   = aero_nnodes
+        self.struct_ndof   = self.options['struct_ndof']
+        self.struct_nnodes = self.options['struct_nnodes']
+        self.aero_nnodes   = self.options['aero_nnodes']
+
+        struct_ndof = self.struct_ndof
+        struct_nnodes = self.struct_nnodes
+        aero_nnodes = self.aero_nnodes
 
         irank = self.comm.rank
 
@@ -130,6 +136,9 @@ class MELD_load_xfer(om.ExplicitComponent):
     """
     def initialize(self):
         self.options.declare('xfer_object')
+        self.options.declare('struct_ndof')
+        self.options.declare('struct_nnodes')
+        self.options.declare('aero_nnodes')
 
         self.options['distributed'] = True
 
@@ -146,10 +155,13 @@ class MELD_load_xfer(om.ExplicitComponent):
         # get the transfer scheme object
         self.meld = self.options['xfer_object']
 
-    def add_io(self, struct_ndof, struct_nnodes, aero_nnodes):
-        self.struct_ndof   = struct_ndof
-        self.struct_nnodes = struct_nnodes
-        self.aero_nnodes   = aero_nnodes
+        self.struct_ndof   = self.options['struct_ndof']
+        self.struct_nnodes = self.options['struct_nnodes']
+        self.aero_nnodes   = self.options['aero_nnodes']
+
+        struct_ndof = self.struct_ndof
+        struct_nnodes = self.struct_nnodes
+        aero_nnodes = self.aero_nnodes
 
         irank = self.comm.rank
 
@@ -292,7 +304,12 @@ class MELD_builder(object):
                                                  self.options['isym'],
                                                  self.options['n'],
                                                  self.options['beta'])
-        # TODO also do the necessary calls to the struct and aero builders to initialize MELD
+
+        # TODO also do the necessary calls to the struct and aero builders to fully initialize MELD
+        # for now, just save the counts
+        self.struct_ndof = self.struct_builder.get_ndof()
+        self.struct_nnodes = self.struct_builder.get_nnodes()
+        self.aero_nnodes = self.aero_builder.get_nnodes()
 
     # api level method for all builders
     def get_xfer_object(self):
@@ -300,4 +317,19 @@ class MELD_builder(object):
 
     # api level method for all builders
     def get_element(self):
-        return MELD_disp_xfer(xfer_object=self.xfer_object), MELD_load_xfer(xfer_object=self.xfer_object)
+
+        disp_xfer = MELD_disp_xfer(
+            xfer_object=self.xfer_object,
+            struct_ndof=self.struct_ndof,
+            struct_nnodes=self.struct_nnodes,
+            aero_nnodes=self.aero_nnodes,
+        )
+
+        load_xfer = MELD_load_xfer(
+            xfer_object=self.xfer_object,
+            struct_ndof=self.struct_ndof,
+            struct_nnodes=self.struct_nnodes,
+            aero_nnodes=self.aero_nnodes,
+        )
+
+        return disp_xfer, load_xfer
