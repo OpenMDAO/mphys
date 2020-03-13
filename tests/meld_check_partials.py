@@ -49,7 +49,7 @@ class DummyAssembler(object):
 
     def xfer_setup(self,comm):
         if self.meld is None:
-            isym = -1
+            isym = 1
             n = 20
             beta = 0.5
             self.meld = TransferScheme.pyMELD(comm, comm,0, comm,0, isym,n,beta)
