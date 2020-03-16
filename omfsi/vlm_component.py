@@ -91,10 +91,20 @@ class VlmOutput(ExplicitComponent):
       self.add_input('CD',0.0)
       self.add_output('CL_out',0.0)
       self.add_output('CD_out',0.0)
+      self.declare_partials('CL_out','CL')
+      self.declare_partials('CL_out','CD')
+      self.declare_partials('CD_out','CL')
+      self.declare_partials('CD_out','CD')
 
    def compute(self,inputs,outputs):
 
       outputs['CL_out'] = inputs['CL']
       outputs['CD_out'] = inputs['CD']
 
+   def compute_partials(self,inputs,partials):
+
+      partials['CL_out','CL'] = 1.0
+      partials['CL_out','CD'] = 0.0
+      partials['CD_out','CL'] = 0.0
+      partials['CD_out','CD'] = 1.0
 
