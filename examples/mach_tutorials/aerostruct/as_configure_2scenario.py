@@ -125,9 +125,11 @@ class Top(om.Group):
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         # dvs.add_output('foo')
 
-        # each AS_Multipoint instance can keep multiple points with the SAME FORMULATION
-        # e.g. these cases will have the same aero struct and xfer formulation and meshes
-        # solver-specific options can be different, and they can be adjusted in configure.
+        # each AS_Multipoint instance can keep multiple points with the SAME FORMULATION.
+        # same formulation means same solvers, and same meshes for each solver, such that
+        # the same instance of the solvers can perform the analyses required for all of
+        # the points present in this mp_group. solver-specific options for each point can
+        # be different, and they can be adjusted in configure.
         mp = self.add_subsystem(
             'mp_group',
             # this AS_Multipoint instance uses ADflow, TACS and MELD. This mp_group
