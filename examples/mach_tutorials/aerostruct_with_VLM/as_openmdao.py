@@ -27,7 +27,7 @@ aero_options = {
     'mesh_file':'wing_VLM.dat',
     'mach':0.85,
     'alpha':2*np.pi/180.,
-    'q_inf':1000.,
+    'q_inf':3000.,
     'vel':178.,
     'mu':3.5E-5,
 }
@@ -141,7 +141,7 @@ model.linear_solver = LinearRunOnce()
 # add the components and groups to the model
 
 indeps = IndepVarComp()
-indeps.add_output('dv_struct',np.array(810*[0.01]))
+indeps.add_output('dv_struct',np.array(810*[0.002]))
 indeps.add_output('alpha',aero_options['alpha'])
 model.add_subsystem('dv',indeps)
 
@@ -155,14 +155,15 @@ scenario.nonlinear_solver = NonlinearRunOnce()
 scenario.linear_solver = LinearRunOnce()
 
 fsi_group = assembler.add_fsi_subsystem(model,scenario)
-fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100)
-fsi_group.linear_solver = LinearBlockGS(maxiter=100)
+fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=20, iprint=2, use_aitken=False, rtol = 1E-14, atol=1E-14)
+fsi_group.linear_solver = LinearBlockGS(maxiter=20, iprint=2, rtol = 1e-14, atol=1e-14)
 
-# run OpenMDAO
+# run OpenMDAO with complex step: tacs and meld need ot be compiled in complex mode
 
-prob.setup()
-#view_model(prob)
+prob.setup(force_alloc_complex=True, mode='rev')
 prob.run_model()
+
+prob.check_totals(of=['cruise1.aero_funcs.CD_out'], wrt=['dv.alpha'], method='cs')
 
 if MPI.COMM_WORLD.rank == 0:
     print('f_struct =',prob[scenario.name+'.struct_funcs.f_struct'])
