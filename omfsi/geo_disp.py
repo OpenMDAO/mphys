@@ -8,12 +8,10 @@ class Geo_Disp(om.ExplicitComponent):
     """
     def initialize(self):
         self.options['distributed'] = True
+        self.options.declare('nnodes')
 
     def setup(self):
-        return
-
-    def add_io(self, aero_nnodes):
-
+        aero_nnodes = self.options['nnodes']
         local_size = aero_nnodes * 3
         n_list = self.comm.allgather(local_size)
         irank  = self.comm.rank
