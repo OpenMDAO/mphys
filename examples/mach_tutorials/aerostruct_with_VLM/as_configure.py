@@ -1,34 +1,26 @@
 #rst Imports
 from __future__ import print_function, division
 import numpy as np
-#from baseclasses import *
 from mpi4py import MPI
+
+import openmdao.api as om
+
 from tacs import elements, constitutive, functions
 
 from omfsi.as_multipoint import AS_Multipoint
 from omfsi.vlm_component_configure import VLM_builder
-# from omfsi.modal_structure_component import *
+# from omfsi.modal_structure_component_configure import TACS_modal_builder
 from omfsi.tacs_component_configure import TACS_builder
 from omfsi.meld_xfer_component_configure import MELD_builder
 
-import openmdao.api as om
-# TODO we can change all of these imports to om.
-from openmdao.api import Problem, ScipyOptimizeDriver
-from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
-from openmdao.api import NonlinearRunOnce, LinearRunOnce
-from openmdao.api import NonlinearBlockGS, LinearBlockGS
-from openmdao.api import view_model
-
 use_modal = True
 use_modal = False
-comm = MPI.COMM_WORLD
 
 class Top(om.Group):
 
     def setup(self):
 
         # VLM options
-
         aero_options = {
             'mesh_file':'wing_VLM.dat',
             'mach':0.85,
@@ -166,8 +158,8 @@ prob.model = Top()
 model = prob.model
 
 # optional but we can set it here.
-model.nonlinear_solver = NonlinearRunOnce()
-model.linear_solver = LinearRunOnce()
+model.nonlinear_solver = om.NonlinearRunOnce()
+model.linear_solver = om.LinearRunOnce()
 
 prob.setup()
 om.n2(prob, show_browser=False, outfile='as_vlm_configure.html')

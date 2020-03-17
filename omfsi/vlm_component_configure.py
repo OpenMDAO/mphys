@@ -2,11 +2,11 @@ from __future__ import division, print_function
 import numpy as np
 
 import openmdao.api as om
-from openmdao.api import ImplicitComponent, ExplicitComponent, Group
+
 from omfsi.geo_disp import Geo_Disp
 from vlm_solver import VLM_solver, VLM_forces
 
-class VlmMesh(ExplicitComponent):
+class VlmMesh(om.ExplicitComponent):
 
     def initialize(self):
         self.options.declare('N_nodes')
@@ -22,8 +22,7 @@ class VlmMesh(ExplicitComponent):
 
         outputs['x_a0_mesh'] = self.x_a0
 
-
-class VLM_group(Group):
+class VLM_group(om.Group):
 
     def initialize(self):
         self.options.declare('options_dict')
@@ -80,15 +79,12 @@ class VLM_builder(object):
     def __init__(self, options):
         self.options = options
 
-    # api level method for all builders
     def init_solver(self, comm):
         self.solver = dummyVLMSolver(options=self.options, comm=comm)
 
-    # api level method for all builders
     def get_solver(self):
         return self.solver
 
-    # api level method for all builders
     def get_element(self):
         return VLM_group(options_dict=self.options)
 
