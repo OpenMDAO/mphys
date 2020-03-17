@@ -157,21 +157,13 @@ scenario.nonlinear_solver = NonlinearRunOnce()
 scenario.linear_solver = LinearRunOnce()
 
 fsi_group = assembler.add_fsi_subsystem(model,scenario)
-fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100, iprint=2, use_aitken=True, atol=1E-6)
-fsi_group.linear_solver = LinearBlockGS(maxiter=10, iprint=2)
+#fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100, iprint=2, use_aitken=True, rtol = 1E-14, atol=1E-14)
+fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100, iprint=2, use_aitken=False, rtol = 1E-14, atol=1E-14)
+fsi_group.linear_solver = LinearBlockGS(maxiter=30, iprint=2, rtol = 1e-14, atol=1e-14)
 
 # run OpenMDAO
 
 prob.setup(force_alloc_complex=True, mode='rev')
-#view_model(prob)
+
 prob.run_model()
-
-#print(prob['cruise1.struct_funcs.f_struct'])
-#prob.check_totals(of=['cruise1.aero_funcs.CD_out'], wrt=['dv.alpha'])
 prob.check_totals(of=['cruise1.struct_funcs.f_struct'], wrt=['dv.alpha'], method='cs')
-
-
-#if MPI.COMM_WORLD.rank == 0:
-#    print('f_struct =',prob[scenario.name+'.struct_funcs.f_struct'])
-#    print('mass =',prob[scenario.name+'.struct_mass.mass'])
-#    print('cl =',prob[scenario.name+'.aero_funcs.CL_out'])

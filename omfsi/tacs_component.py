@@ -351,12 +351,15 @@ class TacsSolver(ImplicitComponent):
             res = self.res
             res_array = res.getArray()
             res_array[:] = d_outputs['u_s']
+            before = res_array.copy()
             tacs.applyBCs(res)
+            after = res_array.copy()
             psi_s = self.psi_s
             gmres.solve(res,psi_s)
             psi_s_array = psi_s.getArray()
-            d_residuals['u_s'] = psi_s_array
             tacs.applyBCs(psi_s)
+            d_residuals['u_s'] = psi_s_array.copy()
+            d_residuals['u_s'] -= np.array(after - before,dtype=np.float64)
 
     def apply_linear(self,inputs,outputs,d_inputs,d_outputs,d_residuals,mode):
         self._update_internal(inputs,outputs)
@@ -379,7 +382,10 @@ class TacsSolver(ImplicitComponent):
                 psi = tacs.createVec()
                 psi_array = psi.getArray()
                 psi_array[:] = d_residuals['u_s'][:]
+
+                before = psi_array.copy()
                 tacs.applyBCs(psi)
+                after = psi_array.copy()
 
                 if 'u_s' in d_outputs:
 
@@ -399,10 +405,10 @@ class TacsSolver(ImplicitComponent):
                     res_array[:] = 0.0
 
                     self.mat.mult(psi,res)
-                    tacs.applyBCs(res)
+                    #tacs.applyBCs(res)
 
                     d_outputs['u_s'] += np.array(res_array[:],dtype=float)
-
+                    d_outputs['u_s'] -= np.array(after - before,dtype=np.float64)
                 if 'f_s' in d_inputs:
                     d_inputs['f_s'] -= np.array(psi_array[:],dtype=float)
 
