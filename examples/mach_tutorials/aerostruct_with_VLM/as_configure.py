@@ -150,8 +150,7 @@ class Top(om.Group):
     def configure(self):
 
         # add AoA DV
-        self.dvs.add_output('alpha', val=0.8)
-        self.mp_group.s0.aero.mphy_add_aero_dv('alpha')
+        self.dvs.add_output('alpha', val=2*np.pi/180.)
         self.connect('alpha', 'mp_group.s0.aero.alpha')
 
         # add the structural thickness DVs
@@ -176,6 +175,6 @@ om.n2(prob, show_browser=False, outfile='as_vlm_configure.html')
 prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
-    print('f_struct =',prob[scenario.name+'.struct_funcs.f_struct'])
-    print('mass =',prob[scenario.name+'.struct_mass.mass'])
-    print('cl =',prob[scenario.name+'.aero_funcs.CL_out'])
+    print('f_struct =',prob['mp_group.s0.struct.funcs.f_struct'])
+    print('mass =',prob['mp_group.s0.struct.mass.mass'])
+    print('cl =',prob['mp_group.s0.aero.funcs.CL'])
