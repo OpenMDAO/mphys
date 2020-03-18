@@ -34,13 +34,14 @@ aero_options = {
     'smoother':'dadi',
     'CFL':1.5,
     'CFLCoarse':1.25,
-    'MGCycle':'2w',
+    'MGCycle':'sg',
     'MGStartLevel':-1,
     'nCyclesCoarse':250,
 
     # ANK Solver Parameters
     'useANKSolver':True,
-    'ankswitchtol':1e-1,
+    # 'ankswitchtol':1e-1,
+    'nsubiterturb': 5,
 
     # NK Solver Parameters
     'useNKSolver':True,
