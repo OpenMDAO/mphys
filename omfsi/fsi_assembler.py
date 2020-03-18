@@ -4,7 +4,7 @@ from __future__ import print_function, division
 import numpy as np
 
 from openmdao.api import Group, ExplicitComponent
-from omfsi.assembler import OmfsiAssembler
+from omfsi import OmfsiAssembler
 
 class FsiAssembler(object):
     def __init__(self,struct_assembler,aero_assembler,xfer_assembler,geodisp_assembler=None):

@@ -8,7 +8,7 @@ from mpi4py import MPI
 from omfsi import FsiAssembler, GeoDispAssembler, GeoDisp
 from omfsi import AdflowAssembler, AdflowMesh, AdflowWarper, AdflowSolver, AdflowFunctions
 from omfsi import TacsOmfsiAssembler, functions
-from omfsi import MeldAssembler, MeldDisplacementTransfer
+from omfsi import RLTAssembler, RLTDisplacementTransfer
 
 from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
@@ -89,6 +89,7 @@ def add_elements(mesh):
     max_thickness = 0.05
 
     num_components = mesh.getNumComponents()
+    print('num_components', num_components)
     for i in range(num_components):
         descript = mesh.getElementDescript(i)
         stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
@@ -116,11 +117,11 @@ struct_assembler = TacsOmfsiAssembler(tacs_setup)
 ################################################################################
 # Transfer scheme setup
 ################################################################################
-meld_options = {'isym': 2,
-                'n': 200,
-                'beta': 0.5}
+meld_options = {
+    'transfergaussorder': 2,
+}
 
-xfer_assembler = MeldAssembler(meld_options,struct_assembler,aero_assembler)
+xfer_assembler = RLTAssembler(meld_options,struct_assembler,aero_assembler)
 
 
 ################################################################################
@@ -155,12 +156,12 @@ scenario.nonlinear_solver = NonlinearRunOnce()
 scenario.linear_solver = LinearRunOnce()
 
 fsi_group = assembler.add_fsi_subsystem(model,scenario)
-fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100, rtol=1e-5)
+fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100, iprint=2, rtol=1e-5)
 fsi_group.linear_solver = LinearBlockGS(maxiter=100)
 
 prob.setup()
 prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
-    print('cl =',prob[scenario.name+'.aero_funcs.lift'])
-    print('cd =',prob[scenario.name+'.aero_funcs.drag'])
+    print('lift =',prob[scenario.name+'.aero_funcs.lift'])
+    print('drag =',prob[scenario.name+'.aero_funcs.drag'])
