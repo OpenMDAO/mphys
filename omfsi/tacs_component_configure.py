@@ -2,11 +2,10 @@ from __future__ import division, print_function
 import numpy as np
 
 import openmdao.api as om
-from openmdao.api import ImplicitComponent, ExplicitComponent, Group
 from tacs import TACS,functions
 from omfsi.assembler import OmfsiSolverAssembler
 
-class TacsMesh(ExplicitComponent):
+class TacsMesh(om.ExplicitComponent):
     """
     Component to read the initial mesh coordinates with TACS
 
@@ -30,7 +29,7 @@ class TacsMesh(ExplicitComponent):
     def compute(self,inputs,outputs):
         outputs['x_s0_mesh'] = self.xpts.getArray()
 
-class TacsSolver(ImplicitComponent):
+class TacsSolver(om.ImplicitComponent):
     """
     Component to perform TACS steady analysis
 
@@ -316,7 +315,7 @@ class TacsSolver(ImplicitComponent):
             return False
 
 
-class TacsFunctions(ExplicitComponent):
+class TacsFunctions(om.ExplicitComponent):
     """
     Component to compute TACS functions
 
@@ -463,7 +462,7 @@ class TacsFunctions(ExplicitComponent):
                         prod_array = prod.getArray()
 
                         d_inputs['u_s'][:] += np.array(prod_array,dtype=float) * d_outputs['f_struct'][ifunc]
-class TacsMass(ExplicitComponent):
+class TacsMass(om.ExplicitComponent):
     """
     Component to compute TACS mass
 
@@ -555,7 +554,7 @@ class TacsMass(ExplicitComponent):
                     d_inputs['x_s0'] += np.array(xpt_sens_array,dtype=float) * d_outputs['mass']
 
 
-class PrescribedLoad(ExplicitComponent):
+class PrescribedLoad(om.ExplicitComponent):
     """
     Prescribe a load to tacs
 

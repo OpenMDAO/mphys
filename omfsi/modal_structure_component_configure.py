@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import numpy as np
+import openmdao.api as om
 from tacs import TACS, elements, functions
-from openmdao.api import ImplicitComponent, ExplicitComponent, Group
-from omfsi.assembler import OmfsiSolverAssembler
-from omfsi.tacs_component import TacsMass, TacsFunctions
+from omfsi.tacs_component_configure import TacsMass, TacsFunctions
 
 class ModalStructAssembler(OmfsiSolverAssembler):
     def __init__(self,solver_options):
@@ -59,7 +58,7 @@ class ModalStructAssembler(OmfsiSolverAssembler):
 
     def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
 
-        struct = Group()
+        struct = om.Group()
         struct.add_subsystem('modal_forces',ModalForces(get_modal_sizes=self.get_modal_sizes))
         struct.add_subsystem('modal_solver',ModalSolver(nmodes=self.nmodes))
         struct.add_subsystem('modal_disps',ModalDisplacements(get_modal_sizes=self.get_modal_sizes))
@@ -93,7 +92,7 @@ class ModalStructAssembler(OmfsiSolverAssembler):
         model.connect(connection_srcs['dv_struct'],scenario.name+'.struct_mass.dv_struct')
 
 
-class ModalDecomp(ExplicitComponent):
+class ModalDecomp(om.ExplicitComponent):
     def initialize(self):
         self.options.declare('get_tacs', default = None, desc='function to get tacs')
         self.options.declare('get_ndv', default = None, desc='function to get number of design variables in tacs')
@@ -165,7 +164,7 @@ class ModalDecomp(ExplicitComponent):
             #matrix[:,5] = self.vec.getArray()[2::6]
             #np.savetxt('mode_shape'+str(imode)+'.dat',matrix)
 
-class ModalSolver(ExplicitComponent):
+class ModalSolver(om.ExplicitComponent):
     """
     Steady Modal structural solver
       K z - mf = 0
@@ -197,7 +196,7 @@ class ModalSolver(ExplicitComponent):
                 if 'k' in d_inputs:
                     d_inputs['k'] += - inputs['mf'] / (inputs['k']**2.0) * d_outputs['z']
 
-class ModalForces(ExplicitComponent):
+class ModalForces(om.ExplicitComponent):
     def initialize(self):
         self.options.declare('get_modal_sizes')
 
@@ -225,7 +224,7 @@ class ModalForces(ExplicitComponent):
                     for imode in range(self.options['nmodes']):
                         d_inputs['f_s'][:] += inputs['mode_shape'][imode,:] * d_outputs['mf'][imode]
 
-class ModalDisplacements(ExplicitComponent):
+class ModalDisplacements(om.ExplicitComponent):
     def initialize(self):
         self.options.declare('get_modal_sizes')
 
@@ -252,3 +251,4 @@ class ModalDisplacements(ExplicitComponent):
                 if 'z' in d_inputs:
                     for imode in range(self.options['nmodes']):
                         d_inputs['z'][imode] += np.sum(inputs['mode_shape'][imode,:] * d_outputs['u_s'][:])
+
