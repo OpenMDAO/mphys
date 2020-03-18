@@ -21,6 +21,7 @@ class MELD_disp_xfer(om.ExplicitComponent):
         self.struct_nnodes = None
         self.aero_nnodes = None
 
+        # TODO define this as an option
         self.check_partials = False
 
     def setup(self):
@@ -117,7 +118,7 @@ class MELD_disp_xfer(om.ExplicitComponent):
                     prod = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
                     self.meld.applydDduSTrans(du_a,prod)
                     for i in range(3):
-                        d_inputs['u_s'][i::self.struct_ndof] -= np.array(prod[i::3],dtype=float)
+                        d_inputs['u_s'][i::self.struct_ndof] -= np.array(prod[i::3],dtype=np.float64)
 
                 # du_a/dx_a0^T * psi = - psi^T * dD/dx_a0 in F2F terminology
                 if 'x_a0' in d_inputs:

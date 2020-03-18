@@ -25,7 +25,7 @@ class Top(om.Group):
             'mesh_file':'wing_VLM.dat',
             'mach':0.85,
             'alpha':2*np.pi/180.,
-            'q_inf':1000.,
+            'q_inf':3000.,
             'vel':178.,
             'mu':3.5E-5,
         }
@@ -147,7 +147,7 @@ class Top(om.Group):
 
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()
-        self.dvs.add_output('dv_struct', np.array(ndv_struct*[0.01]))
+        self.dvs.add_output('dv_struct', np.array(ndv_struct*[0.002]))
         self.connect('dv_struct', ['mp_group.s0.struct.dv_struct'])
 
 ################################################################################
@@ -161,7 +161,12 @@ model = prob.model
 model.nonlinear_solver = om.NonlinearRunOnce()
 model.linear_solver = om.LinearRunOnce()
 
+
 prob.setup()
+
+# model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=20, iprint=2, use_aitken=False, rtol = 1E-14, atol=1E-14)
+# model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, rtol = 1e-14, atol=1e-14)
+
 om.n2(prob, show_browser=False, outfile='as_vlm_configure.html')
 
 prob.run_model()
