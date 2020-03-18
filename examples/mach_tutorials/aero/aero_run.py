@@ -5,7 +5,7 @@ from adflow import ADFLOW
 from baseclasses import AeroProblem
 from idwarp import USMesh
 from mpi4py import MPI
-from omfsi import AdflowAssembler, AdflowMesh, AdflowWarper, AdflowSolver
+from omfsi.adflow_component import AdflowAssembler, AdflowMesh, AdflowWarper, AdflowSolver
 
 from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group

@@ -11,7 +11,7 @@ from openmdao.api import Group, ImplicitComponent, ExplicitComponent
 from openmdao.core.analysis_error import AnalysisError
 
 from adflow.python.om_utils import get_dvs_and_cons
-from omfsi import OmfsiSolverAssembler
+from omfsi.assembler import OmfsiSolverAssembler
 
 class AdflowAssembler(OmfsiSolverAssembler):
     def __init__(self,options,ap):

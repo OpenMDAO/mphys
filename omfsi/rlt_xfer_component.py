@@ -2,7 +2,7 @@ import numpy as np
 
 from openmdao.api import ExplicitComponent
 from rlt import SimpleLDTransfer
-from omfsi import OmfsiAssembler
+from omfsi.assembler import OmfsiAssembler
 
 transfer_dtype = 'd'
 

@@ -5,10 +5,10 @@ from adflow import ADFLOW
 from baseclasses import *
 from mpi4py import MPI
 
-from omfsi import FsiAssembler, GeoDispAssembler, GeoDisp
-from omfsi import AdflowAssembler, AdflowMesh, AdflowWarper, AdflowSolver, AdflowFunctions
-from omfsi import TacsOmfsiAssembler, functions, TACS
-from omfsi import RLTAssembler, RLTDisplacementTransfer
+from omfsi.fsi_assembler import FsiAssembler, GeoDispAssembler, GeoDisp
+from omfsi.adflow_component import AdflowAssembler, AdflowMesh, AdflowWarper, AdflowSolver, AdflowFunctions
+from omfsi.tacs_component import TacsOmfsiAssembler, functions, TACS
+from omfsi.rlt_xfer_component import RLTAssembler, RLTDisplacementTransfer
 
 from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group

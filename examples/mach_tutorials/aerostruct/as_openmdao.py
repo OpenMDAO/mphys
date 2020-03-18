@@ -5,10 +5,10 @@ from adflow import ADFLOW
 from baseclasses import *
 from mpi4py import MPI
 
-from omfsi import FsiAssembler, GeoDispAssembler, GeoDisp
-from omfsi import AdflowAssembler, AdflowMesh, AdflowWarper, AdflowSolver, AdflowFunctions
-from omfsi import TacsOmfsiAssembler, functions
-from omfsi import MeldAssembler, MeldDisplacementTransfer
+from omfsi.fsi_assembler import *
+from omfsi.adflow_component import *
+from omfsi.tacs_component import *
+from omfsi.meld_xfer_component import *
 
 from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
@@ -162,5 +162,5 @@ prob.setup()
 prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
-    print('cl =',prob[scenario.name+'.aero_funcs.lift'])
-    print('cd =',prob[scenario.name+'.aero_funcs.drag'])
+    print('cl =',prob[scenario.name+'.aero_funcs.cl'])
+    print('cd =',prob[scenario.name+'.aero_funcs.cd'])
