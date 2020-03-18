@@ -5,16 +5,15 @@ from adflow import ADFLOW
 from baseclasses import *
 from mpi4py import MPI
 
-from omfsi.fsi_assembler import *
-from omfsi.adflow_component import *
-from omfsi.tacs_component import *
-from omfsi.meld_xfer_component import *
+from omfsi.fsi_assembler import FsiAssembler, GeoDispAssembler, GeoDisp
+from omfsi.adflow_component import AdflowAssembler, AdflowMesh, AdflowWarper, AdflowSolver, AdflowFunctions
+from omfsi.tacs_component import TacsOmfsiAssembler, functions
+from omfsi.rlt_xfer_component import RLTAssembler, RLTDisplacementTransfer
 
 from openmdao.api import Problem, ScipyOptimizeDriver
 from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
 from openmdao.api import NonlinearRunOnce, LinearRunOnce
 from openmdao.api import NonlinearBlockGS, LinearBlockGS
-import openmdao.api as om
 
 from tacs import elements, constitutive
 
@@ -26,9 +25,7 @@ aero_options = {
     'gridFile':'wing_vol.cgns',
     'outputDirectory':'.',
     'monitorvariables':['resrho','cl','cd'],
-    'writeTecplotSurfaceSolution':False,
-    'writevolumesolution':False,
-    'writesurfacesolution':False,
+    'writeTecplotSurfaceSolution':True,
 
     # Physics Parameters
     'equationType':'RANS',
@@ -37,13 +34,13 @@ aero_options = {
     'smoother':'dadi',
     'CFL':1.5,
     'CFLCoarse':1.25,
-    'MGCycle':'sg',
+    'MGCycle':'2w',
     'MGStartLevel':-1,
     'nCyclesCoarse':250,
 
     # ANK Solver Parameters
     'useANKSolver':True,
-    'nsubiterturb': 5,
+    'ankswitchtol':1e-1,
 
     # NK Solver Parameters
     'useNKSolver':True,
@@ -66,7 +63,7 @@ ap = AeroProblem(name='wing',
     alpha=1.5,
     areaRef=45.5,
     chordRef=3.25,
-    evalFuncs=['lift','drag', 'cl', 'cd']
+    evalFuncs=['lift','drag']
 )
 
 ap.addDV('alpha',value=1.5,name='alpha')
@@ -92,6 +89,7 @@ def add_elements(mesh):
     max_thickness = 0.05
 
     num_components = mesh.getNumComponents()
+    print('num_components', num_components)
     for i in range(num_components):
         descript = mesh.getElementDescript(i)
         stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
@@ -119,11 +117,11 @@ struct_assembler = TacsOmfsiAssembler(tacs_setup)
 ################################################################################
 # Transfer scheme setup
 ################################################################################
-meld_options = {'isym': 2,
-                'n': 200,
-                'beta': 0.5}
+meld_options = {
+    'transfergaussorder': 2,
+}
 
-xfer_assembler = MeldAssembler(meld_options,struct_assembler,aero_assembler)
+xfer_assembler = RLTAssembler(meld_options,struct_assembler,aero_assembler)
 
 
 ################################################################################
@@ -158,15 +156,12 @@ scenario.nonlinear_solver = NonlinearRunOnce()
 scenario.linear_solver = LinearRunOnce()
 
 fsi_group = assembler.add_fsi_subsystem(model,scenario)
-fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100, rtol=1e-5)
+fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100, iprint=2, rtol=1e-5)
 fsi_group.linear_solver = LinearBlockGS(maxiter=100)
 
-fsi_group.nonlinear_solver.options['iprint']=2
-
 prob.setup()
-# om.n2(prob, show_browser=False, outfile='omfsi_as.html')
 prob.run_model()
-# prob.model.list_outputs()
+
 if MPI.COMM_WORLD.rank == 0:
-    print('cl =',prob[scenario.name+'.aero_funcs.cl'])
-    print('cd =',prob[scenario.name+'.aero_funcs.cd'])
+    print('lift =',prob[scenario.name+'.aero_funcs.lift'])
+    print('drag =',prob[scenario.name+'.aero_funcs.drag'])

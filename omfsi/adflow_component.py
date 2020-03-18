@@ -170,15 +170,15 @@ class AdflowWarper(ExplicitComponent):
             if 'x_g' in d_outputs:
                 if 'x_a' in d_inputs:
                     dxS = d_inputs['x_a']
-                    dxV = self.options['solver'].mesh.warpDerivFwd(dxS)
+                    dxV = self.solver.mesh.warpDerivFwd(dxS)
                     d_outputs['x_g'] += dxV
 
         elif mode == 'rev':
             if 'x_g' in d_outputs:
                 if 'x_a' in d_inputs:
                     dxV = d_outputs['x_g']
-                    self.options['solver'].mesh.warpDeriv(dxV)
-                    dxS = self.options['solver'].mesh.getdXs()
+                    self.solver.mesh.warpDeriv(dxV)
+                    dxS = self.solver.mesh.getdXs()
                     d_inputs['x_a'] += dxS.flatten()
 
 class AdflowSolver(ImplicitComponent):

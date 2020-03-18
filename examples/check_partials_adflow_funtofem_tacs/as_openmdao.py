@@ -1,6 +1,6 @@
 #rst Imports
 from __future__ import print_function
-import numpy
+import numpy as np
 from adflow import ADFLOW
 from baseclasses import *
 from mpi4py import MPI
@@ -28,6 +28,9 @@ aero_options = {
     'writeTecplotSurfaceSolution':False,
     'writeVolumeSolution':False,
     'writeSurfaceSolution':False,
+    'printiterations':False,
+    'printtiming':False,
+    'printwarnings':False,
 
     # Physics Parameters
     'equationType':'euler',
@@ -144,6 +147,8 @@ model.linear_solver = LinearRunOnce()
 #Add the components and groups to the model
 indeps = IndepVarComp()
 indeps.add_output('dv_struct',np.array(1*[0.2]))
+# from nbons/master:
+# indeps.add_output('dv_struct',np.array(1*[2.0]))
 indeps.add_output('alpha',np.array(1.5))
 indeps.add_output('mach',np.array(0.3))
 model.add_subsystem('dv',indeps)
@@ -159,13 +164,13 @@ assembler.connection_srcs['dv_struct'] = 'dv.dv_struct'
 assembler.connection_srcs['alpha'] = 'dv.alpha'
 assembler.connection_srcs['mach'] = 'dv.mach'
 fsi_group = assembler.add_fsi_subsystem(model,scenario)
-fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100)
+fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100, iprint=2)
 fsi_group.linear_solver = LinearBlockGS(maxiter=100)
 
 
 prob.setup()
 prob.run_model()
-#prob.check_partials(step=1e-8,compact_print=True)
+prob.check_partials(step=1e-8, compact_print=True)
 
 if MPI.COMM_WORLD.rank == 0:
     print('lift =',prob[scenario.name + '.aero_funcs.lift'])
