@@ -140,6 +140,7 @@ model.linear_solver = LinearRunOnce()
 
 #Add the components and groups to the model
 indeps = IndepVarComp()
+# the thickness is different than the other runs
 indeps.add_output('dv_struct',numpy.array(810*[0.02]))
 indeps.add_output('alpha',numpy.array(1.5))
 indeps.add_output('mach',numpy.array(0.8))

@@ -1,130 +1,38 @@
 import numpy as np
 
-from openmdao.api import ExplicitComponent
+import openmdao.api as om
 from rlt import SimpleLDTransfer
 from omfsi.assembler import OmfsiAssembler
 
 transfer_dtype = 'd'
+# hard-coded ndof for aerodynamic solver
+ndof_a = 3
 
-class RLTAssembler(OmfsiAssembler):
-    """
-    Rigid link load and displacement transfer
-
-    Sizes
-        nn_a : number of aerodynamic surface nodes
-        nn_s : number of structural nodes
-        ndof_a : number of aerodynamic degrees of freedom (spatial)
-        ndof_s : number of structural degrees of freedom
-
-    Variables
-        x_s0 : structural node coordinates (pre-deformation)
-        x_a0 : aerodynamic surface node coordinates (pre-deformation)
-
-        u_s : structural nodal displacements
-        u_a : aerodynamic surface nodal displacements
-
-        f_s : structural nodal forces
-        f_a : aerodynamic surface nodal forces
-    """
-
-    def __init__(self, options, struct_assembler, aero_assembler):
-
-        # transfer scheme options
-        self.transferOptions = {
-            'transfergaussorder': options['transfergaussorder'],
-        }
-
-        self.struct_assembler = struct_assembler
-        self.aero_assembler = aero_assembler
-        self.RLT = None
-
-    def _get_transfer(self):
-        if self.RLT is None:
-            #TODO: make this better. RLT is expecting a pytacs object to be
-            # passed in, but it only needs the actual TACS object and the
-            # structural comm. So I just created a dummy object for now that
-            # references the attributes of the struct_assembler. I could have
-            # passed in the struct_assembler, but wasn't sure if that was
-            # bad practice.
-            class dummy_pytacs: pass
-            dummy_pytacs.structure = self.struct_assembler.tacs
-            dummy_pytacs.comm = self.struct_assembler.comm
-            self.RLT = SimpleLDTransfer(self.aero_assembler.solver,
-                                        dummy_pytacs,
-                                        comm=self.comm,
-                                        options=self.transferOptions)
-
-        return self.RLT
-
-    def add_model_components(self, model, connection_srcs):
-        pass
-
-    def add_scenario_components(self, model, scenario, connection_srcs):
-        pass
-
-    def add_fsi_components(self, model, scenario, fsi_group, connection_srcs):
-        # Add displacement transfer component
-        fsi_group.add_subsystem(
-            'disp_xfer',
-            RLTDisplacementTransfer(setup_function=self.xfer_setup))
-
-        # Add load transfer component
-        fsi_group.add_subsystem(
-            'load_xfer',
-            RLTLoadTransfer(setup_function=self.xfer_setup))
-
-        # Connect variables
-        base_name = scenario.name + '.' + fsi_group.name
-        connection_srcs['u_a'] = base_name + '.disp_xfer.u_a'
-        connection_srcs['f_s'] = base_name + '.load_xfer.f_s'
-
-    def connect_inputs(self, model, scenario, fsi_group, connection_srcs):
-        # Make connections between components
-        base_name = scenario.name+'.'+fsi_group.name
-        model.connect(connection_srcs['u_s'], [base_name + '.disp_xfer.u_s'])
-        model.connect(connection_srcs['f_a'], [base_name + '.load_xfer.f_a'])
-        model.connect(
-            connection_srcs['x_a0'],
-            [base_name + '.disp_xfer.x_a0', base_name + '.load_xfer.x_a0'])
-
-    def xfer_setup(self, comm):
-        # We want the displacement transfer and the load transfer components to
-        # use the same RLT transfer class. So we create one RLT transfer object
-        # and then pass it to the displacement and load transfer components
-        # when they ask for it.
-        self.comm = comm
-        self.struct_assembler.comm = comm
-        RLT = self._get_transfer()
-        ndof_s = self.struct_assembler.get_ndof()
-        nn_s = self.struct_assembler.get_nnodes()
-        ndof_a = 3 #TODO: currently hard-coded, but maybe should be generalized
-        nn_a = self.aero_assembler.get_nnodes()
-
-        return RLT, ndof_s, nn_s, ndof_a, nn_a
-
-class RLTDisplacementTransfer(ExplicitComponent):
+class RLT_disp_xfer(om.ExplicitComponent):
     """
     Component to perform displacement transfer using RLT
     """
     def initialize(self):
         # Set options
-        self.options.declare('setup_function', desc='function to get shared data')
-        self.options['distributed'] = True
+        self.options.declare('xfer_object')
+        self.options.declare('ndof_s')
+        self.options.declare('nn_s')
+        self.options.declare('nn_a')
 
-        # Set everything we need to None before setup
-        self.tacs = None
-        self.transfer = None
-        self.ndof_s = None
-        self.nn_s = None
-        self.ndof_a = None
-        self.nn_a = None
+        self.options['distributed'] = True
 
         # Flag used to prevent warning for fwd derivative d(u_a)/d(x_a0)
         self.check_partials = True
 
     def setup(self):
-        RLT, ndof_s, nn_s, ndof_a, nn_a = self.options['setup_function'](self.comm)
 
+        # get the inputs
+        RLT    = self.options['xfer_object']
+        ndof_s = self.options['ndof_s']
+        nn_s   = self.options['nn_s']
+        nn_a   = self.options['nn_a']
+
+        # set attributes
         self.transfer = RLT.transfer
         self.ndof_s = ndof_s
         self.nn_s = nn_s
@@ -147,6 +55,10 @@ class RLTDisplacementTransfer(ExplicitComponent):
         ax1 = np.sum(ax_list[:irank])
         ax2 = np.sum(ax_list[:irank+1])
 
+        sx_list = self.comm.allgather(total_dof_struct)
+        sx1 = np.sum(sx_list[:irank])
+        sx2 = np.sum(sx_list[:irank+1])
+
         su_list = self.comm.allgather(total_dof_struct)
         su1 = np.sum(su_list[:irank])
         su2 = np.sum(su_list[:irank+1])
@@ -155,6 +67,9 @@ class RLTDisplacementTransfer(ExplicitComponent):
         self.add_input('x_a0', shape=total_dof_aero,
                        src_indices=np.arange(ax1, ax2, dtype=int),
                        desc='Initial aerodynamic surface node coordinates')
+        self.add_input('x_s0', shape = total_dof_struct,
+                       src_indices = np.arange(sx1, sx2, dtype=int),
+                       desc='initial structural node coordinates')
         self.add_input('u_s', shape=total_dof_struct,
                        src_indices=np.arange(su1, su2, dtype=int),
                        desc='Structural node displacements')
@@ -228,13 +143,17 @@ class RLTDisplacementTransfer(ExplicitComponent):
                     d_inputs['x_a0'] += x_a0d
 
 
-class RLTLoadTransfer(ExplicitComponent):
+class RLT_load_xfer(om.ExplicitComponent):
     """
     Component to perform load transfers using MELD
     """
     def initialize(self):
         # Set options
-        self.options.declare('setup_function', desc='function to get shared data')
+        self.options.declare('xfer_object')
+        self.options.declare('ndof_s')
+        self.options.declare('nn_s')
+        self.options.declare('nn_a')
+
         self.options['distributed'] = True
 
         # Set everything we need to None before setup
@@ -249,9 +168,14 @@ class RLTLoadTransfer(ExplicitComponent):
         self.check_partials = True
 
     def setup(self):
-        # get the transfer scheme object
-        RLT, ndof_s, nn_s, ndof_a, nn_a = self.options['setup_function'](self.comm)
 
+        # get the inputs
+        RLT    = self.options['xfer_object']
+        ndof_s = self.options['ndof_s']
+        nn_s   = self.options['nn_s']
+        nn_a   = self.options['nn_a']
+
+        # set attributes
         self.transfer = RLT.transfer
         self.ndof_s = ndof_s
         self.ndof_a = ndof_a
@@ -274,10 +198,25 @@ class RLTLoadTransfer(ExplicitComponent):
         ax1 = np.sum(ax_list[:irank])
         ax2 = np.sum(ax_list[:irank+1])
 
+        sx_list = self.comm.allgather(total_dof_struct)
+        sx1 = np.sum(sx_list[:irank])
+        sx2 = np.sum(sx_list[:irank+1])
+
+        su_list = self.comm.allgather(total_dof_struct)
+        su1 = np.sum(su_list[:irank])
+        su2 = np.sum(su_list[:irank+1])
+
         # Inputs
         self.add_input('x_a0', shape=total_dof_aero,
                        src_indices=np.arange(ax1, ax2, dtype=int),
                        desc='Initial aerodynamic surface node coordinates')
+        self.add_input('x_s0', shape = total_dof_struct,
+                       src_indices = np.arange(sx1, sx2, dtype=int),
+                       desc='initial structural node coordinates')
+        self.add_input('u_s', shape=total_dof_struct,
+                       src_indices=np.arange(su1, su2, dtype=int),
+                       desc='Structural node displacements')
+
         self.add_input('f_a',  shape=total_dof_aero,
                        src_indices=np.arange(ax1, ax2, dtype=int),
                        desc='Aerodynamic force vector')
@@ -350,3 +289,60 @@ class RLTLoadTransfer(ExplicitComponent):
                     self.transfer.setAeroSurfaceNodesSens(x_a0d)
                     d_inputs['x_a0'] -= x_a0d
 
+class RLT_builder(object):
+
+    def __init__(self, options, aero_builder, struct_builder):
+        self.options=options
+        self.aero_builder = aero_builder
+        self.struct_builder = struct_builder
+
+    # api level method for all builders
+    def init_xfer_object(self, comm):
+
+        aero_solver   = self.aero_builder.get_solver()
+        struct_solver = self.struct_builder.get_solver()
+
+        #TODO: make this better. RLT is expecting a pytacs object to be
+        # passed in, but it only needs the actual TACS object and the
+        # structural comm. So I just created a dummy object for now that
+        # references the attributes of the struct_assembler. I could have
+        # passed in the struct_assembler, but wasn't sure if that was
+        # bad practice.
+        class dummy_pytacs: pass
+        dummy_pytacs.structure = struct_solver
+        dummy_pytacs.comm = comm
+        self.xfer_object = SimpleLDTransfer(
+            aero_solver,
+            dummy_pytacs,
+            comm=comm,
+            options=self.options
+        )
+
+        # TODO also do the necessary calls to the struct and aero builders to fully initialize MELD
+        # for now, just save the counts
+        self.struct_ndof = self.struct_builder.get_ndof()
+        self.struct_nnodes = self.struct_builder.get_nnodes()
+        self.aero_nnodes = self.aero_builder.get_nnodes()
+
+    # api level method for all builders
+    def get_xfer_object(self):
+        return self.xfer_object
+
+    # api level method for all builders
+    def get_element(self):
+
+        disp_xfer = RLT_disp_xfer(
+            xfer_object=self.xfer_object,
+            ndof_s=self.struct_ndof,
+            nn_s=self.struct_nnodes,
+            nn_a=self.aero_nnodes,
+        )
+
+        load_xfer = RLT_load_xfer(
+            xfer_object=self.xfer_object,
+            ndof_s=self.struct_ndof,
+            nn_s=self.struct_nnodes,
+            nn_a=self.aero_nnodes,
+        )
+
+        return disp_xfer, load_xfer

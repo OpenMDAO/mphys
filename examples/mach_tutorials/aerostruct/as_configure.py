@@ -11,6 +11,7 @@ from omfsi.as_multipoint import AS_Multipoint
 from omfsi.adflow_component_configure import ADflow_builder
 from omfsi.tacs_component_configure import TACS_builder
 from omfsi.meld_xfer_component_configure import MELD_builder
+from omfsi.rlt_xfer_component_configure import RLT_builder
 
 from baseclasses import *
 from tacs import elements, constitutive, functions
@@ -18,6 +19,10 @@ from tacs import elements, constitutive, functions
 # set these for convenience
 comm = MPI.COMM_WORLD
 rank = comm.rank
+
+# flag to use meld (False for RLT)
+use_meld = True
+# use_meld = False
 
 class Top(om.Group):
 
@@ -30,7 +35,7 @@ class Top(om.Group):
             # I/O Parameters
             'gridFile':'wing_vol.cgns',
             'outputDirectory':'.',
-            'monitorvariables':['resrho','cl','cd'],
+            'monitorvariables':['resrho','resturb','cl','cd'],
             'writeTecplotSurfaceSolution':False,
             'writevolumesolution':False,
             'writesurfacesolution':False,
@@ -58,6 +63,7 @@ class Top(om.Group):
             # Termination Criteria
             'L2Convergence':1e-14,
             'L2ConvergenceCoarse':1e-2,
+            'L2ConvergenceRel': 1e-4,
             'nCycles':10000,
 
             # force integration
@@ -109,13 +115,19 @@ class Top(om.Group):
         ################################################################################
         # Transfer scheme options
         ################################################################################
-        xfer_options = {
-            'isym': 2,
-            'n': 200,
-            'beta': 0.5,
-        }
 
-        meld_builder = MELD_builder(xfer_options, adflow_builder, tacs_builder)
+        if use_meld:
+            xfer_options = {
+                'isym': 2,
+                'n': 200,
+                'beta': 0.5,
+            }
+
+            xfer_builder = MELD_builder(xfer_options, adflow_builder, tacs_builder)
+        else:
+            # or we can use RLT:
+            xfer_options = {'transfergaussorder': 2}
+            xfer_builder = RLT_builder(xfer_options, adflow_builder, tacs_builder)
 
         ################################################################################
         # MPHY setup
@@ -139,7 +151,7 @@ class Top(om.Group):
             AS_Multipoint(
                 aero_builder   = adflow_builder,
                 struct_builder = tacs_builder,
-                xfer_builder   = meld_builder
+                xfer_builder   = xfer_builder
             ),
             # the user can define a custom limit on proc count for this group of
             # multipoint cases here
