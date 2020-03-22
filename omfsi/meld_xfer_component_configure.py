@@ -293,6 +293,7 @@ class MELD_builder(object):
 
     def __init__(self, options, aero_builder, struct_builder):
         self.options=options
+        # TODO we can move the aero and struct builder to init_xfer_object call so that user does not need to worry about this
         self.aero_builder = aero_builder
         self.struct_builder = struct_builder
 

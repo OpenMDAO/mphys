@@ -617,39 +617,53 @@ class ADflow_group(Group):
 
     def initialize(self):
         self.options.declare('solver')
+        self.options.declare('as_coupling')
 
     def setup(self):
 
         self.aero_solver = self.options['solver']
+        self.as_coupling = self.options['as_coupling']
 
-        self.add_subsystem('geo_disp', Geo_Disp(
-            nnodes=int(self.aero_solver.getSurfaceCoordinates().size /3)),
-            promotes_inputs=['u_a', 'x_a0']
-        )
+        if self.as_coupling:
+            self.add_subsystem('geo_disp', Geo_Disp(
+                nnodes=int(self.aero_solver.getSurfaceCoordinates().size /3)),
+                promotes_inputs=['u_a', 'x_a0']
+            )
+        # if we dont have geo_disp, we also need to promote the x_a as x_a0 from the deformer component
         self.add_subsystem('deformer', AdflowWarper(
             aero_solver=self.aero_solver
         ))
         self.add_subsystem('solver', AdflowSolver(
             aero_solver=self.aero_solver
         ))
-        self.add_subsystem('force', AdflowForces(
-            aero_solver=self.aero_solver),
-            promotes_outputs=['f_a']
-        )
+        if self.as_coupling:
+            self.add_subsystem('force', AdflowForces(
+                aero_solver=self.aero_solver),
+                promotes_outputs=['f_a']
+            )
         self.add_subsystem('funcs', AdflowFunctions(
             aero_solver=self.aero_solver
         ))
 
     def configure(self):
-        self.connect('geo_disp.x_a', 'deformer.x_a')
-        self.connect('deformer.x_g', ['solver.x_g', 'force.x_g', 'funcs.x_g'])
-        self.connect('solver.q', ['force.q', 'funcs.q'])
+
+        self.connect('deformer.x_g', ['solver.x_g', 'funcs.x_g'])
+        self.connect('solver.q', 'funcs.q')
+
+        if self.as_coupling:
+            self.connect('geo_disp.x_a', 'deformer.x_a')
+            self.connect('deformer.x_g', 'force.x_g')
+            self.connect('solver.q', 'force.q')
+        else:
+            self.promotes('deformer', inputs=[('x_a', 'x_a0')])
+
 
     def mphy_set_ap(self, ap):
         # set the ap, add inputs and outputs, promote?
         self.solver.set_ap(ap)
-        self.force.set_ap(ap)
         self.funcs.set_ap(ap)
+        if self.as_coupling:
+            self.force.set_ap(ap)
 
         # promote the DVs for this ap
         ap_vars,_ = get_dvs_and_cons(ap=ap)
@@ -658,8 +672,9 @@ class ADflow_group(Group):
             name = args[0]
             size = args[1]
             self.promotes('solver', inputs=[name])
-            self.promotes('force', inputs=[name])
             self.promotes('funcs', inputs=[name])
+            if self.as_coupling:
+                self.promotes('force', inputs=[name])
 
 class ADflow_builder(object):
 
@@ -677,8 +692,8 @@ class ADflow_builder(object):
         return self.solver
 
     # api level method for all builders
-    def get_element(self):
-        return ADflow_group(solver=self.solver)
+    def get_element(self, **kwargs):
+        return ADflow_group(solver=self.solver, **kwargs)
 
     def get_mesh_element(self):
         return AdflowMesh(aero_solver=self.solver)
