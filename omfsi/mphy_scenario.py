@@ -26,7 +26,7 @@ class MPHY_Scenario(om.Group):
         if self.aero_discipline:
             aero = self.aero_builder.get_element(as_coupling=self.as_coupling)
         if self.struct_discipline:
-            struct = self.struct_builder.get_element()
+            struct = self.struct_builder.get_element(as_coupling=self.as_coupling)
         if self.as_coupling:
             disp_xfer, load_xfer = self.xfer_builder.get_element()
 

@@ -566,7 +566,7 @@ class PrescribedLoad(om.ExplicitComponent):
     """
     def initialize(self):
         self.options.declare('load_function', default = None, desc='function that prescribes the loads')
-        self.options.declare('get_tacs', default = None, desc='function to get the tacs assembler')
+        self.options.declare('tacs')
 
         self.options['distributed'] = True
 
@@ -576,9 +576,10 @@ class PrescribedLoad(om.ExplicitComponent):
 #        self.set_check_partial_options(wrt='*',directional=True)
 
         # TACS assembler setup
-        tacs = self.options['get_tacs'](self.comm)
+        tacs = self.options['tacs']
 
         # create some TACS vectors so we can see what size they are
+        # TODO getting the node sizes should be easier than this...
         xpts  = tacs.createNodeVec()
         node_size = xpts.getArray().size
 
@@ -606,10 +607,23 @@ class TACS_group(om.Group):
     def initialize(self):
         self.options.declare('solver')
         self.options.declare('solver_objects')
+        self.options.declare('as_coupling')
 
     def setup(self):
         self.struct_solver = self.options['solver']
         self.struct_objects = self.options['solver_objects']
+        self.as_coupling = self.options['as_coupling']
+
+        # check if we have a loading function
+        solver_dict = self.struct_objects[3]
+
+        if 'load_function' in solver_dict:
+            # TODO add a warning or error if both as coupling and loading function is provided
+            self.prescribed_load = True
+            self.add_subsystem('loads', PrescribedLoad(
+                load_function=solver_dict['load_function'],
+                tacs=self.struct_solver
+            ), promotes_inputs=['x_s0'], promotes_outputs=['f_s'])
 
         self.add_subsystem('solver', TacsSolver(
             struct_solver=self.struct_solver,
@@ -664,6 +678,11 @@ class TACS_builder(object):
         solver_dict['ndof']   = ndof
         solver_dict['nnodes'] = nnodes
         solver_dict['get_funcs'] = self.options['get_funcs']
+
+        # check if the user provided a load function
+        if 'load_function' in self.options:
+            solver_dict['load_function'] = self.options['load_function']
+
         self.solver_dict=solver_dict
 
         # put the rest of the stuff in a tuple
@@ -677,8 +696,8 @@ class TACS_builder(object):
         return self.solver
 
     # api level method for all builders
-    def get_element(self):
-        return TACS_group(solver=self.solver, solver_objects=self.solver_objects)
+    def get_element(self, **kwargs):
+        return TACS_group(solver=self.solver, solver_objects=self.solver_objects, **kwargs)
 
     def get_mesh_element(self):
         return TacsMesh(struct_solver=self.solver)
