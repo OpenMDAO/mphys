@@ -50,7 +50,7 @@ class TacsMesh(om.ExplicitComponent):
             if 'x_s0_points' in d_inputs:
                 d_outputs['x_s0_mesh'] += d_inputs['x_s0_points']
         elif mode == 'rev':
-            if 'x_s0_mesh' in d_outputs:
+            if 'x_s0_points' in d_inputs:
                 d_inputs['x_s0_points'] += d_outputs['x_s0_mesh']
 
 class TacsSolver(om.ImplicitComponent):

@@ -66,7 +66,7 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
                         # do the allreduce
                         # TODO reove the allreduce when this is fixed in openmdao
                         # reduce the result ourselves for now. ideally, openmdao will do the reduction itself when this is fixed. this is because the bcast is also done by openmdao (pyoptsparse, but regardless, it is not done here, so reduce should also not be done here)
-                        # xdotg[k] = self.comm.allreduce(xdot[k], op=MPI.SUM)
+                        xdotg[k] = self.comm.allreduce(xdot[k], op=MPI.SUM)
 
                         # accumulate in the dict
-                        d_inputs[k] += xdot[k]
+                        d_inputs[k] += xdotg[k]

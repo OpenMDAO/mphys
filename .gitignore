@@ -11,3 +11,4 @@
 
 omfsi.egg-info/*
 docs/build/doctrees
+*__pycache__

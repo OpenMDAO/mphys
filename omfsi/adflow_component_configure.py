@@ -54,7 +54,7 @@ class AdflowMesh(ExplicitComponent):
             if 'x_a0_points' in d_inputs:
                 d_outputs['x_a0_mesh'] += d_inputs['x_a0_points']
         elif mode == 'rev':
-            if 'x_a0_mesh' in d_outputs:
+            if 'x_a0_points' in d_inputs:
                 d_inputs['x_a0_points'] += d_outputs['x_a0_mesh']
 
 class Geo_Disp(ExplicitComponent):
@@ -151,15 +151,15 @@ class AdflowWarper(ExplicitComponent):
             if 'x_g' in d_outputs:
                 if 'x_a' in d_inputs:
                     dxS = d_inputs['x_a']
-                    dxV = self.options['solver'].mesh.warpDerivFwd(dxS)
+                    dxV = self.solver.mesh.warpDerivFwd(dxS)
                     d_outputs['x_g'] += dxV
 
         elif mode == 'rev':
             if 'x_g' in d_outputs:
                 if 'x_a' in d_inputs:
                     dxV = d_outputs['x_g']
-                    self.options['solver'].mesh.warpDeriv(dxV)
-                    dxS = self.options['solver'].mesh.getdXs()
+                    self.solver.mesh.warpDeriv(dxV)
+                    dxS = self.solver.mesh.getdXs()
                     d_inputs['x_a'] += dxS.flatten()
 
 class AdflowSolver(ImplicitComponent):
@@ -304,7 +304,7 @@ class AdflowSolver(ImplicitComponent):
 
                 wBar, xVBar, xDVBar = solver.computeJacobianVectorProductBwd(
                     resBar=resBar,
-                    wDeriv=True, xVDeriv=True, xDvDeriv=True)
+                    wDeriv=True, xVDeriv=True, xDvDeriv=False, xDvDerivAero=True)
 
                 if 'q' in d_outputs:
                     d_outputs['q'] += wBar
@@ -435,7 +435,7 @@ class AdflowForces(ExplicitComponent):
 
                 wBar, xVBar, xDVBar = solver.computeJacobianVectorProductBwd(
                     fBar=fBar,
-                    wDeriv=True, xVDeriv=True, xDvDeriv=True)
+                    wDeriv=True, xVDeriv=True, xDvDeriv=False, xDvDerivAero=True)
 
                 if 'x_g' in d_inputs:
                     d_inputs['x_g'] += xVBar
@@ -608,13 +608,10 @@ class AdflowFunctions(ExplicitComponent):
                 # we have to check for 0 here, so we don't include any unnecessary variables in funcsBar
                 # becasue it causes ADflow to do extra work internally even if you give it extra variables, even if the seed is 0
                 if func_name in d_outputs and d_outputs[func_name] != 0.:
-                    funcsBar[func_name] = d_outputs[func_name][0] / self.comm.size
-
-            # because of the 0 checking, the funcsBar is now only correct on the root proc,
-            # so we need to broadcast it to everyone. its not actually important that the seeds are the same everywhere,
-            # but the keys in the dictionary need to be the same.
-            funcsBar = self.comm.bcast(funcsBar, root=0)
-
+                    funcsBar[func_name] = d_outputs[func_name][0]
+                    # this stuff is fixed now. no need to divide
+                    # funcsBar[func_name] = d_outputs[func_name][0] / self.comm.size
+                    # print(self.comm.rank, func_name, funcsBar[func_name])
 
             #print(funcsBar, flush=True)
 
@@ -627,7 +624,7 @@ class AdflowFunctions(ExplicitComponent):
 
             wBar, xVBar, xDVBar = solver.computeJacobianVectorProductBwd(
                 funcsBar=funcsBar,
-                wDeriv=True, xVDeriv=True, xDvDeriv=True)
+                wDeriv=True, xVDeriv=True, xDvDeriv=False, xDvDerivAero=True)
             if 'q' in d_inputs:
                 d_inputs['q'] += wBar
             if 'x_g' in d_inputs:

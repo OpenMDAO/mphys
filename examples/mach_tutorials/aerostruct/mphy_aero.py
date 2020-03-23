@@ -14,6 +14,11 @@ from omfsi.dvgeo_component_configure import OM_DVGEOCOMP
 from baseclasses import *
 from tacs import elements, constitutive, functions
 
+import argparse
+parser=argparse.ArgumentParser()
+parser.add_argument('--task', default='run')
+args = parser.parse_args()
+
 class Top(om.Group):
 
     def setup(self):
@@ -51,10 +56,12 @@ class Top(om.Group):
             'nkswitchtol':1e-4,
 
             # Termination Criteria
-            'L2Convergence':1e-14,
+            'L2Convergence':1e-12,
+            'adjointl2convergence':1e-12,
             'L2ConvergenceCoarse':1e-2,
             # 'L2ConvergenceRel': 1e-4,
             'nCycles':10000,
+            'infchangecorrection':True,
 
             # force integration
             'forcesAsTractions':False,
@@ -147,10 +154,42 @@ class Top(om.Group):
 ################################################################################
 prob = om.Problem()
 prob.model = Top()
-model = prob.model
-prob.setup()
+
+prob.driver = om.pyOptSparseDriver()
+prob.driver.options['optimizer'] = "SNOPT"
+prob.driver.opt_settings ={
+    'Major feasibility tolerance': 1e-4, #1e-4,
+    'Major optimality tolerance': 1e-4, #1e-8,
+    'Verify level': 0,
+    'Major iterations limit':200,
+    'Minor iterations limit':1000000,
+    'Iterations limit':1500000,
+    'Nonderivative linesearch':None,
+    'Major step limit': 0.01,
+    'Function precision':1.0e-8,
+    # 'Difference interval':1.0e-6,
+    # 'Hessian full memory':None,
+    'Hessian frequency' : 200,
+    #'Linesearch tolerance':0.99,
+    'Print file':'SNOPT_print.out',
+    'Summary file': 'SNOPT_summary.out',
+    'Problem Type':'Minimize',
+    #'New superbasics limit':500,
+    'Penalty parameter':1.0}
+
+# prob.driver.options['debug_print'] = ['totals', 'desvars']
+
+prob.setup(mode='rev')
 om.n2(prob, show_browser=False, outfile='mphy_aero.html')
-prob.run_model()
+
+if args.task == 'run':
+    prob.run_model()
+elif args.task == 'opt':
+    prob.run_driver()
+
+prob.model.list_inputs(units=True)
+prob.model.list_outputs(units=True)
+
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
     print("Scenario 0")
