@@ -57,9 +57,7 @@ class MPHY_Multipoint(om.Group):
             # we dont have aerostructural coupling
             self.as_coupling = False
 
-
         # get the mesh elements from disciplines
-        # TODO remove the mesh stuff
         if self.aero_discipline:
             aero_mesh = self.aero_builder.get_mesh_element()
             self.add_subsystem('aero_mesh', aero_mesh)
@@ -78,9 +76,6 @@ class MPHY_Multipoint(om.Group):
 
     def configure(self):
         # connect the initial mesh coordinates.
-        # with the configure-based approach, we do not need to have
-        # separate components just to carry the initial mesh coordinates,
-        # but we can directly pass them to all of the components here.
         # at this stage, everything is allocated and every group/component
         # below this level is set up.
 
@@ -122,3 +117,19 @@ class MPHY_Multipoint(om.Group):
                 as_coupling = self.as_coupling
             )
         )
+
+    def mphy_add_coordinate_input(self):
+        # add the coordinates as inputs for every discipline we have
+        points = {}
+
+        if self.aero_discipline:
+            name, x_a0 = self.aero_mesh.mphy_add_coordinate_input()
+            points['aero_points'] = x_a0
+            self.promotes('aero_mesh', inputs=[(name, 'aero_points')])
+
+        if self.struct_discipline:
+            name, x_s0 = self.struct_mesh.mphy_add_coordinate_input()
+            points['struct_points'] = x_s0
+            self.promotes('struct_mesh', inputs=[(name, 'struct_points')])
+
+        return points

@@ -9,20 +9,10 @@ from omfsi.mphy_multipoint import MPHY_Multipoint
 
 # these imports will be from the respective codes' repos rather than omfsi
 from omfsi.adflow_component_configure import ADflow_builder
-from omfsi.tacs_component_configure import TACS_builder
-from omfsi.meld_xfer_component_configure import MELD_builder
-from omfsi.rlt_xfer_component_configure import RLT_builder
+from omfsi.dvgeo_component_configure import OM_DVGEOCOMP
 
 from baseclasses import *
 from tacs import elements, constitutive, functions
-
-# set these for convenience
-comm = MPI.COMM_WORLD
-rank = comm.rank
-
-# flag to use meld (False for RLT)
-use_meld = True
-# use_meld = False
 
 class Top(om.Group):
 
@@ -80,6 +70,9 @@ class Top(om.Group):
         # ivc to keep the top level DVs
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
 
+        # add the geometry component
+        self.add_subsystem('geo', OM_DVGEOCOMP(ffd_file='ffd.xyz'))
+
         # create the multiphysics multipoint group.
         mp = self.add_subsystem(
             'mp_group',
@@ -104,10 +97,9 @@ class Top(om.Group):
             alpha=1.5,
             areaRef=45.5,
             chordRef=3.25,
-            evalFuncs=['lift','drag', 'cl', 'cd']
+            evalFuncs=['cl', 'cd']
         )
         ap0.addDV('alpha',value=1.5,name='alpha')
-        ap0.addDV('mach',value=0.8,name='mach')
 
         # here we set the aero problems for every cruise case we have.
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
@@ -115,14 +107,40 @@ class Top(om.Group):
         # this call automatically adds the DVs for the respective scenario
         self.mp_group.s0.aero.mphy_set_ap(ap0)
 
-        # define the aero DVs in the IVC
-        # s0
-        self.dvs.add_output('alpha0', val=1.5)
-        self.dvs.add_output('mach0', val=0.8)
+        # create geometric DV setup
+        points = self.mp_group.mphy_add_coordinate_input()
+        # add these points to the geometry object
+        self.geo.nom_add_point_dict(points)
+        # connect
+        for key in points:
+            self.connect('geo.%s'%key, 'mp_group.%s'%key)
 
-        # connect to the aero for each scenario
-        self.connect('alpha0', 'mp_group.s0.aero.alpha')
-        self.connect('mach0', 'mp_group.s0.aero.mach')
+        # geometry setup
+
+        # Create reference axis
+        nRefAxPts = self.geo.nom_addRefAxis(name='wing', xFraction=0.25, alignIndex='k')
+        nTwist = nRefAxPts - 1
+
+        # Set up global design variables
+        def twist(val, geo):
+            for i in range(1, nRefAxPts):
+                geo.rot_z['wing'].coef[i] = val[i-1]
+        self.geo.nom_addGeoDVGlobal(dvName='twist', value=np.array([0]*nTwist), func=twist)
+
+        # add dvs to ivc and connect
+        self.dvs.add_output('alpha', val=1.5)
+        self.dvs.add_output('twist', val=np.array([0]*nTwist))
+
+        self.connect('alpha', 'mp_group.s0.aero.alpha')
+        self.connect('twist', 'geo.twist')
+
+        # define the design variables
+        self.add_design_var('alpha', lower=   0.0, upper=10.0, scaler=0.1)
+        self.add_design_var('twist', lower= -10.0, upper=10.0, scaler=0.01)
+
+        # add constraints and the objective
+        self.add_constraint('mp_group.s0.aero.funcs.cl', equals=0.5, scaler=10.0)
+        self.add_objective('mp_group.s0.aero.funcs.cd', scaler=100.0)
 
 ################################################################################
 # OpenMDAO setup

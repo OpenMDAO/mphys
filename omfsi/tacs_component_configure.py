@@ -26,8 +26,32 @@ class TacsMesh(om.ExplicitComponent):
         node_size  =     self.xpts.getArray().size
         self.add_output('x_s0_mesh', shape=node_size, desc='structural node coordinates')
 
+    def mphy_add_coordinate_input(self):
+        local_size  = self.xpts.getArray().size
+        n_list = self.comm.allgather(local_size)
+        irank  = self.comm.rank
+
+        n1 = np.sum(n_list[:irank])
+        n2 = np.sum(n_list[:irank+1])
+
+        self.add_input('x_s0_points', shape=node_size, src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
+
+        # return the promoted name and coordinates
+        return 'x_s0_points', self.xpts.getArray()
+
     def compute(self,inputs,outputs):
-        outputs['x_s0_mesh'] = self.xpts.getArray()
+        if 'x_s0_points' in inputs:
+            outputs['x_s0_mesh'] = inputs['x_s0_points']
+        else:
+            outputs['x_s0_mesh'] = self.xpts.getArray()
+
+    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
+        if mode == 'fwd':
+            if 'x_s0_points' in d_inputs:
+                d_outputs['x_s0_mesh'] += d_inputs['x_s0_points']
+        elif mode == 'rev':
+            if 'x_s0_mesh' in d_outputs:
+                d_inputs['x_s0_points'] += d_outputs['x_s0_mesh']
 
 class TacsSolver(om.ImplicitComponent):
     """
