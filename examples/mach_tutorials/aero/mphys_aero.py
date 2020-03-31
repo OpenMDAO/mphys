@@ -97,7 +97,7 @@ prob = om.Problem()
 prob.model = Top()
 
 prob.setup()
-# om.n2(prob, show_browser=False, outfile='mphy_aero.html')
+# om.n2(prob, show_browser=False, outfile='mphys_aero.html')
 
 prob.run_model()
 
