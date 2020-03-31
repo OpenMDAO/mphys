@@ -7,11 +7,10 @@ import openmdao.api as om
 
 from tacs import elements, constitutive, functions
 
-from omfsi.as_multipoint import AS_Multipoint
-from omfsi.vlm_component_configure import VLM_builder
-# from omfsi.modal_structure_component_configure import TACS_modal_builder
-from omfsi.tacs_component_configure import TACS_builder
-from omfsi.meld_xfer_component_configure import MELD_builder
+from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.mphys_vlm import VLM_builder
+from mphys.mphys_tacs import TACS_builder
+from mphys.mphys_meld import MELD_builder
 
 use_modal = True
 use_modal = False
@@ -121,7 +120,7 @@ class Top(om.Group):
         meld_builder = MELD_builder(meld_options, vlm_builder, tacs_builder)
 
         ################################################################################
-        # MPHY setup
+        # MPHYS setup
         ################################################################################
         # ivc to keep the top level DVs
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
@@ -129,7 +128,7 @@ class Top(om.Group):
         # each AS_Multipoint instance can keep multiple points with the same formulation
         mp = self.add_subsystem(
             'mp_group',
-            AS_Multipoint(
+            MPHYS_Multipoint(
                 aero_builder   = vlm_builder,
                 struct_builder = tacs_builder,
                 xfer_builder   = meld_builder
@@ -137,7 +136,7 @@ class Top(om.Group):
         )
 
         # this is the method that needs to be called for every point in this mp_group
-        mp.mphy_add_scenario('s0')
+        mp.mphys_add_scenario('s0')
 
     def configure(self):
 
@@ -167,7 +166,7 @@ prob.setup()
 # model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=20, iprint=2, use_aitken=False, rtol = 1E-14, atol=1E-14)
 # model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, rtol = 1e-14, atol=1e-14)
 
-om.n2(prob, show_browser=False, outfile='as_vlm_configure.html')
+om.n2(prob, show_browser=False, outfile='mphys_as_vlm.html')
 
 prob.run_model()
 
