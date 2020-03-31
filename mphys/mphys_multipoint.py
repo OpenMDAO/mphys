@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import openmdao.api as om
-from omfsi.mphys_scenario import MPHYS_Scenario
-from omfsi.mphys_error import MPHYS_Error
+from mphys.mphys_scenario import MPHYS_Scenario
+from mphys.mphys_error import MPHYS_Error
 
 class MPHYS_Multipoint(om.Group):
 

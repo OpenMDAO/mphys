@@ -5,24 +5,15 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from omfsi.mphy_multipoint import MPHY_Multipoint
+from mphys.mphys_multipoint import MPHYS_Multipoint
 
 # these imports will be from the respective codes' repos rather than omfsi
-from omfsi.adflow_component_configure import ADflow_builder
-from omfsi.tacs_component_configure import TACS_builder
-from omfsi.meld_xfer_component_configure import MELD_builder
-from omfsi.rlt_xfer_component_configure import RLT_builder
-
-from baseclasses import *
+from mphys.mphys_tacs import TACS_builder
 from tacs import elements, constitutive, functions
 
 # set these for convenience
 comm = MPI.COMM_WORLD
 rank = comm.rank
-
-# flag to use meld (False for RLT)
-use_meld = True
-# use_meld = False
 
 class Top(om.Group):
 
@@ -84,11 +75,11 @@ class Top(om.Group):
         # create the multiphysics multipoint group.
         mp = self.add_subsystem(
             'mp_group',
-            MPHY_Multipoint(struct_builder = tacs_builder)
+            MPHYS_Multipoint(struct_builder = tacs_builder)
         )
 
         # this is the method that needs to be called for every point in this mp_group
-        mp.mphy_add_scenario('s0')
+        mp.mphys_add_scenario('s0')
 
     def configure(self):
         # add the structural thickness DVs
@@ -103,7 +94,7 @@ prob = om.Problem()
 prob.model = Top()
 model = prob.model
 prob.setup()
-om.n2(prob, show_browser=False, outfile='mphy_struct.html')
+om.n2(prob, show_browser=False, outfile='mphys_struct.html')
 prob.run_model()
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
