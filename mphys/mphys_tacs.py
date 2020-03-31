@@ -3,7 +3,6 @@ import numpy as np
 
 import openmdao.api as om
 from tacs import TACS,functions
-from omfsi.assembler import OmfsiSolverAssembler
 
 class TacsMesh(om.ExplicitComponent):
     """
