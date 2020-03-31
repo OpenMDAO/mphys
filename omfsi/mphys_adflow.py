@@ -30,7 +30,7 @@ class AdflowMesh(ExplicitComponent):
 
         self.add_output('x_a0_mesh', shape=coord_size, desc='initial aerodynamic surface node coordinates')
 
-    def mphy_add_coordinate_input(self):
+    def mphys_add_coordinate_input(self):
         local_size = self.x_a0.size
         n_list = self.comm.allgather(local_size)
         irank  = self.comm.rank
@@ -679,7 +679,7 @@ class ADflow_group(Group):
             self.promotes('deformer', inputs=[('x_a', 'x_a0')])
 
 
-    def mphy_set_ap(self, ap):
+    def mphys_set_ap(self, ap):
         # set the ap, add inputs and outputs, promote?
         self.solver.set_ap(ap)
         self.funcs.set_ap(ap)

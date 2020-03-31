@@ -26,7 +26,7 @@ class TacsMesh(om.ExplicitComponent):
         node_size  =     self.xpts.getArray().size
         self.add_output('x_s0_mesh', shape=node_size, desc='structural node coordinates')
 
-    def mphy_add_coordinate_input(self):
+    def mphys_add_coordinate_input(self):
         local_size  = self.xpts.getArray().size
         n_list = self.comm.allgather(local_size)
         irank  = self.comm.rank

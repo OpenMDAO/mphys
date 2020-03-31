@@ -1,9 +1,9 @@
 from collections import OrderedDict
 import openmdao.api as om
-from omfsi.mphy_scenario import MPHY_Scenario
-from omfsi.mphy_error import MPHY_Error
+from omfsi.mphys_scenario import MPHYS_Scenario
+from omfsi.mphys_error import MPHYS_Error
 
-class MPHY_Multipoint(om.Group):
+class MPHYS_Multipoint(om.Group):
 
     def initialize(self):
 
@@ -49,7 +49,7 @@ class MPHY_Multipoint(om.Group):
 
             # we need a xfer builder for aero and structures
             if self.xfer_builder is None:
-                raise MPHY_Error('MPHY_Multipoint group requires a transfer builder to couple aerodynamic and structural analyses.')
+                raise MPHYS_Error('MPHYS_Multipoint group requires a transfer builder to couple aerodynamic and structural analyses.')
 
             # now initialize the xfer object
             self.xfer_builder.init_xfer_object(self.comm)
@@ -68,7 +68,7 @@ class MPHY_Multipoint(om.Group):
 
         # add openmdao groups for each scenario
         for name, kwargs in self.scenarios.items():
-            self._mphy_add_scenario(name, **kwargs)
+            self._mphys_add_scenario(name, **kwargs)
 
         # set solvers
         self.nonlinear_solver = om.NonlinearRunOnce()
@@ -97,16 +97,16 @@ class MPHY_Multipoint(om.Group):
 
                 self.connect('aero_mesh.x_a0_mesh', target_x_a0)
 
-    def mphy_add_scenario(self, name, **kwargs):
+    def mphys_add_scenario(self, name, **kwargs):
         # save all the data until we are ready to initialize the objects themselves
         self.scenarios[name] = kwargs
 
-    def _mphy_add_scenario(self, name, min_procs=None, max_procs=None, aero_kwargs={}, struct_kwargs={}, xfer_kwargs={}):
+    def _mphys_add_scenario(self, name, min_procs=None, max_procs=None, aero_kwargs={}, struct_kwargs={}, xfer_kwargs={}):
         # this is the actual routine that does the addition of the OpenMDAO groups
         # this is called during the setup of this class
         self.add_subsystem(
             name,
-            MPHY_Scenario(
+            MPHYS_Scenario(
                 builders = {
                     'aero': self.aero_builder,
                     'struct': self.struct_builder,
@@ -118,17 +118,17 @@ class MPHY_Multipoint(om.Group):
             )
         )
 
-    def mphy_add_coordinate_input(self):
+    def mphys_add_coordinate_input(self):
         # add the coordinates as inputs for every discipline we have
         points = {}
 
         if self.aero_discipline:
-            name, x_a0 = self.aero_mesh.mphy_add_coordinate_input()
+            name, x_a0 = self.aero_mesh.mphys_add_coordinate_input()
             points['aero_points'] = x_a0
             self.promotes('aero_mesh', inputs=[(name, 'aero_points')])
 
         if self.struct_discipline:
-            name, x_s0 = self.struct_mesh.mphy_add_coordinate_input()
+            name, x_s0 = self.struct_mesh.mphys_add_coordinate_input()
             points['struct_points'] = x_s0
             self.promotes('struct_mesh', inputs=[(name, 'struct_points')])
 

@@ -33,7 +33,7 @@ class AS_Multipoint(om.Group):
 
         # add openmdao groups for each scenario
         for name, kwargs in self.scenarios.items():
-            self._mphy_add_scenario(name, **kwargs)
+            self._mphys_add_scenario(name, **kwargs)
 
         # set solvers
         self.nonlinear_solver = om.NonlinearRunOnce()
@@ -63,7 +63,7 @@ class AS_Multipoint(om.Group):
             ]
             self.connect('aero_mesh.x_a0_mesh', target_x_a0)
 
-    def mphy_add_scenario(self, name, **kwargs):
+    def mphys_add_scenario(self, name, **kwargs):
         # save all the inputs here until we are ready to do the initialization
 
         # create the dict if we haven't done already
@@ -75,7 +75,7 @@ class AS_Multipoint(om.Group):
         # save all the data until we are ready to initialize the objects themselves
         self.scenarios[name] = kwargs
 
-    def _mphy_add_scenario(self, name, min_procs=None, max_procs=None, aero_kwargs={}, struct_kwargs={}, xfer_kwargs={}):
+    def _mphys_add_scenario(self, name, min_procs=None, max_procs=None, aero_kwargs={}, struct_kwargs={}, xfer_kwargs={}):
         # this is the actual routine that does the addition of the OpenMDAO groups
         # this is called during the setup of this class
         self.add_subsystem(
