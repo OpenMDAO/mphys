@@ -5,14 +5,13 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from omfsi.mphy_multipoint import MPHY_Multipoint
+from mphys.mphys_multipoint import MPHYS_Multipoint
 
-# these imports will be from the respective codes' repos rather than omfsi
-from omfsi.adflow_component_configure import ADflow_builder
-from omfsi.dvgeo_component_configure import OM_DVGEOCOMP
+# these imports will be from the respective codes' repos rather than mphys
+from mphys.mphys_adflow import ADflow_builder
+from mphys.dvgeo_component_configure import OM_DVGEOCOMP
 
 from baseclasses import *
-from tacs import elements, constitutive, functions
 
 import argparse
 parser=argparse.ArgumentParser()
@@ -71,7 +70,7 @@ class Top(om.Group):
 
 
         ################################################################################
-        # MPHY setup
+        # mphys setup
         ################################################################################
 
         # ivc to keep the top level DVs
@@ -83,14 +82,14 @@ class Top(om.Group):
         # create the multiphysics multipoint group.
         mp = self.add_subsystem(
             'mp_group',
-            MPHY_Multipoint(
+            MPHYS_Multipoint(
                 aero_builder   = adflow_builder
             )
         )
 
         # this is the method that needs to be called for every point in this mp_group
-        mp.mphy_add_scenario('s0')
-        mp.mphy_add_scenario('s1')
+        mp.mphys_add_scenario('s0')
+        mp.mphys_add_scenario('s1')
 
         # add an exec comp to average two drags
         self.add_subsystem('drag', om.ExecComp('cd_out=(cd0+cd1)/2'))
@@ -127,11 +126,11 @@ class Top(om.Group):
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
-        self.mp_group.s0.aero.mphy_set_ap(ap0)
-        self.mp_group.s1.aero.mphy_set_ap(ap1)
+        self.mp_group.s0.aero.mphys_set_ap(ap0)
+        self.mp_group.s1.aero.mphys_set_ap(ap1)
 
         # create geometric DV setup
-        points = self.mp_group.mphy_add_coordinate_input()
+        points = self.mp_group.mphys_add_coordinate_input()
         # add these points to the geometry object
         self.geo.nom_add_point_dict(points)
         # connect
