@@ -5,12 +5,13 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from omfsi.as_multipoint import AS_Multipoint
+from mphys.mphys_multipoint import MPHYS_Multipoint
 
-# these imports will be from the respective codes' repos rather than omfsi
-from omfsi.adflow_component_configure import ADflow_builder
-from omfsi.tacs_component_configure import TACS_builder
-from omfsi.meld_xfer_component_configure import MELD_builder
+# these imports will be from the respective codes' repos rather than mphys
+from mphys.mphys_adflow import ADflow_builder
+from mphys.mphys_tacs import TACS_builder
+from mphys.mphys_meld import MELD_builder
+from mphys.mphys_rlt import RLT_builder
 
 from baseclasses import *
 from tacs import elements, constitutive, functions
@@ -18,6 +19,10 @@ from tacs import elements, constitutive, functions
 # set these for convenience
 comm = MPI.COMM_WORLD
 rank = comm.rank
+
+# flag to use meld (False for RLT)
+use_meld = True
+# use_meld = False
 
 class Top(om.Group):
 
@@ -118,7 +123,7 @@ class Top(om.Group):
         meld_builder = MELD_builder(xfer_options, adflow_builder, tacs_builder)
 
         ################################################################################
-        # MPHY setup
+        # MPHYS setup
         ################################################################################
 
         # ivc to keep the top level DVs
@@ -138,7 +143,7 @@ class Top(om.Group):
             # wants to add additional points with a different numerical formulation,
             # they need to create another instance of AS_Multipoint with desired
             # builders.
-            AS_Multipoint(
+            MPHYS_Multipoint(
                 aero_builder   = adflow_builder,
                 struct_builder = tacs_builder,
                 xfer_builder   = meld_builder
@@ -149,7 +154,7 @@ class Top(om.Group):
         )
 
         # this is the method that needs to be called for every point in this mp_group
-        mp.mphy_add_scenario(
+        mp.mphys_add_scenario(
             # name of the point
             's0',
             # The users can specify the proc counts here using an API very similar
@@ -164,7 +169,7 @@ class Top(om.Group):
         )
 
         # similarly, add a second point. the optional arguments above are all defaults
-        mp.mphy_add_scenario('s1')
+        mp.mphys_add_scenario('s1')
 
     def configure(self):
         # create the aero problems for both analysis point.
@@ -201,7 +206,7 @@ class Top(om.Group):
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
-        self.mp_group.s0.aero.mphy_set_ap(ap0)
+        self.mp_group.s0.aero.mphys_set_ap(ap0)
         # we can either set the same or a different aero problem
         # if we use the same, adflow will re-use the state from previous analysis
         # if we use different APs, adflow will start second analysis from free stream
@@ -209,7 +214,7 @@ class Top(om.Group):
         # this is preferred because in an optimization, the previous state for both
         # aero problems will be conserved as the design changes and this will result
         # in faster convergence.
-        self.mp_group.s1.aero.mphy_set_ap(ap1)
+        self.mp_group.s1.aero.mphys_set_ap(ap1)
 
         # define the aero DVs in the IVC
         # s0
@@ -232,7 +237,7 @@ class Top(om.Group):
 
         # we can also add additional design variables, constraints and set the objective function here.
         # every solver is already initialized, so we can perform solver-specific calls
-        # that are not in default MPHY API.
+        # that are not in default MPHYS API.
 
 ################################################################################
 # OpenMDAO setup
@@ -241,7 +246,7 @@ prob = om.Problem()
 prob.model = Top()
 model = prob.model
 prob.setup()
-om.n2(prob, show_browser=False, outfile='as_configure_2scenario.html')
+om.n2(prob, show_browser=False, outfile='mphys_as_2scenario.html')
 prob.run_model()
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
