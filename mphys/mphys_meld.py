@@ -1,72 +1,16 @@
 import numpy as np
-
-from openmdao.api import ExplicitComponent
+import openmdao.api as om
 from funtofem import TransferScheme
-from omfsi.assembler import OmfsiAssembler
 
-class MeldAssembler(OmfsiAssembler):
-    def __init__(self,options,struct_assembler,aero_assembler,check_partials=False):
-        self.check_partials = check_partials
-
-        # transfer scheme options
-        self.isym = options['isym']
-        self.n    = options['n']
-        self.beta = options['beta']
-
-        self.struct_assembler = struct_assembler
-        self.aero_assembler = aero_assembler
-
-        self.meld = None
-
-    def _get_meld(self):
-        if self.meld is None:
-            self.meld = TransferScheme.pyMELD(self.comm,
-                                              self.aero_assembler.comm,0,
-                                              self.struct_assembler.comm,0,
-                                              self.isym,self.n,self.beta)
-        return self.meld
-
-    def add_model_components(self,model,connection_srcs):
-        pass
-    def add_scenario_components(self,model,scenario,connection_srcs):
-        pass
-    def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
-
-        disp = fsi_group.add_subsystem('disp_xfer',MeldDisplacementTransfer(setup_function = self.xfer_setup))
-        load = fsi_group.add_subsystem('load_xfer',MeldLoadTransfer(setup_function = self.xfer_setup))
-
-        disp.check_partials = self.check_partials
-        load.check_partials = self.check_partials
-
-        connection_srcs['u_a'] = scenario.name+'.'+fsi_group.name+'.disp_xfer.u_a'
-        connection_srcs['f_s'] = scenario.name+'.'+fsi_group.name+'.load_xfer.f_s'
-
-    def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
-        model.connect(connection_srcs['u_s'],[scenario.name+'.'+fsi_group.name+'.disp_xfer.u_s',
-                                                 scenario.name+'.'+fsi_group.name+'.load_xfer.u_s'])
-
-        model.connect(connection_srcs['f_a'],[scenario.name+'.'+fsi_group.name+'.load_xfer.f_a'])
-
-        model.connect(connection_srcs['x_s0'],[scenario.name+'.'+fsi_group.name+'.disp_xfer.x_s0',
-                                                  scenario.name+'.'+fsi_group.name+'.load_xfer.x_s0'])
-        model.connect(connection_srcs['x_a0'],[scenario.name+'.'+fsi_group.name+'.disp_xfer.x_a0',
-                                                  scenario.name+'.'+fsi_group.name+'.load_xfer.x_a0'])
-    def xfer_setup(self,comm):
-        self.comm = comm
-        self.struct_assembler.comm = comm
-        meld = self._get_meld()
-        struct_ndof   = self.struct_assembler.get_ndof()
-        struct_nnodes = self.struct_assembler.get_nnodes()
-        aero_nnodes   = self.aero_assembler.get_nnodes()
-
-        return meld, struct_ndof, struct_nnodes, aero_nnodes
-
-class MeldDisplacementTransfer(ExplicitComponent):
+class MELD_disp_xfer(om.ExplicitComponent):
     """
     Component to perform displacement transfer using MELD
     """
     def initialize(self):
-        self.options.declare('setup_function', desc='function to get shared data')
+        self.options.declare('xfer_object')
+        self.options.declare('struct_ndof')
+        self.options.declare('struct_nnodes')
+        self.options.declare('aero_nnodes')
 
         self.options['distributed'] = True
 
@@ -77,15 +21,19 @@ class MeldDisplacementTransfer(ExplicitComponent):
         self.struct_nnodes = None
         self.aero_nnodes = None
 
+        # TODO define this as an option
         self.check_partials = False
 
     def setup(self):
-        meld, struct_ndof, struct_nnodes, aero_nnodes = self.options['setup_function'](self.comm)
+        self.meld = self.options['xfer_object']
 
-        self.meld = meld
-        self.struct_ndof   = struct_ndof
-        self.struct_nnodes = struct_nnodes
-        self.aero_nnodes   = aero_nnodes
+        self.struct_ndof   = self.options['struct_ndof']
+        self.struct_nnodes = self.options['struct_nnodes']
+        self.aero_nnodes   = self.options['aero_nnodes']
+
+        struct_ndof = self.struct_ndof
+        struct_nnodes = self.struct_nnodes
+        aero_nnodes = self.aero_nnodes
 
         irank = self.comm.rank
 
@@ -111,8 +59,6 @@ class MeldDisplacementTransfer(ExplicitComponent):
 
         # partials
         #self.declare_partials('u_a',['x_s0','x_a0','u_s'])
-
-        #self.set_check_partial_options(wrt='*',directional=True,method='cs')
 
     def compute(self, inputs, outputs):
         x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
@@ -185,12 +131,15 @@ class MeldDisplacementTransfer(ExplicitComponent):
                     self.meld.applydDdxS0(du_a,prod)
                     d_inputs['x_s0'] -= np.array(prod,dtype=float)
 
-class MeldLoadTransfer(ExplicitComponent):
+class MELD_load_xfer(om.ExplicitComponent):
     """
     Component to perform load transfers using MELD
     """
     def initialize(self):
-        self.options.declare('setup_function', desc='function to get shared data')
+        self.options.declare('xfer_object')
+        self.options.declare('struct_ndof')
+        self.options.declare('struct_nnodes')
+        self.options.declare('aero_nnodes')
 
         self.options['distributed'] = True
 
@@ -205,12 +154,15 @@ class MeldLoadTransfer(ExplicitComponent):
 
     def setup(self):
         # get the transfer scheme object
-        meld, struct_ndof, struct_nnodes, aero_nnodes = self.options['setup_function'](self.comm)
+        self.meld = self.options['xfer_object']
 
-        self.meld = meld
-        self.struct_ndof   = struct_ndof
-        self.struct_nnodes = struct_nnodes
-        self.aero_nnodes   = aero_nnodes
+        self.struct_ndof   = self.options['struct_ndof']
+        self.struct_nnodes = self.options['struct_nnodes']
+        self.aero_nnodes   = self.options['aero_nnodes']
+
+        struct_ndof = self.struct_ndof
+        struct_nnodes = self.struct_nnodes
+        aero_nnodes = self.aero_nnodes
 
         irank = self.comm.rank
 
@@ -237,8 +189,6 @@ class MeldLoadTransfer(ExplicitComponent):
 
         # partials
         #self.declare_partials('f_s',['x_s0','x_a0','u_s','f_a'])
-
-        #self.set_check_partial_options(wrt='*',directional=True,method='cs')
 
     def compute(self, inputs, outputs):
         u_s  = np.zeros(self.struct_nnodes*3)
@@ -338,3 +288,50 @@ class MeldLoadTransfer(ExplicitComponent):
                     prod = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
                     self.meld.applydLdxS0(d_out,prod)
                     d_inputs['x_s0'] -= np.array(prod,dtype=float)
+
+class MELD_builder(object):
+
+    def __init__(self, options, aero_builder, struct_builder):
+        self.options=options
+        # TODO we can move the aero and struct builder to init_xfer_object call so that user does not need to worry about this
+        self.aero_builder = aero_builder
+        self.struct_builder = struct_builder
+
+    # api level method for all builders
+    def init_xfer_object(self, comm):
+        # create the transfer
+        self.xfer_object = TransferScheme.pyMELD(comm,
+                                                 comm, 0,
+                                                 comm, 0,
+                                                 self.options['isym'],
+                                                 self.options['n'],
+                                                 self.options['beta'])
+
+        # TODO also do the necessary calls to the struct and aero builders to fully initialize MELD
+        # for now, just save the counts
+        self.struct_ndof = self.struct_builder.get_ndof()
+        self.struct_nnodes = self.struct_builder.get_nnodes()
+        self.aero_nnodes = self.aero_builder.get_nnodes()
+
+    # api level method for all builders
+    def get_xfer_object(self):
+        return self.xfer_object
+
+    # api level method for all builders
+    def get_element(self):
+
+        disp_xfer = MELD_disp_xfer(
+            xfer_object=self.xfer_object,
+            struct_ndof=self.struct_ndof,
+            struct_nnodes=self.struct_nnodes,
+            aero_nnodes=self.aero_nnodes,
+        )
+
+        load_xfer = MELD_load_xfer(
+            xfer_object=self.xfer_object,
+            struct_ndof=self.struct_ndof,
+            struct_nnodes=self.struct_nnodes,
+            aero_nnodes=self.aero_nnodes,
+        )
+
+        return disp_xfer, load_xfer

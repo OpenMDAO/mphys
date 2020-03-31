@@ -8,3 +8,7 @@
 *f5
 *html
 *bdf
+
+mphys.egg-info/*
+docs/build/doctrees
+*__pycache__
