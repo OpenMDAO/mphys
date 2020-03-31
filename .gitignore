@@ -9,6 +9,6 @@
 *html
 *bdf
 
-omfsi.egg-info/*
+mphys.egg-info/*
 docs/build/doctrees
 *__pycache__
