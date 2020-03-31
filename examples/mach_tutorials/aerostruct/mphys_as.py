@@ -5,13 +5,13 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from omfsi.as_multipoint import AS_Multipoint
+from mphys.mphys_multipoint import MPHYS_Multipoint
 
-# these imports will be from the respective codes' repos rather than omfsi
-from omfsi.adflow_component_configure import ADflow_builder
-from omfsi.tacs_component_configure import TACS_builder
-from omfsi.meld_xfer_component_configure import MELD_builder
-from omfsi.rlt_xfer_component_configure import RLT_builder
+# these imports will be from the respective codes' repos rather than mphys
+from mphys.mphys_adflow import ADflow_builder
+from mphys.mphys_tacs import TACS_builder
+from mphys.mphys_meld import MELD_builder
+from mphys.mphys_rlt import RLT_builder
 
 from baseclasses import *
 from tacs import elements, constitutive, functions
@@ -130,48 +130,24 @@ class Top(om.Group):
             xfer_builder = RLT_builder(xfer_options, adflow_builder, tacs_builder)
 
         ################################################################################
-        # MPHY setup
+        # MPHYS setup
         ################################################################################
 
         # ivc to keep the top level DVs
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
-        # dvs.add_output('foo')
 
-        # each AS_Multipoint instance can keep multiple points with the SAME FORMULATION
-        # e.g. these cases will have the same aero struct and xfer formulation and meshes
-        # solver-specific options can be different, and they can be adjusted in configure.
+        # create the multiphysics multipoint group.
         mp = self.add_subsystem(
             'mp_group',
-            # this AS_Multipoint instance uses ADflow, TACS and MELD. This mp_group
-            # can contain multiple points (scenarios, flow conditions, etc.); however,
-            # all of these cases must use the same numerical formulation. If the user
-            # wants to add additional points with a different numerical formulation,
-            # they need to create another instance of AS_Multipoint with desired
-            # builders.
-            AS_Multipoint(
+            MPHYS_Multipoint(
                 aero_builder   = adflow_builder,
                 struct_builder = tacs_builder,
                 xfer_builder   = xfer_builder
-            ),
-            # the user can define a custom limit on proc count for this group of
-            # multipoint cases here
-            max_procs=MPI.COMM_WORLD.size
+            )
         )
 
         # this is the method that needs to be called for every point in this mp_group
-        mp.mphy_add_scenario(
-            # name of the point
-            's0',
-            # The users can specify the proc counts here using an API very similar
-            # to the default OpenMDAO API (Note this is not a default OpenMDAO call)
-            min_procs=1,
-            max_procs=MPI.COMM_WORLD.size,
-            # scenario kwargs will overload any kwargs defaults from the MP group,
-            # useful if you wanted to customize this point
-            aero_kwargs={},
-            struct_kwargs={},
-            xfer_kwargs={},
-        )
+        mp.mphys_add_scenario('s0')
 
     def configure(self):
         # create the aero problems for both analysis point.
@@ -195,7 +171,7 @@ class Top(om.Group):
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
-        self.mp_group.s0.aero.mphy_set_ap(ap0)
+        self.mp_group.s0.aero.mphys_set_ap(ap0)
 
         # define the aero DVs in the IVC
         # s0
@@ -213,7 +189,7 @@ class Top(om.Group):
 
         # we can also add additional design variables, constraints and set the objective function here.
         # every solver is already initialized, so we can perform solver-specific calls
-        # that are not in default MPHY API.
+        # that are not in default MPHYS API.
 
 ################################################################################
 # OpenMDAO setup
@@ -222,7 +198,7 @@ prob = om.Problem()
 prob.model = Top()
 model = prob.model
 prob.setup()
-om.n2(prob, show_browser=False, outfile='as_configure_2scenario.html')
+om.n2(prob, show_browser=False, outfile='mphys_as.html')
 prob.run_model()
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
