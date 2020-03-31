@@ -3,7 +3,7 @@ import numpy as np
 
 import openmdao.api as om
 
-from omfsi.geo_disp import Geo_Disp
+from mphys.geo_disp import Geo_Disp
 from vlm_solver import VLM_solver, VLM_forces
 
 class VlmMesh(om.ExplicitComponent):
