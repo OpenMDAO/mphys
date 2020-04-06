@@ -11,6 +11,7 @@ class MELD_disp_xfer(om.ExplicitComponent):
         self.options.declare('struct_ndof')
         self.options.declare('struct_nnodes')
         self.options.declare('aero_nnodes')
+        self.options.declare('check_partials')
 
         self.options['distributed'] = True
 
@@ -20,8 +21,6 @@ class MELD_disp_xfer(om.ExplicitComponent):
         self.struct_ndof = None
         self.struct_nnodes = None
         self.aero_nnodes = None
-
-        # TODO define this as an option
         self.check_partials = False
 
     def setup(self):
@@ -30,6 +29,7 @@ class MELD_disp_xfer(om.ExplicitComponent):
         self.struct_ndof   = self.options['struct_ndof']
         self.struct_nnodes = self.options['struct_nnodes']
         self.aero_nnodes   = self.options['aero_nnodes']
+        self.check_partials= self.options['check_partials']
 
         struct_ndof = self.struct_ndof
         struct_nnodes = self.struct_nnodes
@@ -140,6 +140,7 @@ class MELD_load_xfer(om.ExplicitComponent):
         self.options.declare('struct_ndof')
         self.options.declare('struct_nnodes')
         self.options.declare('aero_nnodes')
+        self.options.declare('check_partials')
 
         self.options['distributed'] = True
 
@@ -149,7 +150,6 @@ class MELD_load_xfer(om.ExplicitComponent):
         self.struct_ndof = None
         self.struct_nnodes = None
         self.aero_nnodes = None
-
         self.check_partials = False
 
     def setup(self):
@@ -159,6 +159,7 @@ class MELD_load_xfer(om.ExplicitComponent):
         self.struct_ndof   = self.options['struct_ndof']
         self.struct_nnodes = self.options['struct_nnodes']
         self.aero_nnodes   = self.options['aero_nnodes']
+        self.check_partials= self.options['check_partials']
 
         struct_ndof = self.struct_ndof
         struct_nnodes = self.struct_nnodes
@@ -291,8 +292,9 @@ class MELD_load_xfer(om.ExplicitComponent):
 
 class MELD_builder(object):
 
-    def __init__(self, options, aero_builder, struct_builder):
+    def __init__(self, options, aero_builder, struct_builder,check_partials=False):
         self.options=options
+        self.check_partials = check_partials
         # TODO we can move the aero and struct builder to init_xfer_object call so that user does not need to worry about this
         self.aero_builder = aero_builder
         self.struct_builder = struct_builder
@@ -325,6 +327,7 @@ class MELD_builder(object):
             struct_ndof=self.struct_ndof,
             struct_nnodes=self.struct_nnodes,
             aero_nnodes=self.aero_nnodes,
+            check_partials=self.check_partials
         )
 
         load_xfer = MELD_load_xfer(
@@ -332,6 +335,7 @@ class MELD_builder(object):
             struct_ndof=self.struct_ndof,
             struct_nnodes=self.struct_nnodes,
             aero_nnodes=self.aero_nnodes,
+            check_partials=self.check_partials
         )
 
         return disp_xfer, load_xfer
