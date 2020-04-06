@@ -1,169 +1,149 @@
-# must compile funtofem and tacs in complex mode
-
-#rst Imports
 from __future__ import print_function, division
-import numpy
-#from baseclasses import *
 from mpi4py import MPI
-from tacs import elements, constitutive
+import numpy as np
 
-from omfsi.fsi_assembler import *
-from omfsi.vlm_component import *
-from omfsi.modal_structure_component import *
-from omfsi.tacs_component import *
-from omfsi.meld_xfer_component import *
+import openmdao.api as om
 
-from openmdao.api import Problem, ScipyOptimizeDriver
-from openmdao.api import ExplicitComponent, ExecComp, IndepVarComp, Group
-from openmdao.api import NonlinearRunOnce, LinearRunOnce
-from openmdao.api import NonlinearBlockGS, LinearBlockGS
-from openmdao.api import view_model
+from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.mphys_vlm import VLM_builder
+from mphys.mphys_tacs import TACS_builder
+from mphys.mphys_meld import MELD_builder
 
-use_modal = True
+from tacs import elements, constitutive, functions
+
 use_modal = False
-comm = MPI.COMM_WORLD
 
-# VLM options
+class Top(om.Group):
+    def setup(self):
+        # VLM options
+        aero_options = {
+            'mesh_file':'debug_VLM.dat',
+            'mach':0.85,
+            'alpha':1*np.pi/180.,
+            'q_inf':25000.,
+            'vel':178.,
+            'mu':3.5E-5,
+        }
 
-aero_options = {
-    'mesh_file':'debug_VLM.dat',
-    'mach':0.85,
-    'alpha':1*np.pi/180.,
-    'q_inf':25000.,
-    'vel':178.,
-    'mu':3.5E-5,
-}
+        # VLM mesh read
+        def read_VLM_mesh(mesh):
+            f=open(mesh, "r")
+            contents = f.read().split()
 
-# VLM mesh read
+            a = [i for i in contents if 'NODES' in i][0]
+            N_nodes = int(a[a.find("=")+1:a.find(",")])
+            a = [i for i in contents if 'ELEMENTS' in i][0]
+            N_elements = int(a[a.find("=")+1:a.find(",")])
 
-def read_VLM_mesh(mesh):
-    f=open(mesh, "r")
-    contents = f.read().split()
+            a = np.array(contents[16:16+N_nodes*3],'float')
+            X = a[0:N_nodes*3:3]
+            Y = a[1:N_nodes*3:3]
+            Z = a[2:N_nodes*3:3]
+            a = np.array(contents[16+N_nodes*3:None],'int')
+            quad = np.reshape(a,[N_elements,4])
 
-    a = [i for i in contents if 'NODES' in i][0]
-    N_nodes = int(a[a.find("=")+1:a.find(",")])
-    a = [i for i in contents if 'ELEMENTS' in i][0]
-    N_elements = int(a[a.find("=")+1:a.find(",")])
+            xa = np.c_[X,Y,Z].flatten(order='C')
 
-    a = np.array(contents[16:16+N_nodes*3],'float')
-    X = a[0:N_nodes*3:3]
-    Y = a[1:N_nodes*3:3]
-    Z = a[2:N_nodes*3:3]
-    a = np.array(contents[16+N_nodes*3:None],'int')
-    quad = np.reshape(a,[N_elements,4])
+            f.close()
 
-    xa = np.c_[X,Y,Z].flatten(order='C')
+            return N_nodes, N_elements, xa, quad
 
-    f.close()
+        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
+        self.aero_options = aero_options
 
-    return N_nodes, N_elements, xa, quad
+        # VLM assembler
+        aero_builder = VLM_builder(aero_options)
 
-aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
+        # TACS setup
+        def add_elements(mesh):
+            rho = 2780.0            # density, kg/m^3
+            E = 73.1e9              # elastic modulus, Pa
+            nu = 0.33               # poisson's ratio
+            kcorr = 5.0 / 6.0       # shear correction factor
+            ys = 324.0e6            # yield stress, Pa
+            thickness= 0.003
+            min_thickness = 0.002
+            max_thickness = 0.05
 
-# VLM assembler
+            num_components = mesh.getNumComponents()
+            for i in range(num_components):
+                descript = mesh.getElementDescript(i)
+                stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
+                                             min_thickness, max_thickness)
+                element = None
+                if descript in ["CQUAD", "CQUADR", "CQUAD4"]:
+                    element = elements.MITCShell(2,stiff,component_num=i)
+                mesh.setElement(i, element)
 
-aero_assembler = VlmAssembler(aero_options,comm)
+            ndof = 6
+            ndv = num_components
 
-# TACS setup
+            return ndof, ndv
 
-def add_elements(mesh):
-    rho = 2780.0            # density, kg/m^3
-    E = 73.1e9              # elastic modulus, Pa
-    nu = 0.33               # poisson's ratio
-    kcorr = 5.0 / 6.0       # shear correction factor
-    ys = 324.0e6            # yield stress, Pa
-    thickness= 0.003
-    min_thickness = 0.002
-    max_thickness = 0.05
+        def get_funcs(tacs):
+            ks_weight = 50.0
+            return [ functions.KSFailure(tacs,ks_weight), functions.StructuralMass(tacs)]
 
-    num_components = mesh.getNumComponents()
-    for i in range(num_components):
-        descript = mesh.getElementDescript(i)
-        stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
-                                     min_thickness, max_thickness)
-        element = None
-        if descript in ["CQUAD", "CQUADR", "CQUAD4"]:
-            element = elements.MITCShell(2,stiff,component_num=i)
-        mesh.setElement(i, element)
-
-    ndof = 6
-    ndv = num_components
-
-    return ndof, ndv
-
-def get_funcs(tacs):
-    ks_weight = 50.0
-    return [ functions.KSFailure(tacs,ks_weight), functions.StructuralMass(tacs)]
-
-def f5_writer(tacs):
-    flag = (TACS.ToFH5.NODES |
-            TACS.ToFH5.DISPLACEMENTS |
-            TACS.ToFH5.STRAINS |
-            TACS.ToFH5.EXTRAS)
-    f5 = TACS.ToFH5(tacs, TACS.PY_SHELL, flag)
-    f5.writeToFile('wingbox.f5')
+        def f5_writer(tacs):
+            flag = (TACS.ToFH5.NODES |
+                    TACS.ToFH5.DISPLACEMENTS |
+                    TACS.ToFH5.STRAINS |
+                    TACS.ToFH5.EXTRAS)
+            f5 = TACS.ToFH5(tacs, TACS.PY_SHELL, flag)
+            f5.writeToFile('wingbox.f5')
 
 
-# common setup options
-tacs_setup = {'add_elements': add_elements,
-              'get_funcs'   : get_funcs,
-              'mesh_file'   : 'debug.bdf',
-              'f5_writer'   : f5_writer }
+        # common setup options
+        tacs_setup = {'add_elements': add_elements,
+                      'get_funcs'   : get_funcs,
+                      'mesh_file'   : 'debug.bdf',
+                      'f5_writer'   : f5_writer }
 
-# TACS assembler
+        # TACS assembler
 
-if use_modal:
-    tacs_setup['nmodes'] = 15
-    struct_assembler = ModalStructAssembler(tacs_setup)
-else:
-    struct_assembler = TacsOmfsiAssembler(tacs_setup)
+        if use_modal:
+            tacs_setup['nmodes'] = 15
+            #struct_assembler = ModalStructAssembler(tacs_setup)
+        else:
+            struct_builder = TACS_builder(tacs_setup,check_partials=True)
 
-# MELD setup
+        # MELD setup
 
-meld_options = {'isym': 1,
-                'n': 200,
-                'beta': 0.5}
+        meld_options = {'isym': 1,
+                        'n': 200,
+                        'beta': 0.5}
 
-# MELD assembler
+        xfer_builder = MELD_builder(meld_options,aero_builder,struct_builder,check_partials=True)
 
-xfer_assembler = MeldAssembler(meld_options,struct_assembler,aero_assembler)
+        # Multipoint group
+        dvs = self.add_subsystem('dvs',om.IndepVarComp(), promotes=['*'])
 
-# FSI assembler
+        mp = self.add_subsystem(
+            'mp_group',
+            MPHYS_Multipoint(aero_builder = aero_builder,
+                             struct_builder = struct_builder,
+                             xfer_builder = xfer_builder)
+        )
+        s0 = mp.mphys_add_scenario('s0')
 
-assembler = FsiAssembler(struct_assembler,aero_assembler,xfer_assembler)
+    def configure(self):
+        self.dvs.add_output('alpha', self.aero_options['alpha'])
+        self.connect('alpha',['mp_group.s0.aero.alpha'])
+
+        self.dvs.add_output('dv_struct',np.array([0.03]))
+        self.connect('dv_struct',['mp_group.s0.struct.dv_struct'])
 
 # OpenMDAO setup
 
-prob = Problem()
-model = prob.model
+prob = om.Problem()
+prob.model = Top()
 
-model.nonlinear_solver = NonlinearRunOnce()
-model.linear_solver = LinearRunOnce()
+prob.setup(force_alloc_complex=True)
 
-# add the components and groups to the model
-
-indeps = IndepVarComp()
-indeps.add_output('dv_struct',np.array([0.03]))
-indeps.add_output('alpha',aero_options['alpha'])
-model.add_subsystem('dv',indeps)
-
-assembler.connection_srcs['dv_struct'] = 'dv.dv_struct'
-assembler.connection_srcs['alpha'] = 'dv.alpha'
-
-assembler.add_model_components(model)
-
-scenario = model.add_subsystem('cruise1',Group())
-scenario.nonlinear_solver = NonlinearRunOnce()
-scenario.linear_solver = LinearRunOnce()
-
-fsi_group = assembler.add_fsi_subsystem(model,scenario)
-#fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100, iprint=2, use_aitken=True, rtol = 1E-14, atol=1E-14)
-fsi_group.nonlinear_solver = NonlinearBlockGS(maxiter=100, iprint=2, use_aitken=False, rtol = 1E-14, atol=1E-14)
-fsi_group.linear_solver = LinearBlockGS(maxiter=30, iprint=2, rtol = 1e-14, atol=1e-14)
-
-# run OpenMDAO
+prob.model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=100, iprint=2, use_aitken=True, atol=1E-9)
+prob.model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=10, iprint=2)
 
 prob.setup(force_alloc_complex=True, mode='rev')
 
 prob.run_model()
-prob.check_totals(of=['cruise1.struct_funcs.f_struct'], wrt=['dv.alpha'], method='cs')
+prob.check_totals(of=['mp_group.s0.struct.funcs.f_struct'], wrt=['alpha'], method='cs')

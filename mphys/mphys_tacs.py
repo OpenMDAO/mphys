@@ -67,6 +67,7 @@ class TacsSolver(om.ImplicitComponent):
 
         self.options.declare('struct_solver')
         self.options.declare('struct_objects')
+        self.options.declare('check_partials')
 
         self.options['distributed'] = True
 
@@ -80,12 +81,10 @@ class TacsSolver(om.ImplicitComponent):
         self.x_save = None
 
         self.transposed = False
-
-        # TODO set this as an option.
         self.check_partials = False
 
     def setup(self):
-        # self.set_check_partial_options(wrt='*',directional=True)
+        self.check_partials = self.options['check_partials']
 
         tacs = self.options['struct_solver']
         struct_objects = self.options['struct_objects']
@@ -349,17 +348,18 @@ class TacsFunctions(om.ExplicitComponent):
     def initialize(self):
         self.options.declare('struct_solver')
         self.options.declare('struct_objects')
+        self.options.declare('check_partials')
 
         self.ans = None
         self.tacs = None
 
-        # TODO enable to check partials
         self.check_partials = False
 
     def setup(self):
 
         self.tacs = self.options['struct_solver']
         self.struct_objects = self.options['struct_objects']
+        self.check_partials = self.options['check_partials']
 
         ndv = self.struct_objects[3]['ndv']
         get_funcs = self.struct_objects[3]['get_funcs']
@@ -496,19 +496,20 @@ class TacsMass(om.ExplicitComponent):
     def initialize(self):
         self.options.declare('struct_solver')
         self.options.declare('struct_objects')
+        self.options.declare('check_partials')
 
         self.ans = None
         self.tacs = None
 
         self.mass = False
 
-        # TODO enable to check partials
         self.check_partials = False
 
     def setup(self):
 
         self.tacs = self.options['struct_solver']
         self.struct_objects = self.options['struct_objects']
+        self.check_partials = self.options['check_partials']
 
         # self.set_check_partial_options(wrt='*',directional=True)
 
@@ -631,17 +632,18 @@ class TACS_group(om.Group):
         self.options.declare('solver')
         self.options.declare('solver_objects')
         self.options.declare('as_coupling')
+        self.options.declare('check_partials')
 
     def setup(self):
         self.struct_solver = self.options['solver']
         self.struct_objects = self.options['solver_objects']
         self.as_coupling = self.options['as_coupling']
+        self.check_partials = self.options['check_partials']
 
         # check if we have a loading function
         solver_dict = self.struct_objects[3]
 
         if 'load_function' in solver_dict:
-            # TODO add a warning or error if both as coupling and loading function is provided
             self.prescribed_load = True
             self.add_subsystem('loads', PrescribedLoad(
                 load_function=solver_dict['load_function'],
@@ -650,20 +652,23 @@ class TACS_group(om.Group):
 
         self.add_subsystem('solver', TacsSolver(
             struct_solver=self.struct_solver,
-            struct_objects=self.struct_objects,),
+            struct_objects=self.struct_objects,
+            check_partials=self.check_partials),
             promotes_inputs=['f_s', 'x_s0', 'dv_struct'],
             promotes_outputs=['u_s']
         )
 
         self.add_subsystem('funcs', TacsFunctions(
             struct_solver=self.struct_solver,
-            struct_objects=self.struct_objects),
+            struct_objects=self.struct_objects,
+            check_partials=self.check_partials),
             promotes_inputs=['x_s0', 'dv_struct']
         )
 
         self.add_subsystem('mass', TacsMass(
             struct_solver=self.struct_solver,
-            struct_objects=self.struct_objects),
+            struct_objects=self.struct_objects,
+            check_partials=self.check_partials),
             promotes_inputs=['x_s0', 'dv_struct']
         )
 
@@ -672,8 +677,9 @@ class TACS_group(om.Group):
 
 class TACS_builder(object):
 
-    def __init__(self, options):
+    def __init__(self, options,check_partials=False):
         self.options = options
+        self.check_partials = check_partials
 
     # api level method for all builders
     def init_solver(self, comm):
@@ -720,7 +726,7 @@ class TACS_builder(object):
 
     # api level method for all builders
     def get_element(self, **kwargs):
-        return TACS_group(solver=self.solver, solver_objects=self.solver_objects, **kwargs)
+        return TACS_group(solver=self.solver, solver_objects=self.solver_objects,check_partials=self.check_partials, **kwargs)
 
     def get_mesh_element(self):
         return TacsMesh(struct_solver=self.solver)
