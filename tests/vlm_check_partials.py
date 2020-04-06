@@ -21,7 +21,6 @@ class Top(om.Group):
         }
 
         # VLM mesh read
-
         def read_VLM_mesh(mesh):
             f=open(mesh, "r")
             contents = f.read().split()
