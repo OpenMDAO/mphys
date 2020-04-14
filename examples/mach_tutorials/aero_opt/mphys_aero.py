@@ -117,8 +117,13 @@ class Top(om.Group):
         points = self.mp_group.mphys_add_coordinate_input()
         # add these points to the geometry object
         self.geo.nom_add_point_dict(points)
+        # create constraint DV setup
+        tri_points = self.mp_group.mphys_get_triangulated_surface()
+        self.geo.nom_setConstraintSurface(tri_points)
+
         # connect
         for key in points:
+            # keys are: aero_points
             self.connect('geo.%s'%key, 'mp_group.%s'%key)
 
         # geometry setup
@@ -132,6 +137,11 @@ class Top(om.Group):
             for i in range(1, nRefAxPts):
                 geo.rot_z['wing'].coef[i] = val[i-1]
         self.geo.nom_addGeoDVGlobal(dvName='twist', value=np.array([0]*nTwist), func=twist)
+        # self.geo.nom_addGeoDVLocal(dvName='thickness')
+
+        leList = [[0.01, 0, 0.001], [7.51, 0, 13.99]]
+        teList = [[4.99, 0, 0.001], [8.99, 0, 13.99]]
+        # self.geo.nom_addThicknessConstraints2D('thick', leList, teList, nSpan=2, nChord=2)
 
         # add dvs to ivc and connect
         self.dvs.add_output('alpha', val=1.5)
@@ -183,6 +193,7 @@ om.n2(prob, show_browser=False, outfile='mphys_aero.html')
 
 if args.task == 'run':
     prob.run_model()
+    # prob.check_partials(compact_print=True, includes='*geo*')
 elif args.task == 'opt':
     prob.run_driver()
 
