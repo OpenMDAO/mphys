@@ -83,7 +83,7 @@ class MPHYS_Multipoint(om.Group):
         for name in self.scenarios:
             if self.struct_discipline:
                 try:
-                    for var in self.struct_builder.get_mesh_connections():
+                    for var in self.struct_builder.mesh_connections:
                         self.connect('struct_mesh.%s'% var,'%s.struct.%s' %(name,var))
                 except:
                     self.connect('struct_mesh.x_s0', '%s.struct.x_s0'%name)
@@ -95,7 +95,7 @@ class MPHYS_Multipoint(om.Group):
 
             if self.aero_discipline:
                 try:
-                    for var in self.aero_builder.get_mesh_connections():
+                    for var in self.aero_builder.mesh_connections:
                         self.connect('aero_mesh.%s'% var,'%s.aero.%s' %(name,var))
                 except:
                     self.connect('aero_mesh.x_a0', '%s.aero.x_a0'%name)

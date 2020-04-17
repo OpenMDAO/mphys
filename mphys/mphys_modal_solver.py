@@ -302,6 +302,8 @@ class ModalBuilder(object):
         self.nmodes = nmodes
         self.check_partials = check_partials
 
+        self.mesh_connections = ['modal_stiffnes','mode_shape']
+
     # api level method for all builders
     def init_solver(self, comm):
 
@@ -358,8 +360,6 @@ class ModalBuilder(object):
                            ndv=self.solver_dict['ndv'],
                            nmodes=self.nmodes)
 
-    def get_mesh_connections(self):
-        return ['modal_stiffness','mode_shape']
     def get_ndof(self):
         return self.solver_dict['ndof']
 
