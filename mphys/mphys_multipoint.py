@@ -82,7 +82,8 @@ class MPHYS_Multipoint(om.Group):
         # loop over scenarios and connect them all
         for name in self.scenarios:
             if self.struct_discipline:
-                target_x_s0 = ['%s.struct.x_s0'%name]
+                #target_x_s0 = ['%s.struct.x_s0'%name]
+                target_x_s0 = []
                 if self.as_coupling:
                     target_x_s0.append('%s.disp_xfer.x_s0'%name)
                     target_x_s0.append('%s.load_xfer.x_s0'%name)
