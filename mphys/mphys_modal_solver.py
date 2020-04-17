@@ -123,7 +123,7 @@ class ModalDecomp(om.ExplicitComponent):
         self.add_output('mode_shape', shape=(self.nmodes,self.state_size), desc='structural mode shapes')
         self.add_output('modal_mass', shape=self.nmodes, desc='modal mass')
         self.add_output('modal_stiffness', shape=self.nmodes, desc='modal stiffness')
-        self.add_output('x_s0_mesh', shape = node_size, desc = 'undeformed nodal coordinates')
+        self.add_output('x_s0', shape = node_size, desc = 'undeformed nodal coordinates')
 
     def compute(self,inputs,outputs):
 
@@ -147,7 +147,7 @@ class ModalDecomp(om.ExplicitComponent):
                                       num_eigs=self.nmodes, eig_tol=1e-12)
         self.freq.solve()
 
-        outputs['x_s0_mesh'] = self.xpts.getArray()
+        outputs['x_s0'] = self.xpts.getArray()
         for imode in range(self.nmodes):
             eig, err = self.freq.extractEigenvector(imode,self.vec)
             outputs['modal_mass'][imode] = 1.0
@@ -358,6 +358,8 @@ class ModalBuilder(object):
                            ndv=self.solver_dict['ndv'],
                            nmodes=self.nmodes)
 
+    def get_mesh_connections(self):
+        return ['modal_stiffness','mode_shape']
     def get_ndof(self):
         return self.solver_dict['ndof']
 

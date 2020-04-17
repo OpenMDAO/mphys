@@ -149,10 +149,7 @@ class Top(om.Group):
 
         # connect solver data
         if self.modal_struct:
-            self.connect('mp_group.struct_mesh.modal_stiffness','mp_group.s0.struct.modal_stiffness')
-            self.connect('mp_group.struct_mesh.mode_shape','mp_group.s0.struct.mode_shape')
             self.connect('dv_struct', ['mp_group.struct_mesh.dv_struct'])
-            pass
         else:
             self.connect('dv_struct', ['mp_group.s0.struct.dv_struct'])
 
