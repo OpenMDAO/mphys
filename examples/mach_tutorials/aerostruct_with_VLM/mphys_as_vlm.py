@@ -10,14 +10,14 @@ from tacs import elements, constitutive, functions
 from mphys.mphys_multipoint import MPHYS_Multipoint
 from mphys.mphys_vlm import VLM_builder
 from mphys.mphys_tacs import TACS_builder
+from mphys.mphys_modal_solver import ModalBuilder
 from mphys.mphys_meld import MELD_builder
 
-use_modal = True
-use_modal = False
 
 class Top(om.Group):
 
     def setup(self):
+        self.modal_struct = True
 
         # VLM options
         aero_options = {
@@ -104,12 +104,11 @@ class Top(om.Group):
                     'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
                     'f5_writer'   : f5_writer }
 
-        # TACS builder
-        if use_modal:
-            tacs_setup['nmodes'] = 15
-            tacs_builder = TACS_modal_builder(tacs_setup)
+        if self.modal_struct:
+            nmodes = 15
+            struct_builder = ModalBuilder(tacs_setup,nmodes)
         else:
-            tacs_builder = TACS_builder(tacs_setup)
+            struct_builder = TACS_builder(tacs_setup)
 
         # MELD setup
         meld_options = {'isym': 1,
@@ -117,7 +116,7 @@ class Top(om.Group):
                         'beta': 0.5}
 
         # MELD builder
-        meld_builder = MELD_builder(meld_options, vlm_builder, tacs_builder)
+        meld_builder = MELD_builder(meld_options, vlm_builder, struct_builder)
 
         ################################################################################
         # MPHYS setup
@@ -130,7 +129,7 @@ class Top(om.Group):
             'mp_group',
             MPHYS_Multipoint(
                 aero_builder   = vlm_builder,
-                struct_builder = tacs_builder,
+                struct_builder = struct_builder,
                 xfer_builder   = meld_builder
             )
         )
@@ -147,7 +146,12 @@ class Top(om.Group):
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()
         self.dvs.add_output('dv_struct', np.array(ndv_struct*[0.002]))
-        self.connect('dv_struct', ['mp_group.s0.struct.dv_struct'])
+
+        # connect solver data
+        if self.modal_struct:
+            self.connect('dv_struct', ['mp_group.struct_mesh.dv_struct'])
+        else:
+            self.connect('dv_struct', ['mp_group.s0.struct.dv_struct'])
 
 ################################################################################
 # OpenMDAO setup

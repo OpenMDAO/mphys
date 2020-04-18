@@ -2,10 +2,10 @@
 from __future__ import print_function
 import numpy as np
 from tacs import TACS, elements, functions
-from openmdao.api import ImplicitComponent, ExplicitComponent, Group
-from omfsi.assembler import OmfsiSolverAssembler
-from omfsi.tacs_component import TacsMass, TacsFunctions
+import openmdao.api as om
+#from omfsi.tacs_component import TacsMass, TacsFunctions
 
+"""
 class ModalStructAssembler(OmfsiSolverAssembler):
     def __init__(self,solver_options):
         self.add_elements = solver_options['add_elements']
@@ -91,20 +91,20 @@ class ModalStructAssembler(OmfsiSolverAssembler):
         model.connect(connection_srcs['dv_struct'],scenario.name+'.struct_funcs.dv_struct')
         model.connect(connection_srcs['x_s0'],scenario.name+'.struct_mass.x_s0')
         model.connect(connection_srcs['dv_struct'],scenario.name+'.struct_mass.dv_struct')
+"""
 
-
-class ModalDecomp(ExplicitComponent):
+class ModalDecomp(om.ExplicitComponent):
     def initialize(self):
-        self.options.declare('get_tacs', default = None, desc='function to get tacs')
-        self.options.declare('get_ndv', default = None, desc='function to get number of design variables in tacs')
-        self.options.declare('nmodes', default = 1, desc = 'number of modes to kept')
+        self.options.declare('struct_solver', default = None, desc='tacs object')
+        self.options.declare('ndv', default = 1, desc='number of design variables in tacs')
+        self.options.declare('nmodes', default = 15, desc = 'number of modes to kept')
         self.options['distributed'] = True
 
     def setup(self):
 
         # TACS assembler setup
-        self.tacs = self.options['get_tacs'](self.comm)
-        self.ndv = self.options['get_ndv']()
+        self.tacs = self.options['struct_solver']
+        self.ndv = self.options['ndv']
         self.nmodes = self.options['nmodes']
 
         # create some TACS bvecs that will be needed later
@@ -130,7 +130,7 @@ class ModalDecomp(ExplicitComponent):
         self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
 
         kmat = self.tacs.createFEMat()
-        self.tacs.assembleMatType(TACS.PY_STIFFNESS_MATRIX,kmat)
+        self.tacs.assembleMatType(TACS.PY_STIFFNESS_MATRIX,kmat,TACS.PY_NORMAL)
         pc = TACS.Pc(kmat)
         subspace = 100
         restarts = 2
@@ -141,7 +141,7 @@ class ModalDecomp(ExplicitComponent):
         sigma = 2.0*np.pi*sigma_hz
 
         mmat = self.tacs.createFEMat()
-        self.tacs.assembleMatType(TACS.PY_MASS_MATRIX,mmat)
+        self.tacs.assembleMatType(TACS.PY_MASS_MATRIX,mmat,TACS.PY_NORMAL)
 
         self.freq = TACS.FrequencyAnalysis(self.tacs, sigma, mmat, kmat, self.gmres,
                                       num_eigs=self.nmodes, eig_tol=1e-12)
@@ -155,17 +155,7 @@ class ModalDecomp(ExplicitComponent):
             for idof in range(3):
                 outputs['mode_shape'][imode,:] = self.vec.getArray()
 
-            # debugging
-            #matrix = np.zeros((int(self.xpts.getArray().size/3),6))
-            #matrix[:,0] = self.xpts.getArray()[ ::3]
-            #matrix[:,1] = self.xpts.getArray()[1::3]
-            #matrix[:,2] = self.xpts.getArray()[2::3]
-            #matrix[:,3] = self.vec.getArray()[ ::6]
-            #matrix[:,4] = self.vec.getArray()[1::6]
-            #matrix[:,5] = self.vec.getArray()[2::6]
-            #np.savetxt('mode_shape'+str(imode)+'.dat',matrix)
-
-class ModalSolver(ExplicitComponent):
+class ModalSolver(om.ExplicitComponent):
     """
     Steady Modal structural solver
       K z - mf = 0
@@ -174,35 +164,38 @@ class ModalSolver(ExplicitComponent):
         self.options.declare('nmodes',default=1)
     def setup(self):
         nmodes = self.options['nmodes']
-        self.add_input('k', shape=nmodes, val=np.ones(nmodes), desc = 'modal stiffness')
+        self.add_input('modal_stiffness', shape=nmodes, val=np.ones(nmodes), desc = 'modal stiffness')
         self.add_input('mf', shape=nmodes, val=np.ones(nmodes), desc = 'modal force')
 
         self.add_output('z', shape=nmodes, val=np.ones(nmodes), desc = 'modal displacement')
 
     def compute(self,inputs,outputs):
-        k = inputs['k']
-        outputs['z'] = inputs['mf'] / inputs['k']
+        k = inputs['modal_stiffness']
+        outputs['z'] = inputs['mf'] / k
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
+        k = inputs['modal_stiffness']
         if mode == 'fwd':
             if 'z' in d_outputs:
                 if 'mf' in d_inputs:
-                    d_outputs['z'] += d_inputs['mf'] / inputs['k']
-                if 'k' in d_inputs:
-                    d_outputs['z'] += - inputs['mf'] / (inputs['k']**2.0) * d_inputs['k']
+                    d_outputs['z'] += d_inputs['mf'] / k
+                if 'modal_stiffness' in d_inputs:
+                    d_outputs['z'] += - inputs['mf'] / (k**2.0) * d_inputs['modal_stiffness']
         if mode == 'rev':
             if 'z' in d_outputs:
                 if 'mf' in d_inputs:
-                    d_inputs['mf'] += d_outputs['z'] / inputs['k']
-                if 'k' in d_inputs:
-                    d_inputs['k'] += - inputs['mf'] / (inputs['k']**2.0) * d_outputs['z']
+                    d_inputs['mf'] += d_outputs['z'] / k
+                if 'modal_stiffness' in d_inputs:
+                    d_inputs['modal_stiffness'] += - inputs['mf'] / (k**2.0) * d_outputs['z']
 
-class ModalForces(ExplicitComponent):
+class ModalForces(om.ExplicitComponent):
     def initialize(self):
-        self.options.declare('get_modal_sizes')
+        self.options.declare('nmodes')
+        self.options.declare('mode_size')
 
     def setup(self):
-        self.nmodes, self.mode_size = self.options['get_modal_sizes']()
+        self.nmodes    = self.options['nmodes']
+        self.mode_size = self.options['mode_size']
 
         self.add_input('mode_shape',shape=(self.nmodes,self.mode_size), desc='structural mode shapes')
         self.add_input('f_s',shape=self.mode_size,desc = 'nodal force')
@@ -225,12 +218,14 @@ class ModalForces(ExplicitComponent):
                     for imode in range(self.options['nmodes']):
                         d_inputs['f_s'][:] += inputs['mode_shape'][imode,:] * d_outputs['mf'][imode]
 
-class ModalDisplacements(ExplicitComponent):
+class ModalDisplacements(om.ExplicitComponent):
     def initialize(self):
-        self.options.declare('get_modal_sizes')
+        self.options.declare('nmodes')
+        self.options.declare('mode_size')
 
     def setup(self):
-        self.nmodes, self.mode_size = self.options['get_modal_sizes']()
+        self.nmodes    = self.options['nmodes']
+        self.mode_size = self.options['mode_size']
 
         self.add_input('mode_shape',shape=(self.nmodes,self.mode_size), desc='structural mode shapes')
         self.add_input('z',shape=self.nmodes, desc = 'modal displacement')
@@ -252,3 +247,124 @@ class ModalDisplacements(ExplicitComponent):
                 if 'z' in d_inputs:
                     for imode in range(self.options['nmodes']):
                         d_inputs['z'][imode] += np.sum(inputs['mode_shape'][imode,:] * d_outputs['u_s'][:])
+
+class ModalGroup(om.Group):
+    def initialize(self):
+        self.options.declare('solver')
+        self.options.declare('solver_objects')
+        self.options.declare('nmodes')
+        self.options.declare('nnodes')
+        self.options.declare('ndof')
+        self.options.declare('check_partials')
+        self.options.declare('as_coupling')
+
+    def setup(self):
+        nmodes = self.options['nmodes']
+        mode_size = self.options['nnodes']*self.options['ndof']
+
+        self.add_subsystem('modal_forces', ModalForces(
+            nmodes=nmodes,
+            mode_size=mode_size),
+            promotes_inputs=['mode_shape','f_s']
+        )
+        self.add_subsystem('modal_solver', ModalSolver(nmodes=nmodes),
+            promotes_inputs=['modal_stiffness'])
+
+        self.add_subsystem('modal_disps', ModalDisplacements(
+            nmodes=nmodes,
+            mode_size=mode_size),
+            promotes_inputs=['mode_shape'],
+            promotes_outputs=['u_s']
+        )
+
+#        self.add_subsystem('funcs', TacsFunctions(
+#            struct_solver=self.struct_solver,
+#            struct_objects=self.struct_objects,
+#            check_partials=self.check_partials),
+#            promotes_inputs=['x_s0', 'dv_struct']
+#        )
+#
+#        self.add_subsystem('mass', TacsMass(
+#            struct_solver=self.struct_solver,
+#            struct_objects=self.struct_objects,
+#            check_partials=self.check_partials),
+#            promotes_inputs=['x_s0', 'dv_struct']
+#        )
+
+    def configure(self):
+        self.connect('modal_forces.mf', 'modal_solver.mf')
+        self.connect('modal_solver.z', 'modal_disps.z')
+
+class ModalBuilder(object):
+
+    def __init__(self, options,nmodes=15,check_partials=False):
+        self.options = options
+        self.nmodes = nmodes
+        self.check_partials = check_partials
+
+        self.mesh_connections = ['modal_stiffnes','mode_shape']
+
+    # api level method for all builders
+    def init_solver(self, comm):
+
+        solver_dict={}
+
+        mesh = TACS.MeshLoader(comm)
+        mesh.scanBDFFile(self.options['mesh_file'])
+
+        ndof, ndv = self.options['add_elements'](mesh)
+        self.n_dv_struct = ndv
+
+        tacs = mesh.createTACS(ndof)
+
+        nnodes = int(tacs.createNodeVec().getArray().size / 3)
+
+        mat = tacs.createFEMat()
+        pc = TACS.Pc(mat)
+
+        subspace = 100
+        restarts = 2
+        gmres = TACS.KSM(mat, pc, subspace, restarts)
+
+        solver_dict['ndv']    = ndv
+        solver_dict['ndof']   = ndof
+        solver_dict['nnodes'] = nnodes
+        solver_dict['get_funcs'] = self.options['get_funcs']
+
+        # check if the user provided a load function
+        if 'load_function' in self.options:
+            solver_dict['load_function'] = self.options['load_function']
+
+        self.solver_dict=solver_dict
+
+        # put the rest of the stuff in a tuple
+        solver_objects = [mat, pc, gmres, solver_dict]
+
+        self.solver = tacs
+        self.solver_objects = solver_objects
+
+    # api level method for all builders
+    def get_solver(self):
+        return self.solver
+
+    # api level method for all builders
+    def get_element(self, **kwargs):
+        return ModalGroup(solver=self.solver, solver_objects=self.solver_objects,
+                          nmodes=self.nmodes,
+                          nnodes=self.solver_dict['nnodes'],
+                          ndof=self.solver_dict['ndof'],
+                          check_partials=self.check_partials, **kwargs)
+
+    def get_mesh_element(self):
+        return ModalDecomp(struct_solver=self.solver,
+                           ndv=self.solver_dict['ndv'],
+                           nmodes=self.nmodes)
+
+    def get_ndof(self):
+        return self.solver_dict['ndof']
+
+    def get_nnodes(self):
+        return self.solver_dict['nnodes']
+
+    def get_ndv(self):
+        return self.solver_dict['ndv']

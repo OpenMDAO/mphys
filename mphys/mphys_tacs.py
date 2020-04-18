@@ -23,7 +23,7 @@ class TacsMesh(om.ExplicitComponent):
 
         # OpenMDAO setup
         node_size  =     self.xpts.getArray().size
-        self.add_output('x_s0_mesh', shape=node_size, desc='structural node coordinates')
+        self.add_output('x_s0', shape=node_size, desc='structural node coordinates')
 
     def mphys_add_coordinate_input(self):
         local_size  = self.xpts.getArray().size
@@ -40,17 +40,17 @@ class TacsMesh(om.ExplicitComponent):
 
     def compute(self,inputs,outputs):
         if 'x_s0_points' in inputs:
-            outputs['x_s0_mesh'] = inputs['x_s0_points']
+            outputs['x_s0'] = inputs['x_s0_points']
         else:
-            outputs['x_s0_mesh'] = self.xpts.getArray()
+            outputs['x_s0'] = self.xpts.getArray()
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
             if 'x_s0_points' in d_inputs:
-                d_outputs['x_s0_mesh'] += d_inputs['x_s0_points']
+                d_outputs['x_s0'] += d_inputs['x_s0_points']
         elif mode == 'rev':
             if 'x_s0_points' in d_inputs:
-                d_inputs['x_s0_points'] += d_outputs['x_s0_mesh']
+                d_inputs['x_s0_points'] += d_outputs['x_s0']
 
 class TacsSolver(om.ImplicitComponent):
     """

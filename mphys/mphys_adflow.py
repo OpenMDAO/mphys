@@ -28,7 +28,7 @@ class AdflowMesh(ExplicitComponent):
 
         coord_size = self.x_a0.size
 
-        self.add_output('x_a0_mesh', shape=coord_size, desc='initial aerodynamic surface node coordinates')
+        self.add_output('x_a0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
 
     def mphys_add_coordinate_input(self):
         local_size = self.x_a0.size
@@ -45,17 +45,17 @@ class AdflowMesh(ExplicitComponent):
 
     def compute(self,inputs,outputs):
         if 'x_a0_points' in inputs:
-            outputs['x_a0_mesh'] = inputs['x_a0_points']
+            outputs['x_a0'] = inputs['x_a0_points']
         else:
-            outputs['x_a0_mesh'] = self.x_a0
+            outputs['x_a0'] = self.x_a0
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
             if 'x_a0_points' in d_inputs:
-                d_outputs['x_a0_mesh'] += d_inputs['x_a0_points']
+                d_outputs['x_a0'] += d_inputs['x_a0_points']
         elif mode == 'rev':
             if 'x_a0_points' in d_inputs:
-                d_inputs['x_a0_points'] += d_outputs['x_a0_mesh']
+                d_inputs['x_a0_points'] += d_outputs['x_a0']
 
 class Geo_Disp(ExplicitComponent):
     """

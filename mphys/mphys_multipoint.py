@@ -82,20 +82,28 @@ class MPHYS_Multipoint(om.Group):
         # loop over scenarios and connect them all
         for name in self.scenarios:
             if self.struct_discipline:
-                target_x_s0 = ['%s.struct.x_s0'%name]
+                try:
+                    for var in self.struct_builder.mesh_connections:
+                        self.connect('struct_mesh.%s'% var,'%s.struct.%s' %(name,var))
+                except:
+                    self.connect('struct_mesh.x_s0', '%s.struct.x_s0'%name)
                 if self.as_coupling:
-                    target_x_s0.append('%s.disp_xfer.x_s0'%name)
+                    target_x_s0 =     ['%s.disp_xfer.x_s0'%name]
                     target_x_s0.append('%s.load_xfer.x_s0'%name)
 
-                self.connect('struct_mesh.x_s0_mesh', target_x_s0)
+                    self.connect('struct_mesh.x_s0', target_x_s0)
 
             if self.aero_discipline:
-                target_x_a0 = ['%s.aero.x_a0'%name]
+                try:
+                    for var in self.aero_builder.mesh_connections:
+                        self.connect('aero_mesh.%s'% var,'%s.aero.%s' %(name,var))
+                except:
+                    self.connect('aero_mesh.x_a0', '%s.aero.x_a0'%name)
                 if self.as_coupling:
-                    target_x_a0.append('%s.load_xfer.x_a0'%name)
+                    target_x_a0 =     ['%s.load_xfer.x_a0'%name]
                     target_x_a0.append('%s.disp_xfer.x_a0'%name)
 
-                self.connect('aero_mesh.x_a0_mesh', target_x_a0)
+                    self.connect('aero_mesh.x_a0', target_x_a0)
 
     def mphys_add_scenario(self, name, **kwargs):
         # save all the data until we are ready to initialize the objects themselves

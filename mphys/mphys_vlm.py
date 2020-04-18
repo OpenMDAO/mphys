@@ -16,11 +16,11 @@ class VlmMesh(om.ExplicitComponent):
 
         N_nodes = self.options['N_nodes']
         self.x_a0 = self.options['x_a0']
-        self.add_output('x_a0_mesh',np.zeros(N_nodes*3))
+        self.add_output('x_a0',np.zeros(N_nodes*3))
 
     def compute(self,inputs,outputs):
 
-        outputs['x_a0_mesh'] = self.x_a0
+        outputs['x_a0'] = self.x_a0
 
 class Geo_Disp(om.ExplicitComponent):
     """
@@ -94,7 +94,7 @@ class VLM_group(om.Group):
             mach=mach
         ), promotes_inputs=['alpha'])
 
-        self.add_subsystem('funcs', VLM_forces(
+        self.add_subsystem('forces', VLM_forces(
             N_nodes=N_nodes,
             N_elements=N_elements,
             quad=quad,
@@ -105,8 +105,8 @@ class VLM_group(om.Group):
         ), promotes_outputs=[('fa','f_a')])
 
     def configure(self):
-        self.connect('geo_disp.x_a', ['solver.xa', 'funcs.xa'])
-        self.connect('solver.Cp', 'funcs.Cp')
+        self.connect('geo_disp.x_a', ['solver.xa', 'forces.xa'])
+        self.connect('solver.Cp', 'forces.Cp')
 
 class dummyVLMSolver(object):
     '''
