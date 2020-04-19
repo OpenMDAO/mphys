@@ -100,8 +100,8 @@ class Top(om.Group):
         # common setup options
         tacs_setup = {'add_elements': add_elements,
                     'get_funcs'   : get_funcs,
-                    'mesh_file'   : 'wingbox_Y_Z_flip.bdf'}
-#                    'f5_writer'   : f5_writer }
+                    'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
+                    'f5_writer'   : f5_writer }
 
         struct_builder = TACS_builder(tacs_setup)
 
@@ -181,9 +181,9 @@ prob.model.add_design_var('lo_skin',     lower=0.003, upper=0.020, ref=0.005)
 prob.model.add_design_var('up_stringer', lower=0.003, upper=0.020, ref=0.005)
 prob.model.add_design_var('lo_stringer', lower=0.003, upper=0.020, ref=0.005)
 
-prob.model.add_objective('mp_group.s0.struct.mass.mass',ref=1.0)
+prob.model.add_objective('mp_group.s0.struct.mass.mass',ref=1000.0)
 prob.model.add_constraint('mp_group.s0.aero.forces.CL',ref=1.0,equals=0.5)
-prob.model.add_constraint('mp_group.s0.struct.funcs.f_struct',ref=1.0, upper = 0.5)
+prob.model.add_constraint('mp_group.s0.struct.funcs.f_struct',ref=1.0, upper = 2.0/3.0)
 
 prob.model.add_constraint('le_spar_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
 prob.model.add_constraint('te_spar_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
