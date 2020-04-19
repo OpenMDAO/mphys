@@ -215,3 +215,15 @@ model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, rtol = 
 
 om.n2(prob, show_browser=False, outfile='mphys_as_vlm.html')
 prob.run_driver()
+
+cr = om.CaseReader("cases.sql")
+driver_cases = cr.list_cases('driver')
+
+matrix = np.zeros((len(driver_cases),4))
+for i, case_id in enumerate(driver_cases):
+    matrix[i,0] = i
+    case = cr.get_case(case_id)
+    matrix[i,1] = case.get_objectives()['mp_group.s0.struct.mass.mass'][0]
+    matrix[i,2] = case.get_constraints()['mp_group.s0.aero.forces.CL'][0]
+    matrix[i,3] = case.get_constraints()['mp_group.s0.struct.funcs.f_struct'][0]
+np.savetxt('history.dat',matrix)
