@@ -205,4 +205,12 @@ model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, rtol = 
 #prob.driver = om.ScipyOptimizeDriver(debug_print=['ln_cons','nl_cons','objs','totals'])
 prob.driver = om.ScipyOptimizeDriver()
 prob.driver.options['optimizer'] = 'SLSQP'
+prob.driver.options['tol'] = 1e-3
+prob.driver.options['disp'] = True
+
+prob.driver.recording_options['includes'] = ['*']
+prob.driver.recording_options['record_objectives'] = True
+prob.driver.recording_options['record_constraints'] = True
+prob.driver.recording_options['record_desvars'] = True
+
 prob.run_driver()
