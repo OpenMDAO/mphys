@@ -190,17 +190,9 @@ prob.model.add_constraint('te_spar_smoothness.diff', ref=1e-3, upper = 0.0, line
 prob.model.add_constraint('up_skin_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
 prob.model.add_constraint('lo_skin_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
 
-prob.setup()
-om.n2(prob, show_browser=False, outfile='mphys_as_vlm.html')
-
 # optional but we can set it here.
 model.nonlinear_solver = om.NonlinearRunOnce()
 model.linear_solver = om.LinearRunOnce()
-
-
-model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=20, iprint=2, use_aitken=True, rtol = 1E-7, atol=1E-8)
-model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, rtol = 1e-7, atol=1e-8)
-
 
 #prob.driver = om.ScipyOptimizeDriver(debug_print=['ln_cons','nl_cons','objs','totals'])
 prob.driver = om.ScipyOptimizeDriver()
@@ -213,4 +205,13 @@ prob.driver.recording_options['record_objectives'] = True
 prob.driver.recording_options['record_constraints'] = True
 prob.driver.recording_options['record_desvars'] = True
 
+recorder = om.SqliteRecorder("cases.sql")
+prob.driver.add_recorder(recorder)
+
+prob.setup()
+
+model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=20, iprint=2, use_aitken=True, rtol = 1E-7, atol=1E-8)
+model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, rtol = 1e-7, atol=1e-8)
+
+om.n2(prob, show_browser=False, outfile='mphys_as_vlm.html')
 prob.run_driver()
