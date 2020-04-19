@@ -23,7 +23,7 @@ class Top(om.Group):
             'mesh_file':'wing_VLM.dat',
             'mach':0.85,
             'alpha':2*np.pi/180.,
-            'q_inf':3000.,
+            'q_inf':9000.,
             'vel':178.,
             'mu':3.5E-5,
         }
@@ -146,13 +146,14 @@ class Top(om.Group):
         self.connect('alpha', 'mp_group.s0.aero.alpha')
 
         # add the structural thickness DVs
-        self.dvs.add_output('ribs', val=0.01, shape = struct_comps['ribs'])
-        self.dvs.add_output('le_spar', val=0.01, shape = struct_comps['le_spar'])
-        self.dvs.add_output('te_spar', val=0.01, shape = struct_comps['te_spar'])
-        self.dvs.add_output('up_skin', val=0.01, shape = struct_comps['up_skin'])
-        self.dvs.add_output('lo_skin', val=0.01, shape = struct_comps['lo_skin'])
-        self.dvs.add_output('up_stringer', val=0.01, shape = struct_comps['up_stringer'])
-        self.dvs.add_output('lo_stringer', val=0.01, shape = struct_comps['lo_stringer'])
+        initial_thickness = 0.003
+        self.dvs.add_output('ribs',        val=initial_thickness, shape = struct_comps['ribs'])
+        self.dvs.add_output('le_spar',     val=initial_thickness, shape = struct_comps['le_spar'])
+        self.dvs.add_output('te_spar',     val=initial_thickness, shape = struct_comps['te_spar'])
+        self.dvs.add_output('up_skin',     val=initial_thickness, shape = struct_comps['up_skin'])
+        self.dvs.add_output('lo_skin',     val=initial_thickness, shape = struct_comps['lo_skin'])
+        self.dvs.add_output('up_stringer', val=initial_thickness, shape = struct_comps['up_stringer'])
+        self.dvs.add_output('lo_stringer', val=initial_thickness, shape = struct_comps['lo_stringer'])
 
         # connect the smoothness constraints
         self.connect('le_spar','le_spar_smoothness.thickness')
