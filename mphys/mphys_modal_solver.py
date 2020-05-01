@@ -302,7 +302,7 @@ class ModalBuilder(object):
         self.nmodes = nmodes
         self.check_partials = check_partials
 
-        self.mesh_connections = ['modal_stiffnes','mode_shape']
+        self.mesh_connections = ['modal_stiffness','mode_shape']
 
     # api level method for all builders
     def init_solver(self, comm):
