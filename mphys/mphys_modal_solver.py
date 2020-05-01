@@ -229,7 +229,8 @@ class ModalDisplacements(om.ExplicitComponent):
 
         self.add_input('mode_shape',shape=(self.nmodes,self.mode_size), desc='structural mode shapes')
         self.add_input('z',shape=self.nmodes, desc = 'modal displacement')
-        self.add_output('u_s',shape=self.mode_size,desc = 'nodal displacement')
+        # its important that we set this to zero since this displacement value is used for the first iteration of the aero
+        self.add_output('u_s', shape=self.mode_size, val = np.zeros(self.mode_size), desc = 'nodal displacement')
 
     def compute(self,inputs,outputs):
         outputs['u_s'][:] = 0.0
