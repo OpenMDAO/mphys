@@ -125,8 +125,10 @@ class ModalDecomp(om.ExplicitComponent):
 
         self.add_input('dv_struct',shape=self.ndv, desc='structural design variables')
 
-        self.add_output('mode_shape', shape=(self.nmodes,self.state_size), desc='structural mode shapes')
-
+        # instead of using 2d arrays for the mode shapes, we use a flattened array with modes back to back.
+        # this is because in OpenMDAO version 2.10.1, the src_indices option for 2D arrays with empty i/o on
+        # some procs is broken. Flattened works at least for the analysis.
+        self.add_output('mode_shape', shape=self.nmodes*self.state_size, desc='structural mode shapes')
 
         if self.comm.rank == 0:
             output_shape = self.nmodes
@@ -166,7 +168,8 @@ class ModalDecomp(om.ExplicitComponent):
                 outputs['modal_mass'][imode] = 1.0
                 outputs['modal_stiffness'][imode] = eig
                 for idof in range(3):
-                    outputs['mode_shape'][imode,:] = self.vec.getArray()
+                    # put every mode back to back instead of using a 2d array bec. the pseudo parallelism breaks that way... This should be fixed in OM and we can go back to using 2D arrays
+                    outputs['mode_shape'][imode*self.state_size:(imode+1)*self.state_size] = self.vec.getArray()
 
 class ModalSolver(om.ExplicitComponent):
     """
@@ -225,17 +228,16 @@ class ModalForces(om.ExplicitComponent):
 
         # adjust the indices for procs
         if self.comm.rank == 0:
-            src_indices = np.arange(0, self.nmodes*self.mode_size, dtype=int).reshape(self.nmodes, self.mode_size)
-            input_shape = (self.nmodes,self.mode_size)
+            src_indices = np.arange(0, self.nmodes*self.mode_size, dtype=int)
+            input_shape = self.nmodes*self.mode_size
         else:
-            src_indices = np.zeros((0,0))
-            input_shape=(0,0)
+            src_indices = np.zeros(0)
+            input_shape=0
 
         self.add_input(
             'mode_shape',
             shape=input_shape,
             src_indices=src_indices,
-            flat_src_indices=True,
             desc='structural mode shapes'
         )
 
@@ -254,7 +256,7 @@ class ModalForces(om.ExplicitComponent):
         if self.comm.rank == 0:
             outputs['mf'][:] = 0.0
             for imode in range(self.nmodes):
-                outputs['mf'][imode] = np.sum(inputs['mode_shape'][imode,:] * inputs['f_s'][:])
+                outputs['mf'][imode] = np.sum(inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * inputs['f_s'][:])
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
         if self.comm.rank == 0:
@@ -262,12 +264,12 @@ class ModalForces(om.ExplicitComponent):
                 if 'mf' in d_outputs:
                     if 'f_s' in d_inputs:
                         for imode in range(self.options['nmodes']):
-                            d_outputs['mf'][imode] += np.sum(inputs['mode_shape'][imode,:] * d_inputs['f_s'][:])
+                            d_outputs['mf'][imode] += np.sum(inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * d_inputs['f_s'][:])
             if mode=='rev':
                 if 'mf' in d_outputs:
                     if 'f_s' in d_inputs:
                         for imode in range(self.options['nmodes']):
-                            d_inputs['f_s'][:] += inputs['mode_shape'][imode,:] * d_outputs['mf'][imode]
+                            d_inputs['f_s'][:] += inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * d_outputs['mf'][imode]
 
 class ModalDisplacements(om.ExplicitComponent):
     def initialize(self):
@@ -280,17 +282,16 @@ class ModalDisplacements(om.ExplicitComponent):
 
         # adjust the indices for procs
         if self.comm.rank == 0:
-            src_indices = np.arange(0, self.nmodes*self.mode_size, dtype=int).reshape(self.nmodes, self.mode_size)
-            input_shape = (self.nmodes,self.mode_size)
+            src_indices = np.arange(0, self.nmodes*self.mode_size, dtype=int)
+            input_shape = self.nmodes*self.mode_size
         else:
-            src_indices = np.zeros((0,0))
-            input_shape=(0,0)
+            src_indices = np.zeros(0)
+            input_shape=0
 
         self.add_input(
             'mode_shape',
             shape=input_shape,
             src_indices=src_indices,
-            flat_src_indices=True,
             desc='structural mode shapes'
         )
 
@@ -303,7 +304,6 @@ class ModalDisplacements(om.ExplicitComponent):
 
         self.add_input('z',shape=input_shape, src_indices=src_indices, desc='modal displacement')
 
-
         # its important that we set this to zero since this displacement value is used for the first iteration of the aero
         self.add_output('u_s', shape=self.mode_size, val = np.zeros(self.mode_size), desc = 'nodal displacement')
 
@@ -311,7 +311,7 @@ class ModalDisplacements(om.ExplicitComponent):
         if self.comm.rank == 0:
             outputs['u_s'][:] = 0.0
             for imode in range(self.nmodes):
-                outputs['u_s'][:] += inputs['mode_shape'][imode,:] * inputs['z'][imode]
+                outputs['u_s'][:] += inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * inputs['z'][imode]
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
         if self.comm.rank == 0:
@@ -319,12 +319,12 @@ class ModalDisplacements(om.ExplicitComponent):
                 if 'u_s' in d_outputs:
                     if 'z' in d_inputs:
                         for imode in range(self.options['nmodes']):
-                            d_outputs['u_s'][:] += inputs['mode_shape'][imode,:] * d_inputs['z'][imode]
+                            d_outputs['u_s'][:] += inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * d_inputs['z'][imode]
             if mode=='rev':
                 if 'u_s' in d_outputs:
                     if 'z' in d_inputs:
                         for imode in range(self.options['nmodes']):
-                            d_inputs['z'][imode] += np.sum(inputs['mode_shape'][imode,:] * d_outputs['u_s'][:])
+                            d_inputs['z'][imode] += np.sum(inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * d_outputs['u_s'][:])
 
 class ModalGroup(om.Group):
     def initialize(self):
@@ -426,9 +426,6 @@ class ModalBuilder(object):
             tacs = None
             ndv  = 0
             ndof = 0
-
-        print('[%d] ndv %d, ndof %d'%(comm.rank, ndv, ndof))
-        comm.Barrier()
 
         # ndv and ndof should be same on all procs
         ndv  = comm.bcast(ndv,  root=0)
