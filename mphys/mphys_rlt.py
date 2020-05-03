@@ -341,8 +341,7 @@ class RLT_builder(object):
             # bad practice.
             class dummy_pytacs: pass
             dummy_pytacs.structure = struct_solver
-            dummy_pytacs.comm = MPI.COMM_SELF
-            # dummy_pytacs.comm = comm
+            dummy_pytacs.comm = comm
 
         self.xfer_object = SimpleLDTransfer(
             aero_solver,
