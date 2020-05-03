@@ -129,12 +129,13 @@ class TacsSolver(om.ImplicitComponent):
 
 
         # inputs
-        self.add_input('dv_struct', shape=ndv                                                 , desc='tacs design variables')
-        self.add_input('x_s0',      shape=node_size , src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
-        self.add_input('f_s',       shape=state_size, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
+        self.add_input('dv_struct', shape=ndv, desc='tacs design variables')
+        self.add_input('x_s0', shape=node_size , src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
+        self.add_input('f_s', shape=state_size, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
 
         # outputs
-        self.add_output('u_s',      shape=state_size, val = np.zeros(state_size),desc='structural state vector')
+        # its important that we set this to zero since this displacement value is used for the first iteration of the aero
+        self.add_output('u_s', shape=state_size, val = np.zeros(state_size),desc='structural state vector')
 
         # partials
         #self.declare_partials('u_s',['dv_struct','x_s0','f_s'])
