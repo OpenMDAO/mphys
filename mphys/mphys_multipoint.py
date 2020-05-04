@@ -84,24 +84,24 @@ class MPHYS_Multipoint(om.Group):
             if self.struct_discipline:
                 try:
                     for var in self.struct_builder.mesh_connections:
-                        self.connect('struct_mesh.%s'% var,'%s.struct.%s' %(name,var))
+                        self.connect('struct_mesh.%s'% var,'%s.solver_group.struct.%s' %(name,var))
                 except:
-                    self.connect('struct_mesh.x_s0', '%s.struct.x_s0'%name)
+                    self.connect('struct_mesh.x_s0', '%s.solver_group.struct.x_s0'%name)
                 if self.as_coupling:
-                    target_x_s0 =     ['%s.disp_xfer.x_s0'%name]
-                    target_x_s0.append('%s.load_xfer.x_s0'%name)
+                    target_x_s0 =     ['%s.solver_group.disp_xfer.x_s0'%name]
+                    target_x_s0.append('%s.solver_group.load_xfer.x_s0'%name)
 
                     self.connect('struct_mesh.x_s0', target_x_s0)
 
             if self.aero_discipline:
                 try:
                     for var in self.aero_builder.mesh_connections:
-                        self.connect('aero_mesh.%s'% var,'%s.aero.%s' %(name,var))
+                        self.connect('aero_mesh.%s'% var,'%s.solver_group.aero.%s' %(name,var))
                 except:
-                    self.connect('aero_mesh.x_a0', '%s.aero.x_a0'%name)
+                    self.connect('aero_mesh.x_a0', '%s.solver_group.aero.x_a0'%name)
                 if self.as_coupling:
-                    target_x_a0 =     ['%s.load_xfer.x_a0'%name]
-                    target_x_a0.append('%s.disp_xfer.x_a0'%name)
+                    target_x_a0 =     ['%s.solver_group.load_xfer.x_a0'%name]
+                    target_x_a0.append('%s.solver_group.disp_xfer.x_a0'%name)
 
                     self.connect('aero_mesh.x_a0', target_x_a0)
 

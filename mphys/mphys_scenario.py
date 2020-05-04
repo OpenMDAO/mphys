@@ -1,4 +1,5 @@
 import openmdao.api as om
+from mphys.mphys_solver_group import MPHYS_SolverGroup
 
 class MPHYS_Scenario(om.Group):
 
@@ -22,35 +23,43 @@ class MPHYS_Scenario(om.Group):
         self.struct_builder = self.options['builders']['struct']
         self.xfer_builder = self.options['builders']['xfer']
 
-        # get the elements from each builder
-        if self.aero_discipline:
-            aero = self.aero_builder.get_element(as_coupling=self.as_coupling)
-        if self.struct_discipline:
-            struct = self.struct_builder.get_element(as_coupling=self.as_coupling)
-        if self.as_coupling:
-            disp_xfer, load_xfer = self.xfer_builder.get_element()
+        # add the solver group itself and pass in the builders
+        # this group will converge the nonlinear analysis
+        self.add_subsystem(
+            'solver_group',
+            MPHYS_SolverGroup(
+                builders=self.options['builders'],
+                aero_discipline = self.aero_discipline,
+                struct_discipline = self.struct_discipline,
+                as_coupling = self.as_coupling
+            )
+        )
 
-        # add the subgroups
-        if self.as_coupling:
-            self.add_subsystem('disp_xfer', disp_xfer)
-        if self.aero_discipline:
-            self.add_subsystem('aero', aero)
-        if self.as_coupling:
-            self.add_subsystem('load_xfer', load_xfer)
-        if self.struct_discipline:
-            self.add_subsystem('struct', struct)
+        # check if builders provide a scenario-level element.
+        # e.g. a functionals component that is run once after
+        # the nonlinear solver is converged.
+        # we only check for disciplines, and we assume transfer
+        # components do not have scenario level elements.
+        if hasattr(self.aero_builder, 'get_scenario_element'):
+            aero_scenario_element = self.aero_builder.get_scenario_element()
+            self.add_subsystem('aero_funcs', aero_scenario_element)
 
-        # set solvers
-        if self.as_coupling:
-            self.nonlinear_solver=om.NonlinearBlockGS(maxiter=100)
-            self.linear_solver = om.LinearBlockGS(maxiter=100)
-            self.nonlinear_solver.options['iprint']=2
+            # if we have a scenario level element, we also need to
+            # figure out what needs to be connected from the solver
+            # level to the scenario level.
+            scenario_conn = self.aero_builder.get_scenario_connections()
+            # we can make these connections here
+            for v in scenario_conn:
+                self.connect('solver_group.aero.%s'%v, 'aero_funcs.%s'%v)
+
+        # do the same for struct
+        if hasattr(self.struct_builder, 'get_scenario_element'):
+            struct_scenario_element = self.struct_builder.get_scenario_element()
+            self.add_subsystem('struct_funcs', struct_scenario_element)
+
+            scenario_conn = self.struct_builder.get_scenario_connections()
+            for v in scenario_conn:
+                self.connect('solver_group.struct.%s'%v, 'struct_funcs.%s'%v)
 
     def configure(self):
-
-        # do the connections, this can be also done in setup
-        if self.as_coupling:
-            self.connect('disp_xfer.u_a', 'aero.u_a')
-            self.connect('aero.f_a', 'load_xfer.f_a')
-            self.connect('load_xfer.f_s', 'struct.f_s')
-            self.connect('struct.u_s', ['disp_xfer.u_s', 'load_xfer.u_s'])
+        pass
