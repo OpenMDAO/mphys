@@ -49,8 +49,8 @@ class MPHYS_Scenario(om.Group):
             # level to the scenario level.
             scenario_conn = self.aero_builder.get_scenario_connections()
             # we can make these connections here
-            for v in scenario_conn:
-                self.connect('solver_group.aero.%s'%v, 'aero_funcs.%s'%v)
+            for k, v in scenario_conn.items():
+                self.connect('solver_group.aero.%s'%k, 'aero_funcs.%s'%v)
 
         # do the same for struct
         if hasattr(self.struct_builder, 'get_scenario_element'):
@@ -58,8 +58,8 @@ class MPHYS_Scenario(om.Group):
             self.add_subsystem('struct_funcs', struct_scenario_element)
 
             scenario_conn = self.struct_builder.get_scenario_connections()
-            for v in scenario_conn:
-                self.connect('solver_group.struct.%s'%v, 'struct_funcs.%s'%v)
+            for k, v in scenario_conn.items():
+                self.connect('solver_group.struct.%s'%k, 'struct_funcs.%s'%v)
 
     def configure(self):
         pass
