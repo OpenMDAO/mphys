@@ -17,7 +17,7 @@ from mphys.mphys_meld import MELD_builder
 class Top(om.Group):
 
     def setup(self):
-        self.modal_struct = True
+        self.modal_struct = False
 
         # VLM options
         aero_options = {
@@ -170,7 +170,7 @@ prob.setup()
 # model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=20, iprint=2, use_aitken=False, rtol = 1E-14, atol=1E-14)
 # model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, rtol = 1e-14, atol=1e-14)
 
-om.n2(prob, show_browser=False, outfile='mphys_as_vlm.html')
+om.n2(prob, show_browser=False, outfile='mphys_as_vlm_tacs_meld.html')
 
 prob.run_model()
 

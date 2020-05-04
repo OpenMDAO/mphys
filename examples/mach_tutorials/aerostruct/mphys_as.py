@@ -1,6 +1,5 @@
-#rst Imports
-from __future__ import print_function, division
 import numpy as np
+import argparse
 from mpi4py import MPI
 
 import openmdao.api as om
@@ -20,9 +19,14 @@ from tacs import elements, constitutive, functions
 comm = MPI.COMM_WORLD
 rank = comm.rank
 
-# flag to use meld (False for RLT)
-use_meld = True
-# use_meld = False
+parser=argparse.ArgumentParser()
+parser.add_argument('--xfer', default='meld', choices=['meld', 'rlt'])
+args = parser.parse_args()
+
+if args.xfer == 'meld':
+    forcesAsTractions = False
+else:
+    forcesAsTractions = True
 
 class Top(om.Group):
 
@@ -53,12 +57,12 @@ class Top(om.Group):
 
             # ANK Solver Parameters
             'useANKSolver':True,
-            # 'ankswitchtol':1e-1,
             'nsubiterturb': 5,
-
-            # NK Solver Parameters
-            'useNKSolver':True,
-            'nkswitchtol':1e-4,
+            'anksecondordswitchtol':1e-4,
+            'ankcoupledswitchtol': 1e-6,
+            'ankinnerpreconits':2,
+            'ankouterpreconits':2,
+            'anklinresmax': 0.1,
 
             # Termination Criteria
             'L2Convergence':1e-14,
@@ -67,7 +71,7 @@ class Top(om.Group):
             'nCycles':10000,
 
             # force integration
-            'forcesAsTractions':False,
+            'forcesAsTractions': forcesAsTractions,
         }
 
         adflow_builder = ADflow_builder(aero_options)
@@ -116,7 +120,7 @@ class Top(om.Group):
         # Transfer scheme options
         ################################################################################
 
-        if use_meld:
+        if args.xfer == 'meld':
             xfer_options = {
                 'isym': 2,
                 'n': 200,
@@ -198,7 +202,7 @@ prob = om.Problem()
 prob.model = Top()
 model = prob.model
 prob.setup()
-om.n2(prob, show_browser=False, outfile='mphys_as.html')
+om.n2(prob, show_browser=False, outfile='mphys_as_adflow_tacs_%s.html'%args.xfer)
 prob.run_model()
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
