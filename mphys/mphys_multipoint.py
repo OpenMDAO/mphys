@@ -82,14 +82,13 @@ class MPHYS_Multipoint(om.Group):
         # loop over scenarios and connect them all
         for name in self.scenarios:
             if self.struct_discipline:
-                # make the default mesh connections
-                self.connect('struct_mesh.x_s0', '%s.solver_group.struct.x_s0'%name)
+                # make the default mesh connections for as_coupling
                 if self.as_coupling:
                     target_x_s0 =     ['%s.solver_group.disp_xfer.x_s0'%name]
                     target_x_s0.append('%s.solver_group.load_xfer.x_s0'%name)
                     self.connect('struct_mesh.x_s0', target_x_s0)
 
-                # also check if we have additional custom mesh connections
+                # check if we have custom mesh connections
                 if hasattr(self.struct_builder, 'get_mesh_connections'):
                     mesh_conn = self.struct_builder.get_mesh_connections()
 
@@ -102,15 +101,19 @@ class MPHYS_Multipoint(om.Group):
                     for k,v in mesh_to_funcs.items():
                         self.connect('struct_mesh.%s'%k, '%s.struct_funcs.%s'%(name, v))
 
+                # if the solver did not define any custom mesh connections,
+                # we will just connect the nodes from the mesh to solver
+                else:
+                    self.connect('struct_mesh.x_s0', '%s.solver_group.struct.x_s0'%name)
+
             if self.aero_discipline:
-                # make the default mesh connections
-                self.connect('aero_mesh.x_a0', '%s.solver_group.aero.x_a0'%name)
+                # make the default mesh connections for as_coupling
                 if self.as_coupling:
                     target_x_a0 =     ['%s.solver_group.load_xfer.x_a0'%name]
                     target_x_a0.append('%s.solver_group.disp_xfer.x_a0'%name)
                     self.connect('aero_mesh.x_a0', target_x_a0)
 
-                # also check if we have additional custom mesh connections
+                # check if we have custom mesh connections
                 if hasattr(self.aero_builder, 'get_mesh_connections'):
                     mesh_conn = self.aero_builder.get_mesh_connections()
 
@@ -122,6 +125,12 @@ class MPHYS_Multipoint(om.Group):
                     mesh_to_funcs = mesh_conn['funcs']
                     for k,v in mesh_to_funcs.items():
                         self.connect('aero_mesh.%s'%k, '%s.aero_funcs.%s'%(name, v))
+
+                # if the solver did not define any custom mesh connections,
+                # we will just connect the nodes from the mesh to solver
+                else:
+                    self.connect('aero_mesh.x_a0', '%s.solver_group.aero.x_a0'%name)
+
 
     def mphys_add_scenario(self, name, **kwargs):
         # save all the data until we are ready to initialize the objects themselves

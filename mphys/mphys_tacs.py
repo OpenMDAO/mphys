@@ -770,10 +770,9 @@ class TACS_builder(object):
 
     def get_mesh_connections(self):
         return {
-            # since we dont have a custom connection from mesh to solver, just pass back an empty dict
-            # the x_s0 from mesh to tacs group is in default mphys API
-            'solver':{},
-            # all connections from mesh to functions must be defined here
+            'solver':{
+                'x_s0'  : 'x_s0',
+            },
             'funcs':{
                 'x_s0'  : 'x_s0',
             },

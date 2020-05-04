@@ -381,8 +381,6 @@ class ModalBuilder(object):
         self.nmodes = nmodes
         self.check_partials = check_partials
 
-        self.mesh_connections = ['modal_stiffness','mode_shape']
-
     # api level method for all builders
     def init_solver(self, comm):
 
@@ -454,6 +452,20 @@ class ModalBuilder(object):
         return ModalDecomp(struct_solver=self.solver,
                            ndv=self.solver_dict['ndv'],
                            nmodes=self.nmodes)
+
+    def get_mesh_connections(self):
+        return {
+            # since we dont have a custom connection from mesh to solver, just pass back an empty dict
+            # the x_s0 from mesh to tacs group is in default mphys API
+            'solver':{
+                'modal_stiffness': 'modal_stiffness',
+                'mode_shape': 'mode_shape',
+            },
+            # all connections from mesh to functions must be defined here
+            'funcs':{
+                # 'x_s0'  : 'x_s0',
+            },
+        }
 
     def get_ndof(self):
         return self.solver_dict['ndof']
