@@ -92,14 +92,29 @@ class MPHYS_Multipoint(om.Group):
                 if hasattr(self.struct_builder, 'get_mesh_connections'):
                     mesh_conn = self.struct_builder.get_mesh_connections()
 
-                    # mesh conn is a dict that has two entries. the values for each entry defines the connections to solver or funcs
-                    mesh_to_solver = mesh_conn['solver']
-                    for k,v in mesh_to_solver.items():
-                        self.connect('struct_mesh.%s'%k, '%s.solver_group.struct.%s'%(name, v))
+                    # if mesh_conn has entries called 'solver' or 'funcs',
+                    # then we know that these are dictionaries of connections
+                    # to be made to solver or funcs. If there are no solver
+                    # or funcs entries in here, we just assume every key
+                    # will be connected to the solver.
+                    if ('solver' in mesh_conn) or ('funcs' not in mesh_conn):
+                        # if solver is in the dict, we connect the keys of that dict
+                        if 'solver' in mesh_conn:
+                            mesh_to_solver = mesh_conn['solver']
+                        # if solver is not in this, it means that funcs is not in
+                        # mesh_conn, which then means that mesh_conn only has
+                        # connections that go to the solver by default
+                        else:
+                            mesh_to_solver = mesh_conn
 
-                    mesh_to_funcs = mesh_conn['funcs']
-                    for k,v in mesh_to_funcs.items():
-                        self.connect('struct_mesh.%s'%k, '%s.struct_funcs.%s'%(name, v))
+                        for k,v in mesh_to_solver.items():
+                            self.connect('struct_mesh.%s'%k, '%s.solver_group.struct.%s'%(name, v))
+
+                    # if funcs is in the dict, we just connect the entries from this to the funcs
+                    if 'funcs' in mesh_conn:
+                        mesh_to_funcs = mesh_conn['funcs']
+                        for k,v in mesh_to_funcs.items():
+                            self.connect('struct_mesh.%s'%k, '%s.struct_funcs.%s'%(name, v))
 
                 # if the solver did not define any custom mesh connections,
                 # we will just connect the nodes from the mesh to solver
@@ -117,14 +132,29 @@ class MPHYS_Multipoint(om.Group):
                 if hasattr(self.aero_builder, 'get_mesh_connections'):
                     mesh_conn = self.aero_builder.get_mesh_connections()
 
-                    # mesh conn is a dict that has two entries. the values for each entry defines the connections to solver or funcs
-                    mesh_to_solver = mesh_conn['solver']
-                    for k,v in mesh_to_solver.items():
-                        self.connect('aero_mesh.%s'%k, '%s.solver_group.aero.%s'%(name, v))
+                    # if mesh_conn has entries called 'solver' or 'funcs',
+                    # then we know that these are dictionaries of connections
+                    # to be made to solver or funcs. If there are no solver
+                    # or funcs entries in here, we just assume every key
+                    # will be connected to the solver.
+                    if ('solver' in mesh_conn) or ('funcs' not in mesh_conn):
+                        # if solver is in the dict, we connect the keys of that dict
+                        if 'solver' in mesh_conn:
+                            mesh_to_solver = mesh_conn['solver']
+                        # if solver is not in this, it means that funcs is not in
+                        # mesh_conn, which then means that mesh_conn only has
+                        # connections that go to the solver by default
+                        else:
+                            mesh_to_solver = mesh_conn
 
-                    mesh_to_funcs = mesh_conn['funcs']
-                    for k,v in mesh_to_funcs.items():
-                        self.connect('aero_mesh.%s'%k, '%s.aero_funcs.%s'%(name, v))
+                        for k,v in mesh_to_solver.items():
+                            self.connect('aero_mesh.%s'%k, '%s.solver_group.aero.%s'%(name, v))
+
+                    # if funcs is in the dict, we just connect the entries from this to the funcs
+                    if 'funcs' in mesh_conn:
+                        mesh_to_funcs = mesh_conn['funcs']
+                        for k,v in mesh_to_funcs.items():
+                            self.connect('aero_mesh.%s'%k, '%s.aero_funcs.%s'%(name, v))
 
                 # if the solver did not define any custom mesh connections,
                 # we will just connect the nodes from the mesh to solver

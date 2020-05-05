@@ -455,16 +455,11 @@ class ModalBuilder(object):
 
     def get_mesh_connections(self):
         return {
-            # since we dont have a custom connection from mesh to solver, just pass back an empty dict
-            # the x_s0 from mesh to tacs group is in default mphys API
-            'solver':{
-                'modal_stiffness': 'modal_stiffness',
-                'mode_shape': 'mode_shape',
-            },
-            # all connections from mesh to functions must be defined here
-            'funcs':{
-                # 'x_s0'  : 'x_s0',
-            },
+            # because we dont have a solver or funcs key,
+            # mphys just assume that these will be connected
+            # to the solver.
+            'modal_stiffness': 'modal_stiffness',
+            'mode_shape': 'mode_shape',
         }
 
     def get_ndof(self):
