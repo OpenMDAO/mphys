@@ -113,15 +113,16 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
             self.DVCon.evalFunctionsSens(constraintfuncsens, includeLinear=True)
             for constraintname in constraintfuncsens:
                 for dvname in constraintfuncsens[constraintname]:
-                    dcdx = constraintfuncsens[constraintname][dvname]
-                    if self.comm.rank == 0:
-                        dout = d_outputs[constraintname]
-                        jvtmp = np.dot(np.transpose(dcdx),dout)
-                    else:
-                        jvtmp = 0.0
-                    d_inputs[dvname] += jvtmp
-                    # OM does the reduction itself
-                    # d_inputs[dvname] += self.comm.reduce(jvtmp, op=MPI.SUM, root=0)
+                    if dvname in d_inputs:
+                        dcdx = constraintfuncsens[constraintname][dvname]
+                        if self.comm.rank == 0:
+                            dout = d_outputs[constraintname]
+                            jvtmp = np.dot(np.transpose(dcdx),dout)
+                        else:
+                            jvtmp = 0.0
+                        d_inputs[dvname] += jvtmp
+                        # OM does the reduction itself
+                        # d_inputs[dvname] += self.comm.reduce(jvtmp, op=MPI.SUM, root=0)
                 
             for ptSetName in self.DVGeo.ptSetNames:
                 if ptSetName in self.omPtSetList:
