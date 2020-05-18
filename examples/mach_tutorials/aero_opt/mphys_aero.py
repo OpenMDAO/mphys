@@ -155,8 +155,8 @@ class Top(om.Group):
         self.connect('twist', 'geo.twist')
 
         # define the design variables
-        # self.add_design_var('alpha', lower=   0.0, upper=10.0, scaler=0.1)
-        # self.add_design_var('local', lower= -0.5, upper=0.5, scaler=0.01)
+        self.add_design_var('alpha', lower=   0.0, upper=10.0, scaler=0.1)
+        self.add_design_var('local', lower= -0.5, upper=0.5, scaler=0.01)
         self.add_design_var('twist', lower= -10.0, upper=10.0, scaler=0.01)
 
         # add constraints and the objective
@@ -204,7 +204,7 @@ if args.task == 'run':
     prob.run_model()
     # prob.model.list_outputs(print_arrays=True)
     # prob.check_partials(compact_print=True, includes='*geo*')
-    # prob.check_totals(of=['mp_group.s0.aero.funcs.cd'],compact_print=True)
+    # prob.check_totals(compact_print=True)
 elif args.task == 'opt':
     prob.run_driver()
 
