@@ -2,6 +2,8 @@ import openmdao.api as om
 from pygeo import DVGeometry, DVConstraints
 from mpi4py import MPI
 import numpy as np
+from openmdao.utils.array_utils import evenly_distrib_idxs
+import time
 
 # class that actually calls the dvgeometry methods
 class OM_DVGEOCOMP(om.ExplicitComponent):
@@ -20,7 +22,6 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         self.omPtSetList = []
 
     def compute(self, inputs, outputs):
-
         # inputs are the geometric design variables
         self.DVGeo.setDesignVars(inputs)
 
@@ -32,9 +33,11 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
 
         # compute the DVCon constraint values
         constraintfunc = dict()
-        self.DVCon.evalFunctions(constraintfunc)
-        for constraintname in constraintfunc:
-            outputs[constraintname] = constraintfunc[constraintname]
+        self.DVCon.evalFunctions(constraintfunc, includeLinear=True)
+        comm = self.comm
+        if comm.rank == 0:
+            for constraintname in constraintfunc:
+                outputs[constraintname] = constraintfunc[constraintname]
 
     def nom_addPointSet(self, points, ptName, **kwargs):
         # add the points to the dvgeo object
@@ -59,18 +62,37 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
     def nom_addGeoDVLocal(self, dvName, axis='y'):
         nVal = self.DVGeo.addGeoDVLocal(dvName, axis=axis)
         self.add_input(dvName, shape=nVal)
+        return nVal
 
     def nom_addThicknessConstraints2D(self, name, leList, teList, nSpan=10, nChord=10):
         self.DVCon.addThicknessConstraints2D(leList, teList, nSpan, nChord, lower=1.0, name=name)
-        # TODO add output to openmdao
-        self.add_output(name, val=np.ones((nSpan*nChord,)), shape=nSpan*nChord)
+        comm = self.comm
+        if comm.rank == 0:
+            self.add_output(name, val=np.ones((nSpan*nChord,)), shape=nSpan*nChord)
+        else:
+            self.add_output(name, shape=(0,))
 
 
     def nom_addVolumeConstraint(self, name, leList, teList, nSpan=10, nChord=10):
         self.DVCon.addVolumeConstraint(leList, teList, nSpan=nSpan, nChord=nChord, name=name)
-        # TODO add output to openmdao
-        # self.constraints[constrainttype][constraintname]
-        self.add_output(name, val=1.0)
+        comm = self.comm
+        if comm.rank == 0:
+            self.add_output(name, val=1.0)
+        else:
+            self.add_output(name, shape=0)
+
+    def nom_add_LETEConstraint(self, name, volID, faceID):
+        self.DVCon.addLeTeConstraints(volID, faceID, name=name)
+        # how many are there?
+        conobj = self.DVCon.linearCon[name]
+        nCon = len(conobj.indSetA)
+        comm = self.comm
+        if comm.rank == 0:
+            self.add_output(name, val=np.zeros((nCon,)), shape=nCon)
+        else:
+            self.add_output(name, shape=0)
+        return nCon
+
 
     def nom_addRefAxis(self, **kwargs):
         # we just pass this through
@@ -83,19 +105,24 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
     
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
-        print(self.comm.rank)
         # only do the computations when we have more than zero entries in d_inputs in the reverse mode
         ni = len(list(d_inputs.keys()))
-
+        
         if mode == 'rev' and ni > 0:
             constraintfuncsens = dict()
-            self.DVCon.evalFunctionsSens(constraintfuncsens)
+            self.DVCon.evalFunctionsSens(constraintfuncsens, includeLinear=True)
             for constraintname in constraintfuncsens:
                 for dvname in constraintfuncsens[constraintname]:
                     dcdx = constraintfuncsens[constraintname][dvname]
-                    dout = d_outputs[constraintname]
-                    d_inputs[dvname] += np.dot(np.transpose(dcdx),dout)
-
+                    if self.comm.rank == 0:
+                        dout = d_outputs[constraintname]
+                        jvtmp = np.dot(np.transpose(dcdx),dout)
+                    else:
+                        jvtmp = 0.0
+                    d_inputs[dvname] += jvtmp
+                    # OM does the reduction itself
+                    # d_inputs[dvname] += self.comm.reduce(jvtmp, op=MPI.SUM, root=0)
+                
             for ptSetName in self.DVGeo.ptSetNames:
                 if ptSetName in self.omPtSetList:
                     dout = d_outputs[ptSetName].reshape(len(d_outputs[ptSetName])//3, 3)
