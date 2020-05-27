@@ -2,7 +2,7 @@ import numpy as np
 
 import openmdao.api as om
 
-class WingMorph(om.ExplicitComponent):
+class WingGeometry(om.ExplicitComponent):
     
     def initialize(self):
         
