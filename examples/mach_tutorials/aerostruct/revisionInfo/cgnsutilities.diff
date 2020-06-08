@@ -1,0 +1,62 @@
+diff -r cb7174f6e513 bin/cgns_utils.py
+--- a/bin/cgns_utils.py	Thu Aug 16 12:08:37 2018 -0300
++++ b/bin/cgns_utils.py	Mon Apr 20 16:15:10 2020 -0400
+@@ -348,14 +348,28 @@
+                     DirNeu = aux[6]
+                     bcDSet = BocoDataSet(bocoSetName, BC[bocoDataSetType.lower()])
+ 
+-                    for i in range(7, len(aux), 2):
++
++                    # for i in range(7, len(aux), 2):
++                    i = 7 
++
++                    while i < len(aux):
+                         arrayName = aux[i]
+                         dType = CGNSDATATYPES["RealDouble"]
+                         nDims = 1
++                        dataArr = numpy.zeros(0, dtype=numpy.float64, order='F')
++
++
++                        while True:
++                            i += 1
++                            try:
++                                dataArr = numpy.append(dataArr, float(aux[i]))
++                            except ValueError: # next value is a new data declaration
++                                break
++                            except IndexError:  # reaches end of the line
++                                break
++
+                         dataDims = numpy.ones(3, dtype=numpy.int32, order='F')
+-                        dataArr = numpy.zeros(1, dtype=numpy.float64, order='F')
+-                        dataArr[0] = float(aux[i+1])
+-
++                        dataDims[0] = dataArr.size
+ 
+                         bcDataArr = BocoDataSetArray(arrayName, dType, nDims, dataDims, dataArr)
+                         if DirNeu == "Dirichlet":
+@@ -2024,7 +2038,7 @@
+                 boco.family = family
+ 
+     def overwriteBCs(self, faceStr, bcType, family, dataSet):
+-        """Find any BCs on this face and toast them. Note that we *ONLY ALLOW
++        """Find any BCs on this face and replace them. Note that we *ONLY ALLOW
+         ONE BC per face*
+         """
+ 
+@@ -2251,7 +2265,7 @@
+         self.dirichletArrays.append(dirDataSet)
+ 
+     def addNeumannDataSet(self, neuDataSet):
+-        self.neumannArrays.append(dirDataSet)
++        self.neumannArrays.append(neuDataSet)
+ 
+ 
+ class BocoDataSetArray(object):
+@@ -2564,7 +2578,6 @@
+ 
+                         # Get the data. Note the dataArr is populated when the routine exits
+                         libcgns_utils.utils.getbcdataarray(inFile, iBlock, iBoco, iBocoDataSet, iDir, flagDirNeu, dataArr, nDataArr)
+-
+                         # Create a BocoDataSetArray object and return
+                         return  BocoDataSetArray(dataArrayName, dataType, nDimensions, dataDimensionVector, dataArr)
+ 

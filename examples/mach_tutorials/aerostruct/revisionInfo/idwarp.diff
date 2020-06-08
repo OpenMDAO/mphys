@@ -1,0 +1,38 @@
+diff -r 4dfc6f22737d python/MultiUnstructuredMesh.py
+--- a/python/MultiUnstructuredMesh.py	Thu Jul 12 12:17:22 2018 -0400
++++ b/python/MultiUnstructuredMesh.py	Mon Apr 20 16:15:10 2020 -0400
+@@ -36,7 +36,9 @@
+ from pprint import pprint
+ from mpi4py import MPI
+ from .MExt import MExt
+-import idwarp
++# import idwarp
++from UnstructuredMesh import USMesh
++from UnstructuredMesh_C import USMesh_C
+ from petsc4py import PETSc
+ try:
+     from cgnsutilities import cgns_utils as cs
+@@ -225,9 +227,9 @@
+ 
+                 # Initialize a pyWarp instance with the current options
+                 if self.dtype == 'd':
+-                    currMesh = idwarp.USMesh(options=optionsDict[zoneName], comm=self.comm)
++                    currMesh = USMesh(options=optionsDict[zoneName], comm=self.comm)
+                 elif self.dtype == 'D':
+-                    currMesh = idwarp.USMesh_C(options=optionsDict[zoneName], comm=self.comm)
++                    currMesh = USMesh_C(options=optionsDict[zoneName], comm=self.comm)
+ 
+             else:
+ 
+@@ -273,9 +275,9 @@
+ 
+                 # Initialize a pyWarp instance with the current options
+                 if self.dtype == 'd':
+-                    currMesh = idwarp.USMesh(options=dummyOptions, comm=self.comm)
++                    currMesh = USMesh(options=dummyOptions, comm=self.comm)
+                 elif self.dtype == 'D':
+-                    currMesh = idwarp.USMesh_C(options=dummyOptions, comm=self.comm)
++                    currMesh = USMesh_C(options=dummyOptions, comm=self.comm)
+ 
+                 # Initialize a dummy surface in the background mesh
+                 '''

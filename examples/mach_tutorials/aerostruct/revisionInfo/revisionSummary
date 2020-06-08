@@ -1,0 +1,41 @@
+DO NOT MODIFY THE CONTENtS OF THIS FILE. THE EXACT STRUCTURE IS REQUIRED FOR RESTORATION
+--------------------------------------------------------------------------------
+Package: /home/josh/repos/idwarp
+--------------------------------------------------------------------------------
+parent: 151:4dfc6f22737d tip
+ missed one name in the complex reg tests
+branch: default
+commit: [0;34;1m1 modified[0m, [0;35;1;4m2 unknown[0m
+update: (current)
+--------------------------------------------------------------------------------
+Package: /home/josh/repos/cgnsutilities
+--------------------------------------------------------------------------------
+parent: 136:cb7174f6e513 tip
+ Added optiion to preserve original domain names when combining files. Also removed binary file from repository control.
+branch: default
+commit: [0;34;1m1 modified[0m, [0;35;1;4m18 unknown[0m
+update: (current)
+--------------------------------------------------------------------------------
+Package: /home/josh/repos/repostate
+--------------------------------------------------------------------------------
+parent: 13:6777551a7c9c tip
+ repoSave.py edited online with Bitbucket
+branch: default
+commit: [0;35;1;4m2 unknown[0m (clean)
+update: (current)
+--------------------------------------------------------------------------------
+Package: /home/josh/repos/multipoint
+--------------------------------------------------------------------------------
+parent: 69:dbbaf8dad2ec tip
+ python 3 updates
+branch: default
+commit: [0;35;1;4m3 unknown[0m (clean)
+update: (current)
+--------------------------------------------------------------------------------
+Package: /home/josh/repos/pyaerostructure
+--------------------------------------------------------------------------------
+parent: 209:dce52f97767b tip
+ Hard-coded specific gas constant for air in aeroproblems in regression tests.
+branch: aerostructure
+commit: [0;35;1;4m7 unknown[0m (clean)
+update: (current)
