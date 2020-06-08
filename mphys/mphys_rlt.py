@@ -1,4 +1,5 @@
 import numpy as np
+from mpi4py import MPI
 
 import openmdao.api as om
 from rlt import SimpleLDTransfer
@@ -31,6 +32,12 @@ class RLT_disp_xfer(om.ExplicitComponent):
         nn_s   = self.options['nn_s']
         nn_a   = self.options['nn_a']
 
+        # get the isAero and isStruct flags from RLT python object
+        # this is done to pseudo parallelize the modal solver, where
+        # only the root proc does the computations.
+        self.isAero = RLT.isAero
+        self.isStruct = RLT.isStruct
+
         # set attributes
         self.transfer = RLT.transfer
         self.ndof_s = ndof_s
@@ -40,12 +47,15 @@ class RLT_disp_xfer(om.ExplicitComponent):
         total_dof_struct = self.nn_s * self.ndof_s
         total_dof_aero = self.nn_a * self.ndof_a
 
-        # RLT depends on TACS vector types.
-        #   ustruct : holds the structural states
-        #   struct_seed : used as a seed for structural displacements and forces
-        self.tacs = RLT.structSolver.structure
-        self.ustruct = self.tacs.createVec()
-        self.struct_seed = self.tacs.createVec()
+        if self.isStruct:
+            # RLT depends on TACS vector types.
+            #   ustruct : holds the structural states
+            #   struct_seed : used as a seed for structural displacements and forces
+            self.tacs = RLT.structSolver.structure
+            self.ustruct = self.tacs.createVec()
+            self.struct_seed = self.tacs.createVec()
+        else:
+            self.ustruct = None
 
         # Get the source indices for each of the distributed inputs.
         irank = self.comm.rank
@@ -78,30 +88,34 @@ class RLT_disp_xfer(om.ExplicitComponent):
                         val=np.zeros(total_dof_aero),
                         desc='Aerodynamic surface displacements')
 
+        # TODO disable for now for the modal solver stuff.
         # Partials
-        self.declare_partials('u_a', ['x_a0','u_s'])
+        # self.declare_partials('u_a', ['x_a0','u_s'])
 
     def compute(self, inputs, outputs):
         # Update transfer object with the current set of CFD points
         self.transfer.setAeroSurfaceNodes(inputs['x_a0'])
 
-        # Set the structural displacements
-        ustruct_array = self.ustruct.getArray()
-        ustruct_array[:] = inputs['u_s']
+        if self.isStruct:
+            # Set the structural displacements
+            ustruct_array = self.ustruct.getArray()
+            ustruct_array[:] = inputs['u_s']
         self.transfer.setDisplacements(self.ustruct)
 
         # Get out the aerodynamic displacements
         self.transfer.getDisplacements(outputs['u_a'])
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
+        # TODO check if the partial computations are okay when isStruct is not True on all procs
         if mode == 'fwd':
             if 'u_a' in d_outputs:
                 if 'u_s' in d_inputs:
-                    # Set the forward seed on the structural displacements
-                    self.struct_seed.zeroEntries()
-                    seed_array = self.struct_seed.getArray()
-                    seed_array[:] = d_inputs['u_s']
-                    self.transfer.setDisplacementPerturbation(self.struct_seed)
+                    if self.isStruct:
+                        # Set the forward seed on the structural displacements
+                        self.struct_seed.zeroEntries()
+                        seed_array = self.struct_seed.getArray()
+                        seed_array[:] = d_inputs['u_s']
+                        self.transfer.setDisplacementPerturbation(self.struct_seed)
 
                     # Retrieve the seed from the aerodynamic displacements
                     u_ad = np.zeros(self.nn_a*self.ndof_a, dtype=transfer_dtype)
@@ -117,24 +131,25 @@ class RLT_disp_xfer(om.ExplicitComponent):
         if mode == 'rev':
             if 'u_a' in d_outputs:
                 if 'u_s' in d_inputs:
-                    # Set the reverse seed from the aero displacements and
-                    # retrieve the seed on the structural displacements.
-                    # Note: Could also use setDisplacementsSens.
-                    self.transfer.zeroReverseSeeds()
-                    self.struct_seed.zeroEntries()
-                    self.transfer.addAdjointDisplacements(d_outputs['u_a'],
-                                                          self.struct_seed)
+                    if self.isStruct:
+                        # Set the reverse seed from the aero displacements and
+                        # retrieve the seed on the structural displacements.
+                        # Note: Could also use setDisplacementsSens.
+                        self.transfer.zeroReverseSeeds()
+                        self.struct_seed.zeroEntries()
+                        self.transfer.addAdjointDisplacements(d_outputs['u_a'], self.struct_seed)
 
-                    # Pull the seed out of the TACS vector and accumulate
-                    seed_array = self.struct_seed.getArray()
-                    d_inputs['u_s'] += seed_array[:]
+                        # Pull the seed out of the TACS vector and accumulate
+                        seed_array = self.struct_seed.getArray()
+                        d_inputs['u_s'] += seed_array[:]
 
                 if 'x_a0' in d_inputs:
                     # Set the reverse seed from the aero displacements
                     self.transfer.zeroReverseSeeds()
-                    self.transfer.setDisplacementsSens(self.ustruct,
-                                                       self.struct_seed,
-                                                       d_outputs['u_a'])
+                    if self.isStruct:
+                        self.transfer.setDisplacementsSens(self.ustruct,
+                                                           self.struct_seed,
+                                                           d_outputs['u_a'])
 
                     # Retrieve the seed on the aerodynamic surface nodes.
                     x_a0d = np.zeros(self.nn_a*self.ndof_a, dtype=transfer_dtype)
@@ -174,6 +189,12 @@ class RLT_load_xfer(om.ExplicitComponent):
         nn_s   = self.options['nn_s']
         nn_a   = self.options['nn_a']
 
+        # get the isAero and isStruct flags from RLT python object
+        # this is done to pseudo parallelize the modal solver, where
+        # only the root proc does the computations.
+        self.isAero = RLT.isAero
+        self.isStruct = RLT.isStruct
+
         # set attributes
         self.transfer = RLT.transfer
         self.ndof_s = ndof_s
@@ -183,12 +204,15 @@ class RLT_load_xfer(om.ExplicitComponent):
         total_dof_struct = self.nn_s * self.ndof_s
         total_dof_aero = self.nn_a * self.ndof_a
 
-        # RLT depends on TACS vector types.
-        #   fstruct : holds the forces on the structural nodes
-        #   struct_seed : used as a seed for structural displacements and forces
-        self.tacs = RLT.structSolver.structure
-        self.fstruct = self.tacs.createVec()
-        self.struct_seed = self.tacs.createVec()
+        if self.isStruct:
+            # RLT depends on TACS vector types.
+            #   fstruct : holds the forces on the structural nodes
+            #   struct_seed : used as a seed for structural displacements and forces
+            self.tacs = RLT.structSolver.structure
+            self.fstruct = self.tacs.createVec()
+            self.struct_seed = self.tacs.createVec()
+        else:
+            self.fstruct = None
 
         # Get the source indices for each of the distributed inputs.
         irank = self.comm.rank
@@ -224,20 +248,23 @@ class RLT_load_xfer(om.ExplicitComponent):
         self.add_output('f_s', shape=total_dof_struct,
                         desc='structural force vector')
 
+        # TODO disable for now for the modal solver stuff.
         # Partials
-        self.declare_partials('f_s', ['x_a0','f_a'])
+        # self.declare_partials('f_s', ['x_a0','f_a'])
 
     def compute(self, inputs, outputs):
         # Update transfer object with the current set of CFD points
         self.transfer.setAeroSurfaceNodes(inputs['x_a0'])
 
-        # Set the aerodynamic forces and extract structural forces
-        self.fstruct.zeroEntries()
+        if self.isStruct:
+            # Set the aerodynamic forces and extract structural forces
+            self.fstruct.zeroEntries()
         self.transfer.addAeroForces(inputs['f_a'], self.fstruct)
 
-        # Get numpy array version of structural forces
-        f_s = self.fstruct.getArray()
-        outputs['f_s'] = -f_s[:] #This negative sign was necessary, not exactly sure why
+        if self.isStruct:
+            # Get numpy array version of structural forces
+            f_s = self.fstruct.getArray()
+            outputs['f_s'] = -f_s[:] #This negative sign was necessary, not exactly sure why
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
@@ -301,15 +328,21 @@ class RLT_builder(object):
         aero_solver   = self.aero_builder.get_solver()
         struct_solver = self.struct_builder.get_solver()
 
-        #TODO: make this better. RLT is expecting a pytacs object to be
-        # passed in, but it only needs the actual TACS object and the
-        # structural comm. So I just created a dummy object for now that
-        # references the attributes of the struct_assembler. I could have
-        # passed in the struct_assembler, but wasn't sure if that was
-        # bad practice.
-        class dummy_pytacs: pass
-        dummy_pytacs.structure = struct_solver
-        dummy_pytacs.comm = comm
+
+        # if the struct_solver is none, we should pass none instead of dummy pytacs
+        if struct_solver is None:
+            dummy_pytacs = None
+        else:
+            #TODO: make this better. RLT is expecting a pytacs object to be
+            # passed in, but it only needs the actual TACS object and the
+            # structural comm. So I just created a dummy object for now that
+            # references the attributes of the struct_assembler. I could have
+            # passed in the struct_assembler, but wasn't sure if that was
+            # bad practice.
+            class dummy_pytacs: pass
+            dummy_pytacs.structure = struct_solver
+            dummy_pytacs.comm = comm
+
         self.xfer_object = SimpleLDTransfer(
             aero_solver,
             dummy_pytacs,

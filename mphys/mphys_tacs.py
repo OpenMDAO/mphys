@@ -91,6 +91,8 @@ class TacsSolver(om.ImplicitComponent):
         self.transposed = False
         self.check_partials = False
 
+        self.old_dvs = None
+
     def setup(self):
         self.check_partials = self.options['check_partials']
 
@@ -135,12 +137,13 @@ class TacsSolver(om.ImplicitComponent):
 
 
         # inputs
-        self.add_input('dv_struct', shape=ndv                                                 , desc='tacs design variables')
-        self.add_input('x_s0',      shape=node_size , src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
-        self.add_input('f_s',       shape=state_size, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
+        self.add_input('dv_struct', shape=ndv, desc='tacs design variables')
+        self.add_input('x_s0', shape=node_size , src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
+        self.add_input('f_s', shape=state_size, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
 
         # outputs
-        self.add_output('u_s',      shape=state_size, val = np.zeros(state_size),desc='structural state vector')
+        # its important that we set this to zero since this displacement value is used for the first iteration of the aero
+        self.add_output('u_s', shape=state_size, val = np.zeros(state_size),desc='structural state vector')
 
         # partials
         #self.declare_partials('u_s',['dv_struct','x_s0','f_s'])
@@ -157,32 +160,45 @@ class TacsSolver(om.ImplicitComponent):
     def get_funcs(self):
         return self.solver_dict['get_funcs']
 
+    def _need_update(self,inputs):
+        if self.old_dvs is None:
+            self.old_dvs = inputs['dv_struct'].copy()
+            return True
+
+        for dv, dv_old in zip(inputs['dv_struct'],self.old_dvs):
+            if np.abs(dv - dv_old) > 1e-7:
+                self.old_dvs = inputs['dv_struct'].copy()
+                return True
+
+        return False
+
     def _update_internal(self,inputs,outputs=None):
-        self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
+        if self._need_update(inputs):
+            self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
 
-        xpts = self.tacs.createNodeVec()
-        self.tacs.getNodes(xpts)
-        xpts_array = xpts.getArray()
-        xpts_array[:] = inputs['x_s0']
-        self.tacs.setNodes(xpts)
+            xpts = self.tacs.createNodeVec()
+            self.tacs.getNodes(xpts)
+            xpts_array = xpts.getArray()
+            xpts_array[:] = inputs['x_s0']
+            self.tacs.setNodes(xpts)
 
-        pc     = self.pc
-        alpha = 1.0
-        beta  = 0.0
-        gamma = 0.0
+            pc     = self.pc
+            alpha = 1.0
+            beta  = 0.0
+            gamma = 0.0
 
-        xpts = self.tacs.createNodeVec()
-        self.tacs.getNodes(xpts)
-        xpts_array = xpts.getArray()
-        xpts_array[:] = inputs['x_s0']
-        self.tacs.setNodes(xpts)
+            xpts = self.tacs.createNodeVec()
+            self.tacs.getNodes(xpts)
+            xpts_array = xpts.getArray()
+            xpts_array[:] = inputs['x_s0']
+            self.tacs.setNodes(xpts)
 
-        res = self.tacs.createVec()
-        res_array = res.getArray()
-        res_array[:] = 0.0
+            res = self.tacs.createVec()
+            res_array = res.getArray()
+            res_array[:] = 0.0
 
-        self.tacs.assembleJacobian(alpha,beta,gamma,res,self.mat)
-        pc.factor()
+            self.tacs.assembleJacobian(alpha,beta,gamma,res,self.mat)
+            pc.factor()
 
         if outputs is not None:
             ans = self.ans
@@ -538,6 +554,11 @@ class TacsFunctions(om.ExplicitComponent):
         ndv = self.struct_objects[3]['ndv']
         get_funcs = self.struct_objects[3]['get_funcs']
 
+        if 'f5_writer' in self.struct_objects[3].keys():
+            self.f5_writer = self.struct_objects[3]['f5_writer']
+        else:
+            self.f5_writer = None
+
         tacs = self.tacs
 
         func_list = get_funcs(tacs)
@@ -622,10 +643,10 @@ class TacsFunctions(om.ExplicitComponent):
 
         if 'f_struct' in outputs:
             outputs['f_struct'] = self.tacs.evalFunctions(self.func_list)
+            print('f_struct',outputs['f_struct'])
 
-        # TODO fix this with the configure based approach
-        # if self.options['f5_writer'] is not None:
-        #     self.options['f5_writer'](self.tacs)
+        if self.f5_writer is not None:
+            self.f5_writer(self.tacs)
 
     def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
@@ -902,6 +923,9 @@ class TACS_builder(Builder):
         if self.conduction:
             solver_dict['surface_nodes'], solver_dict['mapping'] = self.options['get_surface'](tacs)
             
+        if 'f5_writer' in self.options.keys():
+            solver_dict['f5_writer'] = self.options['f5_writer']
+
         # check if the user provided a load function
         if 'load_function' in self.options:
             solver_dict['load_function'] = self.options['load_function']
