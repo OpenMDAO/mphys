@@ -1,7 +1,7 @@
 .DS_Store
 *pyc
 *out
-*cgns
+*cgnsls -
 *plt
 *dat
 *swp
@@ -12,3 +12,5 @@
 mphys.egg-info/*
 docs/build/doctrees
 *__pycache__
+build/
+dist/

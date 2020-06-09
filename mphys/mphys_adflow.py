@@ -50,6 +50,79 @@ class AdflowMesh(ExplicitComponent):
         # return the promoted name and coordinates
         return 'x_a0_points', self.x_a0
 
+    def mphys_get_triangulated_surface(self, groupName=None):
+        # this is a list of lists of 3 points
+        # p0, v1, v2
+
+        return self._getTriangulatedMeshSurface()
+
+    def _getTriangulatedMeshSurface(self, groupName=None, **kwargs):
+        """
+        This function returns a trianguled verision of the surface
+        mesh on all processors. The intent is to use this for doing
+        constraints in DVConstraints.
+
+        Returns
+        -------
+        surf : list
+           List of points and vectors describing the surface. This may
+           be passed directly to DVConstraint setSurface() function.
+        """
+
+        if groupName is None:
+            groupName = self.aero_solver.allWallsGroup
+
+        # Obtain the points and connectivity for the specified
+        # groupName
+        pts = self.aero_solver.comm.allgather(self.aero_solver.getSurfaceCoordinates(groupName, **kwargs))
+        conn, faceSizes = self.aero_solver.getSurfaceConnectivity(groupName)
+        conn = np.array(conn).flatten()
+        conn = self.aero_solver.comm.allgather(conn)
+        faceSizes = self.aero_solver.comm.allgather(faceSizes)
+      
+        # Triangle info...point and two vectors
+        p0 = []
+        v1 = []
+        v2 = []
+
+        # loop over the faces
+        for iProc in range(len(faceSizes)):
+
+            connCounter=0
+            for iFace in range(len(faceSizes[iProc])):
+                # Get the number of nodes on this face
+                faceSize = faceSizes[iProc][iFace]
+                faceNodes = conn[iProc][connCounter:connCounter+faceSize]
+                
+                # Start by getting the centerpoint
+                ptSum= [0, 0, 0]
+                for i in range(faceSize):
+                    #idx = ptCounter+i
+                    idx = faceNodes[i]
+                    ptSum+=pts[iProc][idx]
+
+                avgPt = ptSum/faceSize
+
+                # Now go around the face and add a triangle for each adjacent pair
+                # of points. This assumes an ordered connectivity from the
+                # meshwarping
+                for i in range(faceSize):
+                    idx = faceNodes[i]
+                    p0.append(avgPt)
+                    v1.append(pts[iProc][idx]-avgPt)
+                    if(i<(faceSize-1)):
+                        idxp1 = faceNodes[i+1]
+                        v2.append(pts[iProc][idxp1]-avgPt)
+                    else:
+                        # wrap back to the first point for the last element
+                        idx0 = faceNodes[0]
+                        v2.append(pts[iProc][idx0]-avgPt)
+
+                # Now increment the connectivity
+                connCounter+=faceSize
+                
+        return [p0, v1, v2]
+
     def compute(self,inputs,outputs):
         if 'x_a0_points' in inputs:
             outputs['x_a0'] = inputs['x_a0_points']

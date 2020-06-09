@@ -176,6 +176,7 @@ class MPHYS_Scenario(om.Group):
         # add the subgroups
         if self.as_coupling:
             self.add_subsystem('disp_xfer', disp_xfer)
+            self.add_subsystem('geo_disp', Geo_Disp())
         if self.aero_discipline:
             self.add_subsystem('aero', aero)
         if self.as_coupling:
@@ -197,3 +198,11 @@ class MPHYS_Scenario(om.Group):
             self.connect('aero.f_a', 'load_xfer.f_a')
             self.connect('load_xfer.f_s', 'struct.f_s')
             self.connect('struct.u_s', ['disp_xfer.u_s', 'load_xfer.u_s'])
+
+    def mphys_get_triangulated_surface(self):
+        # get triangulated surface for computing constraints
+        if self.aero_discipline:
+            x_a0_tri = self.aero_mesh.mphys_get_triangulated_surface()
+            return x_a0_tri
+        else:
+            raise NotImplementedError('Only ADFlow format supported so far')
