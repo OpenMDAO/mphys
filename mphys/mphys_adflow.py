@@ -9,7 +9,7 @@ from idwarp import USMesh
 
 from openmdao.api import Group, ImplicitComponent, ExplicitComponent
 
-from adflow.python.om_utils import get_dvs_and_cons
+from adflow.om_utils import get_dvs_and_cons
 
 class AdflowMesh(ExplicitComponent):
     """

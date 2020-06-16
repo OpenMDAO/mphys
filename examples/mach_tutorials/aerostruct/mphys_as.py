@@ -11,7 +11,7 @@ from mphys.mphys_multipoint import MPHYS_Multipoint
 from mphys.mphys_adflow import ADflow_builder
 from mphys.mphys_tacs import TACS_builder
 from mphys.mphys_meld import MELD_builder
-from mphys.mphys_rlt import RLT_builder
+# from mphys.mphys_rlt import RLT_builder
 
 from baseclasses import *
 from tacs import elements, constitutive, functions
@@ -126,9 +126,9 @@ class Top(om.Group):
             xfer_builder = MELD_builder(xfer_options, adflow_builder, tacs_builder)
         else:
             # or we can use RLT:
-            xfer_options = {'transfergaussorder': 2}
-            xfer_builder = RLT_builder(xfer_options, adflow_builder, tacs_builder)
-
+            # xfer_options = {'transfergaussorder': 2}
+            # xfer_builder = RLT_builder(xfer_options, adflow_builder, tacs_builder)
+            pass
         ################################################################################
         # MPHYS setup
         ################################################################################
