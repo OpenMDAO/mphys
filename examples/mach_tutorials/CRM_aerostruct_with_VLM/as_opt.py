@@ -7,7 +7,7 @@ import openmdao.api as om
 
 from tacs import elements, constitutive, functions, TACS
 
-from mphys.mphys_multipoint_hacked import MPHYS_Multipoint
+from mphys.mphys_multipoint import MPHYS_Multipoint
 from mphys.mphys_vlm import VLM_builder
 from mphys.mphys_tacs import TACS_builder
 from mphys.mphys_modal_solver import ModalBuilder
@@ -24,7 +24,7 @@ class Top(om.Group):
             'mesh_file':'CRM_VLM_mesh_extended.dat',
             'mach':0.85,
             'alpha':0*np.pi/180.,
-            'q_inf':9000.,
+            'q_inf':1., #9000.,
             'vel':178.,
             'mu':3.5E-5,
         }
@@ -197,13 +197,12 @@ class Top(om.Group):
         # connect solver data
         self.connect('dv_struct', ['mp_group.s0.struct.dv_struct'])
 
-        # make the connections that you aren't letting MPHYS_Multipoint do anymore
-        self.connect('geometry_mapper.x_s0_mesh','mp_group.s0.struct.x_s0')
-        self.connect('geometry_mapper.x_s0_mesh','mp_group.s0.disp_xfer.x_s0')
-        self.connect('geometry_mapper.x_s0_mesh','mp_group.s0.load_xfer.x_s0')
-        self.connect('geometry_mapper.x_a0_mesh','mp_group.s0.aero.x_a0')
-        self.connect('geometry_mapper.x_a0_mesh','mp_group.s0.disp_xfer.x_a0')
-        self.connect('geometry_mapper.x_a0_mesh','mp_group.s0.load_xfer.x_a0')
+        # connect the geometry mesh outputs
+        points = self.mp_group.mphys_add_coordinate_input()
+        self.connect('geometry_mapper.x_s0_mesh','mp_group.struct_points')
+        self.connect('geometry_mapper.x_a0_mesh','mp_group.aero_points')
+  
+
 
 
 ################################################################################
@@ -212,6 +211,19 @@ class Top(om.Group):
 prob = om.Problem()
 prob.model = Top()
 model = prob.model
+
+model.nonlinear_solver = om.NonlinearRunOnce()
+model.linear_solver = om.LinearRunOnce()
+
+prob.setup()
+om.n2(prob, show_browser=False, outfile='CRM_mphys_as_vlm.html')
+
+model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=20, iprint=2, use_aitken=False, rtol = 1E-7, atol=1E-8)
+model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, rtol = 1e-7, atol=1e-8)
+
+prob.run_model()
+
+
 
 # optimization set up
 #prob.model.add_design_var('alpha',lower=-5*np.pi/180, upper=10*np.pi/180.0, ref=1.0)
@@ -233,8 +245,6 @@ model = prob.model
 #prob.model.add_constraint('lo_skin_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
 
 # optional but we can set it here.
-model.nonlinear_solver = om.NonlinearRunOnce()
-model.linear_solver = om.LinearRunOnce()
 
 ##prob.driver = om.ScipyOptimizeDriver(debug_print=['ln_cons','nl_cons','objs','totals'])
 #prob.driver = om.ScipyOptimizeDriver()
@@ -250,12 +260,8 @@ model.linear_solver = om.LinearRunOnce()
 #recorder = om.SqliteRecorder("cases.sql")
 #prob.driver.add_recorder(recorder)
 
-prob.setup()
 
-#model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=20, iprint=2, use_aitken=True, rtol = 1E-7, atol=1E-8)
-#model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, rtol = 1e-7, atol=1e-8)
 
-om.n2(prob, show_browser=False, outfile='CRM_mphys_as_vlm.html')
 #prob.run_driver()
 
 #cr = om.CaseReader("cases.sql")
