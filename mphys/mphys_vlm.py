@@ -18,9 +18,18 @@ class VlmMesh(om.ExplicitComponent):
         self.x_a0 = self.options['x_a0']
         self.add_output('x_a0',np.zeros(N_nodes*3))
 
+    def mphys_add_coordinate_input(self):
+
+        N_nodes = self.options['N_nodes']
+        self.add_input('x_a0_points',np.zeros(N_nodes*3))
+        return 'x_a0_points', self.x_a0
+
     def compute(self,inputs,outputs):
 
-        outputs['x_a0'] = self.x_a0
+        if 'x_a0_points' in inputs:
+            outputs['x_a0'] = inputs['x_a0_points']
+        else:
+            outputs['x_a0'] = self.x_a0
 
 class Geo_Disp(om.ExplicitComponent):
     """
