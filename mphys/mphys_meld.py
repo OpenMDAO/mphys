@@ -2,7 +2,7 @@ import numpy as np
 import openmdao.api as om
 from funtofem import TransferScheme
 
-class MELD_disp_xfer(om.ExplicitComponent):
+class MELD_disp_xfer(om.ExplicitComponent, SolverObjectBasedSystem):
     """
     Component to perform displacement transfer using MELD
     """
@@ -131,7 +131,7 @@ class MELD_disp_xfer(om.ExplicitComponent):
                     self.meld.applydDdxS0(du_a,prod)
                     d_inputs['x_s0'] -= np.array(prod,dtype=float)
 
-class MELD_load_xfer(om.ExplicitComponent):
+class MELD_load_xfer(om.ExplicitComponent, SolverObjectBasedSystem):
     """
     Component to perform load transfers using MELD
     """
@@ -290,52 +290,52 @@ class MELD_load_xfer(om.ExplicitComponent):
                     self.meld.applydLdxS0(d_out,prod)
                     d_inputs['x_s0'] -= np.array(prod,dtype=float)
 
-class MELD_builder(object):
+# class MELD_builder(object):
 
-    def __init__(self, options, aero_builder, struct_builder,check_partials=False):
-        self.options=options
-        self.check_partials = check_partials
-        # TODO we can move the aero and struct builder to init_xfer_object call so that user does not need to worry about this
-        self.aero_builder = aero_builder
-        self.struct_builder = struct_builder
+#     def __init__(self, options, aero_builder, struct_builder,check_partials=False):
+#         self.options=options
+#         self.check_partials = check_partials
+#         # TODO we can move the aero and struct builder to init_xfer_object call so that user does not need to worry about this
+#         self.aero_builder = aero_builder
+#         self.struct_builder = struct_builder
 
-    # api level method for all builders
-    def init_xfer_object(self, comm):
-        # create the transfer
-        self.xfer_object = TransferScheme.pyMELD(comm,
-                                                 comm, 0,
-                                                 comm, 0,
-                                                 self.options['isym'],
-                                                 self.options['n'],
-                                                 self.options['beta'])
+#     # api level method for all builders
+#     def init_xfer_object(self, comm):
+#         # create the transfer
+#         self.xfer_object = TransferScheme.pyMELD(comm,
+#                                                  comm, 0,
+#                                                  comm, 0,
+#                                                  self.options['isym'],
+#                                                  self.options['n'],
+#                                                  self.options['beta'])
 
-        # TODO also do the necessary calls to the struct and aero builders to fully initialize MELD
-        # for now, just save the counts
-        self.struct_ndof = self.struct_builder.get_ndof()
-        self.struct_nnodes = self.struct_builder.get_nnodes()
-        self.aero_nnodes = self.aero_builder.get_nnodes()
+#         # TODO also do the necessary calls to the struct and aero builders to fully initialize MELD
+#         # for now, just save the counts
+#         self.struct_ndof = self.struct_builder.get_ndof()
+#         self.struct_nnodes = self.struct_builder.get_nnodes()
+#         self.aero_nnodes = self.aero_builder.get_nnodes()
 
-    # api level method for all builders
-    def get_xfer_object(self):
-        return self.xfer_object
+#     # api level method for all builders
+#     def get_xfer_object(self):
+#         return self.xfer_object
 
-    # api level method for all builders
-    def get_element(self):
+#     # api level method for all builders
+#     def get_element(self):
 
-        disp_xfer = MELD_disp_xfer(
-            xfer_object=self.xfer_object,
-            struct_ndof=self.struct_ndof,
-            struct_nnodes=self.struct_nnodes,
-            aero_nnodes=self.aero_nnodes,
-            check_partials=self.check_partials
-        )
+#         disp_xfer = MELD_disp_xfer(
+#             xfer_object=self.xfer_object,
+#             struct_ndof=self.struct_ndof,
+#             struct_nnodes=self.struct_nnodes,
+#             aero_nnodes=self.aero_nnodes,
+#             check_partials=self.check_partials
+#         )
 
-        load_xfer = MELD_load_xfer(
-            xfer_object=self.xfer_object,
-            struct_ndof=self.struct_ndof,
-            struct_nnodes=self.struct_nnodes,
-            aero_nnodes=self.aero_nnodes,
-            check_partials=self.check_partials
-        )
+#         load_xfer = MELD_load_xfer(
+#             xfer_object=self.xfer_object,
+#             struct_ndof=self.struct_ndof,
+#             struct_nnodes=self.struct_nnodes,
+#             aero_nnodes=self.aero_nnodes,
+#             check_partials=self.check_partials
+#         )
 
-        return disp_xfer, load_xfer
+#         return disp_xfer, load_xfer
