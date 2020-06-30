@@ -167,6 +167,8 @@ class TacsSolver(om.ImplicitComponent):
 
     def _update_internal(self,inputs,outputs=None):
         if self._need_update(inputs):
+            print('updating internals')
+            print('inputs',np.min(inputs['dv_struct']),np.max(inputs['dv_struct']),inputs['dv_struct'])
             self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
 
             xpts = self.tacs.createNodeVec()
@@ -174,6 +176,7 @@ class TacsSolver(om.ImplicitComponent):
             xpts_array = xpts.getArray()
             xpts_array[:] = inputs['x_s0']
             self.tacs.setNodes(xpts)
+            print('xpts', xpts_array)
 
             pc     = self.pc
             alpha = 1.0
@@ -205,6 +208,7 @@ class TacsSolver(om.ImplicitComponent):
         tacs = self.tacs
         res  = self.res
         ans  = self.ans
+        print ('apply_nonlinear')
 
         self._update_internal(inputs,outputs)
 
@@ -228,17 +232,20 @@ class TacsSolver(om.ImplicitComponent):
         ans    = self.ans
         pc     = self.pc
         gmres  = self.gmres
+        print ('solve_nonlinear')
+        print('f_s', inputs['f_s'][:])
 
         self._update_internal(inputs)
         # solve the linear system
         force_array = force.getArray()
-        force_array[:] = inputs['f_s']
+        force_array[:] = inputs['f_s'] * 0.0 
         tacs.applyBCs(force)
 
         gmres.solve(force, ans)
         ans_array = ans.getArray()
         outputs['u_s'] = ans_array[:]
         tacs.setVariables(ans)
+        print('u_s', ans_array[:180])
 
     def solve_linear(self,d_outputs,d_residuals,mode):
         if mode == 'fwd':
@@ -702,47 +709,49 @@ class TACS_builder(object):
     def __init__(self, options,check_partials=False):
         self.options = options
         self.check_partials = check_partials
+        self.solver = None
 
     # api level method for all builders
     def init_solver(self, comm):
+        if self.solver is None:
 
-        solver_dict={}
+            solver_dict={}
 
-        mesh = TACS.MeshLoader(comm)
-        mesh.scanBDFFile(self.options['mesh_file'])
+            mesh = TACS.MeshLoader(comm)
+            mesh.scanBDFFile(self.options['mesh_file'])
 
-        ndof, ndv = self.options['add_elements'](mesh)
-        self.n_dv_struct = ndv
+            ndof, ndv = self.options['add_elements'](mesh)
+            self.n_dv_struct = ndv
 
-        tacs = mesh.createTACS(ndof)
+            tacs = mesh.createTACS(ndof)
 
-        nnodes = int(tacs.createNodeVec().getArray().size / 3)
+            nnodes = int(tacs.createNodeVec().getArray().size / 3)
 
-        mat = tacs.createFEMat()
-        pc = TACS.Pc(mat)
+            mat = tacs.createFEMat()
+            pc = TACS.Pc(mat)
 
-        subspace = 100
-        restarts = 2
-        gmres = TACS.KSM(mat, pc, subspace, restarts)
+            subspace = 100
+            restarts = 2
+            gmres = TACS.KSM(mat, pc, subspace, restarts)
 
-        solver_dict['ndv']    = ndv
-        solver_dict['ndof']   = ndof
-        solver_dict['nnodes'] = nnodes
-        solver_dict['get_funcs'] = self.options['get_funcs']
-        if 'f5_writer' in self.options.keys():
-            solver_dict['f5_writer'] = self.options['f5_writer']
+            solver_dict['ndv']    = ndv
+            solver_dict['ndof']   = ndof
+            solver_dict['nnodes'] = nnodes
+            solver_dict['get_funcs'] = self.options['get_funcs']
+            if 'f5_writer' in self.options.keys():
+                solver_dict['f5_writer'] = self.options['f5_writer']
 
-        # check if the user provided a load function
-        if 'load_function' in self.options:
-            solver_dict['load_function'] = self.options['load_function']
+            # check if the user provided a load function
+            if 'load_function' in self.options:
+                solver_dict['load_function'] = self.options['load_function']
 
-        self.solver_dict=solver_dict
+            self.solver_dict=solver_dict
 
-        # put the rest of the stuff in a tuple
-        solver_objects = [mat, pc, gmres, solver_dict]
+            # put the rest of the stuff in a tuple
+            solver_objects = [mat, pc, gmres, solver_dict]
 
-        self.solver = tacs
-        self.solver_objects = solver_objects
+            self.solver = tacs
+            self.solver_objects = solver_objects
 
     # api level method for all builders
     def get_solver(self):

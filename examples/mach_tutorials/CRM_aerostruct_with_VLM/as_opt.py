@@ -39,7 +39,7 @@ class Top(om.Group):
             N_nodes = int(a[a.find("=")+1:a.find(",")])
             a = [i for i in contents if 'ELEMENTS' in i][0]
             N_elements = int(a[a.find("=")+1:a.find(",")])
-	    
+
             start = len(contents)-N_nodes*3-N_elements*4
             a = np.array(contents[start:start+N_nodes*3],'float')
             X = a[0:N_nodes*3:3]
@@ -106,6 +106,8 @@ class Top(om.Group):
                     'f5_writer'   : f5_writer }
 
         struct_builder = TACS_builder(tacs_setup)
+        struct_builder.init_solver(MPI.COMM_WORLD)
+        tacs_solver = struct_builder.get_solver()
 
         # MELD setup
         meld_options = {'isym': 1,
@@ -136,7 +138,7 @@ class Top(om.Group):
             for i in range(0,len(a)):
                 GRID[i,:] = np.array([float(contents[a[i]+3]),float(contents[a[i]+4][0:-1]),float(contents[a[i]+8])])
 
-            GRID = GRID.flatten(order='C')            
+            GRID = GRID.flatten(order='C')
             f.close()
             return GRID
 
@@ -201,7 +203,7 @@ class Top(om.Group):
         points = self.mp_group.mphys_add_coordinate_input()
         self.connect('geometry_mapper.x_s0_mesh','mp_group.struct_points')
         self.connect('geometry_mapper.x_a0_mesh','mp_group.aero_points')
-  
+
 
 
 
