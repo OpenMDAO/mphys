@@ -8,7 +8,7 @@ transfer_dtype = 'd'
 # hard-coded ndof for aerodynamic solver
 ndof_a = 3
 
-class RLT_disp_xfer(om.ExplicitComponent):
+class RltDispXfer(om.ExplicitComponent):
     """
     Component to perform displacement transfer using RLT
     """
@@ -157,7 +157,7 @@ class RLT_disp_xfer(om.ExplicitComponent):
                     d_inputs['x_a0'] += x_a0d
 
 
-class RLT_load_xfer(om.ExplicitComponent):
+class RltLoadXfer(om.ExplicitComponent):
     """
     Component to perform load transfers using MELD
     """
@@ -315,7 +315,7 @@ class RLT_load_xfer(om.ExplicitComponent):
                     self.transfer.setAeroSurfaceNodesSens(x_a0d)
                     d_inputs['x_a0'] -= x_a0d
 
-class RLT_builder(object):
+class RltBuilder(object):
 
     def __init__(self, options, aero_builder, struct_builder):
         self.options=options
@@ -363,14 +363,14 @@ class RLT_builder(object):
     # api level method for all builders
     def get_element(self):
 
-        disp_xfer = RLT_disp_xfer(
+        disp_xfer = RltDispXfer(
             xfer_object=self.xfer_object,
             ndof_s=self.struct_ndof,
             nn_s=self.struct_nnodes,
             nn_a=self.aero_nnodes,
         )
 
-        load_xfer = RLT_load_xfer(
+        load_xfer = RltLoadXfer(
             xfer_object=self.xfer_object,
             ndof_s=self.struct_ndof,
             nn_s=self.struct_nnodes,

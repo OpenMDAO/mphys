@@ -11,7 +11,7 @@ from mphys.mphys_multipoint import MPHYS_Multipoint
 from mphys.mphys_adflow import ADflow_builder
 from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_meld import MeldBuilder
-from mphys.mphys_rlt import RLT_builder
+from mphys.mphys_rlt import RltBuilder
 
 from baseclasses import *
 from tacs import elements, constitutive, functions
