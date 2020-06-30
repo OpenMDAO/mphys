@@ -11,7 +11,7 @@ from openmdao.api import NonlinearBlockGS, LinearBlockGS
 
 from tacs import elements, constitutive, TACS, functions
 from mphys.mphys_tacs import TacsBuilder
-from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.multipoint import Multipoint
 
 class Top(Group):
 
@@ -78,7 +78,7 @@ class Top(Group):
         # create the multiphysics multipoint group.
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(struct_builder = tacs_builder)
+            Multipoint(struct_builder = tacs_builder)
         )
 
         # this is the method that needs to be called for every point in this mp_group

@@ -1,6 +1,6 @@
 import openmdao.api as om
 
-class MPHYS_Scenario(om.Group):
+class Scenario(om.Group):
 
     def initialize(self):
 

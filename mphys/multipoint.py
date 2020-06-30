@@ -1,9 +1,9 @@
 from collections import OrderedDict
 import openmdao.api as om
-from mphys.mphys_scenario import MPHYS_Scenario
-from mphys.mphys_error import MPHYS_Error
+from mphys.scenario import Scenario
+from mphys.error import MPHYS_Error
 
-class MPHYS_Multipoint(om.Group):
+class Multipoint(om.Group):
 
     def initialize(self):
 
@@ -49,7 +49,7 @@ class MPHYS_Multipoint(om.Group):
 
             # we need a xfer builder for aero and structures
             if self.xfer_builder is None:
-                raise MPHYS_Error('MPHYS_Multipoint group requires a transfer builder to couple aerodynamic and structural analyses.')
+                raise MPHYS_Error('Multipoint group requires a transfer builder to couple aerodynamic and structural analyses.')
 
             # now initialize the xfer object
             self.xfer_builder.init_xfer_object(self.comm)
@@ -114,7 +114,7 @@ class MPHYS_Multipoint(om.Group):
         # this is called during the setup of this class
         self.add_subsystem(
             name,
-            MPHYS_Scenario(
+            Scenario(
                 builders = {
                     'aero': self.aero_builder,
                     'struct': self.struct_builder,

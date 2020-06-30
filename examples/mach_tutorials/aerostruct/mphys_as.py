@@ -5,7 +5,7 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.multipoint import Multipoint
 
 # these imports will be from the respective codes' repos rather than mphys
 from mphys.mphys_adflow import ADflowBuilder
@@ -139,7 +139,7 @@ class Top(om.Group):
         # create the multiphysics multipoint group.
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(
+            Multipoint(
                 aero_builder   = adflow_builder,
                 struct_builder = tacs_builder,
                 xfer_builder   = xfer_builder

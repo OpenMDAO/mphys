@@ -7,7 +7,7 @@ import openmdao.api as om
 
 from tacs import elements, constitutive, functions
 
-from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.multipoint import Multipoint
 from mphys.mphys_vlm import VlmBuilder
 from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_modal_solver import ModalBuilder
@@ -127,7 +127,7 @@ class Top(om.Group):
         # each AS_Multipoint instance can keep multiple points with the same formulation
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(
+            Multipoint(
                 aero_builder   = vlm_builder,
                 struct_builder = struct_builder,
                 xfer_builder   = meld_builder

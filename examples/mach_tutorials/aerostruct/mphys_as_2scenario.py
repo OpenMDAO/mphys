@@ -5,7 +5,7 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.multipoint import Multipoint
 
 # these imports will be from the respective codes' repos rather than mphys
 from mphys.mphys_adflow import ADflowBuilder
@@ -143,7 +143,7 @@ class Top(om.Group):
             # wants to add additional points with a different numerical formulation,
             # they need to create another instance of AS_Multipoint with desired
             # builders.
-            MPHYS_Multipoint(
+            Multipoint(
                 aero_builder   = adflow_builder,
                 struct_builder = tacs_builder,
                 xfer_builder   = meld_builder

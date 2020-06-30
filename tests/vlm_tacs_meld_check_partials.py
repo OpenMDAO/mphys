@@ -5,7 +5,7 @@ import numpy as np
 
 import openmdao.api as om
 
-from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.multipoint import Multipoint
 from mphys.mphys_vlm import VlmBuilder
 from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_meld import MeldBuilder
@@ -121,9 +121,9 @@ class Top(om.Group):
 
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(aero_builder = aero_builder,
-                             struct_builder = struct_builder,
-                             xfer_builder = xfer_builder)
+            Multipoint(aero_builder = aero_builder,
+                       struct_builder = struct_builder,
+                       xfer_builder = xfer_builder)
         )
         s0 = mp.mphys_add_scenario('s0')
 

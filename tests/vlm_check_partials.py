@@ -2,7 +2,7 @@ import numpy as np
 from mpi4py import MPI
 
 import openmdao.api as om
-from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.multipoint import Multipoint
 from mphys.mphys_vlm import *
 
 comm = MPI.COMM_WORLD
@@ -51,7 +51,7 @@ class Top(om.Group):
         vlm_builder = VlmBuilder(aero_options)
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(aero_builder = vlm_builder)
+            Multipoint(aero_builder = vlm_builder)
         )
 
         mp.mphys_add_scenario('s0')
