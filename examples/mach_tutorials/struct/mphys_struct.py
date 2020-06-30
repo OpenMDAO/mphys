@@ -8,7 +8,7 @@ import openmdao.api as om
 from mphys.mphys_multipoint import MPHYS_Multipoint
 
 # these imports will be from the respective codes' repos rather than omfsi
-from mphys.mphys_tacs import TACS_builder
+from mphys.mphys_tacs import TacsBuilder
 from tacs import elements, constitutive, functions
 
 # set these for convenience
@@ -63,7 +63,7 @@ class Top(om.Group):
             'load_function':load_function
         }
 
-        tacs_builder = TACS_builder(tacs_options)
+        tacs_builder = TacsBuilder(tacs_options)
 
         ################################################################################
         # MPHY setup

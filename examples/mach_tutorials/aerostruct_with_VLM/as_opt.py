@@ -9,7 +9,7 @@ from tacs import elements, constitutive, functions, TACS
 
 from mphys.mphys_multipoint import MPHYS_Multipoint
 from mphys.mphys_vlm import VLM_builder
-from mphys.mphys_tacs import TACS_builder
+from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_modal_solver import ModalBuilder
 from mphys.mphys_meld import MELD_builder
 
@@ -103,7 +103,7 @@ class Top(om.Group):
                     'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
                     'f5_writer'   : f5_writer }
 
-        struct_builder = TACS_builder(tacs_setup)
+        struct_builder = TacsBuilder(tacs_setup)
 
         # MELD setup
         meld_options = {'isym': 1,

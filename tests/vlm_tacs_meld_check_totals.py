@@ -6,7 +6,7 @@ import openmdao.api as om
 
 from mphys.mphys_multipoint import MPHYS_Multipoint
 from mphys.mphys_vlm import VLM_builder
-from mphys.mphys_tacs import TACS_builder
+from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_meld import MELD_builder
 
 from tacs import elements, constitutive, functions
@@ -105,7 +105,7 @@ class Top(om.Group):
             tacs_setup['nmodes'] = 15
             #struct_assembler = ModalStructAssembler(tacs_setup)
         else:
-            struct_builder = TACS_builder(tacs_setup,check_partials=True)
+            struct_builder = TacsBuilder(tacs_setup,check_partials=True)
 
         # MELD setup
 

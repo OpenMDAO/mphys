@@ -10,7 +10,7 @@ from openmdao.api import IndepVarComp, Group
 from openmdao.api import NonlinearBlockGS, LinearBlockGS
 
 from tacs import elements, constitutive, TACS, functions
-from mphys.mphys_tacs import TACS_builder
+from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_multipoint import MPHYS_Multipoint
 
 class Top(Group):
@@ -70,7 +70,7 @@ class Top(Group):
                     'f5_writer'   : f5_writer}
 
         # assembler = TacsOmfsiAssembler(tacs_setup,add_forcer=True)
-        tacs_builder = TACS_builder(tacs_setup)
+        tacs_builder = TacsBuilder(tacs_setup)
 
         # ivc to keep the top level DVs
         dvs = self.add_subsystem('dvs', IndepVarComp(), promotes=['*'])

@@ -9,7 +9,7 @@ from mphys.mphys_multipoint import MPHYS_Multipoint
 
 # these imports will be from the respective codes' repos rather than mphys
 from mphys.mphys_adflow import ADflow_builder
-from mphys.mphys_tacs import TACS_builder
+from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_meld import MELD_builder
 from mphys.mphys_rlt import RLT_builder
 
@@ -109,7 +109,7 @@ class Top(om.Group):
             'get_funcs'   : get_funcs
         }
 
-        tacs_builder = TACS_builder(tacs_options)
+        tacs_builder = TacsBuilder(tacs_options)
 
         ################################################################################
         # Transfer scheme options

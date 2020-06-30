@@ -9,7 +9,7 @@ from tacs import elements, constitutive, functions
 
 from mphys.mphys_multipoint import MPHYS_Multipoint
 from mphys.mphys_vlm import VLM_builder
-from mphys.mphys_tacs import TACS_builder
+from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_modal_solver import ModalBuilder
 from mphys.mphys_meld import MELD_builder
 
@@ -108,7 +108,7 @@ class Top(om.Group):
             nmodes = 15
             struct_builder = ModalBuilder(tacs_setup,nmodes)
         else:
-            struct_builder = TACS_builder(tacs_setup)
+            struct_builder = TacsBuilder(tacs_setup)
 
         # MELD setup
         meld_options = {'isym': 1,
