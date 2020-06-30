@@ -4,7 +4,7 @@ import numpy as np
 from mpi4py import MPI
 
 import openmdao.api as om
-from mphys.mphys_meld import MELD_disp_xfer, MELD_load_xfer
+from mphys.mphys_meld import MeldDispXfer, MeldLoadXfer
 
 from funtofem import TransferScheme
 
@@ -52,8 +52,8 @@ prob = om.Problem()
 prob.model.add_subsystem('aero_mesh',FakeAeroMesh())
 prob.model.add_subsystem('struct_mesh',FakeStructMesh())
 prob.model.add_subsystem('struct_disps',FakeStructDisps())
-disp = prob.model.add_subsystem('disp_xfer',MELD_disp_xfer(xfer_object=meld,struct_ndof=struct_ndof,struct_nnodes=struct_nnodes,aero_nnodes=aero_nnodes))
-load = prob.model.add_subsystem('load_xfer',MELD_load_xfer(xfer_object=meld,struct_ndof=struct_ndof,struct_nnodes=struct_nnodes,aero_nnodes=aero_nnodes))
+disp = prob.model.add_subsystem('disp_xfer',MeldDispXfer(xfer_object=meld,struct_ndof=struct_ndof,struct_nnodes=struct_nnodes,aero_nnodes=aero_nnodes))
+load = prob.model.add_subsystem('load_xfer',MeldLoadXfer(xfer_object=meld,struct_ndof=struct_ndof,struct_nnodes=struct_nnodes,aero_nnodes=aero_nnodes))
 
 disp.check_partials = True
 load.check_partials = True

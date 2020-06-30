@@ -11,7 +11,7 @@ from mphys.mphys_multipoint import MPHYS_Multipoint
 from mphys.mphys_vlm import VLM_builder
 from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_modal_solver import ModalBuilder
-from mphys.mphys_meld import MELD_builder
+from mphys.mphys_meld import MeldBuilder
 
 from struct_dv_components import StructDvMapper, SmoothnessEvaluatorGrid, struct_comps
 
@@ -111,7 +111,7 @@ class Top(om.Group):
                         'beta': 0.5}
 
         # MELD builder
-        meld_builder = MELD_builder(meld_options, vlm_builder, struct_builder)
+        meld_builder = MeldBuilder(meld_options, vlm_builder, struct_builder)
 
         ################################################################################
         # MPHYS setup

@@ -10,7 +10,7 @@ from mphys.mphys_multipoint import MPHYS_Multipoint
 # these imports will be from the respective codes' repos rather than mphys
 from mphys.mphys_adflow import ADflow_builder
 from mphys.mphys_tacs import TacsBuilder
-from mphys.mphys_meld import MELD_builder
+from mphys.mphys_meld import MeldBuilder
 from mphys.mphys_rlt import RLT_builder
 
 from baseclasses import *
@@ -123,7 +123,7 @@ class Top(om.Group):
                 'beta': 0.5,
             }
 
-            xfer_builder = MELD_builder(xfer_options, adflow_builder, tacs_builder)
+            xfer_builder = MeldBuilder(xfer_options, adflow_builder, tacs_builder)
         else:
             # or we can use RLT:
             xfer_options = {'transfergaussorder': 2}

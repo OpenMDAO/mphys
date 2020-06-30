@@ -8,7 +8,7 @@ import openmdao.api as om
 from mphys.mphys_multipoint import MPHYS_Multipoint
 from mphys.mphys_vlm import VLM_builder
 from mphys.mphys_tacs import TacsBuilder
-from mphys.mphys_meld import MELD_builder
+from mphys.mphys_meld import MeldBuilder
 
 from tacs import elements, constitutive, functions
 
@@ -114,7 +114,7 @@ class Top(om.Group):
                         'n': 200,
                         'beta': 0.5}
 
-        xfer_builder = MELD_builder(meld_options,aero_builder,struct_builder,check_partials=True)
+        xfer_builder = MeldBuilder(meld_options,aero_builder,struct_builder,check_partials=True)
 
         # Multipoint group
         dvs = self.add_subsystem('dvs',om.IndepVarComp(), promotes=['*'])
