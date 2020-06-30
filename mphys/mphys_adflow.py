@@ -11,7 +11,7 @@ from openmdao.api import Group, ImplicitComponent, ExplicitComponent
 
 from adflow.python.om_utils import get_dvs_and_cons
 
-class AdflowMesh(ExplicitComponent):
+class ADflowMesh(ExplicitComponent):
     """
     Component to get the partitioned initial surface mesh coordinates
 
@@ -57,7 +57,7 @@ class AdflowMesh(ExplicitComponent):
             if 'x_a0_points' in d_inputs:
                 d_inputs['x_a0_points'] += d_outputs['x_a0']
 
-class Geo_Disp(ExplicitComponent):
+class GeoDisp(ExplicitComponent):
     """
     This component adds the aerodynamic
     displacements to the geometry-changed aerodynamic surface
@@ -97,7 +97,7 @@ class Geo_Disp(ExplicitComponent):
                 if 'u_a' in d_inputs:
                     d_inputs['u_a']  += d_outputs['x_a']
 
-class AdflowWarper(ExplicitComponent):
+class ADflowWarper(ExplicitComponent):
     """
     OpenMDAO component that wraps the warping.
 
@@ -162,7 +162,7 @@ class AdflowWarper(ExplicitComponent):
                     dxS = self.solver.mesh.getdXs()
                     d_inputs['x_a'] += dxS.flatten()
 
-class AdflowSolver(ImplicitComponent):
+class ADflowSolver(ImplicitComponent):
     """
     OpenMDAO component that wraps the ADflow flow solver
 
@@ -327,7 +327,7 @@ class AdflowSolver(ImplicitComponent):
 
         return True, 0, 0
 
-class AdflowForces(ExplicitComponent):
+class ADflowForces(ExplicitComponent):
     """
     OpenMDAO component that wraps force integration
 
@@ -475,7 +475,7 @@ FUNCS_UNITS={
     'area':'m**2',
 }
 
-class AdflowFunctions(ExplicitComponent):
+class ADflowFunctions(ExplicitComponent):
 
     def initialize(self):
         self.options.declare('aero_solver')
@@ -634,7 +634,7 @@ class AdflowFunctions(ExplicitComponent):
                 if dv_name in d_inputs:
                     d_inputs[dv_name] += dv_bar.flatten()
 
-class ADflow_group(Group):
+class ADflowGroup(Group):
 
     def initialize(self):
         self.options.declare('solver')
@@ -646,23 +646,23 @@ class ADflow_group(Group):
         self.as_coupling = self.options['as_coupling']
 
         if self.as_coupling:
-            self.add_subsystem('geo_disp', Geo_Disp(
+            self.add_subsystem('geo_disp', GeoDisp(
                 nnodes=int(self.aero_solver.getSurfaceCoordinates().size /3)),
                 promotes_inputs=['u_a', 'x_a0']
             )
         # if we dont have geo_disp, we also need to promote the x_a as x_a0 from the deformer component
-        self.add_subsystem('deformer', AdflowWarper(
+        self.add_subsystem('deformer', ADflowWarper(
             aero_solver=self.aero_solver
         ))
-        self.add_subsystem('solver', AdflowSolver(
+        self.add_subsystem('solver', ADflowSolver(
             aero_solver=self.aero_solver
         ))
         if self.as_coupling:
-            self.add_subsystem('force', AdflowForces(
+            self.add_subsystem('force', ADflowForces(
                 aero_solver=self.aero_solver),
                 promotes_outputs=['f_a']
             )
-        self.add_subsystem('funcs', AdflowFunctions(
+        self.add_subsystem('funcs', ADflowFunctions(
             aero_solver=self.aero_solver
         ))
 
@@ -697,7 +697,7 @@ class ADflow_group(Group):
             if self.as_coupling:
                 self.promotes('force', inputs=[name])
 
-class ADflow_builder(object):
+class ADflowBuilder(object):
 
     def __init__(self, options):
         self.options = options
@@ -714,10 +714,10 @@ class ADflow_builder(object):
 
     # api level method for all builders
     def get_element(self, **kwargs):
-        return ADflow_group(solver=self.solver, **kwargs)
+        return ADflowGroup(solver=self.solver, **kwargs)
 
     def get_mesh_element(self):
-        return AdflowMesh(aero_solver=self.solver)
+        return ADflowMesh(aero_solver=self.solver)
 
     def get_nnodes(self):
         return int(self.solver.getSurfaceCoordinates().size /3)

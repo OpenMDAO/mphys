@@ -8,7 +8,7 @@ import openmdao.api as om
 from mphys.mphys_multipoint import MPHYS_Multipoint
 
 # these imports will be from the respective codes' repos rather than mphys
-from mphys.mphys_adflow import ADflow_builder
+from mphys.mphys_adflow import ADflowBuilder
 from mphys.dvgeo_component_configure import OM_DVGEOCOMP
 
 from baseclasses import *
@@ -66,7 +66,7 @@ class Top(om.Group):
             'forcesAsTractions':False,
         }
 
-        adflow_builder = ADflow_builder(aero_options)
+        adflow_builder = ADflowBuilder(aero_options)
 
 
         ################################################################################
