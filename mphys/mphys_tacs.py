@@ -736,7 +736,6 @@ class TACSGroup(om.Group, SolverObjectBasedSystem ):
         gmres = TACS.KSM(mat, pc, subspace, restarts)
 
         options['get_funcs'](tacs)
-        print('hi')
         self.solver_objects = (mesh, mat, pc, tacs, gmres)
 
 

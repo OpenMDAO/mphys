@@ -2,6 +2,203 @@ import numpy as np
 import openmdao.api as om
 from funtofem import TransferScheme
 
+from .base_classes import SolverObjectBasedSystem
+
+
+class MELD_builder(object, SolverObjectBasedSystem):
+
+    def __init__(self, options, aero_builder, struct_builder,check_partials=False):
+        self.options=options
+        self.check_partials = check_partials
+        # TODO we can move the aero and struct builder to init_xfer_object call so that user does not need to worry about this
+        self.aero_builder = aero_builder
+        self.struct_builder = struct_builder
+
+    # api level method for all builders
+    def init_xfer_object(self, comm):
+        # create the transfer
+        self.xfer_object = TransferScheme.pyMELD(comm,
+                                                 comm, 0,
+                                                 comm, 0,
+                                                 self.options['isym'],
+                                                 self.options['n'],
+                                                 self.options['beta'])
+
+        # TODO also do the necessary calls to the struct and aero builders to fully initialize MELD
+        # for now, just save the counts
+        self.struct_ndof = self.struct_builder.get_ndof()
+        self.struct_nnodes = self.struct_builder.get_nnodes()
+        self.aero_nnodes = self.aero_builder.get_nnodes()
+
+    # api level method for all builders
+    def get_xfer_object(self):
+        return self.xfer_object
+
+    # api level method for all builders
+    def get_element(self):
+
+        disp_xfer = MELD_disp_xfer(
+            xfer_object=self.xfer_object,
+            struct_ndof=self.struct_ndof,
+            struct_nnodes=self.struct_nnodes,
+            aero_nnodes=self.aero_nnodes,
+            check_partials=self.check_partials
+        )
+
+        load_xfer = MELD_load_xfer(
+            xfer_object=self.xfer_object,
+            struct_ndof=self.struct_ndof,
+            struct_nnodes=self.struct_nnodes,
+            aero_nnodes=self.aero_nnodes,
+            check_partials=self.check_partials
+        )
+
+        return disp_xfer, load_xfer
+
+
+
+class MELD_disp_xfer(om.ExplicitComponent, SolverObjectBasedSystem):
+    """
+    Component to perform displacement transfer using MELD
+    """
+    def initialize(self):
+        
+        # if pyMeldThermal should be use use set to true
+        self.options.declare('solver_options')
+
+        self.options['distributed'] = True
+
+        self.solvers_init = False
+
+        # self.initialized_meld = False
+
+        # self.struct_ndof = None
+        # self.struct_nnodes = None
+        # self.aero_nnodes = None
+        self.check_partials = False
+
+    def setup(self):
+ 
+        if not self.solvers_init:
+            self.init_solver_objects(self.comm)
+
+
+        # self.struct_ndof   = self.options['struct_ndof']
+        # self.struct_nnodes = self.options['struct_nnodes']
+        # self.aero_nnodes   = self.options['aero_nnodes']
+        # self.check_partials= self.options['check_partials']
+
+        # struct_ndof = self.struct_ndof
+        # struct_nnodes = self.struct_nnodes
+        # aero_nnodes = self.aero_nnodes
+
+        # irank = self.comm.rank
+
+        # ax_list = self.comm.allgather(aero_nnodes*3)
+        # ax1 = np.sum(ax_list[:irank])
+        # ax2 = np.sum(ax_list[:irank+1])
+
+        # sx_list = self.comm.allgather(struct_nnodes*3)
+        # sx1 = np.sum(sx_list[:irank])
+        # sx2 = np.sum(sx_list[:irank+1])
+
+        # su_list = self.comm.allgather(struct_nnodes*struct_ndof)
+        # su1 = np.sum(su_list[:irank])
+        # su2 = np.sum(su_list[:irank+1])
+
+        # inputs
+        # must be done at the configure level because size may not even be defined yet!
+        self.add_input('x_s0', shape = 0, src_indices = [], desc='initial structural node coordinates') #np.arange(sx1, sx2, dtype=int)
+        self.add_input('x_a0', shape = 0, src_indices = [], desc='initial aerodynamic surface node coordinates') #np.arange(ax1, ax2, dtype=int)
+        self.add_input('u_s',  shape = 0, src_indices = [], desc='structural node displacements') #np.arange(su1, su2, dtype=int)
+
+        # outputs
+        self.add_output('u_a', shape = 0,  desc='aerodynamic surface displacements')
+
+
+    # api level method for all builders
+    def init_solver_objects(self, comm):
+        # create the transfer
+        self.xfer_object = TransferScheme.pyMELD(comm,
+                                                 comm, 0,
+                                                 comm, 0,
+                                                 self.options['solver_options']['isym'],
+                                                 self.options['solver_options']['n'],
+                                                 self.options['solver_options']['beta'])
+
+    def compute(self, inputs, outputs):
+        x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
+        x_a0 = np.array(inputs['x_a0'],dtype=TransferScheme.dtype)
+        u_a  = np.array(outputs['u_a'],dtype=TransferScheme.dtype)
+
+        u_s  = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+        for i in range(3):
+            u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
+
+        self.meld.setStructNodes(x_s0)
+        self.meld.setAeroNodes(x_a0)
+
+        if not self.initialized_meld:
+            self.meld.initialize()
+            self.initialized_meld = True
+
+        self.meld.transferDisps(u_s,u_a)
+
+        outputs['u_a'] = u_a
+
+    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
+        """
+        The explicit component is defined as:
+            u_a = g(u_s,x_a0,x_s0)
+        The MELD residual is defined as:
+            D = u_a - g(u_s,x_a0,x_s0)
+        So explicit partials below for u_a are negative partials of D
+        """
+        if mode == 'fwd':
+            if 'u_a' in d_outputs:
+                if 'u_s' in d_inputs:
+                    d_in = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+                    for i in range(3):
+                        d_in[i::3] = d_inputs['u_s'][i::self.struct_ndof]
+                    prod = np.zeros(self.aero_nnodes*3,dtype=TransferScheme.dtype)
+                    self.meld.applydDduS(d_in,prod)
+                    d_outputs['u_a'] -= np.array(prod,dtype=float)
+
+                if 'x_a0' in d_inputs:
+                    if self.check_partials:
+                        pass
+                    else:
+                        raise ValueError('forward mode requested but not implemented')
+
+                if 'x_s0' in d_inputs:
+                    if self.check_partials:
+                        pass
+                    else:
+                        raise ValueError('forward mode requested but not implemented')
+
+        if mode == 'rev':
+            if 'u_a' in d_outputs:
+                du_a = np.array(d_outputs['u_a'],dtype=TransferScheme.dtype)
+                if 'u_s' in d_inputs:
+                    # du_a/du_s^T * psi = - dD/du_s^T psi
+                    prod = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+                    self.meld.applydDduSTrans(du_a,prod)
+                    for i in range(3):
+                        d_inputs['u_s'][i::self.struct_ndof] -= np.array(prod[i::3],dtype=np.float64)
+
+                # du_a/dx_a0^T * psi = - psi^T * dD/dx_a0 in F2F terminology
+                if 'x_a0' in d_inputs:
+                    prod = np.zeros(d_inputs['x_a0'].size,dtype=TransferScheme.dtype)
+                    self.meld.applydDdxA0(du_a,prod)
+                    d_inputs['x_a0'] -= np.array(prod,dtype=float)
+
+                if 'x_s0' in d_inputs:
+                    prod = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+                    self.meld.applydDdxS0(du_a,prod)
+                    d_inputs['x_s0'] -= np.array(prod,dtype=float)
+
+
+
 class MELD_disp_xfer(om.ExplicitComponent, SolverObjectBasedSystem):
     """
     Component to perform displacement transfer using MELD
@@ -290,52 +487,52 @@ class MELD_load_xfer(om.ExplicitComponent, SolverObjectBasedSystem):
                     self.meld.applydLdxS0(d_out,prod)
                     d_inputs['x_s0'] -= np.array(prod,dtype=float)
 
-# class MELD_builder(object):
+class MELD_builder(object):
 
-#     def __init__(self, options, aero_builder, struct_builder,check_partials=False):
-#         self.options=options
-#         self.check_partials = check_partials
-#         # TODO we can move the aero and struct builder to init_xfer_object call so that user does not need to worry about this
-#         self.aero_builder = aero_builder
-#         self.struct_builder = struct_builder
+    def __init__(self, options, aero_builder, struct_builder,check_partials=False):
+        self.options=options
+        self.check_partials = check_partials
+        # TODO we can move the aero and struct builder to init_xfer_object call so that user does not need to worry about this
+        self.aero_builder = aero_builder
+        self.struct_builder = struct_builder
 
-#     # api level method for all builders
-#     def init_xfer_object(self, comm):
-#         # create the transfer
-#         self.xfer_object = TransferScheme.pyMELD(comm,
-#                                                  comm, 0,
-#                                                  comm, 0,
-#                                                  self.options['isym'],
-#                                                  self.options['n'],
-#                                                  self.options['beta'])
+    # api level method for all builders
+    def init_xfer_object(self, comm):
+        # create the transfer
+        self.xfer_object = TransferScheme.pyMELD(comm,
+                                                 comm, 0,
+                                                 comm, 0,
+                                                 self.options['isym'],
+                                                 self.options['n'],
+                                                 self.options['beta'])
 
-#         # TODO also do the necessary calls to the struct and aero builders to fully initialize MELD
-#         # for now, just save the counts
-#         self.struct_ndof = self.struct_builder.get_ndof()
-#         self.struct_nnodes = self.struct_builder.get_nnodes()
-#         self.aero_nnodes = self.aero_builder.get_nnodes()
+        # TODO also do the necessary calls to the struct and aero builders to fully initialize MELD
+        # for now, just save the counts
+        self.struct_ndof = self.struct_builder.get_ndof()
+        self.struct_nnodes = self.struct_builder.get_nnodes()
+        self.aero_nnodes = self.aero_builder.get_nnodes()
 
-#     # api level method for all builders
-#     def get_xfer_object(self):
-#         return self.xfer_object
+    # api level method for all builders
+    def get_xfer_object(self):
+        return self.xfer_object
 
-#     # api level method for all builders
-#     def get_element(self):
+    # api level method for all builders
+    def get_element(self):
 
-#         disp_xfer = MELD_disp_xfer(
-#             xfer_object=self.xfer_object,
-#             struct_ndof=self.struct_ndof,
-#             struct_nnodes=self.struct_nnodes,
-#             aero_nnodes=self.aero_nnodes,
-#             check_partials=self.check_partials
-#         )
+        disp_xfer = MELD_disp_xfer(
+            xfer_object=self.xfer_object,
+            struct_ndof=self.struct_ndof,
+            struct_nnodes=self.struct_nnodes,
+            aero_nnodes=self.aero_nnodes,
+            check_partials=self.check_partials
+        )
 
-#         load_xfer = MELD_load_xfer(
-#             xfer_object=self.xfer_object,
-#             struct_ndof=self.struct_ndof,
-#             struct_nnodes=self.struct_nnodes,
-#             aero_nnodes=self.aero_nnodes,
-#             check_partials=self.check_partials
-#         )
+        load_xfer = MELD_load_xfer(
+            xfer_object=self.xfer_object,
+            struct_ndof=self.struct_ndof,
+            struct_nnodes=self.struct_nnodes,
+            aero_nnodes=self.aero_nnodes,
+            check_partials=self.check_partials
+        )
 
-#         return disp_xfer, load_xfer
+        return disp_xfer, load_xfer

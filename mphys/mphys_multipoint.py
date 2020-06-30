@@ -5,35 +5,79 @@ from mphys.mphys_error import MPHYS_Error
 from .base_classes import SolverObjectBasedSystem
 import copy
 
+
+
+# """ these need to be separate groups because openmdao uses ParallelGroup to run the subsytems in parallel"""
+
+# class SerialMultipoint(om.Group):
+
+#     def initialize(self):
+#         # define the inputs we need
+#         self.options.declare('scenerio_analysis')
+#         self.options.declare('scenario_data')
+#         self.options.declare('share_solver_object', default=True)
+
+
+#     def setup(self):
+#         first_init = True
+
+#         scen_anys = self.options['scenerio_analysis']
+#         scen_data = self.options['scenario_data']
+
+#         # iterate through the scenario_data and create a scenarios and set data
+#         for scenario_name in scen_data:
+#             s_data = scen_data[scenario_name]
+#             if 'subsystem_options' in s_data:
+#                 s = self.add_subsystem(scenario_name, scen_anys(**s_data['analysis_options']), **s_data['subsystem_options']  ) 
+#             else:
+#                 s = self.add_subsystem(scenario_name, scen_anys(**s_data['analysis_options']) ) 
+#                 print(scenario_name, s)
+        
+#             if isinstance(s, SolverObjectBasedSystem) and  self.options['share_solver_object']:
+                    
+#                     if first_init:
+#                         s.init_solver_objects(self.comm)
+#                         solver_object = s.get_solver_object()
+#                         first_init = False
+#                     else:
+#                         s.set_solver_objects(solver_object)
+#             else:
+#                 #each analysis will must initialize its own solver objects 
+#                 pass
+
+
+
+
+""" these need to be separate groups because openmdao uses ParallelGroup to run the subsytems in parallel"""
+
 class SerialMultipoint(om.Group):
 
     def initialize(self):
         # define the inputs we need
-        self.options.declare('scenerio_analysis')
-        self.options.declare('scenario_data')
+        self.options.declare('scenerio_analyses')
         self.options.declare('share_solver_object', default=True)
 
 
     def setup(self):
         first_init = True
 
-        scen_anys = self.options['scenerio_analysis']
-        scen_data = self.options['scenario_data']
+        scen_data = self.options['scenerio_analyses']
 
         # iterate through the scenario_data and create a scenarios and set data
         for scenario_name in scen_data:
             s_data = scen_data[scenario_name]
             if 'subsystem_options' in s_data:
-                s = self.add_subsystem(scenario_name, scen_anys(**s_data['analysis_options']), **s_data['subsystem_options']  ) 
+                s = self.add_subsystem(scenario_name, s_data['analysis'], **s_data['subsystem_options']  ) 
             else:
-                s = self.add_subsystem(scenario_name, scen_anys(**s_data['analysis_options']) ) 
-                print(scenario_name, s)
+                s = self.add_subsystem(scenario_name, s_data['analysis']) 
+            
+            print(scenario_name, s)
         
             if isinstance(s, SolverObjectBasedSystem) and  self.options['share_solver_object']:
                     
                     if first_init:
                         s.init_solver_objects(self.comm)
-                        solver_object = s.get_solver_object()
+                        solver_object = s.get_solver_objects()
                         first_init = False
                     else:
                         s.set_solver_objects(solver_object)
@@ -47,22 +91,24 @@ class SerialMultipoint(om.Group):
 
 class ParallelMultipoint(om.ParallelGroup):
 
+
     def initialize(self):
         # define the inputs we need
-        self.options.declare('scenerio_analysis')
-        self.options.declare('scenario_data')
+        self.options.declare('scenerio_analyses')
+
 
     def setup(self):
-        scen_anys = self.options['scenerio_analysis']
-        scen_data = self.options['scenario_data']
+
+        scen_data = self.options['scenerio_analyses']
 
         # iterate through the scenario_data and create a scenarios and set data
         for scenario_name in scen_data:
             s_data = scen_data[scenario_name]
             if 'subsystem_options' in s_data:
-                s = self.add_subsystem(scenario_name, scen_anys(**s_data['analysis_options']), **s_data['subsystem_options']  ) 
+                s = self.add_subsystem(scenario_name, s_data['analysis'], **s_data['subsystem_options']  ) 
             else:
-                s = self.add_subsystem(scenario_name, scen_anys(**s_data['analysis_options']) ) 
+                s = self.add_subsystem(scenario_name, s_data['analysis']) 
+            
 
 
 

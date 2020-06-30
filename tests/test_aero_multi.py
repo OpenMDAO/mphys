@@ -1,7 +1,7 @@
 import numpy as np
 
 import openmdao.api as om
-from mphys.mphys_multipoint import ParallelMultipoint, SerialMultipoint
+from mphys.base_classes import CoupledAnalysis
 from mphys.mphys_adflow import ADflow_builder
 from mphys.mphys_adflow import ADflowGroup
 
@@ -43,9 +43,9 @@ class Top(om.Group):
             'nkswitchtol':1e-4,
 
             # Termination Criteria
-            'L2Convergence':1e-2,
+            'L2Convergence':1e-6,
             'L2ConvergenceCoarse':1e-2,
-            'nCycles':1000,
+            'nCycles':1,
         }
 
         
@@ -77,32 +77,33 @@ class Top(om.Group):
         ap1.addDV('alpha',value=1.5,name='alpha')
 
 
-        senerio_data = {
-            'lo_mach': {'analysis_options' : {
-                                                'aero_problem': ap1, 
-                                              'solver_options' : aero_options, 
-                                              'group_options' : {
-                                                  'mesh': False,
-                                                  'deformer': False
-                                                  }
-                                             },
+        scenerio_analyses = {
+            'lo_mach': {'analysis' : ADflowGroup(aero_problem = ap0, 
+                           solver_options = aero_options, 
+                           group_options = {
+                               'mesh': False,
+                               'deformer': False
+                           }),
+                        
+                        'subsystem_options' : {
+                            
+                        }
+                        },
+            'hi_mach': {'analysis' : ADflowGroup(aero_problem = ap1, 
+                           solver_options = aero_options, 
+                           group_options = {
+                               'mesh': False,
+                               'deformer': False
+                           }),
                         
                         # 'subsystem_options' : {
-                        #     ''
+
                         # }
                         },
-            'hi_mach': {'analysis_options' : {'aero_problem': ap0, 
-                                              'solver_options' : aero_options, 
-                                              'group_options' : {
-                                                  'mesh': False,
-                                                  'deformer': False
-                           }}},
         }
+
         # the solver must be created before added the group as a subsystem.
-        multi = SerialMultipoint(scenerio_analysis = ADflowGroup,
-                                 scenario_data = senerio_data,
-                                 share_solver_object = False
-                                 )
+        multi =ParallelMultipoint(scenerio_analyses = scenerio_analyses)
 
 
         self.add_subsystem('multi', multi)
@@ -120,11 +121,11 @@ prob.setup()
 
 prob.run_model()
 
+# prob.model.list_outputs()
+# if MPI.COMM_WORLD.rank == 0:
+
 prob.model.list_inputs(units=True)
 prob.model.list_outputs(units=True)
-
-# prob.model.list_outputs()
-if MPI.COMM_WORLD.rank == 0:
-    print("Scenario 0")
-    print('lo cl =', prob.get_val('multi.lo_mach.cl', get_remote=True))
-    print('hi cl =', prob.get_val('multi.hi_mach.cl', get_remote=True))
+print("Scenario 0")
+print('lo cl =', prob.get_val('multi.lo_mach.cl', get_remote=True))
+print('hi cl =', prob.get_val('multi.hi_mach.cl', get_remote=True))

@@ -760,22 +760,22 @@ class ADflowGroup(Group, SolverObjectBasedSystem):
             'forces': AdflowForces,
         }
 
-        self.solver_init = False
+        self.solvers_init = False
 
     def setup(self):
-        if not self.solver_init:
+        if not self.solvers_init:
             self.init_solver_objects(self.comm)
 
         self.group_options.update(self.options['group_options'])
 
         # if you wanted to check that the user gave a valid combination of components
         # you could do that here, but they will be shown on the n2 
-        self.solver_object.setAeroProblem(self.options['aero_problem'])
+        self.solver_objects.setAeroProblem(self.options['aero_problem'])
 
 
         for comp in self.group_options:
             if self.group_options[comp]:
-                self.add_subsystem(comp, self.group_components[comp](solver_object=self.solver_object),
+                self.add_subsystem(comp, self.group_components[comp](solver_object=self.solver_objects),
                                     promotes=['*']) # we can connect things implicitly through promotes
                                                     # because we already know the inputs and outputs of each
                                                     # components 
@@ -785,9 +785,9 @@ class ADflowGroup(Group, SolverObjectBasedSystem):
         
 
     def init_solver_objects(self, comm):
-        self.solver_object = ADFLOW(options=self.options['solver_options'], comm=comm)
+        self.solver_objects = ADFLOW(options=self.options['solver_options'], comm=comm)
         mesh = USMesh(options=self.options['solver_options'])
-        self.solver_object.setMesh(mesh)
-        self.solver_init = True
+        self.solver_objects.setMesh(mesh)
+        self.solvers_init = True
 
 
