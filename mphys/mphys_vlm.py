@@ -3,7 +3,6 @@ import numpy as np
 
 import openmdao.api as om
 
-# from mphys.geo_disp import Geo_Disp
 from vlm_solver import VLM_solver, VLM_forces
 
 class VlmMesh(om.ExplicitComponent):
@@ -22,7 +21,7 @@ class VlmMesh(om.ExplicitComponent):
 
         outputs['x_a0'] = self.x_a0
 
-class Geo_Disp(om.ExplicitComponent):
+class GeoDisp(om.ExplicitComponent):
     """
     This component adds the aerodynamic
     displacements to the geometry-changed aerodynamic surface
@@ -62,7 +61,7 @@ class Geo_Disp(om.ExplicitComponent):
                 if 'u_a' in d_inputs:
                     d_inputs['u_a']  += d_outputs['x_a']
 
-class VLM_group(om.Group):
+class VlmGroup(om.Group):
 
     def initialize(self):
         self.options.declare('options_dict')
@@ -91,7 +90,7 @@ class VLM_group(om.Group):
         if 'compute_traction' in options_dict:
             compute_traction = options_dict['compute_traction']
 
-        self.add_subsystem('geo_disp', Geo_Disp(nnodes=N_nodes), promotes_inputs=['u_a', 'x_a0'])
+        self.add_subsystem('geo_disp', GeoDisp(nnodes=N_nodes), promotes_inputs=['u_a', 'x_a0'])
 
         self.add_subsystem('solver', VLM_solver(
             N_nodes=N_nodes,
@@ -115,7 +114,7 @@ class VLM_group(om.Group):
         self.connect('geo_disp.x_a', ['solver.xa', 'forces.xa'])
         self.connect('solver.Cp', 'forces.Cp')
 
-class dummyVLMSolver(object):
+class DummyVLMSolver(object):
     '''
     a dummy object that can be used to hold the
     memory associated with a single VLM solver so that
@@ -137,19 +136,19 @@ class dummyVLMSolver(object):
         faceSizes = 4*np.ones(len(conn), 'intc')
         return conn.astype('intc'), faceSizes
 
-class VLM_builder(object):
+class VlmBuilder(object):
 
     def __init__(self, options):
         self.options = options
 
     def init_solver(self, comm):
-        self.solver = dummyVLMSolver(options=self.options, comm=comm)
+        self.solver = DummyVLMSolver(options=self.options, comm=comm)
 
     def get_solver(self):
         return self.solver
 
     def get_element(self, **kwargs):
-        return VLM_group(options_dict=self.options, **kwargs)
+        return VlmGroup(options_dict=self.options, **kwargs)
 
     def get_mesh_element(self):
         N_nodes = self.options['N_nodes']

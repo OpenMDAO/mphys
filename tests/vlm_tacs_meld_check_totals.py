@@ -5,7 +5,7 @@ import numpy as np
 import openmdao.api as om
 
 from mphys.mphys_multipoint import MPHYS_Multipoint
-from mphys.mphys_vlm import VLM_builder
+from mphys.mphys_vlm import VlmBuilder
 from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_meld import MeldBuilder
 
@@ -51,8 +51,8 @@ class Top(om.Group):
         aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
         self.aero_options = aero_options
 
-        # VLM assembler
-        aero_builder = VLM_builder(aero_options)
+        # VLM builder
+        aero_builder = VlmBuilder(aero_options)
 
         # TACS setup
         def add_elements(mesh):

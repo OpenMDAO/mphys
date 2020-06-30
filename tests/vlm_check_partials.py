@@ -48,7 +48,7 @@ class Top(om.Group):
 
         dvs = self.add_subsystem('dvs',om.IndepVarComp(), promotes=['*'])
 
-        vlm_builder = VLM_builder(aero_options)
+        vlm_builder = VlmBuilder(aero_options)
         mp = self.add_subsystem(
             'mp_group',
             MPHYS_Multipoint(aero_builder = vlm_builder)
@@ -70,9 +70,3 @@ prob.model = Top()
 prob.setup(force_alloc_complex=True)
 prob.run_model()
 prob.check_partials(method='cs',compact_print=True)
-
-
-
-
-
-
