@@ -175,12 +175,6 @@ class TacsSolver(om.ImplicitComponent):
             beta  = 0.0
             gamma = 0.0
 
-            xpts = self.tacs_assembler.createNodeVec()
-            self.tacs_assembler.getNodes(xpts)
-            xpts_array = xpts.getArray()
-            xpts_array[:] = inputs['x_s0']
-            self.tacs_assembler.setNodes(xpts)
-
             res = self.tacs_assembler.createVec()
             res_array = res.getArray()
             res_array[:] = 0.0
@@ -438,12 +432,6 @@ class TacsFunctions(om.ExplicitComponent):
         alpha = 1.0
         beta  = 0.0
         gamma = 0.0
-
-        xpts = self.tacs_assembler.createNodeVec()
-        self.tacs_assembler.getNodes(xpts)
-        xpts_array = xpts.getArray()
-        xpts_array[:] = inputs['x_s0']
-        self.tacs_assembler.setNodes(xpts)
 
         res = self.tacs_assembler.createVec()
         res_array = res.getArray()
