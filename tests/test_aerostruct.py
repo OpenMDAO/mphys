@@ -1,11 +1,12 @@
 import numpy as np
 
 import openmdao.api as om
-from mphys.base_classes import CoupledAnalysis
-from mphys.mphys_adflow import ADflow_builder
-from mphys.mphys_adflow import ADflowGroup
-from mphys.mphys_tacs import TACSGroup
+from mphys.analysis import XferCoupledAnalysis
+from mphys.mphys_adflow import *
+from mphys.mphys_tacs import TACSGroup, TacsMesh
 from tacs import elements, constitutive, TACS, functions
+
+from mphys.mphys_meld import MELD_disp_xfer, MELD_load_xfer
 
 from baseclasses import *
 from mpi4py import MPI
@@ -47,7 +48,7 @@ class Top(om.Group):
             # Termination Criteria
             'L2Convergence':1e-2,
             'L2ConvergenceCoarse':1e-2,
-            'nCycles':1000,
+            'nCycles':1,
         }
 
         
@@ -117,37 +118,64 @@ class Top(om.Group):
         ap0.addDV('alpha',value=1.5,name='alpha')
         
         # the solver must be created before added the group as a subsystem.
-        MDA =CoupledAnalysis()
-        MDA.add_subsystem('aero',
-                          ADflowGroup(aero_problem = ap0, 
-                           solver_options = aero_options, 
-                           group_options = {
-                               'geo_disp': True,
-                               'mesh': False,
-                               'deformer': True,
-                               'forces': True
-                           }),
-                           promotes=['alpha', 'u_a', 'f_a'])
-        
-        MDA.add_subsystem('dixp_xfer',
-                          ADflowGroup(aero_problem = ap0, 
-                           solver_options = aero_options, 
-                           group_options = {
-                               'geo_disp': True,
-                               'mesh': False,
-                               'deformer': True,
-                               'forces': True
-                           }),
-                           promotes=['alpha', 'u_a', 'f_a'])
+        MDA = XferCoupledAnalysis()
+        MDA.add_subsystem('aero_mesh',AdflowMesh(solver_options=aero_options), promotes=['x_a0'])
+        MDA.add_subsystem('struct_mesh',TacsMesh(solver_options=solver_options), promotes=['x_s0'])
 
+
+        # adflow_group = Analysis()
+
+
+        # adflow_group.add_subsystem('geo_disp', Geo_Disp(solver_options=aero_options),
+        #                                 promotes=['*']) # we can connect things implicitly through promotes
+        #                                                 # because we already know the inputs and outputs of each
+        #                                                 # components 
+
+
+        # MDA.add_subsystem('aero',
+        #                   adflow_group,
+        #                    promotes=['x_a0'])
+                           
+
+        MDA.add_subsystem('dixp_xfer',
+                           MELD_disp_xfer(solver_options = {
+                                'isym': 2,
+                                'n': 200,
+                                'beta': 0.5,
+                           }))
+                        #    promotes=['x_s0', 'x_a0', 'u_s', 'u_a'])
+                        #    promotes=[])
+        
+
+        MDA.add_subsystem('aero',
+                          AdflowGroup(aero_problem = ap0, 
+                           solver_options = aero_options, 
+                           group_options = {
+                               'geo_disp': True,
+                               'mesh': False,
+                               'deformer': True,
+                               'forces': True
+                           }),
+                           promotes=['alpha', 'u_a', 'f_a', 'x_a0'])
+                           
+        
+
+        MDA.add_subsystem('load_xfer',
+                          MELD_load_xfer(solver_options = {
+                                'isym': 2,
+                                'n': 200,
+                                'beta': 0.5,
+                           }))
+                        #    promotes=['x_s0', 'x_a0', 'u_s', 'u_a'])
+                        #    promotes=[])
 
         MDA.add_subsystem('struct',
                           TACSGroup(solver_options=solver_options,
                                               group_options={
                                                   'loads':False,
+                                                  'mesh':False,
                                               }),
-                           promotes=['alpha', 'u_s', 'f_s'])
-                           
+                           promotes=['x_s0', 'u_s', 'f_s'])
 
         self.add_subsystem('aerostruct', MDA)
 
@@ -163,9 +191,9 @@ prob = om.Problem()
 prob.model = Top()
 
 prob.setup()
-om.n2(prob, show_browser=False, outfile='mphys_aerostruct.html')
+om.n2(prob, show_browser=False, outfile='mphys_test_aerostruct.html')
 
-# prob.run_model()
+prob.run_model()
 
 # prob.model.list_inputs(units=True)
 # prob.model.list_outputs(units=True)

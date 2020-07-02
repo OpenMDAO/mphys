@@ -10,7 +10,7 @@ from openmdao.api import IndepVarComp, Group
 from openmdao.api import NonlinearBlockGS, LinearBlockGS
 
 from tacs import elements, constitutive, TACS, functions
-from mphys.mphys_tacs import TACS_builder, TACSGroup
+from mphys.mphys_tacs import TACSGroup
 # from mphys.mphys_multipoint import MPHYS_Multipoint
 
 class Top(Group):
@@ -106,8 +106,8 @@ model.add_design_var('dv_struct',lower=0.001,upper=0.075,scaler=1.0/1.0)
 model.add_objective('struct.mass',scaler=1.0/100000.0)
 model.add_constraint('struct.f_struct',lower = 0.0, upper = 2.0/3.0,scaler=1000.0/1.0)
 
-prob.driver = ScipyOptimizeDriver(debug_print=['objs','nl_cons'],maxiter=1500)
-prob.driver.options['optimizer'] = 'SLSQP'
+# prob.driver = ScipyOptimizeDriver(debug_print=['objs','nl_cons'],maxiter=1500)
+# prob.driver.options['optimizer'] = 'SLSQP'
 
 prob.setup()
 
