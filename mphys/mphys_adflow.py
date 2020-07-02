@@ -621,7 +621,6 @@ class AdflowFunctions(ExplicitComponent, SolverObjectBasedSystem):
         #self.options.declare('use_OM_KSP', default=False, types=bool,
         #    desc="uses OpenMDAO's PestcKSP linear solver with Adflow's preconditioner to solve the adjoint.")
 
-        self.options['distributed'] = True
 
 
         self.solver_objects = {'Adflow':None}
