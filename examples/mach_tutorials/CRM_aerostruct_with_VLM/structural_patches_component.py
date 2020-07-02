@@ -1,87 +1,28 @@
 import numpy as np
 import openmdao.api as om
 
-class DesignPatches(om.ExplicitComponent):
+class PatchList:
     
-    def initialize(self):
+    def __init__(self,bdf):
         
-        self.options.declare('bdf', types=str)
+        self.bdf = bdf
         
-    def setup(self):
-        
-        self.read_BDF()
-        self.create_DVs()
-        
-        self.n_dvs = (self.upper_skin>0).sum() + (self.lower_skin>0).sum() + \
-               (self.le_spar>0).sum() + (self.te_spar>0).sum() + \
-               (self.rib>0).sum()
-        self.n_us = np.size(self.upper_skin,axis=0)
-        self.n_ls = np.size(self.lower_skin,axis=0)
-        self.n_le = np.size(self.le_spar,axis=0)
-        self.n_te = np.size(self.te_spar,axis=0)
-        self.n_rib = np.size(self.rib,axis=0)
-
-        self.add_input('upper_skin_thickness',shape=self.n_us)
-        self.add_input('lower_skin_thickness',shape=self.n_ls)
-        self.add_input('le_spar_thickness',shape=self.n_le)
-        self.add_input('te_spar_thickness',shape=self.n_te)
-        self.add_input('rib_thickness',shape=self.n_rib)
-        
-        self.add_output('dv_struct',shape=self.n_dvs)
-        
-        self.declare_partials('dv_struct','upper_skin_thickness')
-        self.declare_partials('dv_struct','lower_skin_thickness')
-        self.declare_partials('dv_struct','le_spar_thickness')
-        self.declare_partials('dv_struct','te_spar_thickness')
-        self.declare_partials('dv_struct','rib_thickness')
-        
-    def compute(self,inputs,outputs):
-        
-        self.T_us = np.zeros([self.n_dvs,self.n_us])
-        self.T_us[self.upper_skin[np.nonzero(self.upper_skin)[0],np.nonzero(self.upper_skin)[1]]-1,np.nonzero(self.upper_skin)[0]] = 1
-        
-        self.T_ls = np.zeros([self.n_dvs,self.n_ls])
-        self.T_ls[self.lower_skin[np.nonzero(self.lower_skin)[0],np.nonzero(self.lower_skin)[1]]-1,np.nonzero(self.lower_skin)[0]] = 1
-        
-        self.T_le = np.zeros([self.n_dvs,self.n_le])
-        self.T_le[self.le_spar[np.nonzero(self.le_spar)[0],np.nonzero(self.le_spar)[1]]-1,np.nonzero(self.le_spar)[0]] = 1
-        
-        self.T_te = np.zeros([self.n_dvs,self.n_te])
-        self.T_te[self.te_spar[np.nonzero(self.te_spar)[0],np.nonzero(self.te_spar)[1]]-1,np.nonzero(self.te_spar)[0]] = 1
-        
-        self.T_rib = np.zeros([self.n_dvs,self.n_rib])
-        self.T_rib[self.rib[np.nonzero(self.rib)[0],np.nonzero(self.rib)[1]]-1,np.nonzero(self.rib)[0]] = 1
-                 
-        outputs['dv_struct'] = self.T_us@inputs['upper_skin_thickness'] + \
-                         self.T_ls@inputs['lower_skin_thickness'] + \
-                         self.T_le@inputs['le_spar_thickness'] + \
-                         self.T_te@inputs['te_spar_thickness'] + \
-                         self.T_rib@inputs['rib_thickness']
-    
-    def compute_partials(self,inputs,partials):
-        
-        partials['dv_struct','upper_skin_thickness'] = self.T_us
-        partials['dv_struct','lower_skin_thickness'] = self.T_ls
-        partials['dv_struct','le_spar_thickness'] = self.T_le
-        partials['dv_struct','te_spar_thickness'] = self.T_te
-        partials['dv_struct','rib_thickness'] = self.T_rib
-        
-    def read_BDF(self):
-        
-        f = open(self.options['bdf'], "r")
-        contents = f.read().split()
+        f = open(self.bdf, "r")
+        self.contents = f.read().split()
         f.close()
         
-        a = [i for i, s in enumerate(contents) if 'family' in s]
+    def read_families(self):
+                
+        a = [i for i, s in enumerate(self.contents) if 'family' in s]
         families = [0 for x in range(len(a))]
         family_ID = np.zeros(len(a),'int')
         for i in range(0,len(a)):
-            families[i] = contents[a[i]+1]
-            family_ID[i] = int(contents[a[i]+4])
+            families[i] = self.contents[a[i]+1]
+            family_ID[i] = int(self.contents[a[i]+4])
         
         self.families = families
         self.family_ID = family_ID
-
+        
     def create_DVs(self):
         
         upper_skin = np.zeros([len(self.families),10],'int')
@@ -122,19 +63,88 @@ class DesignPatches(om.ExplicitComponent):
         upper_skin = upper_skin[np.sum(upper_skin,axis=1)>0,:]
         self.upper_skin = upper_skin[:,np.sum(upper_skin,axis=0)>0]
         self.upper_skin = np.flip(self.upper_skin,axis=0)
+        self.n_us = np.size(self.upper_skin,axis=0)
 
         lower_skin = lower_skin[np.sum(lower_skin,axis=1)>0,:]
         self.lower_skin = lower_skin[:,np.sum(lower_skin,axis=0)>0]
         self.lower_skin = np.flip(self.lower_skin,axis=0)
+        self.n_ls = np.size(self.lower_skin,axis=0)
         
         le_spar = le_spar[np.sum(le_spar,axis=1)>0,:]
         self.le_spar = le_spar[:,np.sum(le_spar,axis=0)>0]
+        self.n_le = np.size(self.le_spar,axis=0)
         
         te_spar = te_spar[np.sum(te_spar,axis=1)>0,:]
         self.te_spar = te_spar[:,np.sum(te_spar,axis=0)>0]
+        self.n_te = np.size(self.te_spar,axis=0)
         
         rib = rib[np.sum(rib,axis=1)>0,:]
         self.rib = rib[:,np.sum(rib,axis=0)>0]
+        self.n_rib = np.size(self.rib,axis=0)
+        
+        self.n_dvs = (self.upper_skin>0).sum() + (self.lower_skin>0).sum() + \
+            (self.le_spar>0).sum() + (self.te_spar>0).sum() + \
+            (self.rib>0).sum()
+        self.n_dvs = int(self.n_dvs)
+
+
+class DesignPatches(om.ExplicitComponent):
+    
+    def initialize(self):
+        
+        self.options.declare('bdf', types=str)
+        self.options.declare('patch_list')
+        
+    def setup(self):
+        
+        patches = self.options['patch_list']
+        
+        self.add_input('upper_skin_thickness',shape=patches.n_us)
+        self.add_input('lower_skin_thickness',shape=patches.n_ls)
+        self.add_input('le_spar_thickness',shape=patches.n_le)
+        self.add_input('te_spar_thickness',shape=patches.n_te)
+        self.add_input('rib_thickness',shape=patches.n_rib)
+        
+        self.add_output('dv_struct',shape=patches.n_dvs)
+        
+        self.declare_partials('dv_struct','upper_skin_thickness')
+        self.declare_partials('dv_struct','lower_skin_thickness')
+        self.declare_partials('dv_struct','le_spar_thickness')
+        self.declare_partials('dv_struct','te_spar_thickness')
+        self.declare_partials('dv_struct','rib_thickness')
+        
+    def compute(self,inputs,outputs):
+        
+        patches = self.options['patch_list']
+        
+        self.T_us = np.zeros([patches.n_dvs,patches.n_us])
+        self.T_us[patches.upper_skin[np.nonzero(patches.upper_skin)[0],np.nonzero(patches.upper_skin)[1]]-1,np.nonzero(patches.upper_skin)[0]] = 1
+        
+        self.T_ls = np.zeros([patches.n_dvs,patches.n_ls])
+        self.T_ls[patches.lower_skin[np.nonzero(patches.lower_skin)[0],np.nonzero(patches.lower_skin)[1]]-1,np.nonzero(patches.lower_skin)[0]] = 1
+        
+        self.T_le = np.zeros([patches.n_dvs,patches.n_le])
+        self.T_le[patches.le_spar[np.nonzero(patches.le_spar)[0],np.nonzero(patches.le_spar)[1]]-1,np.nonzero(patches.le_spar)[0]] = 1
+        
+        self.T_te = np.zeros([patches.n_dvs,patches.n_te])
+        self.T_te[patches.te_spar[np.nonzero(patches.te_spar)[0],np.nonzero(patches.te_spar)[1]]-1,np.nonzero(patches.te_spar)[0]] = 1
+        
+        self.T_rib = np.zeros([patches.n_dvs,patches.n_rib])
+        self.T_rib[patches.rib[np.nonzero(patches.rib)[0],np.nonzero(patches.rib)[1]]-1,np.nonzero(patches.rib)[0]] = 1
+                 
+        outputs['dv_struct'] = self.T_us@inputs['upper_skin_thickness'] + \
+                         self.T_ls@inputs['lower_skin_thickness'] + \
+                         self.T_le@inputs['le_spar_thickness'] + \
+                         self.T_te@inputs['te_spar_thickness'] + \
+                         self.T_rib@inputs['rib_thickness']
+    
+    def compute_partials(self,inputs,partials):
+        
+        partials['dv_struct','upper_skin_thickness'] = self.T_us
+        partials['dv_struct','lower_skin_thickness'] = self.T_ls
+        partials['dv_struct','le_spar_thickness'] = self.T_le
+        partials['dv_struct','te_spar_thickness'] = self.T_te
+        partials['dv_struct','rib_thickness'] = self.T_rib
         
 
 class PatchSmoothness(om.ExplicitComponent):
@@ -170,4 +180,4 @@ class PatchSmoothness(om.ExplicitComponent):
             partials['diff','thickness'][j+1,i] = -1  
             j += 2
 
-            
+   
