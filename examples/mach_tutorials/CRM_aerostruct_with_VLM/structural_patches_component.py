@@ -92,7 +92,6 @@ class DesignPatches(om.ExplicitComponent):
     
     def initialize(self):
         
-        self.options.declare('bdf', types=str)
         self.options.declare('patch_list')
         
     def setup(self):
