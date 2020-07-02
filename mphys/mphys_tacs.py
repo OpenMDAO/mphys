@@ -481,7 +481,8 @@ class TacsFunctions(om.ExplicitComponent, SolverObjectBasedSystem):
 
         if 'f5_writer' in  self.options['solver_options']:
             self.f5_writer = self.options['solver_options']['f5_writer']
-
+        else:
+            self.f5_writer = None
 
 
 

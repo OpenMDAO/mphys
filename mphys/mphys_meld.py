@@ -239,7 +239,10 @@ class MELD_load_xfer(om.ExplicitComponent, XferObject):
 
         if not self.initialized_meld:
             x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
+            x_a0 = np.array(inputs['x_a0'],dtype=TransferScheme.dtype)
+
             self.struct_nnodes = x_s0.size//3
+            self.aero_nnodes = x_a0.size//3
             self.struct_ndof =  inputs['u_s'].size//self.struct_nnodes
             self.initialized_meld = True
 
