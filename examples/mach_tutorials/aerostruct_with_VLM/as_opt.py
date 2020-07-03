@@ -5,7 +5,7 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from tacs import elements, constitutive, functions
+from tacs import elements, constitutive, functions, TACS
 
 from mphys.mphys_multipoint import MPHYS_Multipoint
 from mphys.mphys_vlm import VLM_builder
@@ -13,18 +13,17 @@ from mphys.mphys_tacs import TACS_builder
 from mphys.mphys_modal_solver import ModalBuilder
 from mphys.mphys_meld import MELD_builder
 
+from struct_dv_components import StructDvMapper, SmoothnessEvaluatorGrid, struct_comps
 
 class Top(om.Group):
 
     def setup(self):
-        self.modal_struct = True
-
         # VLM options
         aero_options = {
             'mesh_file':'wing_VLM.dat',
             'mach':0.85,
             'alpha':2*np.pi/180.,
-            'q_inf':3000.,
+            'q_inf':9000.,
             'vel':178.,
             'mu':3.5E-5,
         }
@@ -104,11 +103,7 @@ class Top(om.Group):
                     'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
                     'f5_writer'   : f5_writer }
 
-        if self.modal_struct:
-            nmodes = 15
-            struct_builder = ModalBuilder(tacs_setup,nmodes)
-        else:
-            struct_builder = TACS_builder(tacs_setup)
+        struct_builder = TACS_builder(tacs_setup)
 
         # MELD setup
         meld_options = {'isym': 1,
@@ -122,7 +117,13 @@ class Top(om.Group):
         # MPHYS setup
         ################################################################################
         # ivc to keep the top level DVs
-        dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
+        self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
+        self.add_subsystem('struct_mapper',StructDvMapper(), promotes=['*'])
+
+        self.add_subsystem('le_spar_smoothness',SmoothnessEvaluatorGrid(columns=struct_comps['le_spar'],rows=1))
+        self.add_subsystem('te_spar_smoothness',SmoothnessEvaluatorGrid(columns=struct_comps['te_spar'],rows=1))
+        self.add_subsystem('up_skin_smoothness',SmoothnessEvaluatorGrid(columns=9,rows=struct_comps['up_skin']//9))
+        self.add_subsystem('lo_skin_smoothness',SmoothnessEvaluatorGrid(columns=9,rows=int(struct_comps['lo_skin']/9)))
 
         # each AS_Multipoint instance can keep multiple points with the same formulation
         mp = self.add_subsystem(
@@ -140,18 +141,28 @@ class Top(om.Group):
     def configure(self):
 
         # add AoA DV
+
         self.dvs.add_output('alpha', val=2*np.pi/180.)
         self.connect('alpha', 'mp_group.s0.solver_group.aero.alpha')
 
         # add the structural thickness DVs
-        ndv_struct = self.mp_group.struct_builder.get_ndv()
-        self.dvs.add_output('dv_struct', np.array(ndv_struct*[0.002]))
+        initial_thickness = 0.003
+        self.dvs.add_output('ribs',        val=initial_thickness, shape = struct_comps['ribs'])
+        self.dvs.add_output('le_spar',     val=initial_thickness, shape = struct_comps['le_spar'])
+        self.dvs.add_output('te_spar',     val=initial_thickness, shape = struct_comps['te_spar'])
+        self.dvs.add_output('up_skin',     val=initial_thickness, shape = struct_comps['up_skin'])
+        self.dvs.add_output('lo_skin',     val=initial_thickness, shape = struct_comps['lo_skin'])
+        self.dvs.add_output('up_stringer', val=initial_thickness, shape = struct_comps['up_stringer'])
+        self.dvs.add_output('lo_stringer', val=initial_thickness, shape = struct_comps['lo_stringer'])
+
+        # connect the smoothness constraints
+        self.connect('le_spar','le_spar_smoothness.thickness')
+        self.connect('te_spar','te_spar_smoothness.thickness')
+        self.connect('up_skin','up_skin_smoothness.thickness')
+        self.connect('lo_skin','lo_skin_smoothness.thickness')
 
         # connect solver data
-        if self.modal_struct:
-            self.connect('dv_struct', ['mp_group.struct_mesh.dv_struct'])
-        else:
-            self.connect('dv_struct', ['mp_group.s0.solver_group.struct.dv_struct', 'mp_group.s0.struct_funcs.dv_struct'])
+        self.connect('dv_struct', ['mp_group.s0.solver_group.struct.dv_struct', 'mp_group.s0.struct_funcs.dv_struct'])
 
 ################################################################################
 # OpenMDAO setup
@@ -160,21 +171,59 @@ prob = om.Problem()
 prob.model = Top()
 model = prob.model
 
+# optimization set up
+prob.model.add_design_var('alpha',lower=-5*np.pi/180, upper=10*np.pi/180.0, ref=1.0)
+prob.model.add_design_var('ribs',        lower=0.003, upper=0.020, ref=0.005)
+prob.model.add_design_var('le_spar',     lower=0.003, upper=0.020, ref=0.005)
+prob.model.add_design_var('te_spar',     lower=0.003, upper=0.020, ref=0.005)
+prob.model.add_design_var('up_skin',     lower=0.003, upper=0.020, ref=0.005)
+prob.model.add_design_var('lo_skin',     lower=0.003, upper=0.020, ref=0.005)
+prob.model.add_design_var('up_stringer', lower=0.003, upper=0.020, ref=0.005)
+prob.model.add_design_var('lo_stringer', lower=0.003, upper=0.020, ref=0.005)
+
+prob.model.add_objective('mp_group.s0.struct_funcs.mass.mass',ref=1000.0)
+prob.model.add_constraint('mp_group.s0.solver_group.aero.forces.CL',ref=1.0,equals=0.5)
+prob.model.add_constraint('mp_group.s0.struct_funcs.funcs.f_struct',ref=1.0, upper = 2.0/3.0)
+
+prob.model.add_constraint('le_spar_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
+prob.model.add_constraint('te_spar_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
+prob.model.add_constraint('up_skin_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
+prob.model.add_constraint('lo_skin_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
+
 # optional but we can set it here.
 model.nonlinear_solver = om.NonlinearRunOnce()
 model.linear_solver = om.LinearRunOnce()
 
+#prob.driver = om.ScipyOptimizeDriver(debug_print=['ln_cons','nl_cons','objs','totals'])
+prob.driver = om.ScipyOptimizeDriver()
+prob.driver.options['optimizer'] = 'SLSQP'
+prob.driver.options['tol'] = 1e-3
+prob.driver.options['disp'] = True
+
+prob.driver.recording_options['includes'] = ['*']
+prob.driver.recording_options['record_objectives'] = True
+prob.driver.recording_options['record_constraints'] = True
+prob.driver.recording_options['record_desvars'] = True
+
+recorder = om.SqliteRecorder("cases.sql")
+prob.driver.add_recorder(recorder)
 
 prob.setup()
 
-# model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=20, iprint=2, use_aitken=False, rtol = 1E-14, atol=1E-14)
-# model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, rtol = 1e-14, atol=1e-14)
+model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=20, iprint=2, use_aitken=True, rtol = 1E-7, atol=1E-8)
+model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, rtol = 1e-7, atol=1e-8)
 
 om.n2(prob, show_browser=False, outfile='mphys_as_vlm.html')
+prob.run_driver()
 
-prob.run_model()
+cr = om.CaseReader("cases.sql")
+driver_cases = cr.list_cases('driver')
 
-if MPI.COMM_WORLD.rank == 0:
-    print('f_struct =',prob['mp_group.s0.struct_funcs.funcs.f_struct'])
-    print('mass =',prob['mp_group.s0.struct_funcs.mass.mass'])
-    print('cl =',prob['mp_group.s0.solver_loop.aero.funcs.CL'])
+matrix = np.zeros((len(driver_cases),4))
+for i, case_id in enumerate(driver_cases):
+    matrix[i,0] = i
+    case = cr.get_case(case_id)
+    matrix[i,1] = case.get_objectives()['mp_group.s0.struct_funcs.mass.mass'][0]
+    matrix[i,2] = case.get_constraints()['mp_group.s0.solver_group.aero.forces.CL'][0]
+    matrix[i,3] = case.get_constraints()['mp_group.s0.struct_funcs.funcs.f_struct'][0]
+np.savetxt('history.dat',matrix)

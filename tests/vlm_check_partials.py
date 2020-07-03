@@ -58,7 +58,7 @@ class Top(om.Group):
 
     def configure(self):
         self.dvs.add_output('alpha', self.aero_options['alpha'])
-        self.connect('alpha',['mp_group.s0.aero.alpha'])
+        self.connect('alpha',['mp_group.s0.solver_group.aero.alpha'])
 
 ## openmdao setup
 

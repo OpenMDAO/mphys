@@ -23,7 +23,7 @@ class TacsMesh(om.ExplicitComponent):
 
         # OpenMDAO setup
         node_size  =     self.xpts.getArray().size
-        self.add_output('x_s0_mesh', shape=node_size, desc='structural node coordinates')
+        self.add_output('x_s0', shape=node_size, desc='structural node coordinates')
 
     def mphys_add_coordinate_input(self):
         local_size  = self.xpts.getArray().size
@@ -40,17 +40,17 @@ class TacsMesh(om.ExplicitComponent):
 
     def compute(self,inputs,outputs):
         if 'x_s0_points' in inputs:
-            outputs['x_s0_mesh'] = inputs['x_s0_points']
+            outputs['x_s0'] = inputs['x_s0_points']
         else:
-            outputs['x_s0_mesh'] = self.xpts.getArray()
+            outputs['x_s0'] = self.xpts.getArray()
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
             if 'x_s0_points' in d_inputs:
-                d_outputs['x_s0_mesh'] += d_inputs['x_s0_points']
+                d_outputs['x_s0'] += d_inputs['x_s0_points']
         elif mode == 'rev':
             if 'x_s0_points' in d_inputs:
-                d_inputs['x_s0_points'] += d_outputs['x_s0_mesh']
+                d_inputs['x_s0_points'] += d_outputs['x_s0']
 
 class TacsSolver(om.ImplicitComponent):
     """
@@ -82,6 +82,8 @@ class TacsSolver(om.ImplicitComponent):
 
         self.transposed = False
         self.check_partials = False
+
+        self.old_dvs = None
 
     def setup(self):
         self.check_partials = self.options['check_partials']
@@ -127,12 +129,13 @@ class TacsSolver(om.ImplicitComponent):
 
 
         # inputs
-        self.add_input('dv_struct', shape=ndv                                                 , desc='tacs design variables')
-        self.add_input('x_s0',      shape=node_size , src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
-        self.add_input('f_s',       shape=state_size, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
+        self.add_input('dv_struct', shape=ndv, desc='tacs design variables')
+        self.add_input('x_s0', shape=node_size , src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
+        self.add_input('f_s', shape=state_size, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
 
         # outputs
-        self.add_output('u_s',      shape=state_size, val = np.zeros(state_size),desc='structural state vector')
+        # its important that we set this to zero since this displacement value is used for the first iteration of the aero
+        self.add_output('u_s', shape=state_size, val = np.zeros(state_size),desc='structural state vector')
 
         # partials
         #self.declare_partials('u_s',['dv_struct','x_s0','f_s'])
@@ -149,32 +152,45 @@ class TacsSolver(om.ImplicitComponent):
     def get_funcs(self):
         return self.solver_dict['get_funcs']
 
+    def _need_update(self,inputs):
+        if self.old_dvs is None:
+            self.old_dvs = inputs['dv_struct'].copy()
+            return True
+
+        for dv, dv_old in zip(inputs['dv_struct'],self.old_dvs):
+            if np.abs(dv - dv_old) > 1e-7:
+                self.old_dvs = inputs['dv_struct'].copy()
+                return True
+
+        return False
+
     def _update_internal(self,inputs,outputs=None):
-        self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
+        if self._need_update(inputs):
+            self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
 
-        xpts = self.tacs.createNodeVec()
-        self.tacs.getNodes(xpts)
-        xpts_array = xpts.getArray()
-        xpts_array[:] = inputs['x_s0']
-        self.tacs.setNodes(xpts)
+            xpts = self.tacs.createNodeVec()
+            self.tacs.getNodes(xpts)
+            xpts_array = xpts.getArray()
+            xpts_array[:] = inputs['x_s0']
+            self.tacs.setNodes(xpts)
 
-        pc     = self.pc
-        alpha = 1.0
-        beta  = 0.0
-        gamma = 0.0
+            pc     = self.pc
+            alpha = 1.0
+            beta  = 0.0
+            gamma = 0.0
 
-        xpts = self.tacs.createNodeVec()
-        self.tacs.getNodes(xpts)
-        xpts_array = xpts.getArray()
-        xpts_array[:] = inputs['x_s0']
-        self.tacs.setNodes(xpts)
+            xpts = self.tacs.createNodeVec()
+            self.tacs.getNodes(xpts)
+            xpts_array = xpts.getArray()
+            xpts_array[:] = inputs['x_s0']
+            self.tacs.setNodes(xpts)
 
-        res = self.tacs.createVec()
-        res_array = res.getArray()
-        res_array[:] = 0.0
+            res = self.tacs.createVec()
+            res_array = res.getArray()
+            res_array[:] = 0.0
 
-        self.tacs.assembleJacobian(alpha,beta,gamma,res,self.mat)
-        pc.factor()
+            self.tacs.assembleJacobian(alpha,beta,gamma,res,self.mat)
+            pc.factor()
 
         if outputs is not None:
             ans = self.ans
@@ -364,6 +380,11 @@ class TacsFunctions(om.ExplicitComponent):
         ndv = self.struct_objects[3]['ndv']
         get_funcs = self.struct_objects[3]['get_funcs']
 
+        if 'f5_writer' in self.struct_objects[3].keys():
+            self.f5_writer = self.struct_objects[3]['f5_writer']
+        else:
+            self.f5_writer = None
+
         tacs = self.tacs
 
         func_list = get_funcs(tacs)
@@ -448,10 +469,10 @@ class TacsFunctions(om.ExplicitComponent):
 
         if 'f_struct' in outputs:
             outputs['f_struct'] = self.tacs.evalFunctions(self.func_list)
+            print('f_struct',outputs['f_struct'])
 
-        # TODO fix this with the configure based approach
-        # if self.options['f5_writer'] is not None:
-        #     self.options['f5_writer'](self.tacs)
+        if self.f5_writer is not None:
+            self.f5_writer(self.tacs)
 
     def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
@@ -658,6 +679,20 @@ class TACS_group(om.Group):
             promotes_outputs=['u_s']
         )
 
+    def configure(self):
+        pass
+
+class TACSFuncsGroup(om.Group):
+    def initialize(self):
+        self.options.declare('solver')
+        self.options.declare('solver_objects')
+        self.options.declare('check_partials')
+
+    def setup(self):
+        self.struct_solver = self.options['solver']
+        self.struct_objects = self.options['solver_objects']
+        self.check_partials = self.options['check_partials']
+
         self.add_subsystem('funcs', TacsFunctions(
             struct_solver=self.struct_solver,
             struct_objects=self.struct_objects,
@@ -673,7 +708,7 @@ class TACS_group(om.Group):
         )
 
     def configure(self):
-        self.connect('u_s', 'funcs.u_s')
+        pass
 
 class TACS_builder(object):
 
@@ -707,6 +742,8 @@ class TACS_builder(object):
         solver_dict['ndof']   = ndof
         solver_dict['nnodes'] = nnodes
         solver_dict['get_funcs'] = self.options['get_funcs']
+        if 'f5_writer' in self.options.keys():
+            solver_dict['f5_writer'] = self.options['f5_writer']
 
         # check if the user provided a load function
         if 'load_function' in self.options:
@@ -730,6 +767,34 @@ class TACS_builder(object):
 
     def get_mesh_element(self):
         return TacsMesh(struct_solver=self.solver)
+
+    def get_mesh_connections(self):
+        return {
+            'solver':{
+                'x_s0'  : 'x_s0',
+            },
+            'funcs':{
+                'x_s0'  : 'x_s0',
+            },
+        }
+
+    def get_scenario_element(self):
+        return TACSFuncsGroup(
+            solver=self.solver,
+            solver_objects=self.solver_objects,
+            check_partials=self.check_partials
+        )
+
+    def get_scenario_connections(self):
+        # this is the stuff we want to be connected
+        # between the solver and the functionals.
+        # these variables FROM the solver are connected
+        # TO the funcs element. So the solver has output
+        # and funcs has input. key is the output,
+        # variable is the input in the returned dict.
+        return {
+            'u_s'    : 'funcs.u_s',
+        }
 
     def get_ndof(self):
         return self.solver_dict['ndof']

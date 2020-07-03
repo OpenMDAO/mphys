@@ -16,11 +16,11 @@ class VlmMesh(om.ExplicitComponent):
 
         N_nodes = self.options['N_nodes']
         self.x_a0 = self.options['x_a0']
-        self.add_output('x_a0_mesh',np.zeros(N_nodes*3))
+        self.add_output('x_a0',np.zeros(N_nodes*3))
 
     def compute(self,inputs,outputs):
 
-        outputs['x_a0_mesh'] = self.x_a0
+        outputs['x_a0'] = self.x_a0
 
 class Geo_Disp(om.ExplicitComponent):
     """
@@ -85,6 +85,12 @@ class VLM_group(om.Group):
         x_a0       = options_dict['x_a0']
         quad       = options_dict['quad']
 
+        # by default, we use nodal forces. however, if the user wants to use
+        # tractions, they can specify it in the options_dict
+        compute_traction = False
+        if 'compute_traction' in options_dict:
+            compute_traction = options_dict['compute_traction']
+
         self.add_subsystem('geo_disp', Geo_Disp(nnodes=N_nodes), promotes_inputs=['u_a', 'x_a0'])
 
         self.add_subsystem('solver', VLM_solver(
@@ -94,19 +100,20 @@ class VLM_group(om.Group):
             mach=mach
         ), promotes_inputs=['alpha'])
 
-        self.add_subsystem('funcs', VLM_forces(
+        self.add_subsystem('forces', VLM_forces(
             N_nodes=N_nodes,
             N_elements=N_elements,
             quad=quad,
             q_inf=q_inf,
             mach=mach,
             vel=vel,
-            mu=mu
+            mu=mu,
+            compute_traction=compute_traction
         ), promotes_outputs=[('fa','f_a')])
 
     def configure(self):
-        self.connect('geo_disp.x_a', ['solver.xa', 'funcs.xa'])
-        self.connect('solver.Cp', 'funcs.Cp')
+        self.connect('geo_disp.x_a', ['solver.xa', 'forces.xa'])
+        self.connect('solver.Cp', 'forces.Cp')
 
 class dummyVLMSolver(object):
     '''
@@ -117,6 +124,18 @@ class dummyVLMSolver(object):
     def __init__(self, options, comm):
         self.options = options
         self.comm = comm
+        self.allWallsGroup = 'allWalls'
+
+    # the methods below here are required for RLT
+    def getSurfaceCoordinates(self, group):
+        # just return the full coordinates
+        return self.options['x_a0']
+
+    def getSurfaceConnectivity(self, group):
+        # -1 for the conversion between fortran and C
+        conn = self.options['quad'].copy() -1
+        faceSizes = 4*np.ones(len(conn), 'intc')
+        return conn.astype('intc'), faceSizes
 
 class VLM_builder(object):
 

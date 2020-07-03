@@ -28,7 +28,7 @@ class AdflowMesh(ExplicitComponent):
 
         coord_size = self.x_a0.size
 
-        self.add_output('x_a0_mesh', shape=coord_size, desc='initial aerodynamic surface node coordinates')
+        self.add_output('x_a0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
 
     def mphys_add_coordinate_input(self):
         local_size = self.x_a0.size
@@ -118,17 +118,17 @@ class AdflowMesh(ExplicitComponent):
 
     def compute(self,inputs,outputs):
         if 'x_a0_points' in inputs:
-            outputs['x_a0_mesh'] = inputs['x_a0_points']
+            outputs['x_a0'] = inputs['x_a0_points']
         else:
-            outputs['x_a0_mesh'] = self.x_a0
+            outputs['x_a0'] = self.x_a0
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
             if 'x_a0_points' in d_inputs:
-                d_outputs['x_a0_mesh'] += d_inputs['x_a0_points']
+                d_outputs['x_a0'] += d_inputs['x_a0_points']
         elif mode == 'rev':
             if 'x_a0_points' in d_inputs:
-                d_inputs['x_a0_points'] += d_outputs['x_a0_mesh']
+                d_inputs['x_a0_points'] += d_outputs['x_a0']
 
 class Geo_Disp(ExplicitComponent):
     """
@@ -589,7 +589,7 @@ class AdflowFunctions(ExplicitComponent):
         self.ap.setDesignVars(tmp)
         #self.options['solver'].setAeroProblem(self.options['ap'])
 
-    def set_ap(self, ap):
+    def mphys_set_ap(self, ap):
         # this is the external function to set the ap to this component
         self.ap = ap
 
@@ -735,14 +735,13 @@ class ADflow_group(Group):
                 aero_solver=self.aero_solver),
                 promotes_outputs=['f_a']
             )
-        self.add_subsystem('funcs', AdflowFunctions(
-            aero_solver=self.aero_solver
-        ))
+        # self.add_subsystem('funcs', AdflowFunctions(
+        #     aero_solver=self.aero_solver
+        # ))
 
     def configure(self):
 
-        self.connect('deformer.x_g', ['solver.x_g', 'funcs.x_g'])
-        self.connect('solver.q', 'funcs.q')
+        self.connect('deformer.x_g', 'solver.x_g')
 
         if self.as_coupling:
             self.connect('geo_disp.x_a', 'deformer.x_a')
@@ -755,7 +754,7 @@ class ADflow_group(Group):
     def mphys_set_ap(self, ap):
         # set the ap, add inputs and outputs, promote?
         self.solver.set_ap(ap)
-        self.funcs.set_ap(ap)
+        # self.funcs.set_ap(ap)
         if self.as_coupling:
             self.force.set_ap(ap)
 
@@ -766,7 +765,7 @@ class ADflow_group(Group):
             name = args[0]
             size = args[1]
             self.promotes('solver', inputs=[name])
-            self.promotes('funcs', inputs=[name])
+            # self.promotes('funcs', inputs=[name])
             if self.as_coupling:
                 self.promotes('force', inputs=[name])
 
@@ -791,6 +790,21 @@ class ADflow_builder(object):
 
     def get_mesh_element(self):
         return AdflowMesh(aero_solver=self.solver)
+
+    def get_scenario_element(self):
+        return AdflowFunctions(aero_solver=self.solver)
+
+    def get_scenario_connections(self):
+        # this is the stuff we want to be connected
+        # between the solver and the functionals.
+        # these variables FROM the solver are connected
+        # TO the funcs element. So the solver has output
+        # and funcs has input. key is the output,
+        # variable is the input in the returned dict.
+        return {
+            'deformer.x_g'  : 'x_g',
+            'solver.q'      : 'q',
+        }
 
     def get_nnodes(self):
         return int(self.solver.getSurfaceCoordinates().size /3)
