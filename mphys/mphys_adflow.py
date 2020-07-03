@@ -516,7 +516,7 @@ class AdflowFunctions(ExplicitComponent):
         self.ap.setDesignVars(tmp)
         #self.options['solver'].setAeroProblem(self.options['ap'])
 
-    def set_ap(self, ap):
+    def mphys_set_ap(self, ap):
         # this is the external function to set the ap to this component
         self.ap = ap
 
@@ -662,14 +662,13 @@ class ADflow_group(Group):
                 aero_solver=self.aero_solver),
                 promotes_outputs=['f_a']
             )
-        self.add_subsystem('funcs', AdflowFunctions(
-            aero_solver=self.aero_solver
-        ))
+        # self.add_subsystem('funcs', AdflowFunctions(
+        #     aero_solver=self.aero_solver
+        # ))
 
     def configure(self):
 
-        self.connect('deformer.x_g', ['solver.x_g', 'funcs.x_g'])
-        self.connect('solver.q', 'funcs.q')
+        self.connect('deformer.x_g', 'solver.x_g')
 
         if self.as_coupling:
             self.connect('geo_disp.x_a', 'deformer.x_a')
@@ -682,7 +681,7 @@ class ADflow_group(Group):
     def mphys_set_ap(self, ap):
         # set the ap, add inputs and outputs, promote?
         self.solver.set_ap(ap)
-        self.funcs.set_ap(ap)
+        # self.funcs.set_ap(ap)
         if self.as_coupling:
             self.force.set_ap(ap)
 
@@ -693,7 +692,7 @@ class ADflow_group(Group):
             name = args[0]
             size = args[1]
             self.promotes('solver', inputs=[name])
-            self.promotes('funcs', inputs=[name])
+            # self.promotes('funcs', inputs=[name])
             if self.as_coupling:
                 self.promotes('force', inputs=[name])
 
@@ -718,6 +717,21 @@ class ADflow_builder(object):
 
     def get_mesh_element(self):
         return AdflowMesh(aero_solver=self.solver)
+
+    def get_scenario_element(self):
+        return AdflowFunctions(aero_solver=self.solver)
+
+    def get_scenario_connections(self):
+        # this is the stuff we want to be connected
+        # between the solver and the functionals.
+        # these variables FROM the solver are connected
+        # TO the funcs element. So the solver has output
+        # and funcs has input. key is the output,
+        # variable is the input in the returned dict.
+        return {
+            'deformer.x_g'  : 'x_g',
+            'solver.q'      : 'q',
+        }
 
     def get_nnodes(self):
         return int(self.solver.getSurfaceCoordinates().size /3)

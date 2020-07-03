@@ -88,7 +88,7 @@ class Top(Group):
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()
         self.dvs.add_output('dv_struct',np.array(240*[0.0031]))
-        self.connect('dv_struct', ['mp_group.s0.struct.dv_struct'])
+        self.connect('dv_struct', ['mp_group.s0.solver_group.struct.dv_struct', 'mp_group.s0.struct_funcs.dv_struct'])
 
 ################################################################################
 # OpenMDAO setup
@@ -99,8 +99,8 @@ prob.model = Top()
 model = prob.model
 
 model.add_design_var('dv_struct',lower=0.001,upper=0.075,scaler=1.0/1.0)
-model.add_objective('mp_group.s0.struct.mass.mass',scaler=1.0/100000.0)
-model.add_constraint('mp_group.s0.struct.funcs.f_struct',lower = 0.0, upper = 2.0/3.0,scaler=1000.0/1.0)
+model.add_objective('mp_group.s0.struct_funcs.mass.mass',scaler=1.0/100000.0)
+model.add_constraint('mp_group.s0.struct_funcs.funcs.f_struct',lower = 0.0, upper = 2.0/3.0,scaler=1000.0/1.0)
 
 prob.driver = ScipyOptimizeDriver(debug_print=['objs','nl_cons'],maxiter=1500)
 prob.driver.options['optimizer'] = 'SLSQP'
