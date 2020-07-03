@@ -9,7 +9,7 @@ from mphys.mphys_multipoint import MPHYS_Multipoint
 
 # these imports will be from the respective codes' repos rather than mphys
 from mphys.mphys_adflow import ADflow_builder
-from mphys.dvgeo_component_configure import OM_DVGEOCOMP
+from mphys.mphys_dvgeo import OM_DVGEOCOMP
 
 from baseclasses import *
 
@@ -218,9 +218,9 @@ prob.model.list_outputs(units=True)
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
     print("Scenario 0")
-    print('cl =',prob['mp_group.s0.aero.funcs.cl'])
-    print('cd =',prob['mp_group.s0.aero.funcs.cd'])
+    print('cl =',prob['mp_group.s0.aero_funcs.cl'])
+    print('cd =',prob['mp_group.s0.aero_funcs.cd'])
 
     print("Scenario 1")
-    print('cl =',prob['mp_group.s1.aero.funcs.cl'])
-    print('cd =',prob['mp_group.s1.aero.funcs.cd'])
+    print('cl =',prob['mp_group.s1.aero_funcs.cl'])
+    print('cd =',prob['mp_group.s1.aero_funcs.cd'])

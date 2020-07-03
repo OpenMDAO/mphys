@@ -198,3 +198,12 @@ class MPHYS_Multipoint(om.Group):
             self.promotes('struct_mesh', inputs=[(name, 'struct_points')])
 
         return points
+
+
+    def mphys_get_triangulated_surface(self):
+        # get triangulated surface for computing constraints
+        if self.aero_discipline:
+            x_a0_tri = self.aero_mesh.mphys_get_triangulated_surface()
+            return x_a0_tri
+        else:
+            raise NotImplementedError('Only ADFlow format supported so far')
