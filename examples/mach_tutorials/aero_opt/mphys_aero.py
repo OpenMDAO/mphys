@@ -215,5 +215,5 @@ prob.model.list_outputs(units=True)
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
     print("Scenario 0")
-    print('cl =',prob['mp_group.s0.aero.funcs.cl'])
-    print('cd =',prob['mp_group.s0.aero.funcs.cd'])
+    print('cl =',prob['mp_group.s0.aero_funcs.cl'])
+    print('cd =',prob['mp_group.s0.aero_funcs.cd'])

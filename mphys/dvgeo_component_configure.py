@@ -1,5 +1,10 @@
 import openmdao.api as om
 from pygeo import DVGeometry, DVConstraints
+try:
+    from pygeo import DVGeometryVSP
+except:
+    # not everyone might have openvsp installed, and thats okay
+    pass
 from mpi4py import MPI
 import numpy as np
 from openmdao.utils.array_utils import evenly_distrib_idxs
@@ -10,13 +15,24 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
 
     def initialize(self):
 
-        self.options.declare('ffd_file', allow_none=False)
+        self.options.declare('ffd_file', default=None)
+        self.options.declare('vsp_file', default=None)
+        self.options.declare('vsp_options', default=None)
         self.options['distributed'] = True
 
     def setup(self):
+
         # create the DVGeo object that does the computations
-        ffd_file = self.options['ffd_file']
-        self.DVGeo = DVGeometry(ffd_file)
+        if self.options['ffd_file'] is not None:
+            # we are doing an FFD-based DVGeo
+            ffd_file = self.options['ffd_file']
+            self.DVGeo = DVGeometry(ffd_file)
+        if self.options['vsp_file'] is not None:
+            # we are doing a VSP based DVGeo
+            vsp_file = self.options['vsp_file']
+            vsp_options = self.options['vsp_options']
+            self.DVGeo = DVGeometryVSP(vsp_file, comm=self.comm, **vsp_options)
+
         self.DVCon = DVConstraints()
         self.DVCon.setDVGeo(self.DVGeo)
         self.omPtSetList = []
@@ -64,6 +80,20 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         self.add_input(dvName, shape=nVal)
         return nVal
 
+    def nom_addVSPVariable(self, component, group, parm, **kwargs):
+
+        # actually add the DV to VSP
+        self.DVGeo.addVariable(component, group, parm, **kwargs)
+
+        # full name of this DV
+        dvName = '%s:%s:%s'%(component, group, parm)
+
+        # get the value
+        val = self.DVGeo.DVs[dvName].value.copy()
+
+        # add the input with the correct value
+        self.add_input(dvName, val=val)
+
     def nom_addThicknessConstraints2D(self, name, leList, teList, nSpan=10, nChord=10):
         self.DVCon.addThicknessConstraints2D(leList, teList, nSpan, nChord, lower=1.0, name=name)
         comm = self.comm
@@ -72,6 +102,13 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         else:
             self.add_output(name, shape=(0,))
 
+    def nom_addThicknessConstraints1D(self, name, ptList, nCon, axis):
+        self.DVCon.addThicknessConstraints1D(ptList, nCon, axis, name=name)
+        comm = self.comm
+        if comm.rank == 0:
+            self.add_output(name, val=np.ones(nCon), shape=nCon)
+        else:
+            self.add_output(name, shape=(0))
 
     def nom_addVolumeConstraint(self, name, leList, teList, nSpan=10, nChord=10):
         self.DVCon.addVolumeConstraint(leList, teList, nSpan=nSpan, nChord=nChord, name=name)
@@ -102,12 +139,10 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         # constraint needs a triangulated reference surface at initialization
         self.DVCon.setSurface(surface)
 
-    
-
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         # only do the computations when we have more than zero entries in d_inputs in the reverse mode
         ni = len(list(d_inputs.keys()))
-        
+
         if mode == 'rev' and ni > 0:
             constraintfuncsens = dict()
             self.DVCon.evalFunctionsSens(constraintfuncsens, includeLinear=True)
@@ -123,7 +158,7 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
                         d_inputs[dvname] += jvtmp
                         # OM does the reduction itself
                         # d_inputs[dvname] += self.comm.reduce(jvtmp, op=MPI.SUM, root=0)
-                
+
             for ptSetName in self.DVGeo.ptSetNames:
                 if ptSetName in self.omPtSetList:
                     dout = d_outputs[ptSetName].reshape(len(d_outputs[ptSetName])//3, 3)
