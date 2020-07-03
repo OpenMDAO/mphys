@@ -9,7 +9,7 @@ from mphys.mphys_multipoint import MPHYS_Multipoint
 
 # these imports will be from the respective codes' repos rather than mphys
 from mphys.mphys_adflow import ADflow_builder
-from mphys.dvgeo_component_configure import OM_DVGEOCOMP
+from mphys.mphys_dvgeo import OM_DVGEOCOMP
 
 from baseclasses import *
 
