@@ -87,6 +87,7 @@ class MELD_disp_xfer(om.ExplicitComponent, XferObject):
 
         if not self.initialized_meld:
             self.struct_nnodes = x_s0.size//3
+            self.aero_nnodes = x_a0.size//3
             self.struct_ndof =  inputs['u_s'].size//self.struct_nnodes
             self.u_s  = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
         # only the first 3 dof of the structure  (x, y, z) are passed to meld
@@ -343,53 +344,3 @@ class MELD_load_xfer(om.ExplicitComponent, XferObject):
                     prod = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
                     meld.applydLdxS0(d_out,prod)
                     d_inputs['x_s0'] -= np.array(prod,dtype=float)
-
-class MELD_builder(object):
-
-    def __init__(self, options, aero_builder, struct_builder,check_partials=False):
-        self.options=options
-        self.check_partials = check_partials
-        # TODO we can move the aero and struct builder to init_xfer_object call so that user does not need to worry about this
-        self.aero_builder = aero_builder
-        self.struct_builder = struct_builder
-
-    # api level method for all builders
-    def init_xfer_object(self, comm):
-        # create the transfer
-        self.xfer_object = TransferScheme.pyMELD(comm,
-                                                 comm, 0,
-                                                 comm, 0,
-                                                 self.options['isym'],
-                                                 self.options['n'],
-                                                 self.options['beta'])
-
-        # TODO also do the necessary calls to the struct and aero builders to fully initialize MELD
-        # for now, just save the counts
-        self.struct_ndof = self.struct_builder.get_ndof()
-        self.struct_nnodes = self.struct_builder.get_nnodes()
-        self.aero_nnodes = self.aero_builder.get_nnodes()
-
-    # api level method for all builders
-    def get_xfer_object(self):
-        return self.xfer_object
-
-    # api level method for all builders
-    def get_element(self):
-
-        disp_xfer = MELD_disp_xfer(
-            xfer_object=self.xfer_object,
-            struct_ndof=self.struct_ndof,
-            struct_nnodes=self.struct_nnodes,
-            aero_nnodes=self.aero_nnodes,
-            check_partials=self.check_partials
-        )
-
-        load_xfer = MELD_load_xfer(
-            xfer_object=self.xfer_object,
-            struct_ndof=self.struct_ndof,
-            struct_nnodes=self.struct_nnodes,
-            aero_nnodes=self.aero_nnodes,
-            check_partials=self.check_partials
-        )
-
-        return disp_xfer, load_xfer
