@@ -125,7 +125,7 @@ class Top(om.Group):
         self.add_subsystem('up_skin_smoothness',SmoothnessEvaluatorGrid(columns=9,rows=struct_comps['up_skin']//9))
         self.add_subsystem('lo_skin_smoothness',SmoothnessEvaluatorGrid(columns=9,rows=int(struct_comps['lo_skin']/9)))
 
-        # each AS_Multipoint instance can keep multiple points with the same formulation
+        # each MPHYS_Multipoint instance can keep multiple points with the same formulation
         mp = self.add_subsystem(
             'mp_group',
             MPHYS_Multipoint(
