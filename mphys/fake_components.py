@@ -7,6 +7,8 @@ from omfsi.assembler import OmfsiSolverAssembler, OmfsiAssembler
 Fake FSI components for testing, debugging etc
 """
 
+# TODO these classes need to be updated with the latest mphys API
+
 class FakeStructAssembler(OmfsiSolverAssembler):
     def __init__(self,c0,c1,symmetry,nodes=None):
         self.c0 = c0

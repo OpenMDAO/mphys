@@ -124,7 +124,7 @@ class Top(om.Group):
         # ivc to keep the top level DVs
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
 
-        # each AS_Multipoint instance can keep multiple points with the same formulation
+        # each MPHYS_Multipoint instance can keep multiple points with the same formulation
         mp = self.add_subsystem(
             'mp_group',
             MPHYS_Multipoint(
