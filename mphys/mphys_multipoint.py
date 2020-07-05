@@ -11,6 +11,7 @@ class MPHYS_Multipoint(om.Group):
         self.options.declare('aero_builder', default=None)
         self.options.declare('struct_builder', default=None)
         self.options.declare('xfer_builder', default=None)
+        self.options.declare('prop_builder', default=None)
 
         # ordered dict to save all the scenarios user adds
         self.scenarios = OrderedDict()
@@ -21,6 +22,7 @@ class MPHYS_Multipoint(om.Group):
         self.aero_builder = self.options['aero_builder']
         self.struct_builder = self.options['struct_builder']
         self.xfer_builder = self.options['xfer_builder']
+        self.prop_builder = self.options['prop_builder']
 
         # we need to initialize the aero and struct objects before the xfer one
         # potentially need to do fancy stuff with the comms here if user wants to run in parallel
@@ -40,6 +42,12 @@ class MPHYS_Multipoint(om.Group):
         else:
             # no struct builder, so we won't have this discipline
             self.struct_discipline = False
+
+        if self.prop_builder is not None:
+            self.prop_builder.init_solver(self.comm)
+            self.prop_discipline = True
+        else:
+            self.prop_discipline = False
 
         # check if we have aero and structure
         if self.aero_discipline and self.struct_discipline:
@@ -175,10 +183,12 @@ class MPHYS_Multipoint(om.Group):
                 builders = {
                     'aero': self.aero_builder,
                     'struct': self.struct_builder,
+                    'prop': self.prop_builder,
                     'xfer': self.xfer_builder,
                 },
                 aero_discipline = self.aero_discipline,
                 struct_discipline = self.struct_discipline,
+                prop_discipline = self.prop_discipline,
                 as_coupling = self.as_coupling
             )
         )

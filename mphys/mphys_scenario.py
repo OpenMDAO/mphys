@@ -9,6 +9,7 @@ class MPHYS_Scenario(om.Group):
         self.options.declare('builders', allow_none=False)
         self.options.declare('aero_discipline', allow_none=False)
         self.options.declare('struct_discipline', allow_none=False)
+        self.options.declare('prop_discipline', allow_none=False)
         self.options.declare('as_coupling', allow_none=False)
 
     def setup(self):
@@ -16,11 +17,13 @@ class MPHYS_Scenario(om.Group):
         # set flags
         self.aero_discipline = self.options['aero_discipline']
         self.struct_discipline = self.options['struct_discipline']
+        self.prop_discipline = self.options['prop_discipline']
         self.as_coupling = self.options['as_coupling']
 
         # set the builders
         self.aero_builder = self.options['builders']['aero']
         self.struct_builder = self.options['builders']['struct']
+        self.prop_builder = self.options['builders']['prop']
         self.xfer_builder = self.options['builders']['xfer']
 
         # add the solver group itself and pass in the builders
@@ -31,6 +34,7 @@ class MPHYS_Scenario(om.Group):
                 builders=self.options['builders'],
                 aero_discipline = self.aero_discipline,
                 struct_discipline = self.struct_discipline,
+                prop_discipline = self.prop_discipline,
                 as_coupling = self.as_coupling
             )
         )
@@ -63,3 +67,12 @@ class MPHYS_Scenario(om.Group):
 
     def configure(self):
         pass
+
+    def mphys_make_aeroprop_conn(self, aero2prop_conn, prop2aero_conn):
+        # do the connections. we may want to do the solver level connections on the solver level but do them here for now
+        for k,v in aero2prop_conn.items():
+            self.connect('solver_group.aero.%s'%k, 'solver_group.prop.%s'%v)
+
+        # also do the connections from prop to aero...
+        for k,v in prop2aero_conn.items():
+            self.connect('solver_group.prop.%s'%k, 'solver_group.aero.%s'%v)

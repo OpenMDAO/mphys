@@ -8,6 +8,7 @@ class MPHYS_SolverGroup(om.Group):
         self.options.declare('builders', allow_none=False)
         self.options.declare('aero_discipline', allow_none=False)
         self.options.declare('struct_discipline', allow_none=False)
+        self.options.declare('prop_discipline', allow_none=False)
         self.options.declare('as_coupling', allow_none=False)
 
     def setup(self):
@@ -15,11 +16,13 @@ class MPHYS_SolverGroup(om.Group):
         # set flags
         self.aero_discipline = self.options['aero_discipline']
         self.struct_discipline = self.options['struct_discipline']
+        self.prop_discipline = self.options['prop_discipline']
         self.as_coupling = self.options['as_coupling']
 
         # set the builders
         self.aero_builder = self.options['builders']['aero']
         self.struct_builder = self.options['builders']['struct']
+        self.prop_builder = self.options['builders']['prop']
         self.xfer_builder = self.options['builders']['xfer']
 
         # get the elements from each builder
@@ -30,6 +33,9 @@ class MPHYS_SolverGroup(om.Group):
         if self.as_coupling:
             disp_xfer, load_xfer = self.xfer_builder.get_element()
 
+        if self.prop_discipline:
+            prop = self.prop_builder.get_element()
+
         # add the subgroups
         if self.as_coupling:
             self.add_subsystem('disp_xfer', disp_xfer)
@@ -39,8 +45,11 @@ class MPHYS_SolverGroup(om.Group):
             self.add_subsystem('load_xfer', load_xfer)
         if self.struct_discipline:
             self.add_subsystem('struct', struct)
+        if self.prop_discipline:
+            self.add_subsystem('prop', prop)
 
         # set solvers
+        # TODO add a nonlinear solver when we have feedback coupling to prop
         if self.as_coupling:
             self.nonlinear_solver=om.NonlinearBlockGS(maxiter=100)
             self.linear_solver = om.LinearBlockGS(maxiter=100)
