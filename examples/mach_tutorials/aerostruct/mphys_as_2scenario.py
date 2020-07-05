@@ -37,8 +37,8 @@ class Top(om.Group):
             'outputDirectory':'.',
             'monitorvariables':['resrho','cl','cd'],
             'writeTecplotSurfaceSolution':False,
-            'writevolumesolution':False,
-            'writesurfacesolution':False,
+            # 'writevolumesolution':False,
+            # 'writesurfacesolution':False,
 
             # Physics Parameters
             'equationType':'RANS',
