@@ -158,7 +158,7 @@ class TacsSolver(om.ImplicitComponent):
             return True
 
         for dv, dv_old in zip(inputs['dv_struct'],self.old_dvs):
-            if np.abs(dv - dv_old) > 1e-7:
+            if np.abs(dv - dv_old) > 1e-10:
                 self.old_dvs = inputs['dv_struct'].copy()
                 return True
 
