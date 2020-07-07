@@ -31,6 +31,14 @@ class VlmMesh(om.ExplicitComponent):
         else:
             outputs['x_a0'] = self.x_a0
 
+    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
+        if mode == 'fwd':
+            if 'x_a0_points' in d_inputs:
+                d_outputs['x_a0'] += d_inputs['x_a0_points']
+        elif mode == 'rev':
+            if 'x_a0_points' in d_inputs:
+                d_inputs['x_a0_points'] += d_outputs['x_a0']
+
 class Geo_Disp(om.ExplicitComponent):
     """
     This component adds the aerodynamic
