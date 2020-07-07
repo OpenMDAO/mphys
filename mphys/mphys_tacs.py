@@ -85,6 +85,7 @@ class TacsSolver(om.ImplicitComponent):
         self.check_partials = False
 
         self.old_dvs = None
+        self.old_xs = None
 
     def setup(self):
         self.check_partials = self.options['check_partials']
@@ -154,21 +155,33 @@ class TacsSolver(om.ImplicitComponent):
         return self.solver_dict['get_funcs']
 
     def _need_update(self,inputs):
+
+        update = False
+
         if self.old_dvs is None:
             self.old_dvs = inputs['dv_struct'].copy()
-            return True
+            update =  True
 
         for dv, dv_old in zip(inputs['dv_struct'],self.old_dvs):
-            if np.abs(dv - dv_old) > 1e-7:
+            if np.abs(dv - dv_old) > 0.:#1e-7:
                 self.old_dvs = inputs['dv_struct'].copy()
-                return True
+                update =  True
 
-        return False
+        if self.old_xs is None:
+            self.old_xs = inputs['x_s0'].copy()
+            update =  True
+
+        for xs, xs_old in zip(inputs['x_s0'],self.old_xs):
+            if np.abs(xs - xs_old) > 0.:#1e-7:
+                self.old_xs = inputs['x_s0'].copy()
+                update =  True
+
+        return update
 
     def _update_internal(self,inputs,outputs=None):
         if self._need_update(inputs):
-            print('updating internals')
-            print('inputs',np.min(inputs['dv_struct']),np.max(inputs['dv_struct']),inputs['dv_struct'])
+            print('updating tacs internals')
+            #print('inputs',np.min(inputs['dv_struct']),np.max(inputs['dv_struct']),inputs['dv_struct'])
             self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
 
             xpts = self.tacs.createNodeVec()
@@ -176,7 +189,7 @@ class TacsSolver(om.ImplicitComponent):
             xpts_array = xpts.getArray()
             xpts_array[:] = inputs['x_s0']
             self.tacs.setNodes(xpts)
-            print('xpts', xpts_array)
+            #print('xpts', xpts_array)
 
             pc     = self.pc
             alpha = 1.0
@@ -208,7 +221,7 @@ class TacsSolver(om.ImplicitComponent):
         tacs = self.tacs
         res  = self.res
         ans  = self.ans
-        print ('apply_nonlinear')
+        #print ('apply_nonlinear')
 
         self._update_internal(inputs,outputs)
 
@@ -232,20 +245,19 @@ class TacsSolver(om.ImplicitComponent):
         ans    = self.ans
         pc     = self.pc
         gmres  = self.gmres
-        print ('solve_nonlinear')
-        print('f_s', inputs['f_s'][:])
+        #print ('solve_nonlinear')
+        #print('f_s', inputs['f_s'][:])
 
         self._update_internal(inputs)
         # solve the linear system
         force_array = force.getArray()
-        force_array[:] = inputs['f_s'] * 0.0 
+        force_array[:] = inputs['f_s'] 
         tacs.applyBCs(force)
 
         gmres.solve(force, ans)
         ans_array = ans.getArray()
         outputs['u_s'] = ans_array[:]
         tacs.setVariables(ans)
-        print('u_s', ans_array[:180])
 
     def solve_linear(self,d_outputs,d_residuals,mode):
         if mode == 'fwd':
@@ -580,6 +592,7 @@ class TacsMass(om.ExplicitComponent):
         if 'mass' in outputs:
             func = functions.StructuralMass(self.tacs)
             outputs['mass'] = self.tacs.evalFunctions([func])
+            print('mass',outputs['mass'])
 
     def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
