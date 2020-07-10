@@ -179,4 +179,24 @@ class PatchSmoothness(om.ExplicitComponent):
             partials['diff','thickness'][j+1,i] = -1  
             j += 2
 
-   
+ 
+class LumpPatches(om.ExplicitComponent):
+
+    def initialize(self):
+
+        self.options.declare('N', types=int)
+
+    def setup(self):
+
+        self.add_input('thickness_lumped',shape=1)
+        self.add_output('thickness',shape=self.options['N'])
+        self.declare_partials('thickness','thickness_lumped') 
+
+    def compute(self,inputs,outputs):
+
+        self.T = np.ones(self.options['N'])
+        outputs['thickness'] = self.T*inputs['thickness_lumped']
+        
+    def compute_partials(self,inputs,partials):
+
+        partials['thickness','thickness_lumped'] = self.T
