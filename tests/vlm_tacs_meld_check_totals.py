@@ -128,10 +128,10 @@ class Top(om.Group):
 
     def configure(self):
         self.dvs.add_output('alpha', self.aero_options['alpha'])
-        self.connect('alpha',['mp_group.s0.aero.alpha'])
+        self.connect('alpha',['mp_group.s0.solver_group.aero.alpha'])
 
         self.dvs.add_output('dv_struct',np.array([0.03]))
-        self.connect('dv_struct',['mp_group.s0.struct.dv_struct'])
+        self.connect('dv_struct',['mp_group.s0.solver_group.struct.dv_struct, mp_group.s0.struct_funcs.dv_struct'])
 
 # OpenMDAO setup
 

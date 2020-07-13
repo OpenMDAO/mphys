@@ -31,10 +31,11 @@ class Top(om.Group):
             # ANK Solver Parameters
             'useANKSolver':True,
             'nsubiterturb': 5,
-
-            # NK Solver Parameters
-            'useNKSolver':True,
-            'nkswitchtol':1e-4,
+            'anksecondordswitchtol':1e-4,
+            'ankcoupledswitchtol': 1e-6,
+            'ankinnerpreconits':2,
+            'ankouterpreconits':2,
+            'anklinresmax': 0.1,
 
             # Termination Criteria
             'L2Convergence':1e-12,
@@ -81,12 +82,13 @@ class Top(om.Group):
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
-        self.mp_group.s0.aero.mphys_set_ap(ap0)
+        self.mp_group.s0.solver_group.aero.mphys_set_ap(ap0)
+        self.mp_group.s0.aero_funcs.mphys_set_ap(ap0)
 
         # add dvs to ivc and connect
         self.dvs.add_output('alpha', val=1.5)
 
-        self.connect('alpha', 'mp_group.s0.aero.alpha')
+        self.connect('alpha', ['mp_group.s0.solver_group.aero.alpha','mp_group.s0.aero_funcs.alpha'])
 
 ################################################################################
 # OpenMDAO setup
@@ -95,7 +97,7 @@ prob = om.Problem()
 prob.model = Top()
 
 prob.setup()
-# om.n2(prob, show_browser=False, outfile='mphys_aero.html')
+om.n2(prob, show_browser=False, outfile='mphys_aero.html')
 
 prob.run_model()
 
@@ -105,5 +107,5 @@ prob.model.list_outputs(units=True)
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
     print("Scenario 0")
-    print('cl =',prob['mp_group.s0.aero.funcs.cl'])
-    print('cd =',prob['mp_group.s0.aero.funcs.cd'])
+    print('cl =',prob['mp_group.s0.aero_funcs.cl'])
+    print('cd =',prob['mp_group.s0.aero_funcs.cd'])

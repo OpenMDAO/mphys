@@ -1,15 +1,16 @@
 
 import numpy as np
-import pprint
+from pprint import pprint as pp
+from mpi4py import MPI
 
 from baseclasses import AeroProblem
 
 from adflow import ADFLOW
 from idwarp import USMesh
 
-from openmdao.api import Group, ImplicitComponent, ExplicitComponent
+from openmdao.api import Group, ImplicitComponent, ExplicitComponent, AnalysisError
 
-from adflow.python.om_utils import get_dvs_and_cons
+from adflow.om_utils import get_dvs_and_cons
 
 class ADflowMesh(ExplicitComponent):
     """
@@ -17,14 +18,15 @@ class ADflowMesh(ExplicitComponent):
 
     """
     def initialize(self):
-        self.options.declare('aero_solver')
+        self.options.declare('aero_solver', recordable=False)
         self.options['distributed'] = True
 
     def setup(self):
 
         self.aero_solver = self.options['aero_solver']
 
-        self.x_a0 = self.aero_solver.mesh.getSurfaceCoordinates().flatten(order='C')
+        self.x_a0 = self.aero_solver.getSurfaceCoordinates(includeZipper=False).flatten(order='C')
+        # self.x_a0 = self.aero_solver.mesh.getSurfaceCoordinates().flatten(order='C')
 
         coord_size = self.x_a0.size
 
@@ -42,6 +44,79 @@ class ADflowMesh(ExplicitComponent):
 
         # return the promoted name and coordinates
         return 'x_a0_points', self.x_a0
+
+    def mphys_get_triangulated_surface(self, groupName=None):
+        # this is a list of lists of 3 points
+        # p0, v1, v2
+
+        return self._getTriangulatedMeshSurface()
+
+    def _getTriangulatedMeshSurface(self, groupName=None, **kwargs):
+        """
+        This function returns a trianguled verision of the surface
+        mesh on all processors. The intent is to use this for doing
+        constraints in DVConstraints.
+
+        Returns
+        -------
+        surf : list
+           List of points and vectors describing the surface. This may
+           be passed directly to DVConstraint setSurface() function.
+        """
+
+        if groupName is None:
+            groupName = self.aero_solver.allWallsGroup
+
+        # Obtain the points and connectivity for the specified
+        # groupName
+        pts = self.aero_solver.comm.allgather(self.aero_solver.getSurfaceCoordinates(groupName, **kwargs))
+        conn, faceSizes = self.aero_solver.getSurfaceConnectivity(groupName)
+        conn = np.array(conn).flatten()
+        conn = self.aero_solver.comm.allgather(conn)
+        faceSizes = self.aero_solver.comm.allgather(faceSizes)
+
+        # Triangle info...point and two vectors
+        p0 = []
+        v1 = []
+        v2 = []
+
+        # loop over the faces
+        for iProc in range(len(faceSizes)):
+
+            connCounter=0
+            for iFace in range(len(faceSizes[iProc])):
+                # Get the number of nodes on this face
+                faceSize = faceSizes[iProc][iFace]
+                faceNodes = conn[iProc][connCounter:connCounter+faceSize]
+
+                # Start by getting the centerpoint
+                ptSum= [0, 0, 0]
+                for i in range(faceSize):
+                    #idx = ptCounter+i
+                    idx = faceNodes[i]
+                    ptSum+=pts[iProc][idx]
+
+                avgPt = ptSum/faceSize
+
+                # Now go around the face and add a triangle for each adjacent pair
+                # of points. This assumes an ordered connectivity from the
+                # meshwarping
+                for i in range(faceSize):
+                    idx = faceNodes[i]
+                    p0.append(avgPt)
+                    v1.append(pts[iProc][idx]-avgPt)
+                    if(i<(faceSize-1)):
+                        idxp1 = faceNodes[i+1]
+                        v2.append(pts[iProc][idxp1]-avgPt)
+                    else:
+                        # wrap back to the first point for the last element
+                        idx0 = faceNodes[0]
+                        v2.append(pts[iProc][idx0]-avgPt)
+
+                # Now increment the connectivity
+                connCounter+=faceSize
+
+        return [p0, v1, v2]
 
     def compute(self,inputs,outputs):
         if 'x_a0_points' in inputs:
@@ -104,7 +179,7 @@ class ADflowWarper(ExplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare('aero_solver')
+        self.options.declare('aero_solver', recordable=False)
         #self.options.declare('use_OM_KSP', default=False, types=bool,
         #    desc="uses OpenMDAO's PestcKSP linear solver with ADflow's preconditioner to solve the adjoint.")
 
@@ -120,7 +195,7 @@ class ADflowWarper(ExplicitComponent):
         # self.ap_vars,_ = get_dvs_and_cons(ap=ap)
 
         # state inputs and outputs
-        local_coord_size = solver.getSurfaceCoordinates().size
+        local_coord_size = solver.getSurfaceCoordinates(includeZipper=False).size
         local_volume_coord_size = solver.mesh.getSolverGrid().size
 
         n_list = self.comm.allgather(local_coord_size)
@@ -160,6 +235,8 @@ class ADflowWarper(ExplicitComponent):
                     dxV = d_outputs['x_g']
                     self.solver.mesh.warpDeriv(dxV)
                     dxS = self.solver.mesh.getdXs()
+                    dxS = self.solver.mapVector(dxS, self.solver.meshFamilyGroup,
+                                                self.solver.designFamilyGroup, includeZipper=False)
                     d_inputs['x_a'] += dxS.flatten()
 
 class ADflowSolver(ImplicitComponent):
@@ -169,7 +246,7 @@ class ADflowSolver(ImplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare('aero_solver')
+        self.options.declare('aero_solver', recordable=False)
         #self.options.declare('use_OM_KSP', default=False, types=bool,
         #    desc="uses OpenMDAO's PestcKSP linear solver with ADflow's preconditioner to solve the adjoint.")
 
@@ -184,6 +261,10 @@ class ADflowSolver(ImplicitComponent):
 
         self.solver = self.options['aero_solver']
         solver = self.solver
+
+        # flag to keep track if the current solution started from a clean restart,
+        # or it was restarted from the previous converged state.
+        self.cleanRestart = True
 
         # state inputs and outputs
         local_state_size = solver.getStateSize()
@@ -206,6 +287,11 @@ class ADflowSolver(ImplicitComponent):
             name = args[0]
             tmp[name] = inputs[name]
 
+        # # print aero inputs
+        # if self.comm.rank == 0:
+        #     print('aero dv inputs:')
+        #     pp(tmp)
+
         self.ap.setDesignVars(tmp)
 
     def set_ap(self, ap):
@@ -222,7 +308,7 @@ class ADflowSolver(ImplicitComponent):
             size = args[1]
             self.add_input(name, shape=size, units=kwargs['units'])
             if self.comm.rank == 0:
-                print(name)
+                print('%s (%s)'%(name, kwargs['units']))
 
     def _set_states(self, outputs):
         self.solver.setStates(outputs['q'])
@@ -260,7 +346,61 @@ class ADflowSolver(ImplicitComponent):
             ap.solveFailed = False # might need to clear this out?
             ap.fatalFail = False
 
-            solver(ap)
+            # do not write solution files inside the solver loop
+            solver(ap, writeSolution=False)
+
+            if ap.fatalFail:
+                if self.comm.rank == 0:
+                    print('###############################################################')
+                    print('# Solve Fatal Fail. Analysis Error')
+                    print('###############################################################')
+
+                raise AnalysisError('ADFLOW Solver Fatal Fail')
+
+
+            if ap.solveFailed: # the mesh was fine, but it didn't converge
+                # if the previous iteration was already a clean restart, dont try again
+                if self.cleanRestart:
+                    print('###############################################################')
+                    print('# This was a clean restart. Will not try another one.')
+                    print('###############################################################')
+                    solver.resetFlow(ap)
+                    self.cleanRestart = True
+                    raise AnalysisError('ADFLOW Solver Fatal Fail')
+
+                # the previous iteration restarted from another solution, so we can try again
+                # with a re-set flowfield for the initial guess.
+                else:
+                    if self.comm.rank == 0:
+                        print('###############################################################')
+                        print('# Solve Failed, attempting a clean restart!')
+                        print('###############################################################')
+
+                    ap.solveFailed = False
+                    ap.fatalFail = False
+                    solver.resetFlow(ap)
+                    solver(ap, writeSolution=False)
+
+                    if ap.solveFailed or ap.fatalFail: # we tried, but there was no saving it
+                        print('###############################################################')
+                        print('# Clean Restart failed. There is no saving this one!')
+                        print('###############################################################')
+
+                        # re-set the flow for the next iteration:
+                        solver.resetFlow(ap)
+                        # set the reset flow flag
+                        self.cleanRestart = True
+                        raise AnalysisError('ADFLOW Solver Fatal Fail')
+
+                    # see comment for the same flag below
+                    else:
+                        self.cleanRestart = False
+
+            # solve did not fail, therefore we will re-use this converged flowfield for the next iteration.
+            # change the flag so that if the next iteration fails with current initial guess, it can retry
+            # with a clean restart
+            else:
+                self.cleanRestart = False
 
         outputs['q'] = solver.getStates()
 
@@ -334,7 +474,7 @@ class ADflowForces(ExplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare('aero_solver')
+        self.options.declare('aero_solver', recordable=False)
 
         self.options['distributed'] = True
 
@@ -379,13 +519,13 @@ class ADflowForces(ExplicitComponent):
 
         # parameter inputs
         if self.comm.rank == 0:
-            print('adding ap var inputs')
+            print('adding ap var inputs:')
         for (args, kwargs) in self.ap_vars:
             name = args[0]
             size = args[1]
             self.add_input(name, shape=size, units=kwargs['units'])
             if self.comm.rank == 0:
-                print(name)
+                print('%s (%s)'%(name, kwargs['units']))
 
     def _set_states(self, inputs):
         self.solver.setStates(inputs['q'])
@@ -450,6 +590,8 @@ FUNCS_UNITS={
     'mdot': 'kg/s',
     'mavgptot': 'Pa',
     'mavgps': 'Pa',
+    'aavgptot': 'Pa',
+    'aavgps': 'Pa',
     'mavgttot': 'degK',
     'mavgvx':'m/s',
     'mavgvy':'m/s',
@@ -478,18 +620,25 @@ FUNCS_UNITS={
 class ADflowFunctions(ExplicitComponent):
 
     def initialize(self):
-        self.options.declare('aero_solver')
+        self.options.declare('aero_solver', recordable=False)
+        # flag to automatically add the AP functions as output
+        self.options.declare('ap_funcs', default=True)
+        self.options.declare('write_solution', default=True)
 
         # testing flag used for unit-testing to prevent the call to actually solve
         # NOT INTENDED FOR USERS!!! FOR TESTING ONLY
         self._do_solve = True
 
+        self.prop_funcs = None
 
     def setup(self):
 
         self.solver = self.options['aero_solver']
+        self.ap_funcs = self.options['ap_funcs']
+        self.write_solution = self.options['write_solution']
         solver = self.solver
         #self.set_check_partial_options(wrt='*',directional=True)
+        self.solution_counter = 0
 
         local_state_size = solver.getStateSize()
         local_coord_size = solver.mesh.getSolverGrid().size
@@ -516,7 +665,7 @@ class ADflowFunctions(ExplicitComponent):
         self.ap.setDesignVars(tmp)
         #self.options['solver'].setAeroProblem(self.options['ap'])
 
-    def set_ap(self, ap):
+    def mphys_set_ap(self, ap):
         # this is the external function to set the ap to this component
         self.ap = ap
 
@@ -524,20 +673,58 @@ class ADflowFunctions(ExplicitComponent):
 
         # parameter inputs
         if self.comm.rank == 0:
-            print('adding ap var inputs')
+            print('adding ap var inputs:')
         for (args, kwargs) in self.ap_vars:
             name = args[0]
             size = args[1]
             self.add_input(name, shape=size, units=kwargs['units'])
             if self.comm.rank == 0:
-                print(name)
+                print('%s with units %s'%(name, kwargs['units']))
 
-        for f_name in self.ap.evalFuncs:
-
+        if self.ap_funcs:
             if self.comm.rank == 0:
-                print("adding adflow func as output: {}".format(f_name))
-            self.add_output(f_name, shape=1)
-            #self.add_output(f_name, shape=1, units=units)
+                print("adding adflow funcs as output:")
+
+            for f_name in sorted(list(self.ap.evalFuncs)):
+                # get the function type. this is the first word before the first underscore
+                f_type = f_name.split('_')[0]
+
+                # check if we have a unit defined for this
+                if f_type in FUNCS_UNITS:
+                    units = FUNCS_UNITS[f_type]
+                else:
+                    units = None
+
+                # print the function name and units
+                if self.comm.rank == 0:
+                    print("%s (%s)"%(f_name, units))
+
+                self.add_output(f_name, shape=1, units=units)
+
+    def mphys_add_prop_funcs(self, prop_funcs):
+        # save this list
+        self.prop_funcs = prop_funcs
+
+        # loop over the functions here and create the output
+
+        if self.comm.rank == 0:
+            print("adding adflow funcs as propulsion output:")
+
+        for f_name in prop_funcs:
+            # get the function type. this is the first word before the first underscore
+            f_type = f_name.split('_')[0]
+
+            # check if we have a unit defined for this
+            if f_type in FUNCS_UNITS:
+                units = FUNCS_UNITS[f_type]
+            else:
+                units = None
+
+            # print the function name and units
+            if self.comm.rank == 0:
+                print("%s (%s)"%(f_name, units))
+
+            self.add_output(f_name, shape=1, units=units)
 
     def _set_states(self, inputs):
         self.solver.setStates(inputs['q'])
@@ -557,15 +744,32 @@ class ADflowFunctions(ExplicitComponent):
             # ^ This call does not exist. Assume the mesh hasn't changed since the last call to the warping comp for now
             self._set_states(inputs)
 
+        if self.write_solution:
+            # write the solution files. Internally, this checks the
+            # types of solution files specified in the options and
+            # only outsputs these
+            solver.writeSolution(number=self.solution_counter)
+            self.solution_counter += 1
+
         funcs = {}
 
-        eval_funcs = [f_name for f_name in self.ap.evalFuncs]
-        solver.evalFunctions(ap, funcs, eval_funcs)
+        if self.ap_funcs:
+            # without the sorted, each proc might get a different order...
+            eval_funcs = sorted(list(self.ap.evalFuncs))
+            solver.evalFunctions(ap, funcs, evalFuncs=eval_funcs)
 
-        for name in self.ap.evalFuncs:
-            f_name = self._get_func_name(name)
-            if f_name in funcs:
-                outputs[name.lower()] = funcs[f_name]
+            for name in self.ap.evalFuncs:
+                f_name = self._get_func_name(name)
+                if f_name in funcs:
+                    outputs[name.lower()] = funcs[f_name]
+
+        if self.prop_funcs is not None:
+            # also do the prop
+            solver.evalFunctions(ap, funcs, evalFuncs=self.prop_funcs)
+            for name in self.prop_funcs:
+                f_name = self._get_func_name(name)
+                if f_name in funcs:
+                    outputs[name.lower()] = funcs[f_name]
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         solver = self.solver
@@ -602,16 +806,24 @@ class ADflowFunctions(ExplicitComponent):
         elif mode == 'rev':
             funcsBar = {}
 
-            for name  in self.ap.evalFuncs:
-                func_name = name.lower()
+            if self.ap_funcs:
+                for name  in self.ap.evalFuncs:
+                    func_name = name.lower()
 
-                # we have to check for 0 here, so we don't include any unnecessary variables in funcsBar
-                # becasue it causes ADflow to do extra work internally even if you give it extra variables, even if the seed is 0
-                if func_name in d_outputs and d_outputs[func_name] != 0.:
-                    funcsBar[func_name] = d_outputs[func_name][0]
-                    # this stuff is fixed now. no need to divide
-                    # funcsBar[func_name] = d_outputs[func_name][0] / self.comm.size
-                    # print(self.comm.rank, func_name, funcsBar[func_name])
+                    # we have to check for 0 here, so we don't include any unnecessary variables in funcsBar
+                    # becasue it causes ADflow to do extra work internally even if you give it extra variables, even if the seed is 0
+                    if func_name in d_outputs and d_outputs[func_name] != 0.:
+                        funcsBar[func_name] = d_outputs[func_name][0]
+                        # this stuff is fixed now. no need to divide
+                        # funcsBar[func_name] = d_outputs[func_name][0] / self.comm.size
+                        # print(self.comm.rank, func_name, funcsBar[func_name])
+
+            # also do the same for prop functions
+            if self.prop_funcs is not None:
+                for name  in self.prop_funcs:
+                    func_name = name.lower()
+                    if func_name in d_outputs and d_outputs[func_name] != 0.:
+                        funcsBar[func_name] = d_outputs[func_name][0]
 
             #print(funcsBar, flush=True)
 
@@ -639,52 +851,85 @@ class ADflowGroup(Group):
     def initialize(self):
         self.options.declare('solver')
         self.options.declare('as_coupling')
+        # TODO remove the default
+        self.options.declare('prop_coupling', default=True)
+        self.options.declare('use_warper', default=True)
+        self.options.declare('balance_group', default=None)
 
     def setup(self):
 
         self.aero_solver = self.options['solver']
         self.as_coupling = self.options['as_coupling']
+        self.prop_coupling = self.options['prop_coupling']
+
+        self.use_warper = self.options['use_warper']
+
+        balance_group = self.options['balance_group']
 
         if self.as_coupling:
             self.add_subsystem('geo_disp', GeoDisp(
                 nnodes=int(self.aero_solver.getSurfaceCoordinates().size /3)),
                 promotes_inputs=['u_a', 'x_a0']
             )
-        # if we dont have geo_disp, we also need to promote the x_a as x_a0 from the deformer component
-        self.add_subsystem('deformer', ADflowWarper(
-            aero_solver=self.aero_solver
-        ))
-        self.add_subsystem('solver', ADflowSolver(
-            aero_solver=self.aero_solver
-        ))
+        if self.use_warper:
+            # if we dont have geo_disp, we also need to promote the x_a as x_a0 from the deformer component
+            self.add_subsystem('deformer',
+                AdflowWarper(
+                    aero_solver=self.aero_solver,
+                ),
+                promotes_outputs=['x_g'],
+            )
+
+        self.add_subsystem('solver',
+            AdflowSolver(
+                aero_solver=self.aero_solver,
+            ),
+            promotes_inputs=['x_g'],
+        )
+
         if self.as_coupling:
             self.add_subsystem('force', ADflowForces(
                 aero_solver=self.aero_solver),
-                promotes_outputs=['f_a']
+                promotes_inputs=['x_g'],
+                promotes_outputs=['f_a'],
             )
-        self.add_subsystem('funcs', ADflowFunctions(
-            aero_solver=self.aero_solver
-        ))
+        if self.prop_coupling:
+            self.add_subsystem('prop',
+                AdflowFunctions(
+                    aero_solver=self.aero_solver,
+                    ap_funcs=False,
+                    write_solution=False,
+                ),
+                promotes_inputs=['x_g'],
+            )
+
+        if balance_group is not None:
+            self.add_subsystem('balance', balance_group)
 
     def configure(self):
 
-        self.connect('deformer.x_g', ['solver.x_g', 'funcs.x_g'])
-        self.connect('solver.q', 'funcs.q')
-
         if self.as_coupling:
             self.connect('geo_disp.x_a', 'deformer.x_a')
-            self.connect('deformer.x_g', 'force.x_g')
-            self.connect('solver.q', 'force.q')
         else:
-            self.promotes('deformer', inputs=[('x_a', 'x_a0')])
+            if self.use_warper:
+                self.promotes('deformer', inputs=[('x_a', 'x_a0')])
 
+        if self.as_coupling:
+            self.connect('solver.q', 'force.q')
+
+        if self.prop_coupling:
+            self.connect('solver.q', 'prop.q')
+
+        # TODO if we have a balance, automatically figure out the broyden stuff here
 
     def mphys_set_ap(self, ap):
         # set the ap, add inputs and outputs, promote?
         self.solver.set_ap(ap)
-        self.funcs.set_ap(ap)
+        # self.funcs.set_ap(ap)
         if self.as_coupling:
             self.force.set_ap(ap)
+        if self.prop_coupling:
+            self.prop.mphys_set_ap(ap)
 
         # promote the DVs for this ap
         ap_vars,_ = get_dvs_and_cons(ap=ap)
@@ -693,19 +938,58 @@ class ADflowGroup(Group):
             name = args[0]
             size = args[1]
             self.promotes('solver', inputs=[name])
-            self.promotes('funcs', inputs=[name])
+            # self.promotes('funcs', inputs=[name])
             if self.as_coupling:
                 self.promotes('force', inputs=[name])
+            if self.prop_coupling:
+                self.promotes('prop', inputs=[name])
+
+    def mphys_add_prop_funcs(self, prop_funcs):
+        # this is the main routine to enable outputs from the propulsion element
+
+        # call the method of the prop element
+        self.prop.mphys_add_prop_funcs(prop_funcs)
+
+        # promote these variables to the aero group level
+        self.promotes('prop', outputs=prop_funcs)
+
+class ADflowMeshGroup(Group):
+
+    def initialize(self):
+        self.options.declare('aero_solver')
+
+    def setup(self):
+        aero_solver = self.options['aero_solver']
+
+        self.add_subsystem('surface_mesh',  AdflowMesh(aero_solver=aero_solver), promotes=['*'])
+        self.add_subsystem('volume_mesh',
+            AdflowWarper(
+                aero_solver=aero_solver
+            ),
+            promotes_inputs=[('x_a', 'x_a0')],
+            promotes_outputs=['x_g'],
+        )
+
+    def mphys_add_coordinate_input(self):
+        # just pass through the call
+        return self.surface_mesh.mphys_add_coordinate_input()
+
+    def mphys_get_triangulated_surface(self):
+        # just pass through the call
+        return self.surface_mesh.mphys_get_triangulated_surface()
 
 class ADflowBuilder(object):
 
-    def __init__(self, options):
+    def __init__(self, options, warp_in_solver=True, balance_group=None):
         self.options = options
+        self.warp_in_solver = warp_in_solver
+
+        self.balance_group = balance_group
 
     # api level method for all builders
     def init_solver(self, comm):
         self.solver = ADFLOW(options=self.options, comm=comm)
-        mesh = USMesh(options=self.options)
+        mesh = USMesh(options=self.options, comm=comm)
         self.solver.setMesh(mesh)
 
     # api level method for all builders
@@ -714,10 +998,58 @@ class ADflowBuilder(object):
 
     # api level method for all builders
     def get_element(self, **kwargs):
-        return ADflowGroup(solver=self.solver, **kwargs)
+        use_warper = self.warp_in_solver
+        return ADflowGroup(solver=self.solver, use_warper=use_warper, balance_group=self.balance_group, **kwargs)
 
     def get_mesh_element(self):
-        return ADflowMesh(aero_solver=self.solver)
+        use_warper = not self.warp_in_solver
+        # if we do warper in the mesh element, we will do a group thing
+        if use_warper:
+            return ADflowMeshGroup(aero_solver=self.solver)
+        else:
+            return AdflowMesh(aero_solver=self.solver)
+
+    def get_scenario_element(self):
+        return AdflowFunctions(aero_solver=self.solver)
+
+    def get_scenario_connections(self):
+        # this is the stuff we want to be connected
+        # between the solver and the functionals.
+        # these variables FROM the solver are connected
+        # TO the funcs element. So the solver has output
+        # and funcs has input. key is the output,
+        # variable is the input in the returned dict.
+        if self.warp_in_solver:
+            mydict = {
+                'x_g': 'x_g',
+                'solver.q': 'q',
+            }
+        else:
+            mydict = {
+                'solver.q': 'q',
+            }
+
+        return mydict
+
+    def get_mesh_connections(self):
+        if self.warp_in_solver:
+            mydict = {
+                'solver':{
+                    'x_a0'  : 'x_a0',
+                },
+                'funcs':{},
+            }
+        else:
+            mydict = {
+                'solver':{
+                    'x_g'  : 'x_g',
+                },
+                'funcs':{
+                    'x_g'  : 'x_g',
+                },
+            }
+
+        return mydict
 
     def get_nnodes(self):
         return int(self.solver.getSurfaceCoordinates().size /3)

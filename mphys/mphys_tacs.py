@@ -154,7 +154,7 @@ class TacsSolver(om.ImplicitComponent):
             return True
 
         for dv, dv_old in zip(inputs['dv_struct'],self.old_dvs):
-            if np.abs(dv - dv_old) > 1e-7:
+            if np.abs(dv - dv_old) > 1e-10:
                 self.old_dvs = inputs['dv_struct'].copy()
                 return True
 
@@ -654,6 +654,20 @@ class TacsGroup(om.Group):
             promotes_outputs=['u_s']
         )
 
+    def configure(self):
+        pass
+
+class TACSFuncsGroup(om.Group):
+    def initialize(self):
+        self.options.declare('solver')
+        self.options.declare('solver_objects')
+        self.options.declare('check_partials')
+
+    def setup(self):
+        self.struct_solver = self.options['solver']
+        self.struct_objects = self.options['solver_objects']
+        self.check_partials = self.options['check_partials']
+
         self.add_subsystem('funcs', TacsFunctions(
             struct_solver=self.struct_solver,
             struct_objects=self.struct_objects,
@@ -669,7 +683,7 @@ class TacsGroup(om.Group):
         )
 
     def configure(self):
-        self.connect('u_s', 'funcs.u_s')
+        pass
 
 class TacsBuilder(object):
 
@@ -728,6 +742,34 @@ class TacsBuilder(object):
 
     def get_mesh_element(self):
         return TacsMesh(struct_solver=self.solver)
+
+    def get_mesh_connections(self):
+        return {
+            'solver':{
+                'x_s0'  : 'x_s0',
+            },
+            'funcs':{
+                'x_s0'  : 'x_s0',
+            },
+        }
+
+    def get_scenario_element(self):
+        return TACSFuncsGroup(
+            solver=self.solver,
+            solver_objects=self.solver_objects,
+            check_partials=self.check_partials
+        )
+
+    def get_scenario_connections(self):
+        # this is the stuff we want to be connected
+        # between the solver and the functionals.
+        # these variables FROM the solver are connected
+        # TO the funcs element. So the solver has output
+        # and funcs has input. key is the output,
+        # variable is the input in the returned dict.
+        return {
+            'u_s'    : 'funcs.u_s',
+        }
 
     def get_ndof(self):
         return self.solver_dict['ndof']

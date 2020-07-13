@@ -1,4 +1,5 @@
 import openmdao.api as om
+from mphys.mphys_solver_group import MPHYS_SolverGroup
 
 class Scenario(om.Group):
 
@@ -8,6 +9,7 @@ class Scenario(om.Group):
         self.options.declare('builders', allow_none=False)
         self.options.declare('aero_discipline', allow_none=False)
         self.options.declare('struct_discipline', allow_none=False)
+        self.options.declare('prop_discipline', allow_none=False)
         self.options.declare('as_coupling', allow_none=False)
 
     def setup(self):
@@ -15,42 +17,62 @@ class Scenario(om.Group):
         # set flags
         self.aero_discipline = self.options['aero_discipline']
         self.struct_discipline = self.options['struct_discipline']
+        self.prop_discipline = self.options['prop_discipline']
         self.as_coupling = self.options['as_coupling']
 
         # set the builders
         self.aero_builder = self.options['builders']['aero']
         self.struct_builder = self.options['builders']['struct']
+        self.prop_builder = self.options['builders']['prop']
         self.xfer_builder = self.options['builders']['xfer']
 
-        # get the elements from each builder
-        if self.aero_discipline:
-            aero = self.aero_builder.get_element(as_coupling=self.as_coupling)
-        if self.struct_discipline:
-            struct = self.struct_builder.get_element(as_coupling=self.as_coupling)
-        if self.as_coupling:
-            disp_xfer, load_xfer = self.xfer_builder.get_element()
+        # add the solver group itself and pass in the builders
+        # this group will converge the nonlinear analysis
+        self.add_subsystem(
+            'solver_group',
+            MPHYS_SolverGroup(
+                builders=self.options['builders'],
+                aero_discipline = self.aero_discipline,
+                struct_discipline = self.struct_discipline,
+                prop_discipline = self.prop_discipline,
+                as_coupling = self.as_coupling
+            )
+        )
 
-        # add the subgroups
-        if self.as_coupling:
-            self.add_subsystem('disp_xfer', disp_xfer)
-        if self.aero_discipline:
-            self.add_subsystem('aero', aero)
-        if self.as_coupling:
-            self.add_subsystem('load_xfer', load_xfer)
-        if self.struct_discipline:
-            self.add_subsystem('struct', struct)
+        # check if builders provide a scenario-level element.
+        # e.g. a functionals component that is run once after
+        # the nonlinear solver is converged.
+        # we only check for disciplines, and we assume transfer
+        # components do not have scenario level elements.
+        if hasattr(self.aero_builder, 'get_scenario_element'):
+            aero_scenario_element = self.aero_builder.get_scenario_element()
+            self.add_subsystem('aero_funcs', aero_scenario_element)
 
-        # set solvers
-        if self.as_coupling:
-            self.nonlinear_solver=om.NonlinearBlockGS(maxiter=100)
-            self.linear_solver = om.LinearBlockGS(maxiter=100)
-            self.nonlinear_solver.options['iprint']=2
+            # if we have a scenario level element, we also need to
+            # figure out what needs to be connected from the solver
+            # level to the scenario level.
+            scenario_conn = self.aero_builder.get_scenario_connections()
+            # we can make these connections here
+            for k, v in scenario_conn.items():
+                self.connect('solver_group.aero.%s'%k, 'aero_funcs.%s'%v)
+
+        # do the same for struct
+        if hasattr(self.struct_builder, 'get_scenario_element'):
+            struct_scenario_element = self.struct_builder.get_scenario_element()
+            self.add_subsystem('struct_funcs', struct_scenario_element)
+
+            scenario_conn = self.struct_builder.get_scenario_connections()
+            for k, v in scenario_conn.items():
+                self.connect('solver_group.struct.%s'%k, 'struct_funcs.%s'%v)
 
     def configure(self):
+        pass
 
-        # do the connections, this can be also done in setup
-        if self.as_coupling:
-            self.connect('disp_xfer.u_a', 'aero.u_a')
-            self.connect('aero.f_a', 'load_xfer.f_a')
-            self.connect('load_xfer.f_s', 'struct.f_s')
-            self.connect('struct.u_s', ['disp_xfer.u_s', 'load_xfer.u_s'])
+    def mphys_make_aeroprop_conn(self, aero2prop_conn, prop2aero_conn):
+        # do the connections. we may want to do the solver level connections on the solver level but do them here for now
+        for k,v in aero2prop_conn.items():
+            self.connect('solver_group.aero.%s'%k, 'solver_group.prop.%s'%v)
+
+        # also do the connections from prop to aero...
+        for k,v in prop2aero_conn.items():
+            self.connect('solver_group.prop.%s'%k, 'solver_group.aero.%s'%v)

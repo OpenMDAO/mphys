@@ -64,7 +64,7 @@ class RltDispXfer(om.ExplicitComponent):
         ax1 = np.sum(ax_list[:irank])
         ax2 = np.sum(ax_list[:irank+1])
 
-        sx_list = self.comm.allgather(total_dof_struct)
+        sx_list = self.comm.allgather(nn_s * 3)
         sx1 = np.sum(sx_list[:irank])
         sx2 = np.sum(sx_list[:irank+1])
 
@@ -76,7 +76,7 @@ class RltDispXfer(om.ExplicitComponent):
         self.add_input('x_a0', shape=total_dof_aero,
                        src_indices=np.arange(ax1, ax2, dtype=int),
                        desc='Initial aerodynamic surface node coordinates')
-        self.add_input('x_s0', shape = total_dof_struct,
+        self.add_input('x_s0', shape = nn_s * 3,
                        src_indices = np.arange(sx1, sx2, dtype=int),
                        desc='initial structural node coordinates')
         self.add_input('u_s', shape=total_dof_struct,
@@ -221,7 +221,7 @@ class RltLoadXfer(om.ExplicitComponent):
         ax1 = np.sum(ax_list[:irank])
         ax2 = np.sum(ax_list[:irank+1])
 
-        sx_list = self.comm.allgather(total_dof_struct)
+        sx_list = self.comm.allgather(nn_s * 3)
         sx1 = np.sum(sx_list[:irank])
         sx2 = np.sum(sx_list[:irank+1])
 
@@ -233,7 +233,7 @@ class RltLoadXfer(om.ExplicitComponent):
         self.add_input('x_a0', shape=total_dof_aero,
                        src_indices=np.arange(ax1, ax2, dtype=int),
                        desc='Initial aerodynamic surface node coordinates')
-        self.add_input('x_s0', shape = total_dof_struct,
+        self.add_input('x_s0', shape = nn_s * 3,
                        src_indices = np.arange(sx1, sx2, dtype=int),
                        desc='initial structural node coordinates')
         self.add_input('u_s', shape=total_dof_struct,

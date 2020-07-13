@@ -70,7 +70,7 @@ class Top(om.Group):
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()
         self.dvs.add_output('dv_struct', np.array(ndv_struct*[0.01]))
-        self.connect('dv_struct', ['mp_group.s0.struct.dv_struct'])
+        self.connect('dv_struct', ['mp_group.s0.solver_group.struct.dv_struct', 'mp_group.s0.struct_funcs.dv_struct'])
 
 prob = om.Problem()
 prob.model = Top()

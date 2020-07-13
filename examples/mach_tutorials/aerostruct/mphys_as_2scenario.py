@@ -37,8 +37,8 @@ class Top(om.Group):
             'outputDirectory':'.',
             'monitorvariables':['resrho','cl','cd'],
             'writeTecplotSurfaceSolution':False,
-            'writevolumesolution':False,
-            'writesurfacesolution':False,
+            # 'writevolumesolution':False,
+            # 'writesurfacesolution':False,
 
             # Physics Parameters
             'equationType':'RANS',
@@ -53,12 +53,12 @@ class Top(om.Group):
 
             # ANK Solver Parameters
             'useANKSolver':True,
-            # 'ankswitchtol':1e-1,
             'nsubiterturb': 5,
-
-            # NK Solver Parameters
-            'useNKSolver':True,
-            'nkswitchtol':1e-4,
+            'anksecondordswitchtol':1e-4,
+            'ankcoupledswitchtol': 1e-6,
+            'ankinnerpreconits':2,
+            'ankouterpreconits':2,
+            'anklinresmax': 0.1,
 
             # Termination Criteria
             'L2Convergence':1e-14,
@@ -66,7 +66,7 @@ class Top(om.Group):
             'nCycles':10000,
 
             # force integration
-            'forcesAsTractions':False,
+            'forcesAsTractions': not use_meld,
         }
 
         adflow_builder = ADflowBuilder(aero_options)
@@ -130,18 +130,18 @@ class Top(om.Group):
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         # dvs.add_output('foo')
 
-        # each AS_Multipoint instance can keep multiple points with the SAME FORMULATION.
+        # each MPHYS_Multipoint instance can keep multiple points with the SAME FORMULATION.
         # same formulation means same solvers, and same meshes for each solver, such that
         # the same instance of the solvers can perform the analyses required for all of
         # the points present in this mp_group. solver-specific options for each point can
         # be different, and they can be adjusted in configure.
         mp = self.add_subsystem(
             'mp_group',
-            # this AS_Multipoint instance uses ADflow, TACS and MELD. This mp_group
+            # this MPHYS_Multipoint instance uses ADflow, TACS and MELD. This mp_group
             # can contain multiple points (scenarios, flow conditions, etc.); however,
             # all of these cases must use the same numerical formulation. If the user
             # wants to add additional points with a different numerical formulation,
-            # they need to create another instance of AS_Multipoint with desired
+            # they need to create another instance of MPHYS_Multipoint with desired
             # builders.
             Multipoint(
                 aero_builder   = adflow_builder,
@@ -206,7 +206,8 @@ class Top(om.Group):
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
-        self.mp_group.s0.aero.mphys_set_ap(ap0)
+        self.mp_group.s0.solver_group.aero.mphys_set_ap(ap0)
+        self.mp_group.s0.aero_funcs.mphys_set_ap(ap0)
         # we can either set the same or a different aero problem
         # if we use the same, adflow will re-use the state from previous analysis
         # if we use different APs, adflow will start second analysis from free stream
@@ -214,7 +215,8 @@ class Top(om.Group):
         # this is preferred because in an optimization, the previous state for both
         # aero problems will be conserved as the design changes and this will result
         # in faster convergence.
-        self.mp_group.s1.aero.mphys_set_ap(ap1)
+        self.mp_group.s1.solver_group.aero.mphys_set_ap(ap1)
+        self.mp_group.s1.aero_funcs.mphys_set_ap(ap1)
 
         # define the aero DVs in the IVC
         # s0
@@ -225,15 +227,15 @@ class Top(om.Group):
         self.dvs.add_output('mach1', val=0.7)
 
         # connect to the aero for each scenario
-        self.connect('alpha0', 'mp_group.s0.aero.alpha')
-        self.connect('mach0', 'mp_group.s0.aero.mach')
-        self.connect('alpha1', 'mp_group.s1.aero.alpha')
-        self.connect('mach1', 'mp_group.s1.aero.mach')
+        self.connect('alpha0', ['mp_group.s0.solver_group.aero.alpha', 'mp_group.s0.aero_funcs.alpha'])
+        self.connect('mach0', ['mp_group.s0.solver_group.aero.mach', 'mp_group.s0.aero_funcs.mach'])
+        self.connect('alpha1', ['mp_group.s1.solver_group.aero.alpha', 'mp_group.s1.aero_funcs.alpha'])
+        self.connect('mach1', ['mp_group.s1.solver_group.aero.mach', 'mp_group.s1.aero_funcs.mach'])
 
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()
         self.dvs.add_output('dv_struct', np.array(ndv_struct*[0.01]))
-        self.connect('dv_struct', ['mp_group.s0.struct.dv_struct', 'mp_group.s1.struct.dv_struct'])
+        self.connect('dv_struct', ['mp_group.s0.solver_group.struct.dv_struct', 'mp_group.s0.struct_funcs.dv_struct','mp_group.s1.solver_group.struct.dv_struct', 'mp_group.s1.struct_funcs.dv_struct'])
 
         # we can also add additional design variables, constraints and set the objective function here.
         # every solver is already initialized, so we can perform solver-specific calls
@@ -251,9 +253,9 @@ prob.run_model()
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
     print("Scenario 0")
-    print('cl =',prob['mp_group.s0.aero.funcs.cl'])
-    print('cd =',prob['mp_group.s0.aero.funcs.cd'])
+    print('cl =',prob['mp_group.s0.aero_funcs.cl'])
+    print('cd =',prob['mp_group.s0.aero_funcs.cd'])
 
     print("Scenario 1")
-    print('cl =',prob['mp_group.s1.aero.funcs.cl'])
-    print('cd =',prob['mp_group.s1.aero.funcs.cd'])
+    print('cl =',prob['mp_group.s1.aero_funcs.cl'])
+    print('cd =',prob['mp_group.s1.aero_funcs.cd'])

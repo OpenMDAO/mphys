@@ -9,7 +9,7 @@ from mphys.multipoint import Multipoint
 
 # these imports will be from the respective codes' repos rather than mphys
 from mphys.mphys_adflow import ADflowBuilder
-from mphys.dvgeo_component_configure import OM_DVGEOCOMP
+from mphys.mphys_dvgeo import OM_DVGEOCOMP
 
 from baseclasses import *
 
@@ -31,8 +31,8 @@ class Top(om.Group):
             'outputDirectory':'.',
             'monitorvariables':['resrho','resturb','cl','cd'],
             'writeTecplotSurfaceSolution':False,
-            'writevolumesolution':False,
-            'writesurfacesolution':False,
+            # 'writevolumesolution':False,
+            # 'writesurfacesolution':False,
 
             # Physics Parameters
             'equationType':'RANS',
@@ -47,12 +47,12 @@ class Top(om.Group):
 
             # ANK Solver Parameters
             'useANKSolver':True,
-            # 'ankswitchtol':1e-1,
             'nsubiterturb': 5,
-
-            # NK Solver Parameters
-            'useNKSolver':True,
-            'nkswitchtol':1e-4,
+            'anksecondordswitchtol':1e-4,
+            'ankcoupledswitchtol': 1e-6,
+            'ankinnerpreconits':2,
+            'ankouterpreconits':2,
+            'anklinresmax': 0.1,
 
             # Termination Criteria
             'L2Convergence':1e-12,
@@ -124,8 +124,10 @@ class Top(om.Group):
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
-        self.mp_group.s0.aero.mphys_set_ap(ap0)
-        self.mp_group.s1.aero.mphys_set_ap(ap1)
+        self.mp_group.s0.solver_group.aero.mphys_set_ap(ap0)
+        self.mp_group.s0.aero_funcs.mphys_set_ap(ap0)
+        self.mp_group.s1.solver_group.aero.mphys_set_ap(ap1)
+        self.mp_group.s1.aero_funcs.mphys_set_ap(ap1)
 
         # create geometric DV setup
         points = self.mp_group.mphys_add_coordinate_input()
@@ -152,8 +154,8 @@ class Top(om.Group):
         self.dvs.add_output('alpha1', val=1.5)
         self.dvs.add_output('twist', val=np.array([0]*nTwist))
 
-        self.connect('alpha0', 'mp_group.s0.aero.alpha')
-        self.connect('alpha1', 'mp_group.s1.aero.alpha')
+        self.connect('alpha0', ['mp_group.s0.solver_group.aero.alpha', 'mp_group.s0.aero_funcs.alpha'])
+        self.connect('alpha1', ['mp_group.s1.solver_group.aero.alpha', 'mp_group.s1.aero_funcs.alpha'])
         self.connect('twist', 'geo.twist')
 
         # define the design variables
@@ -162,12 +164,12 @@ class Top(om.Group):
         self.add_design_var('twist', lower= -10.0, upper=10.0, scaler=0.01)
 
         # add constraints and the objective
-        self.add_constraint('mp_group.s0.aero.funcs.cl', equals=0.5, scaler=10.0)
-        self.add_constraint('mp_group.s1.aero.funcs.cl', equals=0.5, scaler=10.0)
+        self.add_constraint('mp_group.s0.aero_funcs.cl', equals=0.5, scaler=10.0)
+        self.add_constraint('mp_group.s1.aero_funcs.cl', equals=0.5, scaler=10.0)
 
         # connect the two drags to drag average
-        self.connect('mp_group.s0.aero.funcs.cd', 'drag.cd0')
-        self.connect('mp_group.s1.aero.funcs.cd', 'drag.cd1')
+        self.connect('mp_group.s0.aero_funcs.cd', 'drag.cd0')
+        self.connect('mp_group.s1.aero_funcs.cd', 'drag.cd1')
         self.add_objective('drag.cd_out', scaler=100.0)
 
 ################################################################################
@@ -214,9 +216,9 @@ prob.model.list_outputs(units=True)
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
     print("Scenario 0")
-    print('cl =',prob['mp_group.s0.aero.funcs.cl'])
-    print('cd =',prob['mp_group.s0.aero.funcs.cd'])
+    print('cl =',prob['mp_group.s0.aero_funcs.cl'])
+    print('cd =',prob['mp_group.s0.aero_funcs.cd'])
 
     print("Scenario 1")
-    print('cl =',prob['mp_group.s1.aero.funcs.cl'])
-    print('cd =',prob['mp_group.s1.aero.funcs.cd'])
+    print('cl =',prob['mp_group.s1.aero_funcs.cl'])
+    print('cd =',prob['mp_group.s1.aero_funcs.cd'])
