@@ -8,7 +8,7 @@ import openmdao.api as om
 from mphys.multipoint import Multipoint
 
 # these imports will be from the respective codes' repos rather than mphys
-from mphys.mphys_adflow import ADflow_builder
+from mphys.mphys_adflow import ADflowBuilder
 from mphys.mphys_dvgeo import OM_DVGEOCOMP
 
 from baseclasses import *

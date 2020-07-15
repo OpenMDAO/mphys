@@ -114,7 +114,7 @@ class VlmGroup(om.Group):
         self.connect('geo_disp.x_a', ['solver.xa', 'forces.xa'])
         self.connect('solver.Cp', 'forces.Cp')
 
-class DummyVLMSolver(object):
+class DummyVlmSolver(object):
     '''
     a dummy object that can be used to hold the
     memory associated with a single VLM solver so that
@@ -142,7 +142,7 @@ class VlmBuilder(object):
         self.options = options
 
     def init_solver(self, comm):
-        self.solver = DummyVLMSolver(options=self.options, comm=comm)
+        self.solver = DummyVlmSolver(options=self.options, comm=comm)
 
     def get_solver(self):
         return self.solver
