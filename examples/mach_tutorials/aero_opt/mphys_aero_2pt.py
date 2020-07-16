@@ -66,7 +66,9 @@ class Top(om.Group):
             'forcesAsTractions':False,
         }
 
-        adflow_builder = ADflowBuilder(aero_options)
+        # this example has the volume mesh warping on the mesh level, rather than the solver level.
+        # this can be controlled with this option to adflow builder, which is custom to adflow.
+        adflow_builder = ADflowBuilder(aero_options, warp_in_solver=False)
 
 
         ################################################################################
@@ -203,7 +205,7 @@ prob.driver.opt_settings ={
 # prob.driver.options['debug_print'] = ['totals', 'desvars']
 
 prob.setup(mode='rev')
-om.n2(prob, show_browser=False, outfile='mphy_aero_2pt.html')
+om.n2(prob, show_browser=False, outfile='mphys_aero_2pt.html')
 
 if args.task == 'run':
     prob.run_model()
