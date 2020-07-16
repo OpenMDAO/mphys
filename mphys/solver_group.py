@@ -1,6 +1,6 @@
 import openmdao.api as om
 
-class MPHYS_SolverGroup(om.Group):
+class SolverGroup(om.Group):
 
     def initialize(self):
 

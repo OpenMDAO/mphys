@@ -1,5 +1,5 @@
 import openmdao.api as om
-from mphys.mphys_solver_group import MPHYS_SolverGroup
+from mphys.solver_group import SolverGroup
 
 class Scenario(om.Group):
 
@@ -30,7 +30,7 @@ class Scenario(om.Group):
         # this group will converge the nonlinear analysis
         self.add_subsystem(
             'solver_group',
-            MPHYS_SolverGroup(
+            SolverGroup(
                 builders=self.options['builders'],
                 aero_discipline = self.aero_discipline,
                 struct_discipline = self.struct_discipline,
