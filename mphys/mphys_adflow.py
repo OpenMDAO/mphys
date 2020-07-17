@@ -751,6 +751,20 @@ class ADflowFunctions(ExplicitComponent):
     def _get_func_name(self, name):
         return '%s_%s' % (self.ap.name, name.lower())
 
+    def nom_write_solution(self):
+        # this writes the solution files and is callable from outside openmdao call routines
+        solver = self.solver
+        ap = self.ap
+
+        # re-set the AP so that we are sure state is updated
+        solver.setAeroProblem(ap)
+
+        # write the solution files. Internally, this checks the
+        # types of solution files specified in the options and
+        # only outsputs these
+        solver.writeSolution(number=self.solution_counter)
+        self.solution_counter += 1
+
     def compute(self, inputs, outputs):
         solver = self.solver
         ap = self.ap
