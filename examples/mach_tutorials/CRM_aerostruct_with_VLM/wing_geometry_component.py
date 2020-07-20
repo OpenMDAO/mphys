@@ -6,15 +6,18 @@ class WingGeometry(om.ExplicitComponent):
     
     def initialize(self):
         
-        self.y_knot = np.array([0,3.0999,10.979510169492,16.968333898305,23.456226271186,29.44505])
-        self.LE_knot = np.array([23.06635,25.251679291894,31.205055607314,35.736770145885000,40.641208661042000,45.16478])
-        self.TE_knot = np.array([36.527275,37.057127604678,38.428622653948,41.498242368371000,44.820820782553000,47.887096577690000])
-        self.N_knots = len(self.y_knot)
-
         self.options.declare('xs', types=np.ndarray)
         self.options.declare('xa', types=np.ndarray)
+        self.options.declare('y_knot', types=np.ndarray)
+        self.options.declare('LE_knot', types=np.ndarray)
+        self.options.declare('TE_knot', types=np.ndarray)
 
     def setup(self):
+        
+        self.y_knot = self.options['y_knot']
+        self.LE_knot = self.options['LE_knot']
+        self.TE_knot = self.options['TE_knot']
+        self.N_knots = len(self.y_knot)
         
         self.add_input('root_chord_delta')
         self.add_input('tip_chord_delta')
@@ -497,3 +500,31 @@ class WingGeometry(om.ExplicitComponent):
         yq = R@boo[0:-2] + xq*boo[-2] + boo[-1]
         
         return yq
+    
+
+
+
+## function which creates the side-limits for the airfoil thickness DVs, as a fraction of the baseline thickness
+    
+def airfoil_thickness_bounds(xs,y_knot,airfoil_thickness_fraction):
+    
+    ## unpack coordinates
+        
+    X = xs[0::3]
+    Y = xs[1::3]
+    Z = xs[2::3]
+        
+    ## compute wing thickness
+    
+    thickness = np.zeros(len(y_knot))
+    
+    for i in range(0,len(y_knot)):
+        fs = np.argwhere(np.abs(Y - y_knot[i]) < np.max(Y)/200.)
+        thickness[i] = np.max(Z[fs]) - np.min(Z[fs])
+    
+    ## final bounds on thickness DVs
+    
+    thickness_min = -thickness*airfoil_thickness_fraction
+    thickness_max = thickness*airfoil_thickness_fraction
+    
+    return thickness_min, thickness_max
