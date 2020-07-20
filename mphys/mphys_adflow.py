@@ -255,6 +255,7 @@ class ADflowSolver(ImplicitComponent):
         # testing flag used for unit-testing to prevent the call to actually solve
         # NOT INTENDED FOR USERS!!! FOR TESTING ONLY
         self._do_solve = True
+        self.analysis_error_on_failure = True
 
     def setup(self):
         #self.set_check_partial_options(wrt='*',directional=True)
@@ -376,7 +377,8 @@ class ADflowSolver(ImplicitComponent):
 
                     solver.resetFlow(ap)
                     self.cleanRestart = True
-                    raise AnalysisError('ADFLOW Solver Fatal Fail')
+                    if self.analysis_error_on_failure:
+                        raise AnalysisError('ADFLOW Solver Fatal Fail')
 
                 # the previous iteration restarted from another solution, so we can try again
                 # with a re-set flowfield for the initial guess.
@@ -409,7 +411,8 @@ class ADflowSolver(ImplicitComponent):
                         solver.resetFlow(ap)
                         # set the reset flow flag
                         self.cleanRestart = True
-                        raise AnalysisError('ADFLOW Solver Fatal Fail')
+                        if self.analysis_error_on_failure:
+                            raise AnalysisError('ADFLOW Solver Fatal Fail')
 
                     # see comment for the same flag below
                     else:
