@@ -3,8 +3,8 @@
 import numpy as np
 
 import openmdao.api as om
-from mphys.mphys_tacs import TACS_builder
-from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.mphys_tacs import TacsBuilder
+from mphys.multipoint import Multipoint
 
 from tacs import elements, constitutive, functions
 
@@ -48,7 +48,7 @@ class Top(om.Group):
                         'mesh_file'   : 'debug.bdf',
                         'forcer_func' : forcer}
 
-        tacs_builder = TACS_builder(tacs_options)
+        tacs_builder = TacsBuilder(tacs_options)
 
         ################################################################################
         # MPHY setup
@@ -60,7 +60,7 @@ class Top(om.Group):
         # create the multiphysics multipoint group.
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(struct_builder = tacs_builder)
+            Multipoint(struct_builder = tacs_builder)
         )
 
         # this is the method that needs to be called for every point in this mp_group

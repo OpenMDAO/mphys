@@ -5,13 +5,13 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.multipoint import Multipoint
 
 # these imports will be from the respective codes' repos rather than mphys
-from mphys.mphys_adflow import ADflow_builder
-from mphys.mphys_tacs import TACS_builder
-from mphys.mphys_meld import MELD_builder
-from mphys.mphys_rlt import RLT_builder
+from mphys.mphys_adflow import ADflowBuilder
+from mphys.mphys_tacs import TacsBuilder
+from mphys.mphys_meld import MeldBuilder
+from mphys.mphys_rlt import RltBuilder
 
 from baseclasses import *
 from tacs import elements, constitutive, functions
@@ -70,7 +70,7 @@ class Top(om.Group):
             'forcesAsTractions': not use_meld,
         }
 
-        adflow_builder = ADflow_builder(aero_options)
+        adflow_builder = ADflowBuilder(aero_options)
 
         ################################################################################
         # TACS options
@@ -110,7 +110,7 @@ class Top(om.Group):
             'get_funcs'   : get_funcs
         }
 
-        tacs_builder = TACS_builder(tacs_options)
+        tacs_builder = TacsBuilder(tacs_options)
 
         ################################################################################
         # Transfer scheme options
@@ -123,11 +123,11 @@ class Top(om.Group):
                 'beta': 0.5,
             }
 
-            xfer_builder = MELD_builder(xfer_options, adflow_builder, tacs_builder)
+            xfer_builder = MeldBuilder(xfer_options, adflow_builder, tacs_builder)
         else:
             # or we can use RLT:
             xfer_options = {'transfergaussorder': 2}
-            xfer_builder = RLT_builder(xfer_options, adflow_builder, tacs_builder)
+            xfer_builder = RltBuilder(xfer_options, adflow_builder, tacs_builder)
 
         ################################################################################
         # MPHYS setup
@@ -139,7 +139,7 @@ class Top(om.Group):
         # create the multiphysics multipoint group.
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(
+            Multipoint(
                 aero_builder   = adflow_builder,
                 struct_builder = tacs_builder,
                 xfer_builder   = xfer_builder

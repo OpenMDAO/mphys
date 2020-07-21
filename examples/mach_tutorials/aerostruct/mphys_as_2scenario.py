@@ -5,13 +5,13 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.multipoint import Multipoint
 
 # these imports will be from the respective codes' repos rather than mphys
-from mphys.mphys_adflow import ADflow_builder
-from mphys.mphys_tacs import TACS_builder
-from mphys.mphys_meld import MELD_builder
-from mphys.mphys_rlt import RLT_builder
+from mphys.mphys_adflow import ADflowBuilder
+from mphys.mphys_tacs import TacsBuilder
+from mphys.mphys_meld import MeldBuilder
+from mphys.mphys_rlt import RltBuilder
 
 from baseclasses import *
 from tacs import elements, constitutive, functions
@@ -69,7 +69,7 @@ class Top(om.Group):
             'forcesAsTractions': not use_meld,
         }
 
-        adflow_builder = ADflow_builder(aero_options)
+        adflow_builder = ADflowBuilder(aero_options)
 
         ################################################################################
         # TACS options
@@ -109,7 +109,7 @@ class Top(om.Group):
             'get_funcs'   : get_funcs
         }
 
-        tacs_builder = TACS_builder(tacs_options)
+        tacs_builder = TacsBuilder(tacs_options)
 
         ################################################################################
         # Transfer scheme options
@@ -120,7 +120,7 @@ class Top(om.Group):
             'beta': 0.5,
         }
 
-        meld_builder = MELD_builder(xfer_options, adflow_builder, tacs_builder)
+        meld_builder = MeldBuilder(xfer_options, adflow_builder, tacs_builder)
 
         ################################################################################
         # MPHYS setup
@@ -143,7 +143,7 @@ class Top(om.Group):
             # wants to add additional points with a different numerical formulation,
             # they need to create another instance of MPHYS_Multipoint with desired
             # builders.
-            MPHYS_Multipoint(
+            Multipoint(
                 aero_builder   = adflow_builder,
                 struct_builder = tacs_builder,
                 xfer_builder   = meld_builder

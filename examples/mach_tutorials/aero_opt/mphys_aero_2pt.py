@@ -5,10 +5,10 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.multipoint import Multipoint
 
 # these imports will be from the respective codes' repos rather than mphys
-from mphys.mphys_adflow import ADflow_builder
+from mphys.mphys_adflow import ADflowBuilder
 from mphys.mphys_dvgeo import OM_DVGEOCOMP
 
 from baseclasses import *
@@ -66,7 +66,9 @@ class Top(om.Group):
             'forcesAsTractions':False,
         }
 
-        adflow_builder = ADflow_builder(aero_options)
+        # this example has the volume mesh warping on the mesh level, rather than the solver level.
+        # this can be controlled with this option to adflow builder, which is custom to adflow.
+        adflow_builder = ADflowBuilder(aero_options, warp_in_solver=False)
 
 
         ################################################################################
@@ -82,9 +84,7 @@ class Top(om.Group):
         # create the multiphysics multipoint group.
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(
-                aero_builder   = adflow_builder
-            )
+            Multipoint(aero_builder = adflow_builder)
         )
 
         # this is the method that needs to be called for every point in this mp_group
@@ -205,7 +205,7 @@ prob.driver.opt_settings ={
 # prob.driver.options['debug_print'] = ['totals', 'desvars']
 
 prob.setup(mode='rev')
-om.n2(prob, show_browser=False, outfile='mphy_aero_2pt.html')
+om.n2(prob, show_browser=False, outfile='mphys_aero_2pt.html')
 
 if args.task == 'run':
     prob.run_model()

@@ -7,11 +7,11 @@ import openmdao.api as om
 
 from tacs import elements, constitutive, functions, TACS
 
-from mphys.mphys_multipoint import MPHYS_Multipoint
-from mphys.mphys_vlm import VLM_builder
-from mphys.mphys_tacs import TACS_builder
+from mphys.multipoint import Multipoint
+from mphys.mphys_vlm import VlmBuilder
+from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_modal_solver import ModalBuilder
-from mphys.mphys_meld import MELD_builder
+from mphys.mphys_meld import MeldBuilder
 
 from struct_dv_components import StructDvMapper, SmoothnessEvaluatorGrid, struct_comps
 
@@ -55,7 +55,7 @@ class Top(om.Group):
         aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
 
         # VLM builder
-        vlm_builder = VLM_builder(aero_options)
+        vlm_builder = VlmBuilder(aero_options)
 
         # TACS setup
 
@@ -103,7 +103,7 @@ class Top(om.Group):
                     'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
                     'f5_writer'   : f5_writer }
 
-        struct_builder = TACS_builder(tacs_setup)
+        struct_builder = TacsBuilder(tacs_setup)
 
         # MELD setup
         meld_options = {'isym': 1,
@@ -111,7 +111,7 @@ class Top(om.Group):
                         'beta': 0.5}
 
         # MELD builder
-        meld_builder = MELD_builder(meld_options, vlm_builder, struct_builder)
+        meld_builder = MeldBuilder(meld_options, vlm_builder, struct_builder)
 
         ################################################################################
         # MPHYS setup
@@ -128,7 +128,7 @@ class Top(om.Group):
         # each MPHYS_Multipoint instance can keep multiple points with the same formulation
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(
+            Multipoint(
                 aero_builder   = vlm_builder,
                 struct_builder = struct_builder,
                 xfer_builder   = meld_builder

@@ -1,8 +1,8 @@
 import numpy as np
 
 import openmdao.api as om
-from mphys.mphys_multipoint import MPHYS_Multipoint
-from mphys.mphys_adflow import ADflow_builder
+from mphys.multipoint import Multipoint
+from mphys.mphys_adflow import ADflowBuilder
 from baseclasses import *
 from mpi4py import MPI
 
@@ -43,7 +43,7 @@ class Top(om.Group):
             'nCycles':1000,
         }
 
-        adflow_builder = ADflow_builder(aero_options)
+        adflow_builder = ADflowBuilder(aero_options)
 
         ################################################################################
         # MPHY setup
@@ -55,9 +55,7 @@ class Top(om.Group):
         # create the multiphysics multipoint group.
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(
-                aero_builder   = adflow_builder
-            )
+            Multipoint(aero_builder = adflow_builder)
         )
 
         # this is the method that needs to be called for every point in this mp_group
