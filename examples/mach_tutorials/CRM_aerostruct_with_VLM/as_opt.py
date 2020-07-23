@@ -20,22 +20,37 @@ patches = PatchList('CRM_box_2nd.bdf')
 patches.read_families()
 patches.create_DVs()
 
-strutural_patch_lumping = False    # can you add this, and the patches, into the setup of Top?
+y_knot = np.array([0,3.0999,10.979510169492,16.968333898305,23.456226271186,29.44505])
+LE_knot = np.array([23.06635,25.251679291894,31.205055607314,35.736770145885000,40.641208661042000,45.16478])
+TE_knot = np.array([36.527275,37.057127604678,38.428622653948,41.498242368371000,44.820820782553000,47.887096577690000])
+
+strutural_patch_lumping = False    
+
+N_mp = 2
+aero_parameters = {
+    'mach': [0.85, .64],
+    'q_inf': [12930., 28800.],
+    'vel': [254., 217.6],
+    'mu': [3.5E-5, 1.4E-5],
+    'alpha': np.array([1., 4.])*np.pi/180.,
+}
+
+trim_parameters = {
+    'load_factor': [1.0, 2.5],
+    'load_case_fuel_burned': [.5, 1.0],
+}
+
+
+# need to add some of this to an input deck, which would go in setup?
+# patches maybe could go in setup too?
+
+
+
+
 
 class Top(om.Group):
 
     def setup(self):
-
-        # VLM options
-
-        aero_options = {
-            'mesh_file':'CRM_VLM_mesh_extended.dat',
-            'mach':0.85,
-            'alpha':0*np.pi/180.,
-            'q_inf':9000., 
-            'vel':178.,
-            'mu':3.5E-5,
-        }
 
         # VLM mesh read
 
@@ -62,7 +77,8 @@ class Top(om.Group):
 
             return N_nodes, N_elements, xa, quad
 
-        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
+        aero_options = {}
+        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh('CRM_VLM_mesh_extended.dat')
 
         # VLM builder
 
@@ -129,18 +145,23 @@ class Top(om.Group):
         # MPHYS setup
         ################################################################################
 
+        # ivc for the multipoint parameters
+
+        self.add_subsystem('mp_parameters', om.IndepVarComp(), promotes=['*'])
+
         # ivc to keep the top level DVs
 
-        self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
+        self.add_subsystem('sizing_dvs', om.IndepVarComp(), promotes=['*'])
+        self.add_subsystem('geometric_dvs', om.IndepVarComp(), promotes=['*'])
+        self.add_subsystem('fuel_dvs', om.IndepVarComp(), promotes=['*'])
+        self.add_subsystem('trim_dvs', om.IndepVarComp(), promotes=['*'])
         
         # lump all structural dvs attached to a given component (upper skin, e.g.) into a single value: useful for checking_totals
 
         if strutural_patch_lumping is True:
-            self.add_subsystem('upper_skin_lumper',LumpPatches(N=patches.n_us)) 
-            self.add_subsystem('lower_skin_lumper',LumpPatches(N=patches.n_ls))  
-            self.add_subsystem('le_spar_lumper',LumpPatches(N=patches.n_le))  
-            self.add_subsystem('te_spar_lumper',LumpPatches(N=patches.n_te))  
-            self.add_subsystem('rib_lumper',LumpPatches(N=patches.n_rib))     
+            self.add_subsystem('struct_lumping',om.Group())
+            for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar','rib'],[patches.n_us,patches.n_ls,patches.n_le,patches.n_te,patches.n_rib]):
+                self.struct_lumping.add_subsystem(comp+'_lumper',LumpPatches(N=n)) 
 
         # structural mapper: map structural component arrays into the unified array that goes into tacs
 
@@ -148,10 +169,9 @@ class Top(om.Group):
 
         # patch smoothness constraints
 
-        self.add_subsystem('upper_skin_smoothness',PatchSmoothness(N=patches.n_us))
-        self.add_subsystem('lower_skin_smoothness',PatchSmoothness(N=patches.n_ls))
-        self.add_subsystem('le_spar_smoothness',PatchSmoothness(N=patches.n_le))
-        self.add_subsystem('te_spar_smoothness',PatchSmoothness(N=patches.n_te))
+        self.add_subsystem('struct_smoothness',om.Group())
+        for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar'],[patches.n_us,patches.n_ls,patches.n_le,patches.n_te]):        
+            self.struct_smoothness.add_subsystem(comp+'_smoothness',PatchSmoothness(N=n))
         
         # geometry mapper
 
@@ -163,16 +183,8 @@ class Top(om.Group):
 
         x_a0 = vlm_builder.options['x_a0']
 
-        self.add_subsystem('geometry_mapper',WingGeometry(xs=x_s0, xa=x_a0))
+        self.add_subsystem('geometry_mapper',WingGeometry(xs=x_s0, xa=x_a0, y_knot=y_knot, LE_knot=LE_knot, TE_knot=TE_knot))
 
-
-        f=open("prop_ID.dat","w+")
-        for ielem, elem in enumerate(tacs_solver.getElements()):
-            f.write(str(elem.getComponentNum()) + '\n')
-        f.close()
-
-
-        
         # each AS_Multipoint instance can keep multiple points with the same formulation
 
         mp = self.add_subsystem(
@@ -185,92 +197,116 @@ class Top(om.Group):
         )
 
         # this is the method that needs to be called for every point in this mp_group
-
-        mp.mphys_add_scenario('s0')
+        
+        for i in range(0,N_mp):
+            mp.mphys_add_scenario('s'+str(i))
 
     def configure(self):
 
+        # add parameters across the mp_groups: mp parameters, and AoA DV
+
+        for i in range(0,N_mp):
+
+            # add flow mp parameters
+
+            for param in ['mach','q_inf','vel','mu']:
+                self.mp_parameters.add_output(param+str(i), val = aero_parameters[param][i])
+                self.connect(param+str(i), 'mp_group.s'+str(i)+'.aero.'+param)
+
+            # add trim mp parameters
+ 
+            param = 'load_factor'
+            self.mp_parameters.add_output(param+str(i), val = trim_parameters[param][i])        
+            self.connect(param+str(i),'mp_group.s'+str(i)+'.struct.inertial_loads.'+param)   
+            self.connect(param+str(i),'mp_group.s'+str(i)+'.struct.fuel_loads.'+param)
+
+            param = 'load_case_fuel_burned'
+            self.mp_parameters.add_output(param+str(i), val = trim_parameters[param][i])
+            self.connect(param+str(i),'mp_group.s'+str(i)+'.struct.fuel_loads.'+param)
+
+            # add AoA DV
+            
+            param = 'alpha' 
+            self.trim_dvs.add_output(param+str(i), val = aero_parameters[param][i])
+            self.connect(param+str(i),'mp_group.s'+str(i)+'.aero.'+param)
+
+        #self.mp_parameters.add_output('mach', val = aero_parameters['mach'])
+        #self.connect('mach', 'mp_group.s0.aero.mach')
+        #self.mp_parameters.add_output('q_inf', val = aero_parameters['q_inf'])
+        #self.connect('q_inf', 'mp_group.s0.aero.q_inf')
+        #self.mp_parameters.add_output('vel', val = aero_parameters['vel'])
+        #self.connect('vel', 'mp_group.s0.aero.vel')
+        #self.mp_parameters.add_output('mu', val = aero_parameters['mu'])
+        #self.connect('mach', 'mp_group.s0.aero.mach')
+        #self.connect('mu', 'mp_group.s0.aero.mu')
+
+        # add trim mp parameters
+
+        #self.mp_parameters.add_output('load_factor', val = trim_parameters['load_factor'])        
+        #self.connect('load_factor','mp_group.s0.struct.inertial_loads.load_factor')   
+        #self.connect('load_factor','mp_group.s0.struct.fuel_loads.load_factor')
+
+        #self.mp_parameters.add_output('load_case_fuel_burned', val = trim_parameters['load_case_fuel_burned'])
+        #self.connect('load_case_fuel_burned','mp_group.s0.struct.fuel_loads.load_case_fuel_burned')
+
         # add AoA DV
 
-        self.dvs.add_output('alpha', val=0*np.pi/180.)
-        self.connect('alpha', 'mp_group.s0.aero.alpha')
+        #self.trim_dvs.add_output('alpha', val=0*np.pi/180.)
+        #self.connect('alpha', 'mp_group.s0.aero.alpha')
 
         # add the structural thickness DVs
 
         initial_thickness = 0.01
 
-        if strutural_patch_lumping is False:
-            self.dvs.add_output('upper_skin_thickness',     val=initial_thickness, shape = patches.n_us)
-            self.dvs.add_output('lower_skin_thickness',     val=initial_thickness, shape = patches.n_ls)
-            self.dvs.add_output('le_spar_thickness',        val=initial_thickness, shape = patches.n_le)
-            self.dvs.add_output('te_spar_thickness',        val=initial_thickness, shape = patches.n_te)
-            self.dvs.add_output('rib_thickness',            val=initial_thickness, shape = patches.n_rib)
+        for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar','rib'],[patches.n_us,patches.n_ls,patches.n_le,patches.n_te,patches.n_rib]):
+            if strutural_patch_lumping is False:                
+                self.sizing_dvs.add_output(comp+'_thickness', val=initial_thickness, shape=n)
+                self.connect(comp+'_thickness','struct_mapper.'+comp+'_thickness')
+            else:
+                self.sizing_dvs.add_output(comp+'_thickness_lumped',     val=initial_thickness, shape = 1)
+                self.connect(comp+'_thickness_lumped','struct_lumping.'+comp+'_lumper.thickness_lumped')
+                self.connect('struct_lumping.'+comp+'_lumper.thickness','struct_mapper.'+comp+'_thickness')
 
-            self.connect('upper_skin_thickness','struct_mapper.upper_skin_thickness')
-            self.connect('lower_skin_thickness','struct_mapper.lower_skin_thickness')
-            self.connect('le_spar_thickness','struct_mapper.le_spar_thickness')
-            self.connect('te_spar_thickness','struct_mapper.te_spar_thickness')
-            self.connect('rib_thickness','struct_mapper.rib_thickness')
+        # add the geometry DVs
+        
+        for comp, n in zip(['root_chord_delta','tip_chord_delta','tip_sweep_delta','span_delta','wing_thickness_delta','wing_twist_delta'],[1,1,1,1,len(y_knot),len(y_knot)-1]):
+            self.geometric_dvs.add_output(comp, val=0.0, shape=n)
+            self.connect(comp,'geometry_mapper.'+comp)
 
-        else:
-            self.dvs.add_output('upper_skin_thickness_lumped',     val=initial_thickness, shape = 1)
-            self.dvs.add_output('lower_skin_thickness_lumped',     val=initial_thickness, shape = 1)
-            self.dvs.add_output('le_spar_thickness_lumped',        val=initial_thickness, shape = 1)
-            self.dvs.add_output('te_spar_thickness_lumped',        val=initial_thickness, shape = 1)
-            self.dvs.add_output('rib_thickness_lumped',            val=initial_thickness, shape = 1)
+        ## add the fuel matching DV
 
-            self.connect('upper_skin_thickness_lumped','upper_skin_lumper.thickness_lumped')
-            self.connect('lower_skin_thickness_lumped','lower_skin_lumper.thickness_lumped')
-            self.connect('le_spar_thickness_lumped','le_spar_lumper.thickness_lumped')
-            self.connect('te_spar_thickness_lumped','te_spar_lumper.thickness_lumped')
-            self.connect('rib_thickness_lumped','rib_lumper.thickness_lumped')
-
-            self.connect('upper_skin_lumper.thickness','struct_mapper.upper_skin_thickness')
-            self.connect('lower_skin_lumper.thickness','struct_mapper.lower_skin_thickness')
-            self.connect('le_spar_lumper.thickness','struct_mapper.le_spar_thickness')
-            self.connect('te_spar_lumper.thickness','struct_mapper.te_spar_thickness')
-            self.connect('rib_lumper.thickness','struct_mapper.rib_thickness')
-
-        # add the geometry DVS
-
-        self.dvs.add_output('root_chord_delta',         val=0.0)
-        self.dvs.add_output('tip_chord_delta',          val=0.0)
-        self.dvs.add_output('tip_sweep_delta',          val=0.0)
-        self.dvs.add_output('span_delta',               val=0.0)
-        self.dvs.add_output('wing_thickness_delta',     val=0.0,               shape = 6)
-        self.dvs.add_output('wing_twist_delta',         val=0.0,               shape = 5)
-
-        ## connect the geometry DVs
-
-        self.connect('root_chord_delta','geometry_mapper.root_chord_delta')
-        self.connect('tip_chord_delta','geometry_mapper.tip_chord_delta')
-        self.connect('tip_sweep_delta','geometry_mapper.tip_sweep_delta')
-        self.connect('span_delta','geometry_mapper.span_delta')
-        self.connect('wing_thickness_delta','geometry_mapper.wing_thickness_delta')
-        self.connect('wing_twist_delta','geometry_mapper.wing_twist_delta')
+        self.fuel_dvs.add_output('fuel_match', val=1.0)
+        for i in range(0,N_mp):
+            self.connect('fuel_match', 'mp_group.s'+str(i)+'.struct.fuel_loads.fuel_DV')        
 
         # connect the smoothness constraints
 
-        if strutural_patch_lumping is False:
-            self.connect('upper_skin_thickness','upper_skin_smoothness.thickness')
-            self.connect('lower_skin_thickness','lower_skin_smoothness.thickness')
-            self.connect('le_spar_thickness','le_spar_smoothness.thickness')
-            self.connect('te_spar_thickness','te_spar_smoothness.thickness')
-        else:
-            self.connect('upper_skin_lumper.thickness','upper_skin_smoothness.thickness')
-            self.connect('lower_skin_lumper.thickness','lower_skin_smoothness.thickness')
-            self.connect('le_spar_lumper.thickness','le_spar_smoothness.thickness')
-            self.connect('te_spar_lumper.thickness','te_spar_smoothness.thickness')
+        for comp in ['upper_skin','lower_skin','le_spar','te_spar']:
+            if strutural_patch_lumping is False:
+                self.connect(comp+'_thickness','struct_smoothness.'+comp+'_smoothness.thickness')
+            else:
+                self.connect('struct_lumping.'+comp+'_lumper.thickness','struct_smoothness.'+comp+'_smoothness.thickness')
 
         # connect solver data
 
-        self.connect('struct_mapper.dv_struct', ['mp_group.s0.struct.dv_struct'])
+        for i in range(0,N_mp):
+            self.connect('struct_mapper.dv_struct', 'mp_group.s'+str(i)+'.struct.dv_struct')
 
         # connect the geometry mesh outputs
 
         points = self.mp_group.mphys_add_coordinate_input()
         self.connect('geometry_mapper.x_s0_mesh','mp_group.struct_points')
         self.connect('geometry_mapper.x_a0_mesh','mp_group.aero_points')
+
+   
+
+
+
+# currently, summed loads are given to TACS, but inertial loads are set to zero load factor
+# need to double-check that inertial loads look OK, compare with sand-alone, and that they look OK when there is no aero
+
+# inertial and fuel loads are much slower on K than on your machine.  Maybe bring your stand-alon codes over to K, and test them out, with and without PBS
+# same for the VLM.
 
 ################################################################################
 # OpenMDAO setup
@@ -286,14 +322,24 @@ model.linear_solver = om.LinearRunOnce()
 prob.setup(mode='rev',force_alloc_complex=True)
 om.n2(prob, show_browser=False, outfile='CRM_mphys_as_vlm.html')
 
-model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-9, atol=1E-10)
+#model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-9, atol=1E-10)
+#model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True, aitken_max_factor=1.0, aitken_min_factor=0.3,rtol = 1E-7, atol=1E-10)
+model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True ,rtol = 1E-7, atol=1E-10)
 model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-9, atol=1e-10)
+
+#model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True ,aitken_max_factor=0.8, rtol = 1E-7, atol=1E-10)
+model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True , rtol = 1E-7, atol=1E-10)
+model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-9, atol=1e-10)
 
 prob.run_model()
 
+# use aitken is on now!  CS won't work with it on.
+# and you relaxed the tolerance
+
+
 #prob.check_totals(of=['mp_group.s0.aero.forces.CD', 'mp_group.s0.struct.mass.mass', 'mp_group.s0.struct.funcs.f_struct'], wrt=['alpha', 'span_delta'], method='cs')
 
-prob.check_totals(of=['mp_group.s0.aero.forces.CD', 'mp_group.s0.struct.mass.mass', 'mp_group.s0.struct.funcs.f_struct'], wrt=['alpha', 'upper_skin_thickness_lumped', 'lower_skin_thickness_lumped', 'le_spar_thickness_lumped', 'te_spar_thickness_lumped', 'rib_thickness_lumped', 'root_chord_delta', 'tip_chord_delta', 'tip_sweep_delta', 'span_delta', 'wing_thickness_delta', 'wing_twist_delta'], method='cs')
+#prob.check_totals(of=['mp_group.s0.aero.forces.CD', 'mp_group.s0.struct.mass.mass', 'mp_group.s0.struct.funcs.f_struct'], wrt=['alpha', 'upper_skin_thickness_lumped', 'lower_skin_thickness_lumped', 'le_spar_thickness_lumped', 'te_spar_thickness_lumped', 'rib_thickness_lumped', 'root_chord_delta', 'tip_chord_delta', 'tip_sweep_delta', 'span_delta', 'wing_thickness_delta', 'wing_twist_delta'], method='cs')
 
 # push new structural changes, and pull to mac
 # fuel volume, and fuel load
