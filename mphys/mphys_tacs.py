@@ -4,6 +4,11 @@ import numpy as np
 import openmdao.api as om
 from tacs import TACS,functions
 
+from inertial_load_component import InertialLoads
+from fuel_component import FuelMass, FuelLoads
+from sum_loads import SumLoads
+from structural_patches_component import PatchList
+
 class TacsMesh(om.ExplicitComponent):
     """
     Component to read the initial mesh coordinates with TACS
@@ -133,7 +138,7 @@ class TacsSolver(om.ImplicitComponent):
         # inputs
         self.add_input('dv_struct', shape=ndv, desc='tacs design variables')
         self.add_input('x_s0', shape=node_size , src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
-        self.add_input('f_s', shape=state_size, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
+        self.add_input('F_summed', shape=state_size, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
 
         # outputs
         # its important that we set this to zero since this displacement value is used for the first iteration of the aero
@@ -232,7 +237,7 @@ class TacsSolver(om.ImplicitComponent):
         tacs.assembleRes(res)
 
         # Add the external loads
-        res_array[:] -= inputs['f_s']
+        res_array[:] -= inputs['F_summed']
 
         # Apply BCs to the residual (forces)
         tacs.applyBCs(res)
@@ -251,12 +256,13 @@ class TacsSolver(om.ImplicitComponent):
         self._update_internal(inputs)
         # solve the linear system
         force_array = force.getArray()
-        force_array[:] = inputs['f_s'] 
+        force_array[:] = inputs['F_summed'] 
         tacs.applyBCs(force)
 
         gmres.solve(force, ans)
         ans_array = ans.getArray()
         outputs['u_s'] = ans_array[:]
+        print(outputs['u_s'][30812])
         tacs.setVariables(ans)
 
     def solve_linear(self,d_outputs,d_residuals,mode):
@@ -342,8 +348,8 @@ class TacsSolver(om.ImplicitComponent):
                     d_outputs['u_s'] += np.array(res_array[:],dtype=float)
                     d_outputs['u_s'] -= np.array(after - before,dtype=np.float64)
 
-                if 'f_s' in d_inputs:
-                    d_inputs['f_s'] -= np.array(psi_array[:],dtype=float)
+                if 'F_summed' in d_inputs:
+                    d_inputs['F_summed'] -= np.array(psi_array[:],dtype=float)
 
                 if 'x_s0' in d_inputs:
                     xpt_sens = self.xpt_sens
@@ -692,11 +698,53 @@ class TACS_group(om.Group):
                 tacs=self.struct_solver
             ), promotes_inputs=['x_s0'], promotes_outputs=['f_s'])
 
+        # inertial loads hack
+
+        quad = np.zeros([self.struct_solver.getNumElements(),4],'int')
+        prop_ID = np.zeros(self.struct_solver.getNumElements(),'int')
+        for ielem, elem in enumerate(self.struct_solver.getElements()):
+            quad[ielem,:] = self.struct_solver.getElementNodes(ielem)
+            prop_ID[ielem] = elem.getComponentNum()
+       
+        patches = PatchList('CRM_box_2nd.bdf')
+        patches.read_families()
+        patches.create_DVs()
+
+        self.add_subsystem('inertial_loads',InertialLoads(
+            N_nodes=self.struct_solver.getNumNodes(), 
+            elements=quad, 
+            prop_ID=prop_ID, 
+            n_dvs=len(patches.families),
+            rho=2780.),    # this definitely should not be hard-coded.  Nor should the bdf file above.
+            promotes_inputs=['x_s0', 'dv_struct'],
+            promotes_outputs=['F_inertial']
+        )
+
+        ## fuel loads hack
+
+        self.add_subsystem('fuel_loads',FuelLoads(
+            N_nodes=self.struct_solver.getNumNodes(), 
+            elements=quad, 
+            prop_ID=prop_ID, 
+            patches=patches),
+            promotes_inputs=['x_s0'],
+            promotes_outputs=['F_fuel']
+        )
+
+        ## sum inertial loads, fuel loads, and aero loads
+        
+        self.add_subsystem('sum_loads',SumLoads(
+            load_size=self.struct_solver.getNumNodes()*6, 
+            load_list=['F_inertial','F_fuel','f_s']),
+            promotes_inputs=['F_inertial', 'F_fuel', 'f_s'],
+            promotes_outputs=['F_summed']
+        )
+        
         self.add_subsystem('solver', TacsSolver(
             struct_solver=self.struct_solver,
             struct_objects=self.struct_objects,
             check_partials=self.check_partials),
-            promotes_inputs=['f_s', 'x_s0', 'dv_struct'],
+            promotes_inputs=['x_s0', 'dv_struct', 'F_summed'],
             promotes_outputs=['u_s']
         )
 
