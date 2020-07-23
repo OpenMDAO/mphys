@@ -13,13 +13,13 @@ class SumLoads(om.ExplicitComponent):
         for name in self.options['load_list']:
             self.add_input(name,np.zeros(self.options['load_size']))
         
-        self.add_output('F_out',np.zeros(self.options['load_size']))
+        self.add_output('F_summed',np.zeros(self.options['load_size']))
         
     def compute(self,inputs,outputs):
         
-        outputs['F_out'] = np.zeros(self.options['load_size'])
+        outputs['F_summed'] = np.zeros(self.options['load_size'])
         for name in self.options['load_list']:
-            outputs['F_out'] += inputs[name]
+            outputs['F_summed'] += inputs[name]
             
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode): 
         
@@ -31,6 +31,6 @@ class SumLoads(om.ExplicitComponent):
             if 'F_out' in d_outputs:
                 for name in self.options['load_list']:
                     if name in d_inputs:
-                        d_inputs[name] += d_outputs['F_out']
+                        d_inputs[name] += d_outputs['F_summed']
                     
                 
