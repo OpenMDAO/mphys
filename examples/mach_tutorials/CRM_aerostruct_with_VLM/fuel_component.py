@@ -191,39 +191,40 @@ class FuelLoads(om.ExplicitComponent):
         self.options.declare('elements', types=np.ndarray)
         self.options.declare('prop_ID', types=np.ndarray)
         self.options.declare('patches')
-        self.options.declare('gravity', types=float)
-        self.options.declare('load_factor', types=float)
-        self.options.declare('load_case_fuel_burned', types=float)
-        self.options.declare('reserve_fuel', types=float)
-        self.options.declare('fuel_density', types=float)
-        
+       
+        self.gravity = -9.81
+        self.reserve_fuel = 7500.
+        self.fuel_density = 810.
+ 
     def setup(self):
 
-        self.add_input('x',np.zeros(self.options['N_nodes']*3))
+        self.add_input('x_s0',np.zeros(self.options['N_nodes']*3))
         self.add_input('fuel_DV',0.0)
-        
+        self.add_input('load_factor',0.0)
+        self.add_input('load_case_fuel_burned',0.0)        
+
         self.add_output('fuel_mass',0.0)
-        self.add_output('F',np.zeros(self.options['N_nodes']*3))  
+        self.add_output('F_fuel',np.zeros(self.options['N_nodes']*6))  
 
     def compute(self,inputs,outputs):
-        
-        gravity = self.options['gravity']*self.options['load_factor']
+            
+        gravity = self.gravity*inputs['load_factor']
         quad = self.options['elements']
         
-        X = inputs['x'][0::3]
-        Y = inputs['x'][1::3]
-        Z = inputs['x'][2::3]
+        X = inputs['x_s0'][0::3]
+        Y = inputs['x_s0'][1::3]
+        Z = inputs['x_s0'][2::3]
         
         ## compute available fuel mass
         
-        self.fuel = FuelMass(inputs['x'],quad,self.options['prop_ID'],self.options['patches'],self.options['fuel_density'])
+        self.fuel = FuelMass(inputs['x_s0'],quad,self.options['prop_ID'],self.options['patches'],self.fuel_density)
         self.fuel.set_CS(self.under_complex_step)
         self.fuel.compute()
                                
         ## find fuel_fraction: percentage of fuel_mass seen by this load case
 
-        self.fuel_fraction = (self.options['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.options['reserve_fuel']) + \
-                         self.options['reserve_fuel'])/np.sum(self.fuel.mass)
+        self.fuel_fraction = (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.reserve_fuel) + \
+                         self.reserve_fuel)/np.sum(self.fuel.mass)
 
         ## final fuel mass output
         
@@ -253,7 +254,7 @@ class FuelLoads(om.ExplicitComponent):
         
         ## find fuel force vector
 
-        outputs['F'] = np.zeros(self.options['N_nodes']*3)
+        outputs['F_fuel'] = np.zeros(self.options['N_nodes']*6)
         
         self.connect = np.zeros([8,len(self.fuel.mass)],dtype=int)
         
@@ -302,17 +303,17 @@ class FuelLoads(om.ExplicitComponent):
     
             f = gravity*self.fuel_fraction*T.transpose()@np.array([0,0,self.fuel.mass[i],0,0,0])
             
-            outputs['F'][self.connect[:,i]*3+0] = outputs['F'][self.connect[:,i]*3+0]  + f[0::6]
-            outputs['F'][self.connect[:,i]*3+1] = outputs['F'][self.connect[:,i]*3+1]  + f[1::6]
-            outputs['F'][self.connect[:,i]*3+2] = outputs['F'][self.connect[:,i]*3+2]  + f[2::6]
-            
+            outputs['F_fuel'][self.connect[:,i]*6+0] = outputs['F_fuel'][self.connect[:,i]*6+0]  + f[0::6]
+            outputs['F_fuel'][self.connect[:,i]*6+1] = outputs['F_fuel'][self.connect[:,i]*6+1]  + f[1::6]
+            outputs['F_fuel'][self.connect[:,i]*6+2] = outputs['F_fuel'][self.connect[:,i]*6+2]  + f[2::6]
+         
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode): 
 
-        gravity = self.options['gravity']*self.options['load_factor']
+        gravity = self.gravity*inputs['load_factor']
 
-        X = inputs['x'][0::3]
-        Y = inputs['x'][1::3]
-        Z = inputs['x'][2::3]
+        X = inputs['x_s0'][0::3]
+        Y = inputs['x_s0'][1::3]
+        Z = inputs['x_s0'][2::3]
         
         if mode == 'fwd':
             pass
@@ -321,28 +322,28 @@ class FuelLoads(om.ExplicitComponent):
             
             ## derivative of fuel_fraction: percentage of fuel_mass seen by this load case
         
-            fuel_fraction_X = self.options['load_case_fuel_burned']*inputs['fuel_DV']*np.sum(self.fuel.mass_Xderiv,axis=0)/np.sum(self.fuel.mass) - \
-                             (self.options['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.options['reserve_fuel']) + \
-                              self.options['reserve_fuel'])*np.sum(self.fuel.mass_Xderiv,axis=0)/np.sum(self.fuel.mass)/np.sum(self.fuel.mass)
+            fuel_fraction_X = inputs['load_case_fuel_burned']*inputs['fuel_DV']*np.sum(self.fuel.mass_Xderiv,axis=0)/np.sum(self.fuel.mass) - \
+                             (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.reserve_fuel) + \
+                              self.reserve_fuel)*np.sum(self.fuel.mass_Xderiv,axis=0)/np.sum(self.fuel.mass)/np.sum(self.fuel.mass)
 
-            fuel_fraction_Y = self.options['load_case_fuel_burned']*inputs['fuel_DV']*np.sum(self.fuel.mass_Yderiv,axis=0)/np.sum(self.fuel.mass) - \
-                             (self.options['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.options['reserve_fuel']) + \
-                              self.options['reserve_fuel'])*np.sum(self.fuel.mass_Yderiv,axis=0)/np.sum(self.fuel.mass)/np.sum(self.fuel.mass)
+            fuel_fraction_Y = inputs['load_case_fuel_burned']*inputs['fuel_DV']*np.sum(self.fuel.mass_Yderiv,axis=0)/np.sum(self.fuel.mass) - \
+                             (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.reserve_fuel) + \
+                              self.reserve_fuel)*np.sum(self.fuel.mass_Yderiv,axis=0)/np.sum(self.fuel.mass)/np.sum(self.fuel.mass)
 
-            fuel_fraction_Z = self.options['load_case_fuel_burned']*inputs['fuel_DV']*np.sum(self.fuel.mass_Zderiv,axis=0)/np.sum(self.fuel.mass) - \
-                             (self.options['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.options['reserve_fuel']) + \
-                              self.options['reserve_fuel'])*np.sum(self.fuel.mass_Zderiv,axis=0)/np.sum(self.fuel.mass)/np.sum(self.fuel.mass)
+            fuel_fraction_Z = inputs['load_case_fuel_burned']*inputs['fuel_DV']*np.sum(self.fuel.mass_Zderiv,axis=0)/np.sum(self.fuel.mass) - \
+                             (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.reserve_fuel) + \
+                              self.reserve_fuel)*np.sum(self.fuel.mass_Zderiv,axis=0)/np.sum(self.fuel.mass)/np.sum(self.fuel.mass)
 
-            fuel_fraction_fuel_DV = self.options['load_case_fuel_burned']
+            fuel_fraction_fuel_DV = inputs['load_case_fuel_burned']
         
             ## derivative of fuel mass output
             
             if 'fuel_mass' in d_outputs:
-                if 'x' in d_inputs:
+                if 'x_s0' in d_inputs:
                         
-                    d_inputs['x'][0::3] += d_outputs['fuel_mass']*(fuel_fraction_X*np.sum(self.fuel.mass) + self.fuel_fraction*np.sum(self.fuel.mass_Xderiv,axis=0))
-                    d_inputs['x'][1::3] += d_outputs['fuel_mass']*(fuel_fraction_Y*np.sum(self.fuel.mass) + self.fuel_fraction*np.sum(self.fuel.mass_Yderiv,axis=0))
-                    d_inputs['x'][2::3] += d_outputs['fuel_mass']*(fuel_fraction_Z*np.sum(self.fuel.mass) + self.fuel_fraction*np.sum(self.fuel.mass_Zderiv,axis=0))
+                    d_inputs['x_s0'][0::3] += d_outputs['fuel_mass']*(fuel_fraction_X*np.sum(self.fuel.mass) + self.fuel_fraction*np.sum(self.fuel.mass_Xderiv,axis=0))
+                    d_inputs['x_s0'][1::3] += d_outputs['fuel_mass']*(fuel_fraction_Y*np.sum(self.fuel.mass) + self.fuel_fraction*np.sum(self.fuel.mass_Yderiv,axis=0))
+                    d_inputs['x_s0'][2::3] += d_outputs['fuel_mass']*(fuel_fraction_Z*np.sum(self.fuel.mass) + self.fuel_fraction*np.sum(self.fuel.mass_Zderiv,axis=0))
                     
                 if 'fuel_DV' in d_inputs:
                         
@@ -389,26 +390,26 @@ class FuelLoads(om.ExplicitComponent):
           
                 ## assemble
                 
-                if 'F' in d_outputs:
-                    if 'x' in d_inputs:
+                if 'F_fuel' in d_outputs:
+                    if 'x_s0' in d_inputs:
                         
-                        d_inputs['x'][0::3] += f_X[0::6,:].transpose()@d_outputs['F'][self.connect[:,i]*3+0]
-                        d_inputs['x'][0::3] += f_X[1::6,:].transpose()@d_outputs['F'][self.connect[:,i]*3+1]
-                        d_inputs['x'][0::3] += f_X[2::6,:].transpose()@d_outputs['F'][self.connect[:,i]*3+2]
+                        d_inputs['x_s0'][0::3] += f_X[0::6,:].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+0]
+                        d_inputs['x_s0'][0::3] += f_X[1::6,:].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+1]
+                        d_inputs['x_s0'][0::3] += f_X[2::6,:].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+2]
                         
-                        d_inputs['x'][1::3] += f_Y[0::6,:].transpose()@d_outputs['F'][self.connect[:,i]*3+0]
-                        d_inputs['x'][1::3] += f_Y[1::6,:].transpose()@d_outputs['F'][self.connect[:,i]*3+1]
-                        d_inputs['x'][1::3] += f_Y[2::6,:].transpose()@d_outputs['F'][self.connect[:,i]*3+2]
+                        d_inputs['x_s0'][1::3] += f_Y[0::6,:].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+0]
+                        d_inputs['x_s0'][1::3] += f_Y[1::6,:].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+1]
+                        d_inputs['x_s0'][1::3] += f_Y[2::6,:].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+2]
                         
-                        d_inputs['x'][2::3] += f_Z[0::6,:].transpose()@d_outputs['F'][self.connect[:,i]*3+0]
-                        d_inputs['x'][2::3] += f_Z[1::6,:].transpose()@d_outputs['F'][self.connect[:,i]*3+1]
-                        d_inputs['x'][2::3] += f_Z[2::6,:].transpose()@d_outputs['F'][self.connect[:,i]*3+2]   
+                        d_inputs['x_s0'][2::3] += f_Z[0::6,:].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+0]
+                        d_inputs['x_s0'][2::3] += f_Z[1::6,:].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+1]
+                        d_inputs['x_S0'][2::3] += f_Z[2::6,:].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+2]   
                         
                     if 'fuel_DV' in d_inputs:
                         
-                        d_inputs['fuel_DV'] += f_fuel_DV[0::6].transpose()@d_outputs['F'][self.connect[:,i]*3+0]
-                        d_inputs['fuel_DV'] += f_fuel_DV[1::6].transpose()@d_outputs['F'][self.connect[:,i]*3+0]
-                        d_inputs['fuel_DV'] += f_fuel_DV[2::6].transpose()@d_outputs['F'][self.connect[:,i]*3+0]
+                        d_inputs['fuel_DV'] += f_fuel_DV[0::6].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+0]
+                        d_inputs['fuel_DV'] += f_fuel_DV[1::6].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+0]
+                        d_inputs['fuel_DV'] += f_fuel_DV[2::6].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+0]
                         
                 
     def _RBE3(self,x,y,z,x_in,y_in,z_in):

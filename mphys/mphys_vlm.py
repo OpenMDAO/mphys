@@ -92,11 +92,6 @@ class VLM_group(om.Group):
 
         options_dict = self.options['options_dict']
         # this can be done much more cleanly with **options_dict
-        mach       = options_dict['mach']
-        alpha      = options_dict['alpha']
-        q_inf      = options_dict['q_inf']
-        vel        = options_dict['vel']
-        mu         = options_dict['mu']
         N_nodes    = options_dict['N_nodes']
         N_elements = options_dict['N_elements']
         x_a0       = options_dict['x_a0']
@@ -113,20 +108,16 @@ class VLM_group(om.Group):
         self.add_subsystem('solver', VLM_solver(
             N_nodes=N_nodes,
             N_elements=N_elements,
-            quad=quad,
-            mach=mach
-        ), promotes_inputs=['alpha'])
+            quad=quad), 
+            promotes_inputs=['alpha','mach'])
 
         self.add_subsystem('forces', VLM_forces(
             N_nodes=N_nodes,
             N_elements=N_elements,
             quad=quad,
-            q_inf=q_inf,
-            mach=mach,
-            vel=vel,
-            mu=mu,
-            compute_traction=compute_traction
-        ), promotes_outputs=[('fa','f_a')])
+            compute_traction=compute_traction), 
+            promotes_inputs=['mach','q_inf','vel','mu'],            
+            promotes_outputs=[('fa','f_a')])
 
     def configure(self):
         self.connect('geo_disp.x_a', ['solver.xa', 'forces.xa'])

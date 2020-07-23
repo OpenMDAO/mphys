@@ -10,29 +10,30 @@ class InertialLoads(om.ExplicitComponent):
         self.options.declare('prop_ID', types=np.ndarray)
         self.options.declare('n_dvs', types=int)
         self.options.declare('rho', types=float)
-        self.options.declare('gravity', types=float)
-        self.options.declare('load_factor', types=float)
-          
+        
+        self.gravity = -9.81
+  
     def setup(self):
 
-        self.add_input('x',np.zeros(self.options['N_nodes']*3))
+        self.add_input('x_s0',np.zeros(self.options['N_nodes']*3))
         self.add_input('dv_struct',np.zeros(self.options['n_dvs']))
-        
-        self.add_output('F',np.zeros(self.options['N_nodes']*3))
+        self.add_input('load_factor',0.0)
+ 
+        self.add_output('F_inertial',np.zeros(self.options['N_nodes']*6))
 
     def compute(self,inputs,outputs):
-        
+         
+        gravity = self.gravity*inputs['load_factor']
         rho = self.options['rho']
-        gravity = self.options['gravity']*self.options['load_factor']
         quad = self.options['elements']
-        
-        X = inputs['x'][0::3]
-        Y = inputs['x'][1::3]
-        Z = inputs['x'][2::3]
+                
+        X = inputs['x_s0'][0::3]
+        Y = inputs['x_s0'][1::3]
+        Z = inputs['x_s0'][2::3]
 
         # loop over elements
         
-        outputs['F'] = np.zeros(self.options['N_nodes']*3)
+        outputs['F_inertial'] = np.zeros(self.options['N_nodes']*6)
         
         for i in range(0,len(quad)):
             
@@ -59,17 +60,17 @@ class InertialLoads(om.ExplicitComponent):
             
             # force
     
-            outputs['F'][quad[i,:]*3+2] = outputs['F'][quad[i,:]*3+2] + A*gravity*rho*t/4.
-            
+            outputs['F_inertial'][quad[i,:]*6+2] = outputs['F_inertial'][quad[i,:]*6+2] + A*gravity*rho*t/4.
+         
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):   
 
+        gravity = self.gravity*inputs['load_factor']
         rho = self.options['rho']
-        gravity = self.options['gravity']*self.options['load_factor']
         quad = self.options['elements']
         
-        X = inputs['x'][0::3]
-        Y = inputs['x'][1::3]
-        Z = inputs['x'][2::3]
+        X = inputs['x_s0'][0::3]
+        Y = inputs['x_s0'][1::3]
+        Z = inputs['x_s0'][2::3]
         
         if mode == 'fwd':
             pass
@@ -103,8 +104,8 @@ class InertialLoads(om.ExplicitComponent):
                 
                 # geometry derivatives
                 
-                if 'F' in d_outputs:
-                    if 'x' in d_inputs:
+                if 'F_inertial' in d_outputs:
+                    if 'x_s0' in d_inputs:
                         
                         v1_X = np.array([[0,Z3-Z2,Y2-Y3],[0,Z1-Z3,Y3-Y1],[0,Z2-Z1,Y1-Y2],[0,0,0]])
                         v1_Y = np.array([[Z2-Z3,0,X3-X2],[Z3-Z1,0,X1-X3],[Z1-Z2,0,X2-X1],[0,0,0]])
@@ -117,17 +118,17 @@ class InertialLoads(om.ExplicitComponent):
                         A_Y = .5*(v1@v1_Y.transpose()/n1 + v2@v2_Y.transpose()/n2)
                         A_Z = .5*(v1@v1_Z.transpose()/n1 + v2@v2_Z.transpose()/n2)
                         
-                        d_inputs['x'][quad[i,:]*3+0] += np.tile(A_X,(4,1)).transpose()@d_outputs['F'][quad[i,:]*3+2]*gravity*rho*t/4
-                        d_inputs['x'][quad[i,:]*3+1] += np.tile(A_Y,(4,1)).transpose()@d_outputs['F'][quad[i,:]*3+2]*gravity*rho*t/4
-                        d_inputs['x'][quad[i,:]*3+2] += np.tile(A_Z,(4,1)).transpose()@d_outputs['F'][quad[i,:]*3+2]*gravity*rho*t/4
+                        d_inputs['x_s0'][quad[i,:]*3+0] += np.tile(A_X,(4,1)).transpose()@d_outputs['F_inertial'][quad[i,:]*6+2]*gravity*rho*t/4
+                        d_inputs['x_s0'][quad[i,:]*3+1] += np.tile(A_Y,(4,1)).transpose()@d_outputs['F_inertial'][quad[i,:]*6+2]*gravity*rho*t/4
+                        d_inputs['x_s0'][quad[i,:]*3+2] += np.tile(A_Z,(4,1)).transpose()@d_outputs['F_inertial'][quad[i,:]*6+2]*gravity*rho*t/4
                         
                 # sizing derivatives
                 
-                if 'F' in d_outputs:
+                if 'F_inertial' in d_outputs:
                     if 'dv_struct' in d_inputs:
                         
-                        d_inputs['dv_struct'][self.options['prop_ID'][i]] += d_outputs['F'][quad[i,0]*3+2]*A*gravity*rho/4
-                        d_inputs['dv_struct'][self.options['prop_ID'][i]] += d_outputs['F'][quad[i,1]*3+2]*A*gravity*rho/4
-                        d_inputs['dv_struct'][self.options['prop_ID'][i]] += d_outputs['F'][quad[i,2]*3+2]*A*gravity*rho/4
-                        d_inputs['dv_struct'][self.options['prop_ID'][i]] += d_outputs['F'][quad[i,3]*3+2]*A*gravity*rho/4
+                        d_inputs['dv_struct'][self.options['prop_ID'][i]] += d_outputs['F_inertial'][quad[i,0]*6+2]*A*gravity*rho/4
+                        d_inputs['dv_struct'][self.options['prop_ID'][i]] += d_outputs['F_inertial'][quad[i,1]*6+2]*A*gravity*rho/4
+                        d_inputs['dv_struct'][self.options['prop_ID'][i]] += d_outputs['F_inertial'][quad[i,2]*6+2]*A*gravity*rho/4
+                        d_inputs['dv_struct'][self.options['prop_ID'][i]] += d_outputs['F_inertial'][quad[i,3]*6+2]*A*gravity*rho/4
                         
