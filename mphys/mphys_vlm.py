@@ -117,7 +117,7 @@ class VLM_group(om.Group):
             quad=quad,
             compute_traction=compute_traction), 
             promotes_inputs=['mach','q_inf','vel','mu'],            
-            promotes_outputs=[('fa','f_a')])
+            promotes_outputs=[('fa','f_a'),'CL','CD'])
 
     def configure(self):
         self.connect('geo_disp.x_a', ['solver.xa', 'forces.xa'])

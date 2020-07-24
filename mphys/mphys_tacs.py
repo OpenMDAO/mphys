@@ -728,7 +728,7 @@ class TACS_group(om.Group):
             prop_ID=prop_ID, 
             patches=patches),
             promotes_inputs=['x_s0'],
-            promotes_outputs=['F_fuel']
+            promotes_outputs=['F_fuel','fuel_mass']
         )
 
         ## sum inertial loads, fuel loads, and aero loads
@@ -759,7 +759,8 @@ class TACS_group(om.Group):
             struct_solver=self.struct_solver,
             struct_objects=self.struct_objects,
             check_partials=self.check_partials),
-            promotes_inputs=['x_s0', 'dv_struct']
+            promotes_inputs=['x_s0', 'dv_struct'],
+            promotes_outputs=['mass'],
         )
 
     def configure(self):

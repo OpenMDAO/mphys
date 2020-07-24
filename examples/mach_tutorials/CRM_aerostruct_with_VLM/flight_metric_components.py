@@ -35,7 +35,7 @@ class FlightMetrics(om.ExplicitComponent):
         outputs['LGW'] = self.TOGW - outputs['FB']
     
         outputs['final_objective'] = (outputs['FB']*self.options['beta'] + outputs['LGW']*(1-self.options['beta']))*2/self.gravity/1E5
-        
+               
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
 
         FB_CL = -(inputs['CD']*self.options['range']*self.TOGW*self.options['TSFC']*np.exp(-(inputs['CD']*self.options['range']*self.options['TSFC'])/(inputs['CL']*inputs['velocity'])))/(inputs['CL']**2*inputs['velocity'])

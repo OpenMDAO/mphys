@@ -7,7 +7,7 @@ class Trim(om.ExplicitComponent):
         
         self.options.declare('non_designable_weight', types=float)
         
-        self.gravity = -9.81
+        self.gravity = 9.81
         
     def setup(self):
 
@@ -25,7 +25,7 @@ class Trim(om.ExplicitComponent):
         self.W = .5*self.options['non_designable_weight'] + self.gravity*(inputs['structural_mass'] + inputs['fuel_mass'])
         
         outputs['load_factor'] = self.L/self.W
-           
+        
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
 
         if mode == 'fwd':
@@ -46,7 +46,7 @@ class FuelMatch(om.ExplicitComponent):
     
     def initialize(self):
         
-        self.gravity = -9.81
+        self.gravity = 9.81
         self.reserve_fuel = 7500.
         
     def setup(self):
@@ -60,7 +60,7 @@ class FuelMatch(om.ExplicitComponent):
     def compute(self,inputs,outputs):
        
        outputs['fuel_mismatch'] = (inputs['fuel_burn']/self.gravity + self.reserve_fuel)/inputs['fuel_mass'] - inputs['fuel_DV']
-    
+        
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
 
         if mode == 'fwd':
