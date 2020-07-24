@@ -15,31 +15,28 @@ from mphys.mphys_meld import MELD_builder
 
 from structural_patches_component import PatchList, DesignPatches, PatchSmoothness, LumpPatches
 from wing_geometry_component import WingGeometry
+from wing_area_component import WingArea, WingAreaComponent
+from trim_component import Trim, FuelMatch
+from flight_metric_components import FlightMetrics
+from spar_depth_component import SparDepth
 
-patches = PatchList('CRM_box_2nd.bdf')
-patches.read_families()
-patches.create_DVs()
 
-y_knot = np.array([0,3.0999,10.979510169492,16.968333898305,23.456226271186,29.44505])
-LE_knot = np.array([23.06635,25.251679291894,31.205055607314,35.736770145885000,40.641208661042000,45.16478])
-TE_knot = np.array([36.527275,37.057127604678,38.428622653948,41.498242368371000,44.820820782553000,47.887096577690000])
 
-strutural_patch_lumping = False    
+#strutural_patch_lumping = False    
 
-N_mp = 2
-aero_parameters = {
-    'mach': [0.85, .64],
-    'q_inf': [12930., 28800.],
-    'vel': [254., 217.6],
-    'mu': [3.5E-5, 1.4E-5],
-    'alpha': np.array([1., 4.])*np.pi/180.,
-}
+#N_mp = 2
 
-trim_parameters = {
-    'load_factor': [1.0, 2.5],
-    'load_case_fuel_burned': [.5, 1.0],
-}
 
+#non_designable_weight = 14E5
+#cruise_range = 7725.*1852
+#TSFC = .53/3600
+#beta=.5
+#cruise_case_ID = 0
+
+#initial_thickness = 0.01
+
+#BDF_file = 'CRM_box_2nd.bdf'
+#VLM_mesh_file = 'CRM_VLM_mesh_extended.dat'
 
 # need to add some of this to an input deck, which would go in setup?
 # patches maybe could go in setup too?
@@ -51,6 +48,46 @@ trim_parameters = {
 class Top(om.Group):
 
     def setup(self):
+
+        # case setup inputs
+
+        self.geometry_parameters = {
+            'y_knot': np.array([0,3.0999,10.979510169492,16.968333898305,23.456226271186,29.44505]),                                    # y coordinates of knot locations
+            'LE_knot': np.array([23.06635,25.251679291894,31.205055607314,35.736770145885000,40.641208661042000,45.16478]),             # x coordinates of LE knot locations
+            'TE_knot': np.array([36.527275,37.057127604678,38.428622653948,41.498242368371000,44.820820782553000,47.887096577690000])   # x coordinates of TE knot locations
+        }
+
+        self.aero_parameters = {
+            'mach': [0.85, .64],                            # mach number of each load case
+            'q_inf': [12930., 28800.],                      # dynamic pressure of each load case
+            'vel': [254., 217.6],                           # velocity of each load case
+            'mu': [3.5E-5, 1.4E-5],                         # viscocity of each load case
+            'alpha': np.array([1., 4.])*np.pi/180.,         # AoA of each load case: this is a DV, so these values set the starting points
+        }
+
+        self.trim_parameters = {
+            'load_factor': [1.0, 2.5],                      # load factor for each load case, L/W
+            'load_case_fuel_burned': [.5, 1.0],             # fraction of FB expended at each load case
+        }
+
+        self.misc_parameters = {
+            'structural_patch_lumping': False,              # reduces all the component thickness DVs into a single one: useful for checking totals
+            'initial_thickness': 0.01,                      # starting thickness for each thickness DV
+            'non_designable_weight': 14E5,                  # weight of everything but structure and fuel
+            'cruise_range' :7725.*1852,                     # cruise range used to compute FB
+            'TSFC': .53/3600,                               # TSFC used to compute FB
+            'N_mp': 2,                                      # number of load cases
+            'cruise_case_ID': 0,                            # load case ID which will be used to compute L/D
+            'beta': .5,                                     # weighting between FB and LGW, to compute final objective function: beta = 1 is pure FB minimization
+            'BDF_file': 'CRM_box_2nd.bdf',                  # BDF file used to define FEM 
+            'VLM_mesh_file': 'CRM_VLM_mesh_extended.dat'    # file which contains the baseline VLM grid
+        }
+
+        # FEM patches, read from BDF
+
+        self.patches = PatchList(self.misc_parameters['BDF_file'])
+        self.patches.read_families()
+        self.patches.create_DVs()
 
         # VLM mesh read
 
@@ -78,7 +115,7 @@ class Top(om.Group):
             return N_nodes, N_elements, xa, quad
 
         aero_options = {}
-        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh('CRM_VLM_mesh_extended.dat')
+        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(self.misc_parameters['VLM_mesh_file'])
 
         # VLM builder
 
@@ -128,7 +165,7 @@ class Top(om.Group):
 
         tacs_setup = {'add_elements': add_elements,
                     'get_funcs'   : get_funcs,
-                    'mesh_file'   : 'CRM_box_2nd.bdf',
+                    'mesh_file'   : self.misc_parameters['BDF_file'],
                     'f5_writer'   : f5_writer }
 
         struct_builder = TACS_builder(tacs_setup)
@@ -158,19 +195,19 @@ class Top(om.Group):
         
         # lump all structural dvs attached to a given component (upper skin, e.g.) into a single value: useful for checking_totals
 
-        if strutural_patch_lumping is True:
+        if self.misc_parameters['structural_patch_lumping'] is True:
             self.add_subsystem('struct_lumping',om.Group())
-            for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar','rib'],[patches.n_us,patches.n_ls,patches.n_le,patches.n_te,patches.n_rib]):
+            for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar','rib'],[self.patches.n_us,self.patches.n_ls,self.patches.n_le,self.patches.n_te,self.patches.n_rib]):
                 self.struct_lumping.add_subsystem(comp+'_lumper',LumpPatches(N=n)) 
 
         # structural mapper: map structural component arrays into the unified array that goes into tacs
 
-        self.add_subsystem('struct_mapper',DesignPatches(patch_list=patches))
+        self.add_subsystem('struct_mapper',DesignPatches(patch_list=self.patches))
 
         # patch smoothness constraints
 
         self.add_subsystem('struct_smoothness',om.Group())
-        for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar'],[patches.n_us,patches.n_ls,patches.n_le,patches.n_te]):        
+        for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar'],[self.patches.n_us,self.patches.n_ls,self.patches.n_le,self.patches.n_te]):        
             self.struct_smoothness.add_subsystem(comp+'_smoothness',PatchSmoothness(N=n))
         
         # geometry mapper
@@ -183,7 +220,7 @@ class Top(om.Group):
 
         x_a0 = vlm_builder.options['x_a0']
 
-        self.add_subsystem('geometry_mapper',WingGeometry(xs=x_s0, xa=x_a0, y_knot=y_knot, LE_knot=LE_knot, TE_knot=TE_knot))
+        self.add_subsystem('geometry_mapper',WingGeometry(xs=x_s0, xa=x_a0, y_knot=self.geometry_parameters['y_knot'], LE_knot=self.geometry_parameters['LE_knot'], TE_knot=self.geometry_parameters['TE_knot']))
 
         # each AS_Multipoint instance can keep multiple points with the same formulation
 
@@ -198,98 +235,107 @@ class Top(om.Group):
 
         # this is the method that needs to be called for every point in this mp_group
         
-        for i in range(0,N_mp):
+        for i in range(0,self.misc_parameters['N_mp']):
             mp.mphys_add_scenario('s'+str(i))
+
+        # create a group to hold the various output parameters that don't belong anywhere else
+
+        self.add_subsystem('outputs',om.Group())
+        
+        # add a component to compute wing area
+
+        self.outputs.add_subsystem('wing_area',WingAreaComponent(N_nodes=aero_options['N_nodes'], quad=aero_options['quad']))
+
+        # add trim components
+
+        for i in range(0,self.misc_parameters['N_mp']):
+            self.outputs.add_subsystem('trim'+str(i),Trim(non_designable_weight=self.misc_parameters['non_designable_weight']))
+
+        # add a component which computes flight metrics: FB, TOGW, LGW
+
+        self.outputs.add_subsystem('flight_metrics',FlightMetrics(non_designable_weight=self.misc_parameters['non_designable_weight'], range=self.misc_parameters['cruise_range'], TSFC=self.misc_parameters['TSFC'], beta=self.misc_parameters['beta']))
+
+        # add a component which computes the total available fuel mass: available_fuel_mass*fuel_DV is the fuel mass actually being used
+
+        self.outputs.add_subsystem('available_fuel_mass', om.ExecComp('available_fuel_mass=fuel_mass/fuel_DV'))
+
+        # add a component which computes the mis-match in the FB output and fuel_DV input
+
+        self.outputs.add_subsystem('fuel_match',FuelMatch())
+
+        # add a component which computes the minimum TE spar depth
+
+        quad = np.zeros([tacs_solver.getNumElements(),4],'int')
+        prop_ID = np.zeros(tacs_solver.getNumElements(),'int')
+        for ielem, elem in enumerate(tacs_solver.getElements()):
+            quad[ielem,:] = tacs_solver.getElementNodes(ielem)
+            prop_ID[ielem] = elem.getComponentNum()
+
+        self.outputs.add_subsystem('spar_depth',SparDepth(N_nodes=int(len(x_s0)/3), elements=quad, prop_ID=prop_ID, patches=self.patches))
 
     def configure(self):
 
         # add parameters across the mp_groups: mp parameters, and AoA DV
 
-        for i in range(0,N_mp):
+        for i in range(0,self.misc_parameters['N_mp']):
 
             # add flow mp parameters
 
             for param in ['mach','q_inf','vel','mu']:
-                self.mp_parameters.add_output(param+str(i), val = aero_parameters[param][i])
+                self.mp_parameters.add_output(param+str(i), val = self.aero_parameters[param][i])
                 self.connect(param+str(i), 'mp_group.s'+str(i)+'.aero.'+param)
 
             # add trim mp parameters
  
             param = 'load_factor'
-            self.mp_parameters.add_output(param+str(i), val = trim_parameters[param][i])        
+            self.mp_parameters.add_output(param+str(i), val = self.trim_parameters[param][i])        
             self.connect(param+str(i),'mp_group.s'+str(i)+'.struct.inertial_loads.'+param)   
             self.connect(param+str(i),'mp_group.s'+str(i)+'.struct.fuel_loads.'+param)
 
             param = 'load_case_fuel_burned'
-            self.mp_parameters.add_output(param+str(i), val = trim_parameters[param][i])
+            self.mp_parameters.add_output(param+str(i), val = self.trim_parameters[param][i])
             self.connect(param+str(i),'mp_group.s'+str(i)+'.struct.fuel_loads.'+param)
 
             # add AoA DV
             
             param = 'alpha' 
-            self.trim_dvs.add_output(param+str(i), val = aero_parameters[param][i])
+            self.trim_dvs.add_output(param+str(i), val = self.aero_parameters[param][i])
             self.connect(param+str(i),'mp_group.s'+str(i)+'.aero.'+param)
-
-        #self.mp_parameters.add_output('mach', val = aero_parameters['mach'])
-        #self.connect('mach', 'mp_group.s0.aero.mach')
-        #self.mp_parameters.add_output('q_inf', val = aero_parameters['q_inf'])
-        #self.connect('q_inf', 'mp_group.s0.aero.q_inf')
-        #self.mp_parameters.add_output('vel', val = aero_parameters['vel'])
-        #self.connect('vel', 'mp_group.s0.aero.vel')
-        #self.mp_parameters.add_output('mu', val = aero_parameters['mu'])
-        #self.connect('mach', 'mp_group.s0.aero.mach')
-        #self.connect('mu', 'mp_group.s0.aero.mu')
-
-        # add trim mp parameters
-
-        #self.mp_parameters.add_output('load_factor', val = trim_parameters['load_factor'])        
-        #self.connect('load_factor','mp_group.s0.struct.inertial_loads.load_factor')   
-        #self.connect('load_factor','mp_group.s0.struct.fuel_loads.load_factor')
-
-        #self.mp_parameters.add_output('load_case_fuel_burned', val = trim_parameters['load_case_fuel_burned'])
-        #self.connect('load_case_fuel_burned','mp_group.s0.struct.fuel_loads.load_case_fuel_burned')
-
-        # add AoA DV
-
-        #self.trim_dvs.add_output('alpha', val=0*np.pi/180.)
-        #self.connect('alpha', 'mp_group.s0.aero.alpha')
 
         # add the structural thickness DVs
 
-        initial_thickness = 0.01
-
-        for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar','rib'],[patches.n_us,patches.n_ls,patches.n_le,patches.n_te,patches.n_rib]):
-            if strutural_patch_lumping is False:                
-                self.sizing_dvs.add_output(comp+'_thickness', val=initial_thickness, shape=n)
+        for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar','rib'],[self.patches.n_us,self.patches.n_ls,self.patches.n_le,self.patches.n_te,self.patches.n_rib]):
+            if self.misc_parameters['structural_patch_lumping'] is False:                
+                self.sizing_dvs.add_output(comp+'_thickness', val=self.misc_parameters['initial_thickness'], shape=n)
                 self.connect(comp+'_thickness','struct_mapper.'+comp+'_thickness')
             else:
-                self.sizing_dvs.add_output(comp+'_thickness_lumped',     val=initial_thickness, shape = 1)
+                self.sizing_dvs.add_output(comp+'_thickness_lumped',     val=self.misc_parameters['initial_thickness'], shape = 1)
                 self.connect(comp+'_thickness_lumped','struct_lumping.'+comp+'_lumper.thickness_lumped')
                 self.connect('struct_lumping.'+comp+'_lumper.thickness','struct_mapper.'+comp+'_thickness')
 
         # add the geometry DVs
         
-        for comp, n in zip(['root_chord_delta','tip_chord_delta','tip_sweep_delta','span_delta','wing_thickness_delta','wing_twist_delta'],[1,1,1,1,len(y_knot),len(y_knot)-1]):
+        for comp, n in zip(['root_chord_delta','tip_chord_delta','tip_sweep_delta','span_delta','wing_thickness_delta','wing_twist_delta'],[1,1,1,1,len(self.geometry_parameters['y_knot']),len(self.geometry_parameters['y_knot'])-1]):
             self.geometric_dvs.add_output(comp, val=0.0, shape=n)
             self.connect(comp,'geometry_mapper.'+comp)
 
         ## add the fuel matching DV
 
-        self.fuel_dvs.add_output('fuel_match', val=1.0)
-        for i in range(0,N_mp):
-            self.connect('fuel_match', 'mp_group.s'+str(i)+'.struct.fuel_loads.fuel_DV')        
+        self.fuel_dvs.add_output('fuel_dv', val=1.0)
+        for i in range(0,self.misc_parameters['N_mp']):
+            self.connect('fuel_dv', 'mp_group.s'+str(i)+'.struct.fuel_loads.fuel_DV')        
 
         # connect the smoothness constraints
 
         for comp in ['upper_skin','lower_skin','le_spar','te_spar']:
-            if strutural_patch_lumping is False:
+            if self.misc_parameters['structural_patch_lumping'] is False:
                 self.connect(comp+'_thickness','struct_smoothness.'+comp+'_smoothness.thickness')
             else:
                 self.connect('struct_lumping.'+comp+'_lumper.thickness','struct_smoothness.'+comp+'_smoothness.thickness')
 
         # connect solver data
 
-        for i in range(0,N_mp):
+        for i in range(0,self.misc_parameters['N_mp']):
             self.connect('struct_mapper.dv_struct', 'mp_group.s'+str(i)+'.struct.dv_struct')
 
         # connect the geometry mesh outputs
@@ -298,15 +344,46 @@ class Top(om.Group):
         self.connect('geometry_mapper.x_s0_mesh','mp_group.struct_points')
         self.connect('geometry_mapper.x_a0_mesh','mp_group.aero_points')
 
-   
+        # connect the wing area module
+
+        self.connect('mp_group.aero_mesh.x_a0','outputs.wing_area.x') 
+
+        # connect the trim components
+
+        for i in range(0,self.misc_parameters['N_mp']):
+            self.connect('outputs.wing_area.area','outputs.trim'+str(i)+'.wing_area')
+            self.connect('mp_group.s'+str(i)+'.aero.CL','outputs.trim'+str(i)+'.CL')
+            self.connect('mp_group.s'+str(i)+'.struct.mass','outputs.trim'+str(i)+'.structural_mass')
+            self.connect('mp_group.s'+str(i)+'.struct.fuel_mass','outputs.trim'+str(i)+'.fuel_mass')
+            self.connect('q_inf'+str(i),'outputs.trim'+str(i)+'.q_inf')
+
+        # connect the flight metric components
+        
+        self.connect('mp_group.s'+str(self.misc_parameters['cruise_case_ID'])+'.aero.CL','outputs.flight_metrics.CL')
+        self.connect('mp_group.s'+str(self.misc_parameters['cruise_case_ID'])+'.aero.CD','outputs.flight_metrics.CD')
+        i = self.trim_parameters['load_case_fuel_burned'].index(1.)  # want to use a full fuel weight for TOGW computation
+        self.connect('mp_group.s'+str(i)+'.struct.fuel_mass','outputs.flight_metrics.fuel_mass')
+        self.connect('mp_group.s'+str(i)+'.struct.mass','outputs.flight_metrics.structural_mass')
+        self.connect('vel'+str(self.misc_parameters['cruise_case_ID']),'outputs.flight_metrics.velocity')
+
+        # connect the component which computes the available fuel mass
+
+        i = self.trim_parameters['load_case_fuel_burned'].index(1.)  # want to use a full fuel weight for this computation
+        self.connect('mp_group.s'+str(i)+'.struct.fuel_mass','outputs.available_fuel_mass.fuel_mass')
+        self.connect('fuel_dv','outputs.available_fuel_mass.fuel_DV')
+
+        # connect the fuel match components
+
+        self.connect('outputs.available_fuel_mass.available_fuel_mass','outputs.fuel_match.fuel_mass')
+        self.connect('outputs.flight_metrics.FB','outputs.fuel_match.fuel_burn')
+        self.connect('fuel_dv','outputs.fuel_match.fuel_DV')
+
+        # connect the spar depth components
+
+        self.connect('mp_group.struct_mesh.x_s0','outputs.spar_depth.x')        
 
 
 
-# currently, summed loads are given to TACS, but inertial loads are set to zero load factor
-# need to double-check that inertial loads look OK, compare with sand-alone, and that they look OK when there is no aero
-
-# inertial and fuel loads are much slower on K than on your machine.  Maybe bring your stand-alon codes over to K, and test them out, with and without PBS
-# same for the VLM.
 
 ################################################################################
 # OpenMDAO setup
@@ -333,29 +410,15 @@ model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 
 
 prob.run_model()
 
-# use aitken is on now!  CS won't work with it on.
-# and you relaxed the tolerance
+# use_aitken is on now!  CS won't work with it on.
+# and, you relaxed the tolerance
 
 
 #prob.check_totals(of=['mp_group.s0.aero.forces.CD', 'mp_group.s0.struct.mass.mass', 'mp_group.s0.struct.funcs.f_struct'], wrt=['alpha', 'span_delta'], method='cs')
 
 #prob.check_totals(of=['mp_group.s0.aero.forces.CD', 'mp_group.s0.struct.mass.mass', 'mp_group.s0.struct.funcs.f_struct'], wrt=['alpha', 'upper_skin_thickness_lumped', 'lower_skin_thickness_lumped', 'le_spar_thickness_lumped', 'te_spar_thickness_lumped', 'rib_thickness_lumped', 'root_chord_delta', 'tip_chord_delta', 'tip_sweep_delta', 'span_delta', 'wing_thickness_delta', 'wing_twist_delta'], method='cs')
 
-# push new structural changes, and pull to mac
-# fuel volume, and fuel load
-# planform area: comes from geometry tool?
-# fuel burn
-# multiple load cases
-# spar depth
-# inertial load
-# trim
-# wing thickness UB and LB
-# some way to get # of thickness and twist variabels non-hard-coded
-# fuel DV, and fuel matching.  reserve fuel?
-# LGW vs FB, and weigting between the two
-# buffet
 
-# force vector does not include load factor, so you'll need to include it when you sum aero + inertial + fuel
 
 
 # optimization set up
