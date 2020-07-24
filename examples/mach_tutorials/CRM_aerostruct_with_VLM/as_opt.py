@@ -21,30 +21,6 @@ from flight_metric_components import FlightMetrics
 from spar_depth_component import SparDepth
 
 
-
-#strutural_patch_lumping = False    
-
-#N_mp = 2
-
-
-#non_designable_weight = 14E5
-#cruise_range = 7725.*1852
-#TSFC = .53/3600
-#beta=.5
-#cruise_case_ID = 0
-
-#initial_thickness = 0.01
-
-#BDF_file = 'CRM_box_2nd.bdf'
-#VLM_mesh_file = 'CRM_VLM_mesh_extended.dat'
-
-# need to add some of this to an input deck, which would go in setup?
-# patches maybe could go in setup too?
-
-
-
-
-
 class Top(om.Group):
 
     def setup(self):
