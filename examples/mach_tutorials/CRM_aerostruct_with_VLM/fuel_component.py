@@ -220,7 +220,7 @@ class FuelLoads(om.ExplicitComponent):
         self.fuel = FuelMass(inputs['x_s0'],quad,self.options['prop_ID'],self.options['patches'],self.fuel_density)
         self.fuel.set_CS(self.under_complex_step)
         self.fuel.compute()
-                               
+                                       
         ## find fuel_fraction: percentage of fuel_mass seen by this load case
 
         self.fuel_fraction = (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.reserve_fuel) + \
@@ -403,7 +403,7 @@ class FuelLoads(om.ExplicitComponent):
                         
                         d_inputs['x_s0'][2::3] += f_Z[0::6,:].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+0]
                         d_inputs['x_s0'][2::3] += f_Z[1::6,:].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+1]
-                        d_inputs['x_S0'][2::3] += f_Z[2::6,:].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+2]   
+                        d_inputs['x_s0'][2::3] += f_Z[2::6,:].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+2]   
                         
                     if 'fuel_DV' in d_inputs:
                         

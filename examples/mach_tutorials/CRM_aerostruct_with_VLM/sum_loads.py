@@ -28,7 +28,7 @@ class SumLoads(om.ExplicitComponent):
         
         if mode == 'rev':
             
-            if 'F_out' in d_outputs:
+            if 'F_summed' in d_outputs:
                 for name in self.options['load_list']:
                     if name in d_inputs:
                         d_inputs[name] += d_outputs['F_summed']
