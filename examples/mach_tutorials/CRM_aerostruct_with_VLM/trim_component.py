@@ -6,8 +6,7 @@ class Trim(om.ExplicitComponent):
     def initialize(self):
         
         self.options.declare('non_designable_weight', types=float)
-        
-        self.gravity = 9.81
+        self.options.declare('gravity', types=float)       
         
     def setup(self):
 
@@ -22,7 +21,7 @@ class Trim(om.ExplicitComponent):
     def compute(self,inputs,outputs):
         
         self.L = inputs['CL']*inputs['wing_area']*inputs['q_inf']
-        self.W = .5*self.options['non_designable_weight'] + self.gravity*(inputs['structural_mass'] + inputs['fuel_mass'])
+        self.W = .5*self.options['non_designable_weight'] + self.options['gravity']*(inputs['structural_mass'] + inputs['fuel_mass'])
         
         outputs['load_factor'] = self.L/self.W
         
@@ -38,9 +37,9 @@ class Trim(om.ExplicitComponent):
                 if 'CL' in d_inputs:
                     d_inputs['CL'] += d_outputs['load_factor']*inputs['wing_area']*inputs['q_inf']/self.W
                 if 'structural_mass' in d_inputs:
-                    d_inputs['structural_mass'] += d_outputs['load_factor']*-self.L*self.gravity/self.W/self.W
+                    d_inputs['structural_mass'] += d_outputs['load_factor']*-self.L*self.options['gravity']/self.W/self.W
                 if 'fuel_mass' in d_inputs:
-                    d_inputs['fuel_mass'] += d_outputs['load_factor']*-self.L*self.gravity/self.W/self.W
+                    d_inputs['fuel_mass'] += d_outputs['load_factor']*-self.L*self.options['gravity']/self.W/self.W
 
 class FuelMatch(om.ExplicitComponent):
     

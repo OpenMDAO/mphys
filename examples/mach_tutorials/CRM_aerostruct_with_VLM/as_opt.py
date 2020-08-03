@@ -15,6 +15,8 @@ from mphys.mphys_meld import MELD_builder
 
 from structural_patches_component import PatchList, DesignPatches, PatchSmoothness, LumpPatches
 from wing_geometry_component import WingGeometry
+from inertial_load_component import InertialLoads
+from fuel_component import FuelMass, FuelLoads
 from wing_area_component import WingArea, WingAreaComponent
 from trim_component import Trim, FuelMatch
 from flight_metric_components import FlightMetrics
@@ -35,10 +37,10 @@ class Top(om.Group):
 
         self.aero_parameters = {
             'mach': [0.85, .64],                            # mach number of each load case
-            'q_inf': [12930., 28800.],                      # dynamic pressure of each load case
-            'vel': [254., 217.6],                           # velocity of each load case
-            'mu': [3.5E-5, 1.4E-5],                         # viscocity of each load case
-            'alpha': np.array([1., 4.])*np.pi/180.,         # AoA of each load case: this is a DV, so these values set the starting points
+            'q_inf': [12930., 28800.],#[9000., 12000.],#[12930., 28800.],                      # dynamic pressure of each load case, Pa
+            'vel': [254., 217.6],                           # velocity of each load case, m/s
+            'mu': [3.5E-5, 1.4E-5],                         # viscocity of each load case, 
+            'alpha': np.array([1., 4.])*np.pi/180.,#np.array([0.5, 1.0])*np.pi/180.,#np.array([1., 4.])*np.pi/180.,         # AoA of each load case: this is a DV, so these values set the starting points
         }
 
         self.trim_parameters = {
@@ -48,9 +50,17 @@ class Top(om.Group):
 
         self.misc_parameters = {
             'structural_patch_lumping': False,              # reduces all the component thickness DVs into a single one: useful for checking totals
-            'initial_thickness': 0.01,                      # starting thickness for each thickness DV
-            'non_designable_weight': 14E5,                  # weight of everything but structure and fuel
-            'cruise_range' :7725.*1852,                     # cruise range used to compute FB
+            'initial_thickness': 0.01,                      # starting thickness for each thickness DV, m
+            'elastic_modulus': 73.1e9,                      # elastic modulus, Pa
+            'poisson': 0.33,                                # poisson's ratio
+            'k_corr': 5.0/6.0,                              # shear correction factor
+            'ys': 324.0e6,                                  # yield stress, Pa
+            'structural_density': 2780.0,                   # structural density, kg/m^3
+            'gravity': 9.81,                                # gravitational constant, m/s^2
+            'non_designable_weight': 14E5,                  # weight of everything but structure and fuel, N
+            'cruise_range': 7725.*1852,                     # cruise range used to compute FB, m
+            'reserve_fuel': 7500.,                          # reserve fuel not burned during cruise, kg
+            'fuel_density':  810.,                          # fuel density, kg/m^3
             'TSFC': .53/3600,                               # TSFC used to compute FB
             'N_mp': 2,                                      # number of load cases
             'cruise_case_ID': 0,                            # load case ID which will be used to compute L/D
@@ -100,11 +110,11 @@ class Top(om.Group):
         # TACS setup
 
         def add_elements(mesh):
-            rho = 2780.0            # density, kg/m^3
-            E = 73.1e9              # elastic modulus, Pa
-            nu = 0.33               # poisson's ratio
-            kcorr = 5.0 / 6.0       # shear correction factor
-            ys = 324.0e6            # yield stress, Pa
+            rho = self.misc_parameters['structural_density']         
+            E = self.misc_parameters['elastic_modulus']            
+            nu = self.misc_parameters['poisson']
+            kcorr = self.misc_parameters['k_corr']
+            ys = self.misc_parameters['ys']
             thickness= 0.003
             min_thickness = 0.002
             max_thickness = 0.05
@@ -196,7 +206,13 @@ class Top(om.Group):
 
         x_a0 = vlm_builder.options['x_a0']
 
-        self.add_subsystem('geometry_mapper',WingGeometry(xs=x_s0, xa=x_a0, y_knot=self.geometry_parameters['y_knot'], LE_knot=self.geometry_parameters['LE_knot'], TE_knot=self.geometry_parameters['TE_knot']))
+        self.add_subsystem('geometry_mapper',WingGeometry(
+            xs=x_s0, 
+            xa=x_a0, 
+            y_knot=self.geometry_parameters['y_knot'], 
+            LE_knot=self.geometry_parameters['LE_knot'], 
+            TE_knot=self.geometry_parameters['TE_knot'])
+        )
 
         # each AS_Multipoint instance can keep multiple points with the same formulation
 
@@ -214,22 +230,65 @@ class Top(om.Group):
         for i in range(0,self.misc_parameters['N_mp']):
             mp.mphys_add_scenario('s'+str(i))
 
+        # add inertial and fuel load components
+
+        quad = np.zeros([tacs_solver.getNumElements(),4],'int')
+        prop_ID = np.zeros(tacs_solver.getNumElements(),'int')
+        for ielem, elem in enumerate(tacs_solver.getElements()):
+            quad[ielem,:] = tacs_solver.getElementNodes(ielem)
+            prop_ID[ielem] = elem.getComponentNum()
+
+        self.mp_group.add_subsystem('non_aero_loads',om.Group())
+
+        for i in range(0,self.misc_parameters['N_mp']):
+
+            self.mp_group.non_aero_loads.add_subsystem('inertial_loads'+str(i),InertialLoads(
+                N_nodes=int(len(x_s0)/3), 
+                elements=quad, 
+                prop_ID=prop_ID, 
+                n_dvs=len(self.patches.families), 
+                rho=self.misc_parameters['structural_density'], 
+                gravity=self.misc_parameters['gravity'])
+            )
+
+            self.mp_group.non_aero_loads.add_subsystem('fuel_loads'+str(i),FuelLoads(
+                N_nodes=int(len(x_s0)/3), 
+                elements=quad, 
+                prop_ID=prop_ID, 
+                patches=self.patches, 
+                gravity=self.misc_parameters['gravity'], 
+                reserve_fuel=self.misc_parameters['reserve_fuel'], 
+                fuel_density=self.misc_parameters['fuel_density'])
+            )
+
         # create a group to hold the various output parameters that don't belong anywhere else
 
         self.add_subsystem('outputs',om.Group())
         
         # add a component to compute wing area
 
-        self.outputs.add_subsystem('wing_area',WingAreaComponent(N_nodes=aero_options['N_nodes'], quad=aero_options['quad']))
+        self.outputs.add_subsystem('wing_area',WingAreaComponent(
+            N_nodes=aero_options['N_nodes'], 
+            quad=aero_options['quad'])
+        )
 
         # add trim components
 
         for i in range(0,self.misc_parameters['N_mp']):
-            self.outputs.add_subsystem('trim'+str(i),Trim(non_designable_weight=self.misc_parameters['non_designable_weight']))
+            self.outputs.add_subsystem('trim'+str(i),Trim(
+                non_designable_weight=self.misc_parameters['non_designable_weight'],
+                gravity=self.misc_parameters['gravity'])
+            )
 
         # add a component which computes flight metrics: FB, TOGW, LGW
 
-        self.outputs.add_subsystem('flight_metrics',FlightMetrics(non_designable_weight=self.misc_parameters['non_designable_weight'], range=self.misc_parameters['cruise_range'], TSFC=self.misc_parameters['TSFC'], beta=self.misc_parameters['beta']))
+        self.outputs.add_subsystem('flight_metrics',FlightMetrics(
+            non_designable_weight=self.misc_parameters['non_designable_weight'], 
+            range=self.misc_parameters['cruise_range'], 
+            TSFC=self.misc_parameters['TSFC'], 
+            beta=self.misc_parameters['beta'],
+            gravity=self.misc_parameters['gravity'])
+        )
 
         # add a component which computes the total available fuel mass: available_fuel_mass*fuel_DV is the fuel mass actually being used
 
@@ -241,13 +300,12 @@ class Top(om.Group):
 
         # add a component which computes the minimum TE spar depth
 
-        quad = np.zeros([tacs_solver.getNumElements(),4],'int')
-        prop_ID = np.zeros(tacs_solver.getNumElements(),'int')
-        for ielem, elem in enumerate(tacs_solver.getElements()):
-            quad[ielem,:] = tacs_solver.getElementNodes(ielem)
-            prop_ID[ielem] = elem.getComponentNum()
-
-        self.outputs.add_subsystem('spar_depth',SparDepth(N_nodes=int(len(x_s0)/3), elements=quad, prop_ID=prop_ID, patches=self.patches))
+        self.outputs.add_subsystem('spar_depth',SparDepth(
+            N_nodes=int(len(x_s0)/3), 
+            elements=quad, 
+            prop_ID=prop_ID, 
+            patches=self.patches)
+        )
 
     def configure(self):
 
@@ -265,12 +323,12 @@ class Top(om.Group):
  
             param = 'load_factor'
             self.mp_parameters.add_output(param+str(i), val = self.trim_parameters[param][i])        
-            self.connect(param+str(i),'mp_group.s'+str(i)+'.struct.inertial_loads.'+param)   
-            self.connect(param+str(i),'mp_group.s'+str(i)+'.struct.fuel_loads.'+param)
+            self.connect(param+str(i),'mp_group.non_aero_loads.inertial_loads'+str(i)+'.'+param)
+            self.connect(param+str(i),'mp_group.non_aero_loads.fuel_loads'+str(i)+'.'+param)
 
             param = 'load_case_fuel_burned'
             self.mp_parameters.add_output(param+str(i), val = self.trim_parameters[param][i])
-            self.connect(param+str(i),'mp_group.s'+str(i)+'.struct.fuel_loads.'+param)
+            self.connect(param+str(i),'mp_group.non_aero_loads.fuel_loads'+str(i)+'.'+param)
 
             # add AoA DV
             
@@ -299,7 +357,7 @@ class Top(om.Group):
 
         self.fuel_dvs.add_output('fuel_dv', val=1.0)
         for i in range(0,self.misc_parameters['N_mp']):
-            self.connect('fuel_dv', 'mp_group.s'+str(i)+'.struct.fuel_loads.fuel_DV')        
+            self.connect('fuel_dv', 'mp_group.non_aero_loads.fuel_loads'+str(i)+'.fuel_DV')
 
         # connect the smoothness constraints
 
@@ -313,6 +371,16 @@ class Top(om.Group):
 
         for i in range(0,self.misc_parameters['N_mp']):
             self.connect('struct_mapper.dv_struct', 'mp_group.s'+str(i)+'.struct.dv_struct')
+
+        # connect the inertial/fuel load geometry and dv_struct inputs, and connect the outputs to the load summer
+
+        for i in range(0,self.misc_parameters['N_mp']):
+            self.connect('geometry_mapper.x_s0_mesh','mp_group.non_aero_loads.inertial_loads'+str(i)+'.x_s0')
+            self.connect('struct_mapper.dv_struct','mp_group.non_aero_loads.inertial_loads'+str(i)+'.dv_struct')
+            self.connect('geometry_mapper.x_s0_mesh','mp_group.non_aero_loads.fuel_loads'+str(i)+'.x_s0')
+
+            self.connect('mp_group.non_aero_loads.inertial_loads'+str(i)+'.F_inertial','mp_group.s'+str(i)+'.struct.sum_loads.F_inertial')
+            self.connect('mp_group.non_aero_loads.fuel_loads'+str(i)+'.F_fuel','mp_group.s'+str(i)+'.struct.sum_loads.F_fuel')
 
         # connect the geometry mesh outputs
 
@@ -330,7 +398,7 @@ class Top(om.Group):
             self.connect('outputs.wing_area.area','outputs.trim'+str(i)+'.wing_area')
             self.connect('mp_group.s'+str(i)+'.aero.CL','outputs.trim'+str(i)+'.CL')
             self.connect('mp_group.s'+str(i)+'.struct.mass','outputs.trim'+str(i)+'.structural_mass')
-            self.connect('mp_group.s'+str(i)+'.struct.fuel_mass','outputs.trim'+str(i)+'.fuel_mass')
+            self.connect('mp_group.non_aero_loads.fuel_loads'+str(i)+'.fuel_mass','outputs.trim'+str(i)+'.fuel_mass')
             self.connect('q_inf'+str(i),'outputs.trim'+str(i)+'.q_inf')
 
         # connect the flight metric components
@@ -338,14 +406,14 @@ class Top(om.Group):
         self.connect('mp_group.s'+str(self.misc_parameters['cruise_case_ID'])+'.aero.CL','outputs.flight_metrics.CL')
         self.connect('mp_group.s'+str(self.misc_parameters['cruise_case_ID'])+'.aero.CD','outputs.flight_metrics.CD')
         i = self.trim_parameters['load_case_fuel_burned'].index(1.)  # want to use a full fuel weight for TOGW computation
-        self.connect('mp_group.s'+str(i)+'.struct.fuel_mass','outputs.flight_metrics.fuel_mass')
+        self.connect('mp_group.non_aero_loads.fuel_loads'+str(i)+'.fuel_mass','outputs.flight_metrics.fuel_mass')
         self.connect('mp_group.s'+str(i)+'.struct.mass','outputs.flight_metrics.structural_mass')
         self.connect('vel'+str(self.misc_parameters['cruise_case_ID']),'outputs.flight_metrics.velocity')
 
         # connect the component which computes the available fuel mass
 
         i = self.trim_parameters['load_case_fuel_burned'].index(1.)  # want to use a full fuel weight for this computation
-        self.connect('mp_group.s'+str(i)+'.struct.fuel_mass','outputs.available_fuel_mass.fuel_mass')
+        self.connect('mp_group.non_aero_loads.fuel_loads'+str(i)+'.fuel_mass','outputs.available_fuel_mass.fuel_mass')
         self.connect('fuel_dv','outputs.available_fuel_mass.fuel_DV')
 
         # connect the fuel match components
@@ -372,22 +440,47 @@ model = prob.model
 model.nonlinear_solver = om.NonlinearRunOnce()
 model.linear_solver = om.LinearRunOnce()
 
-prob.setup(mode='rev',force_alloc_complex=True)
+
+
+
+## Use this if you want to check totals: need to use CS versions of TACS and MELD.  Also, can't use_aitken for this to work.  And since you can't use_aitken, q_inf has to be relatively low
+
+#prob.setup(mode='rev',force_alloc_complex=True)
+#om.n2(prob, show_browser=False, outfile='CRM_mphys_as_vlm.html')
+
+#model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-11, atol=1E-11)
+#model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-11, atol=1e-11)
+
+#model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-11, atol=1E-11)
+#model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-11, atol=1e-11)
+
+#prob.run_model()
+
+##prob.check_totals(of=['mp_group.s0.aero.forces.CD'], wrt=['alpha0'], method='cs')
+##print(prob['mp_group.s0.aero.forces.CD'])
+##print(prob['alpha0'])
+##prob.check_totals(of=['CD'], wrt=['alpha0'], method='cs')
+
+#prob.check_totals(of=['mp_group.s1.struct.funcs.f_struct'], wrt=['alpha1'], method='cs')
+
+## Use this if you don't want to check totals
+
+prob.setup(mode='rev')
 om.n2(prob, show_browser=False, outfile='CRM_mphys_as_vlm.html')
 
-#model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-9, atol=1E-10)
-#model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True, aitken_max_factor=1.0, aitken_min_factor=0.3,rtol = 1E-7, atol=1E-10)
 model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True ,rtol = 1E-7, atol=1E-10)
-model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-9, atol=1e-10)
+model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-10)
 
-#model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True ,aitken_max_factor=0.8, rtol = 1E-7, atol=1E-10)
 model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True , rtol = 1E-7, atol=1E-10)
-model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-9, atol=1e-10)
+model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-10)
 
 prob.run_model()
 
-# use_aitken is on now!  CS won't work with it on.
-# and, you relaxed the tolerance
+
+
+
+# move that q back!!!!!  and aoa
+
 
 
 #prob.check_totals(of=['mp_group.s0.aero.forces.CD', 'mp_group.s0.struct.mass.mass', 'mp_group.s0.struct.funcs.f_struct'], wrt=['alpha', 'span_delta'], method='cs')

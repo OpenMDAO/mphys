@@ -10,9 +10,8 @@ class InertialLoads(om.ExplicitComponent):
         self.options.declare('prop_ID', types=np.ndarray)
         self.options.declare('n_dvs', types=int)
         self.options.declare('rho', types=float)
-        
-        self.gravity = -9.81
-  
+        self.options.declare('gravity', types=float) 
+       
     def setup(self):
 
         self.add_input('x_s0',np.zeros(self.options['N_nodes']*3))
@@ -23,7 +22,7 @@ class InertialLoads(om.ExplicitComponent):
 
     def compute(self,inputs,outputs):
          
-        gravity = self.gravity*inputs['load_factor']
+        gravity = -self.options['gravity']*inputs['load_factor']
         rho = self.options['rho']
         quad = self.options['elements']
                 
@@ -64,7 +63,7 @@ class InertialLoads(om.ExplicitComponent):
          
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):   
 
-        gravity = self.gravity*inputs['load_factor']
+        gravity = -self.options['gravity']*inputs['load_factor']
         rho = self.options['rho']
         quad = self.options['elements']
         

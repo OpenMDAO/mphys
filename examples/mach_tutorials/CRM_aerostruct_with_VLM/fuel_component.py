@@ -181,7 +181,7 @@ def _component_elements(patch,prop_ID):
             
     return el                
         
-## explicit om component which computes fuel mass and fuelforces
+## explicit om component which computes fuel mass and fuel forces
 
 class FuelLoads(om.ExplicitComponent):
     
@@ -191,11 +191,10 @@ class FuelLoads(om.ExplicitComponent):
         self.options.declare('elements', types=np.ndarray)
         self.options.declare('prop_ID', types=np.ndarray)
         self.options.declare('patches')
-       
-        self.gravity = -9.81
-        self.reserve_fuel = 7500.
-        self.fuel_density = 810.
- 
+        self.options.declare('gravity', types=float)
+        self.options.declare('reserve_fuel', types=float)
+        self.options.declare('fuel_density', types=float)
+
     def setup(self):
 
         self.add_input('x_s0',np.zeros(self.options['N_nodes']*3))
@@ -208,7 +207,7 @@ class FuelLoads(om.ExplicitComponent):
 
     def compute(self,inputs,outputs):
             
-        gravity = self.gravity*inputs['load_factor']
+        gravity = -self.options['gravity']*inputs['load_factor']
         quad = self.options['elements']
         
         X = inputs['x_s0'][0::3]
@@ -217,14 +216,14 @@ class FuelLoads(om.ExplicitComponent):
         
         ## compute available fuel mass
         
-        self.fuel = FuelMass(inputs['x_s0'],quad,self.options['prop_ID'],self.options['patches'],self.fuel_density)
+        self.fuel = FuelMass(inputs['x_s0'],quad,self.options['prop_ID'],self.options['patches'],self.options['fuel_density'])
         self.fuel.set_CS(self.under_complex_step)
         self.fuel.compute()
                                        
         ## find fuel_fraction: percentage of fuel_mass seen by this load case
 
-        self.fuel_fraction = (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.reserve_fuel) + \
-                         self.reserve_fuel)/np.sum(self.fuel.mass)
+        self.fuel_fraction = (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.options['reserve_fuel']) + \
+                         self.options['reserve_fuel'])/np.sum(self.fuel.mass)
 
         ## final fuel mass output
         
@@ -309,7 +308,7 @@ class FuelLoads(om.ExplicitComponent):
          
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode): 
 
-        gravity = self.gravity*inputs['load_factor']
+        gravity = -self.options['gravity']*inputs['load_factor']
 
         X = inputs['x_s0'][0::3]
         Y = inputs['x_s0'][1::3]
@@ -323,16 +322,16 @@ class FuelLoads(om.ExplicitComponent):
             ## derivative of fuel_fraction: percentage of fuel_mass seen by this load case
         
             fuel_fraction_X = inputs['load_case_fuel_burned']*inputs['fuel_DV']*np.sum(self.fuel.mass_Xderiv,axis=0)/np.sum(self.fuel.mass) - \
-                             (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.reserve_fuel) + \
-                              self.reserve_fuel)*np.sum(self.fuel.mass_Xderiv,axis=0)/np.sum(self.fuel.mass)/np.sum(self.fuel.mass)
+                             (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.options['reserve_fuel']) + \
+                              self.options['reserve_fuel'])*np.sum(self.fuel.mass_Xderiv,axis=0)/np.sum(self.fuel.mass)/np.sum(self.fuel.mass)
 
             fuel_fraction_Y = inputs['load_case_fuel_burned']*inputs['fuel_DV']*np.sum(self.fuel.mass_Yderiv,axis=0)/np.sum(self.fuel.mass) - \
-                             (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.reserve_fuel) + \
-                              self.reserve_fuel)*np.sum(self.fuel.mass_Yderiv,axis=0)/np.sum(self.fuel.mass)/np.sum(self.fuel.mass)
+                             (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.options['reserve_fuel']) + \
+                              self.options['reserve_fuel'])*np.sum(self.fuel.mass_Yderiv,axis=0)/np.sum(self.fuel.mass)/np.sum(self.fuel.mass)
 
             fuel_fraction_Z = inputs['load_case_fuel_burned']*inputs['fuel_DV']*np.sum(self.fuel.mass_Zderiv,axis=0)/np.sum(self.fuel.mass) - \
-                             (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.reserve_fuel) + \
-                              self.reserve_fuel)*np.sum(self.fuel.mass_Zderiv,axis=0)/np.sum(self.fuel.mass)/np.sum(self.fuel.mass)
+                             (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.options['reserve_fuel']) + \
+                              self.options['reserve_fuel'])*np.sum(self.fuel.mass_Zderiv,axis=0)/np.sum(self.fuel.mass)/np.sum(self.fuel.mass)
 
             fuel_fraction_fuel_DV = inputs['load_case_fuel_burned']
         

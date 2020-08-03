@@ -4,10 +4,7 @@ import numpy as np
 import openmdao.api as om
 from tacs import TACS,functions
 
-from inertial_load_component import InertialLoads
-from fuel_component import FuelMass, FuelLoads
 from sum_loads import SumLoads
-from structural_patches_component import PatchList
 
 class TacsMesh(om.ExplicitComponent):
     """
@@ -698,45 +695,12 @@ class TACS_group(om.Group):
                 tacs=self.struct_solver
             ), promotes_inputs=['x_s0'], promotes_outputs=['f_s'])
 
-        # inertial loads hack
+        # sum aero, inertial, and fual loads: result is F_summed, which tacs accepts as an input
 
-        quad = np.zeros([self.struct_solver.getNumElements(),4],'int')
-        prop_ID = np.zeros(self.struct_solver.getNumElements(),'int')
-        for ielem, elem in enumerate(self.struct_solver.getElements()):
-            quad[ielem,:] = self.struct_solver.getElementNodes(ielem)
-            prop_ID[ielem] = elem.getComponentNum()
-       
-        patches = PatchList('CRM_box_2nd.bdf')
-        patches.read_families()
-        patches.create_DVs()
-
-        self.add_subsystem('inertial_loads',InertialLoads(
-            N_nodes=self.struct_solver.getNumNodes(), 
-            elements=quad, 
-            prop_ID=prop_ID, 
-            n_dvs=len(patches.families),
-            rho=2780.),    # this definitely should not be hard-coded.  Nor should the bdf file above.
-            promotes_inputs=['x_s0', 'dv_struct'],
-            promotes_outputs=['F_inertial']
-        )
-
-        ## fuel loads hack
-
-        self.add_subsystem('fuel_loads',FuelLoads(
-            N_nodes=self.struct_solver.getNumNodes(), 
-            elements=quad, 
-            prop_ID=prop_ID, 
-            patches=patches),
-            promotes_inputs=['x_s0'],
-            promotes_outputs=['F_fuel','fuel_mass']
-        )
-
-        ## sum inertial loads, fuel loads, and aero loads
-        
         self.add_subsystem('sum_loads',SumLoads(
             load_size=self.struct_solver.getNumNodes()*6, 
             load_list=['F_inertial','F_fuel','f_s']),
-            promotes_inputs=['F_inertial', 'F_fuel', 'f_s'],
+            promotes_inputs=['f_s'],
             promotes_outputs=['F_summed']
         )
         

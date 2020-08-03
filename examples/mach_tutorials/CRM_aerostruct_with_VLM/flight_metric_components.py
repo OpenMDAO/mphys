@@ -8,9 +8,8 @@ class FlightMetrics(om.ExplicitComponent):
         self.options.declare('non_designable_weight', types=float)
         self.options.declare('range', types=float)
         self.options.declare('TSFC', types=float)
-        self.options.declare('beta', types=float)
-        
-        self.gravity = 9.81
+        self.options.declare('beta', types=float)        
+        self.options.declare('gravity', types=float)
 
     def setup(self):
 
@@ -26,7 +25,7 @@ class FlightMetrics(om.ExplicitComponent):
         
     def compute(self,inputs,outputs):
         
-        self.TOGW = .5*self.options['non_designable_weight'] + self.gravity*(inputs['structural_mass'] + inputs['fuel_mass'])
+        self.TOGW = .5*self.options['non_designable_weight'] + self.options['gravity']*(inputs['structural_mass'] + inputs['fuel_mass'])
     
         self.L_D = inputs['CL']/inputs['CD']
         
@@ -34,7 +33,7 @@ class FlightMetrics(om.ExplicitComponent):
         
         outputs['LGW'] = self.TOGW - outputs['FB']
     
-        outputs['final_objective'] = (outputs['FB']*self.options['beta'] + outputs['LGW']*(1-self.options['beta']))*2/self.gravity/1E5
+        outputs['final_objective'] = (outputs['FB']*self.options['beta'] + outputs['LGW']*(1-self.options['beta']))*2/self.options['gravity']/1E5
                
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
 
@@ -52,23 +51,23 @@ class FlightMetrics(om.ExplicitComponent):
                 if 'CD' in d_inputs:
                     d_inputs['CD'] += d_outputs['FB']*FB_CD
                 if 'structural_mass' in d_inputs:
-                    d_inputs['structural_mass'] += d_outputs['FB']*FB_TOGW*self.gravity
+                    d_inputs['structural_mass'] += d_outputs['FB']*FB_TOGW*self.options['gravity']
                 if 'fuel_mass' in d_inputs:
-                    d_inputs['fuel_mass'] += d_outputs['FB']*FB_TOGW*self.gravity
+                    d_inputs['fuel_mass'] += d_outputs['FB']*FB_TOGW*self.options['gravity']
             if 'LGW' in d_outputs:         
                 if 'CL' in d_inputs:
                     d_inputs['CL'] += d_outputs['LGW']*-FB_CL
                 if 'CD' in d_inputs:
                     d_inputs['CD'] += d_outputs['LGW']*-FB_CD
                 if 'structural_mass' in d_inputs:
-                    d_inputs['structural_mass'] += d_outputs['LGW']*(1-FB_TOGW)*self.gravity 
+                    d_inputs['structural_mass'] += d_outputs['LGW']*(1-FB_TOGW)*self.options['gravity'] 
                 if 'fuel_mass' in d_inputs:
-                    d_inputs['fuel_mass'] += d_outputs['LGW']*(1-FB_TOGW)*self.gravity   
+                    d_inputs['fuel_mass'] += d_outputs['LGW']*(1-FB_TOGW)*self.options['gravity']   
             if 'final_objective' in d_outputs:         
                 if 'CL' in d_inputs:
-                    d_inputs['CL'] += d_outputs['final_objective']*(FB_CL*self.options['beta'] + -FB_CL*(1-self.options['beta']))*2/self.gravity/1E5
+                    d_inputs['CL'] += d_outputs['final_objective']*(FB_CL*self.options['beta'] + -FB_CL*(1-self.options['beta']))*2/self.options['gravity']/1E5
                 if 'CD' in d_inputs:
-                    d_inputs['CD'] += d_outputs['final_objective']*(FB_CD*self.options['beta'] + -FB_CD*(1-self.options['beta']))*2/self.gravity/1E5
+                    d_inputs['CD'] += d_outputs['final_objective']*(FB_CD*self.options['beta'] + -FB_CD*(1-self.options['beta']))*2/self.options['gravity']/1E5
                 if 'structural_mass' in d_inputs:
                     d_inputs['structural_mass'] += d_outputs['final_objective']*(FB_TOGW*self.options['beta'] + (1-FB_TOGW)*(1-self.options['beta']))*2/1E5
                 if 'fuel_mass' in d_inputs:
