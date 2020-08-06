@@ -407,8 +407,8 @@ class FuelLoads(om.ExplicitComponent):
                     if 'fuel_DV' in d_inputs:
                         
                         d_inputs['fuel_DV'] += f_fuel_DV[0::6].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+0]
-                        d_inputs['fuel_DV'] += f_fuel_DV[1::6].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+0]
-                        d_inputs['fuel_DV'] += f_fuel_DV[2::6].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+0]
+                        d_inputs['fuel_DV'] += f_fuel_DV[1::6].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+1]
+                        d_inputs['fuel_DV'] += f_fuel_DV[2::6].transpose()@d_outputs['F_fuel'][self.connect[:,i]*6+2]
                         
                 
     def _RBE3(self,x,y,z,x_in,y_in,z_in):
