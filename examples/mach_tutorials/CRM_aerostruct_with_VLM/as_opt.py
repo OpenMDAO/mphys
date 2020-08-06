@@ -36,20 +36,20 @@ class Top(om.Group):
         }
 
         self.aero_parameters = {
-            'mach': [0.85, .64],                            # mach number of each load case
-            'q_inf': [12930., 28800.],#[9000., 12000.],#[12930., 28800.],                      # dynamic pressure of each load case, Pa
-            'vel': [254., 217.6],                           # velocity of each load case, m/s
-            'mu': [3.5E-5, 1.4E-5],                         # viscocity of each load case, 
-            'alpha': np.array([1., 4.])*np.pi/180.,#np.array([0.5, 1.0])*np.pi/180.,#np.array([1., 4.])*np.pi/180.,         # AoA of each load case: this is a DV, so these values set the starting points
+            'mach': [0.64, .64], #[0.85, .64],                            # mach number of each load case
+            'q_inf': [9000., 12000.],#[12930., 28800.],                      # dynamic pressure of each load case, Pa
+            'vel': [254., 254.],#[254., 217.6],                           # velocity of each load case, m/s
+            'mu': [3E-5, 3E-5],#[3.5E-5, 1.4E-5],                         # viscocity of each load case, 
+            'alpha': np.array([1.0, 1.0])*np.pi/180.,#'alpha': np.array([0.5, 1.0])*np.pi/180.,#np.array([1., 4.])*np.pi/180.,         # AoA of each load case: this is a DV, so these values set the starting points
         }
 
         self.trim_parameters = {
-            'load_factor': [1.0, 2.5],                      # load factor for each load case, L/W
-            'load_case_fuel_burned': [.5, 1.0],             # fraction of FB expended at each load case
+            'load_factor': [0.0, 0.0],#[2.5, 2.5], #[1.0, 2.5],                      # load factor for each load case, L/W
+            'load_case_fuel_burned': [1.0, 1.0],#[.5, 1.0],             # fraction of FB expended at each load case
         }
 
         self.misc_parameters = {
-            'structural_patch_lumping': False,              # reduces all the component thickness DVs into a single one: useful for checking totals
+            'structural_patch_lumping': True,#False,              # reduces all the component thickness DVs into a single one: useful for checking totals
             'initial_thickness': 0.01,                      # starting thickness for each thickness DV, m
             'elastic_modulus': 73.1e9,                      # elastic modulus, Pa
             'poisson': 0.33,                                # poisson's ratio
@@ -154,7 +154,7 @@ class Top(om.Group):
                     'mesh_file'   : self.misc_parameters['BDF_file'],
                     'f5_writer'   : f5_writer }
 
-        struct_builder = TACS_builder(tacs_setup)
+        struct_builder = TACS_builder(tacs_setup, check_partials=True)
         
         meld_options = {'isym': 1,
                         'n': 200,
@@ -162,7 +162,7 @@ class Top(om.Group):
 
         # MELD builder
 
-        meld_builder = MELD_builder(meld_options, vlm_builder, struct_builder)
+        meld_builder = MELD_builder(meld_options, vlm_builder, struct_builder, check_partials=True)
 
         ################################################################################
         # MPHYS setup
@@ -443,44 +443,101 @@ model.linear_solver = om.LinearRunOnce()
 
 
 
-## Use this if you want to check totals: need to use CS versions of TACS and MELD.  Also, can't use_aitken for this to work.  And since you can't use_aitken, q_inf has to be relatively low
+## Use this if you want to check totals: need to use CS versions of TACS and MELD.  
+## Also, can't use_aitken for this to work.  And since you can't use_aitken, q_inf/AoA has to be relatively low
+## Also, turn patch_lumping on.
 
-#prob.setup(mode='rev',force_alloc_complex=True)
-#om.n2(prob, show_browser=False, outfile='CRM_mphys_as_vlm.html')
+prob.setup(mode='rev',force_alloc_complex=True)
+om.n2(prob, show_browser=False, outfile='CRM_mphys_as_vlm.html')
 
-#model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-11, atol=1E-11)
-#model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-11, atol=1e-11)
+model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-11, atol=1E-11)
+model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-11, atol=1e-11)
 
-#model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-11, atol=1E-11)
-#model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-11, atol=1e-11)
+model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-11, atol=1E-11)
+model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-11, atol=1e-11)
 
-#prob.run_model()
+prob.run_model()
 
-##prob.check_totals(of=['mp_group.s0.aero.forces.CD'], wrt=['alpha0'], method='cs')
-##print(prob['mp_group.s0.aero.forces.CD'])
-##print(prob['alpha0'])
-##prob.check_totals(of=['CD'], wrt=['alpha0'], method='cs')
+#prob.check_totals(
+#        of=[
+#        'mp_group.s1.struct.funcs.f_struct',
+#        'outputs.wing_area.area',
+#        'outputs.trim0.load_factor',
+#        'outputs.trim1.load_factor',
+#        'outputs.flight_metrics.FB',
+#        'outputs.flight_metrics.LGW',
+#        'outputs.flight_metrics.final_objective',
+#        'outputs.available_fuel_mass.available_fuel_mass',
+#        'outputs.fuel_match.fuel_mismatch',
+#        'outputs.spar_depth.spar_depth',
+#        ],
+#        wrt=[
+#        'alpha0',
+#        'alpha1',
+#        'upper_skin_thickness_lumped',
+#        'lower_skin_thickness_lumped',
+#        'le_spar_thickness_lumped', 
+#        'te_spar_thickness_lumped', 
+#        'rib_thickness_lumped', 
+#        'root_chord_delta', 
+#        'tip_chord_delta', 
+#        'tip_sweep_delta', 
+#        'span_delta', 
+#        'wing_thickness_delta', 
+#        'wing_twist_delta',
+#        'fuel_dv'
+#        ], method='cs')
 
-#prob.check_totals(of=['mp_group.s1.struct.funcs.f_struct'], wrt=['alpha1'], method='cs')
+#prob.check_totals(
+#         of=[
+#        'mp_group.s0.struct.funcs.f_struct',
+#        'mp_group.s1.struct.funcs.f_struct',
+#        ],
+#        wrt=[
+#        'upper_skin_thickness_lumped',
+#        ], method='cs')
+
+
+prob.check_partials(
+    includes=[
+    'mp_group.s0.struct.solver',
+    'mp_group.s1.struct.solver'
+    ], compact_print=True, method='cs')
+
+prob.check_partials(
+    includes=[
+    'mp_group.s0.disp_xfer',
+    'mp_group.s1.disp_xfer',
+    ], compact_print=True, method='cs')
+
+prob.check_partials(
+    includes=[
+    'mp_group.s0.load_xfer',
+    'mp_group.s1.load_xfer',
+    ], compact_print=True, method='cs')
+
+# once this finally works, remove those directional statements from tacs and meld
+
+
 
 ## Use this if you don't want to check totals
 
-prob.setup(mode='rev')
-om.n2(prob, show_browser=False, outfile='CRM_mphys_as_vlm.html')
+#prob.setup(mode='rev')
+#om.n2(prob, show_browser=False, outfile='CRM_mphys_as_vlm.html')
 
-model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True ,rtol = 1E-7, atol=1E-10)
-model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-10)
+#model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True ,rtol = 1E-7, atol=1E-10)
+#model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-10)
 
-model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True , rtol = 1E-7, atol=1E-10)
-model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-10)
+#model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True , rtol = 1E-7, atol=1E-10)
+#model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-10)
 
-prob.run_model()
+#prob.run_model()
 
 
 
 
 # move that q back!!!!!  and aoa
-
+# turn lumping back off!
 
 
 #prob.check_totals(of=['mp_group.s0.aero.forces.CD', 'mp_group.s0.struct.mass.mass', 'mp_group.s0.struct.funcs.f_struct'], wrt=['alpha', 'span_delta'], method='cs')

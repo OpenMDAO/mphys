@@ -30,6 +30,7 @@ class MELD_disp_xfer(om.ExplicitComponent):
         self.struct_nnodes = self.options['struct_nnodes']
         self.aero_nnodes   = self.options['aero_nnodes']
         self.check_partials= self.options['check_partials']
+        self.set_check_partial_options(wrt='*',method='cs',directional=True)
 
         struct_ndof = self.struct_ndof
         struct_nnodes = self.struct_nnodes
@@ -160,6 +161,7 @@ class MELD_load_xfer(om.ExplicitComponent):
         self.struct_nnodes = self.options['struct_nnodes']
         self.aero_nnodes   = self.options['aero_nnodes']
         self.check_partials= self.options['check_partials']
+        self.set_check_partial_options(wrt='*',method='cs',directional=True)
 
         struct_ndof = self.struct_ndof
         struct_nnodes = self.struct_nnodes
