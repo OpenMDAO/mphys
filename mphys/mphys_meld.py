@@ -2,7 +2,7 @@ import numpy as np
 import openmdao.api as om
 from funtofem import TransferScheme
 
-class MELD_disp_xfer(om.ExplicitComponent):
+class MeldDispXfer(om.ExplicitComponent):
     """
     Component to perform displacement transfer using MELD
     """
@@ -30,7 +30,8 @@ class MELD_disp_xfer(om.ExplicitComponent):
         self.struct_nnodes = self.options['struct_nnodes']
         self.aero_nnodes   = self.options['aero_nnodes']
         self.check_partials= self.options['check_partials']
-        self.set_check_partial_options(wrt='*',method='cs',directional=True)
+
+        #self.set_check_partial_options(wrt='*',method='cs',directional=True)
 
         struct_ndof = self.struct_ndof
         struct_nnodes = self.struct_nnodes
@@ -51,12 +52,20 @@ class MELD_disp_xfer(om.ExplicitComponent):
         su2 = np.sum(su_list[:irank+1])
 
         # inputs
-        self.add_input('x_s0', shape = struct_nnodes*3,           src_indices = np.arange(sx1, sx2, dtype=int), desc='initial structural node coordinates')
-        self.add_input('x_a0', shape = aero_nnodes*3,             src_indices = np.arange(ax1, ax2, dtype=int), desc='initial aerodynamic surface node coordinates')
-        self.add_input('u_s',  shape = struct_nnodes*struct_ndof, src_indices = np.arange(su1, su2, dtype=int), desc='structural node displacements')
+        self.add_input('x_s0', shape = struct_nnodes*3,
+                               src_indices = np.arange(sx1, sx2, dtype=int),
+                               desc='initial structural node coordinates')
+        self.add_input('x_a0', shape = aero_nnodes*3,
+                               src_indices = np.arange(ax1, ax2, dtype=int),
+                               desc='initial aero surface node coordinates')
+        self.add_input('u_s',  shape = struct_nnodes*struct_ndof,
+                               src_indices = np.arange(su1, su2, dtype=int),
+                               desc='structural node displacements')
 
         # outputs
-        self.add_output('u_a', shape = aero_nnodes*3, val=np.zeros(aero_nnodes*3), desc='aerodynamic surface displacements')
+        self.add_output('u_a', shape = aero_nnodes*3,
+                               val=np.zeros(aero_nnodes*3),
+                               desc='aerodynamic surface displacements')
 
         # partials
         #self.declare_partials('u_a',['x_s0','x_a0','u_s'])
@@ -89,6 +98,17 @@ class MELD_disp_xfer(om.ExplicitComponent):
             D = u_a - g(u_s,x_a0,x_s0)
         So explicit partials below for u_a are negative partials of D
         """
+        if self.check_partials:
+            x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
+            x_a0 = np.array(inputs['x_a0'],dtype=TransferScheme.dtype)
+            self.meld.setStructNodes(x_s0)
+            self.meld.setAeroNodes(x_a0)
+        u_s  = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+        for i in range(3):
+            u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
+        u_a = np.zeros(self.aero_nnodes*3,dtype=TransferScheme.dtype)
+        self.meld.transferDisps(u_s,u_a)
+
         if mode == 'fwd':
             if 'u_a' in d_outputs:
                 if 'u_s' in d_inputs:
@@ -103,13 +123,13 @@ class MELD_disp_xfer(om.ExplicitComponent):
                     if self.check_partials:
                         pass
                     else:
-                        raise ValueError('forward mode requested but not implemented')
+                        raise ValueError('MELD forward mode requested but not implemented')
 
                 if 'x_s0' in d_inputs:
                     if self.check_partials:
                         pass
                     else:
-                        raise ValueError('forward mode requested but not implemented')
+                        raise ValueError('MELD forward mode requested but not implemented')
 
         if mode == 'rev':
             if 'u_a' in d_outputs:
@@ -132,7 +152,7 @@ class MELD_disp_xfer(om.ExplicitComponent):
                     self.meld.applydDdxS0(du_a,prod)
                     d_inputs['x_s0'] -= np.array(prod,dtype=float)
 
-class MELD_load_xfer(om.ExplicitComponent):
+class MeldLoadXfer(om.ExplicitComponent):
     """
     Component to perform load transfers using MELD
     """
@@ -161,7 +181,8 @@ class MELD_load_xfer(om.ExplicitComponent):
         self.struct_nnodes = self.options['struct_nnodes']
         self.aero_nnodes   = self.options['aero_nnodes']
         self.check_partials= self.options['check_partials']
-        self.set_check_partial_options(wrt='*',method='cs',directional=True)
+
+        #self.set_check_partial_options(wrt='*',method='cs',directional=True)
 
         struct_ndof = self.struct_ndof
         struct_nnodes = self.struct_nnodes
@@ -182,36 +203,40 @@ class MELD_load_xfer(om.ExplicitComponent):
         su2 = np.sum(su_list[:irank+1])
 
         # inputs
-        self.add_input('x_s0', shape = struct_nnodes*3,           src_indices = np.arange(sx1, sx2, dtype=int), desc='initial structural node coordinates')
-        self.add_input('x_a0', shape = aero_nnodes*3,             src_indices = np.arange(ax1, ax2, dtype=int), desc='initial aerodynamic surface node coordinates')
-        self.add_input('u_s',  shape = struct_nnodes*struct_ndof, src_indices = np.arange(su1, su2, dtype=int), desc='structural node displacements')
-        self.add_input('f_a',  shape = aero_nnodes*3,             src_indices = np.arange(ax1, ax2, dtype=int), desc='aerodynamic force vector')
+        self.add_input('x_s0', shape = struct_nnodes*3,
+                               src_indices = np.arange(sx1, sx2, dtype=int),
+                               desc='initial structural node coordinates')
+        self.add_input('x_a0', shape = aero_nnodes*3,
+                               src_indices = np.arange(ax1, ax2, dtype=int),
+                               desc='initial aero surface node coordinates')
+        self.add_input('u_s',  shape = struct_nnodes*struct_ndof,
+                               src_indices = np.arange(su1, su2, dtype=int),
+                               desc='structural node displacements')
+        self.add_input('f_a',  shape = aero_nnodes*3,
+                               src_indices = np.arange(ax1, ax2, dtype=int),
+                               desc='aerodynamic force vector')
 
         # outputs
-        self.add_output('f_s', shape = struct_nnodes*struct_ndof, desc='structural force vector')
+        self.add_output('f_s', shape = struct_nnodes*struct_ndof,
+                               desc='structural force vector')
 
         # partials
         #self.declare_partials('f_s',['x_s0','x_a0','u_s','f_a'])
 
     def compute(self, inputs, outputs):
-        u_s  = np.zeros(self.struct_nnodes*3)
-        for i in range(3):
-            u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
-
-        f_a =  np.array(inputs['f_a'],dtype=TransferScheme.dtype)
-        f_s = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
-
         if self.check_partials:
             x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
             x_a0 = np.array(inputs['x_a0'],dtype=TransferScheme.dtype)
             self.meld.setStructNodes(x_s0)
             self.meld.setAeroNodes(x_a0)
-            #TODO meld needs a set state rather requiring transferDisps to update the internal state
-            u_s  = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
-            for i in range(3):
-                u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
-            u_a = np.zeros(inputs['f_a'].size,dtype=TransferScheme.dtype)
-            self.meld.transferDisps(u_s,u_a)
+        f_a =  np.array(inputs['f_a'],dtype=TransferScheme.dtype)
+        f_s = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+
+        u_s  = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+        for i in range(3):
+            u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
+        u_a = np.zeros(inputs['f_a'].size,dtype=TransferScheme.dtype)
+        self.meld.transferDisps(u_s,u_a)
 
         self.meld.transferLoads(f_a,f_s)
 
@@ -227,7 +252,20 @@ class MELD_load_xfer(om.ExplicitComponent):
             L = f_s - g(f_a,u_s,x_a0,x_s0)
         So explicit partials below for f_s are negative partials of L
         """
+        if self.check_partials:
+            x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
+            x_a0 = np.array(inputs['x_a0'],dtype=TransferScheme.dtype)
+            self.meld.setStructNodes(x_s0)
+            self.meld.setAeroNodes(x_a0)
+        f_a =  np.array(inputs['f_a'],dtype=TransferScheme.dtype)
+        f_s = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
 
+        u_s  = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+        for i in range(3):
+            u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
+        u_a = np.zeros(inputs['f_a'].size,dtype=TransferScheme.dtype)
+        self.meld.transferDisps(u_s,u_a)
+        self.meld.transferLoads(f_a,f_s)
 
         if mode == 'fwd':
             if 'f_s' in d_outputs:
@@ -292,7 +330,7 @@ class MELD_load_xfer(om.ExplicitComponent):
                     self.meld.applydLdxS0(d_out,prod)
                     d_inputs['x_s0'] -= np.array(prod,dtype=float)
 
-class MELD_builder(object):
+class MeldBuilder(object):
 
     def __init__(self, options, aero_builder, struct_builder,check_partials=False):
         self.options=options
@@ -324,7 +362,7 @@ class MELD_builder(object):
     # api level method for all builders
     def get_element(self):
 
-        disp_xfer = MELD_disp_xfer(
+        disp_xfer = MeldDispXfer(
             xfer_object=self.xfer_object,
             struct_ndof=self.struct_ndof,
             struct_nnodes=self.struct_nnodes,
@@ -332,7 +370,7 @@ class MELD_builder(object):
             check_partials=self.check_partials
         )
 
-        load_xfer = MELD_load_xfer(
+        load_xfer = MeldLoadXfer(
             xfer_object=self.xfer_object,
             struct_ndof=self.struct_ndof,
             struct_nnodes=self.struct_nnodes,

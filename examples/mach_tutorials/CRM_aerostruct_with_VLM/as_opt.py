@@ -11,10 +11,10 @@ from mphys.mphys_multipoint import MPHYS_Multipoint
 from mphys.mphys_vlm import VLM_builder
 from mphys.mphys_tacs import TACS_builder
 from mphys.mphys_modal_solver import ModalBuilder
-from mphys.mphys_meld import MELD_builder
+from mphys.mphys_meld import MeldBuilder
 
 from structural_patches_component import PatchList, DesignPatches, PatchSmoothness, LumpPatches
-from wing_geometry_component import WingGeometry
+from wing_geometry_component import WingGeometry, airfoil_thickness_bounds
 from inertial_load_component import InertialLoads
 from fuel_component import FuelMass, FuelLoads
 from wing_area_component import WingArea, WingAreaComponent
@@ -36,37 +36,51 @@ class Top(om.Group):
         }
 
         self.aero_parameters = {
-            'mach': [0.64, .64], #[0.85, .64],                            # mach number of each load case
-            'q_inf': [9000., 12000.],#[12930., 28800.],                      # dynamic pressure of each load case, Pa
-            'vel': [254., 254.],#[254., 217.6],                           # velocity of each load case, m/s
-            'mu': [3E-5, 3E-5],#[3.5E-5, 1.4E-5],                         # viscocity of each load case, 
-            'alpha': np.array([1.0, 1.0])*np.pi/180.,#'alpha': np.array([0.5, 1.0])*np.pi/180.,#np.array([1., 4.])*np.pi/180.,         # AoA of each load case: this is a DV, so these values set the starting points
+            'mach': [0.85, .64],                                   # mach number of each load case
+            'q_inf': [12930., 28800.],                             # dynamic pressure of each load case, Pa
+            'vel': [254., 217.6],                                  # velocity of each load case, m/s
+            'mu': [3.5E-5, 1.4E-5],                                # viscocity of each load case, 
+            'alpha': np.array([1., 4.])*np.pi/180.,                # AoA of each load case: this is a DV, so these values set the starting points
         }
 
         self.trim_parameters = {
-            'load_factor': [0.0, 0.0],#[2.5, 2.5], #[1.0, 2.5],                      # load factor for each load case, L/W
-            'load_case_fuel_burned': [1.0, 1.0],#[.5, 1.0],             # fraction of FB expended at each load case
+            'load_factor': [1.0, 2.5],                             # load factor for each load case, L/W
+            'load_case_fuel_burned': [.5, 1.0],                    # fraction of FB expended at each load case
         }
 
         self.misc_parameters = {
-            'structural_patch_lumping': True,#False,              # reduces all the component thickness DVs into a single one: useful for checking totals
-            'initial_thickness': 0.01,                      # starting thickness for each thickness DV, m
-            'elastic_modulus': 73.1e9,                      # elastic modulus, Pa
-            'poisson': 0.33,                                # poisson's ratio
-            'k_corr': 5.0/6.0,                              # shear correction factor
-            'ys': 324.0e6,                                  # yield stress, Pa
-            'structural_density': 2780.0,                   # structural density, kg/m^3
-            'gravity': 9.81,                                # gravitational constant, m/s^2
-            'non_designable_weight': 14E5,                  # weight of everything but structure and fuel, N
-            'cruise_range': 7725.*1852,                     # cruise range used to compute FB, m
-            'reserve_fuel': 7500.,                          # reserve fuel not burned during cruise, kg
-            'fuel_density':  810.,                          # fuel density, kg/m^3
-            'TSFC': .53/3600,                               # TSFC used to compute FB
-            'N_mp': 2,                                      # number of load cases
-            'cruise_case_ID': 0,                            # load case ID which will be used to compute L/D
-            'beta': .5,                                     # weighting between FB and LGW, to compute final objective function: beta = 1 is pure FB minimization
-            'BDF_file': 'CRM_box_2nd.bdf',                  # BDF file used to define FEM 
-            'VLM_mesh_file': 'CRM_VLM_mesh_extended.dat'    # file which contains the baseline VLM grid
+            'structural_patch_lumping': False,                     # reduces all the component thickness DVs into a single one: useful for checking totals
+            'initial_thickness': 0.01,                             # starting thickness for each thickness DV, m
+            'elastic_modulus': 73.1e9,                             # elastic modulus, Pa
+            'poisson': 0.33,                                       # poisson's ratio
+            'k_corr': 5.0/6.0,                                     # shear correction factor
+            'ys': 324.0e6,                                         # yield stress, Pa
+            'structural_density': 2780.0,                          # structural density, kg/m^3
+            'gravity': 9.81,                                       # gravitational constant, m/s^2
+            'non_designable_weight': 14E5,                         # weight of everything but structure and fuel, N
+            'cruise_range': 7725.*1852,                            # cruise range used to compute FB, m
+            'reserve_fuel': 7500.,                                 # reserve fuel not burned during cruise, kg
+            'fuel_density':  810.,                                 # fuel density, kg/m^3
+            'TSFC': .53/3600,                                      # TSFC used to compute FB
+            'N_mp': 2,                                             # number of load cases
+            'cruise_case_ID': 0,                                   # load case ID which will be used to compute L/D
+            'beta': 1.,                                            # weighting between FB and LGW, to compute final objective function: beta = 1 is pure FB minimization, 0 is pure LGW
+            'BDF_file': 'CRM_box_2nd.bdf',                         # BDF file used to define FEM 
+            'VLM_mesh_file': 'CRM_VLM_mesh_extended.dat'           # file which contains the baseline VLM grid
+        }
+
+        self.opt_parameters = {
+            'min_thickness': 0.003,                                # minimum thickness for each thickness DV, m
+            'max_thickness': 0.03,                                 # maximum thickness for each thickness DV, m
+            'delta_thickness': 0.001,                              # bound on smoothness constraints, m
+            'root_chord_bounds': [-3.0, 3.0],                      # plus-minus bounds on root-chord delta, m
+            'tip_chord_bounds': [-1.0, 1.0],                       # plus-minus bounds on tip-chord delta, m
+            'tip_sweep_bounds': [-10., 10.],                       # plus-minus bounds on tip-sweep delta, m
+            'span_extend_bounds': [-10., 10.],                     # plus-minus bounds on span-extension delta, m  
+            'allowable_airfoil_thickness_fraction': 0.5,           # fraction of baseline airfoil thickness allowable for plus-minus bounds, at each span station
+            'wing_twist_bounds': np.array([-10., 10.])*np.pi/180., # plus-minus bounds on wing twist at each span station, rad 
+            'f_struct_bound': 2.0/3.0,                             # upper allowable bound on f_struct
+            'spar_depth_bound': 0.19,                              # lower allowable bound on spar depth, m
         }
 
         # FEM patches, read from BDF
@@ -154,7 +168,7 @@ class Top(om.Group):
                     'mesh_file'   : self.misc_parameters['BDF_file'],
                     'f5_writer'   : f5_writer }
 
-        struct_builder = TACS_builder(tacs_setup, check_partials=True)
+        struct_builder = TACS_builder(tacs_setup, check_partials=False)
         
         meld_options = {'isym': 1,
                         'n': 200,
@@ -162,7 +176,7 @@ class Top(om.Group):
 
         # MELD builder
 
-        meld_builder = MELD_builder(meld_options, vlm_builder, struct_builder, check_partials=True)
+        meld_builder = MeldBuilder(meld_options, vlm_builder, struct_builder, check_partials=False)
 
         ################################################################################
         # MPHYS setup
@@ -194,7 +208,7 @@ class Top(om.Group):
 
         self.add_subsystem('struct_smoothness',om.Group())
         for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar'],[self.patches.n_us,self.patches.n_ls,self.patches.n_le,self.patches.n_te]):        
-            self.struct_smoothness.add_subsystem(comp+'_smoothness',PatchSmoothness(N=n))
+            self.struct_smoothness.add_subsystem(comp+'_smoothness',PatchSmoothness(N=n, delta=self.opt_parameters['delta_thickness']))
         
         # geometry mapper
 
@@ -212,6 +226,12 @@ class Top(om.Group):
             y_knot=self.geometry_parameters['y_knot'], 
             LE_knot=self.geometry_parameters['LE_knot'], 
             TE_knot=self.geometry_parameters['TE_knot'])
+        )
+
+        self.min_airfoil_thickness, self.max_airfoil_thickness = airfoil_thickness_bounds(
+            xs=x_s0, 
+            y_knot=self.geometry_parameters['y_knot'], 
+            airfoil_thickness_fraction=self.opt_parameters['allowable_airfoil_thickness_fraction']
         )
 
         # each AS_Multipoint instance can keep multiple points with the same formulation
@@ -261,6 +281,15 @@ class Top(om.Group):
                 fuel_density=self.misc_parameters['fuel_density'])
             )
 
+        self.baseline_available_fuel = FuelMass(
+            nodes=x_s0,
+            quads=quad,
+            prop_ID=prop_ID,
+            patches=self.patches,
+            fuel_density=self.misc_parameters['fuel_density']
+        )
+        self.baseline_available_fuel.compute()
+        
         # create a group to hold the various output parameters that don't belong anywhere else
 
         self.add_subsystem('outputs',om.Group())
@@ -271,6 +300,12 @@ class Top(om.Group):
             N_nodes=aero_options['N_nodes'], 
             quad=aero_options['quad'])
         )
+
+        self.baseline_wing_area = WingArea(
+            nodes=x_a0, 
+            quads=aero_options['quad']
+        )
+        self.baseline_wing_area.compute()
 
         # add trim components
 
@@ -447,17 +482,17 @@ model.linear_solver = om.LinearRunOnce()
 ## Also, can't use_aitken for this to work.  And since you can't use_aitken, q_inf/AoA has to be relatively low
 ## Also, turn patch_lumping on.
 
-prob.setup(mode='rev',force_alloc_complex=True)
-om.n2(prob, show_browser=False, outfile='CRM_mphys_as_vlm.html')
-
-model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-11, atol=1E-11)
-model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-11, atol=1e-11)
-
-model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-11, atol=1E-11)
-model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-11, atol=1e-11)
-
-prob.run_model()
-
+#prob.setup(mode='rev',force_alloc_complex=True)
+#om.n2(prob, show_browser=False, outfile='CRM_mphys_as_vlm.html')
+#
+#model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-11, atol=1E-11)
+#model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-11, atol=1e-11)
+#
+#model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-11, atol=1E-11)
+#model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-11, atol=1e-11)
+#
+#prob.run_model()
+#
 #prob.check_totals(
 #        of=[
 #        'mp_group.s1.struct.funcs.f_struct',
@@ -488,39 +523,9 @@ prob.run_model()
 #        'fuel_dv'
 #        ], method='cs')
 
-#prob.check_totals(
-#         of=[
-#        'mp_group.s0.struct.funcs.f_struct',
-#        'mp_group.s1.struct.funcs.f_struct',
-#        ],
-#        wrt=[
-#        'upper_skin_thickness_lumped',
-#        ], method='cs')
 
 
-prob.check_partials(
-    includes=[
-    'mp_group.s0.struct.solver',
-    'mp_group.s1.struct.solver'
-    ], compact_print=True, method='cs')
-
-prob.check_partials(
-    includes=[
-    'mp_group.s0.disp_xfer',
-    'mp_group.s1.disp_xfer',
-    ], compact_print=True, method='cs')
-
-prob.check_partials(
-    includes=[
-    'mp_group.s0.load_xfer',
-    'mp_group.s1.load_xfer',
-    ], compact_print=True, method='cs')
-
-# once this finally works, remove those directional statements from tacs and meld
-
-
-
-## Use this if you don't want to check totals
+## Use this if you don't want to check totals, but just want to run the model once
 
 #prob.setup(mode='rev')
 #om.n2(prob, show_browser=False, outfile='CRM_mphys_as_vlm.html')
@@ -533,58 +538,90 @@ prob.check_partials(
 
 #prob.run_model()
 
+## add design variables
 
+prob.setup(mode='rev')
 
+prob.model.add_design_var('upper_skin_thickness',  lower=model.opt_parameters['min_thickness'],         upper=model.opt_parameters['max_thickness'],         ref=model.misc_parameters['initial_thickness'])
+prob.model.add_design_var('lower_skin_thickness',  lower=model.opt_parameters['min_thickness'],         upper=model.opt_parameters['max_thickness'],         ref=model.misc_parameters['initial_thickness'])
+prob.model.add_design_var('le_spar_thickness',     lower=model.opt_parameters['min_thickness'],         upper=model.opt_parameters['max_thickness'],         ref=model.misc_parameters['initial_thickness'])
+prob.model.add_design_var('te_spar_thickness',     lower=model.opt_parameters['min_thickness'],         upper=model.opt_parameters['max_thickness'],         ref=model.misc_parameters['initial_thickness'])
+prob.model.add_design_var('rib_thickness',         lower=model.opt_parameters['min_thickness'],         upper=model.opt_parameters['max_thickness'],         ref=model.misc_parameters['initial_thickness'])
+prob.model.add_design_var('root_chord_delta',      lower=model.opt_parameters['root_chord_bounds'][0],  upper=model.opt_parameters['root_chord_bounds'][1],  ref=1.0) 
+prob.model.add_design_var('tip_chord_delta',       lower=model.opt_parameters['tip_chord_bounds'][0],   upper=model.opt_parameters['tip_chord_bounds'][1],   ref=1.0)
+prob.model.add_design_var('tip_sweep_delta',       lower=model.opt_parameters['tip_sweep_bounds'][0],   upper=model.opt_parameters['tip_sweep_bounds'][1],   ref=1.0)
+prob.model.add_design_var('span_delta',            lower=model.opt_parameters['span_extend_bounds'][0], upper=model.opt_parameters['span_extend_bounds'][1], ref=1.0)
+prob.model.add_design_var('wing_thickness_delta',  lower=model.min_airfoil_thickness,                   upper=model.max_airfoil_thickness,                   ref=1.0)
+prob.model.add_design_var('wing_twist_delta',      lower=model.opt_parameters['wing_twist_bounds'][0],  upper=model.opt_parameters['wing_twist_bounds'][1],  ref=1.0*np.pi/180)
+prob.model.add_design_var('fuel_dv',               lower=0.0,                                           upper=1.0,                                           ref=1.0)
 
-# move that q back!!!!!  and aoa
-# turn lumping back off!
+for i in range(0,model.misc_parameters['N_mp']):
+    prob.model.add_design_var('alpha'+str(i),         lower=-10*np.pi/180,                                upper=10*np.pi/180,                                 ref=1.0*np.pi/180)
 
+## add sizing smoothness constraints
 
-#prob.check_totals(of=['mp_group.s0.aero.forces.CD', 'mp_group.s0.struct.mass.mass', 'mp_group.s0.struct.funcs.f_struct'], wrt=['alpha', 'span_delta'], method='cs')
+prob.model.add_constraint('struct_smoothness.upper_skin_smoothness.diff', ref=model.opt_parameters['delta_thickness'], upper=0.0, linear=True)
+prob.model.add_constraint('struct_smoothness.lower_skin_smoothness.diff', ref=model.opt_parameters['delta_thickness'], upper=0.0, linear=True)
+prob.model.add_constraint('struct_smoothness.le_spar_smoothness.diff',    ref=model.opt_parameters['delta_thickness'], upper=0.0, linear=True)
+prob.model.add_constraint('struct_smoothness.te_spar_smoothness.diff',    ref=model.opt_parameters['delta_thickness'], upper=0.0, linear=True)
 
-#prob.check_totals(of=['mp_group.s0.aero.forces.CD', 'mp_group.s0.struct.mass.mass', 'mp_group.s0.struct.funcs.f_struct'], wrt=['alpha', 'upper_skin_thickness_lumped', 'lower_skin_thickness_lumped', 'le_spar_thickness_lumped', 'te_spar_thickness_lumped', 'rib_thickness_lumped', 'root_chord_delta', 'tip_chord_delta', 'tip_sweep_delta', 'span_delta', 'wing_thickness_delta', 'wing_twist_delta'], method='cs')
+## add f_struct constraints, for every scenario except cruise
 
+for i in range(0,model.misc_parameters['N_mp']):
+    if i != model.misc_parameters['cruise_case_ID']:
+        prob.model.add_constraint('mp_group.s'+str(i)+'.struct.funcs.f_struct', ref=1.0, upper=model.opt_parameters['f_struct_bound'])
 
+## add trim constraints
 
+for i in range(0,model.misc_parameters['N_mp']):
+    prob.model.add_constraint('outputs.trim'+str(i)+'.load_factor', ref=1.0, equals=model.trim_parameters['load_factor'][i])
 
-# optimization set up
-#prob.model.add_design_var('alpha',lower=-5*np.pi/180, upper=10*np.pi/180.0, ref=1.0)
-#prob.model.add_design_var('ribs',        lower=0.003, upper=0.020, ref=0.005)
-#prob.model.add_design_var('le_spar',     lower=0.003, upper=0.020, ref=0.005)
-#prob.model.add_design_var('te_spar',     lower=0.003, upper=0.020, ref=0.005)
-#prob.model.add_design_var('up_skin',     lower=0.003, upper=0.020, ref=0.005)
-#prob.model.add_design_var('lo_skin',     lower=0.003, upper=0.020, ref=0.005)
-#prob.model.add_design_var('up_stringer', lower=0.003, upper=0.020, ref=0.005)
-#prob.model.add_design_var('lo_stringer', lower=0.003, upper=0.020, ref=0.005)
+## add fuel mismatch constraint
 
-#prob.model.add_objective('mp_group.s0.struct.mass.mass',ref=1000.0)
-#prob.model.add_constraint('mp_group.s0.aero.forces.CL',ref=1.0,equals=0.5)
-#prob.model.add_constraint('mp_group.s0.struct.funcs.f_struct',ref=1.0, upper = 2.0/3.0)
+prob.model.add_constraint('outputs.fuel_match.fuel_mismatch', ref=1.0, equals=0.0)
 
-#prob.model.add_constraint('le_spar_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
-#prob.model.add_constraint('te_spar_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
-#prob.model.add_constraint('up_skin_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
-#prob.model.add_constraint('lo_skin_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
+## add wing area constraint
 
-# optional but we can set it here.
+prob.model.add_constraint('outputs.wing_area.area', ref=model.baseline_wing_area.A, lower=model.baseline_wing_area.A)
 
-##prob.driver = om.ScipyOptimizeDriver(debug_print=['ln_cons','nl_cons','objs','totals'])
+## add available fuel mass constraint
+
+prob.model.add_constraint('outputs.available_fuel_mass.available_fuel_mass', ref=np.sum(model.baseline_available_fuel.mass), lower=np.sum(model.baseline_available_fuel.mass))
+
+## add spar depth constraint
+
+prob.model.add_constraint('outputs.spar_depth.spar_depth', ref=model.opt_parameters['spar_depth_bound'], lower=model.opt_parameters['spar_depth_bound'])
+
+## add objective function
+
+prob.model.add_objective('outputs.flight_metrics.final_objective',ref=1.0)
+
+## set driver options, and then run driver
+
+prob.driver = om.ScipyOptimizeDriver(debug_print=['ln_cons','nl_cons','objs','totals'])
 #prob.driver = om.ScipyOptimizeDriver()
-#prob.driver.options['optimizer'] = 'SLSQP'
-#prob.driver.options['tol'] = 1e-3
-#prob.driver.options['disp'] = True
+prob.driver.options['optimizer'] = 'SLSQP'
+prob.driver.options['tol'] = 1e-3
+prob.driver.options['disp'] = True
+prob.driver.options['maxiter'] = 3
 
-#prob.driver.recording_options['includes'] = ['*']
-#prob.driver.recording_options['record_objectives'] = True
-#prob.driver.recording_options['record_constraints'] = True
-#prob.driver.recording_options['record_desvars'] = True
+prob.driver.recording_options['includes'] = ['*']
+prob.driver.recording_options['record_objectives'] = True
+prob.driver.recording_options['record_constraints'] = True
+prob.driver.recording_options['record_desvars'] = True
 
-#recorder = om.SqliteRecorder("cases.sql")
-#prob.driver.add_recorder(recorder)
+recorder = om.SqliteRecorder("cases.sql")
+prob.driver.add_recorder(recorder)
 
+prob.setup(mode='rev')
 
+model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True ,rtol = 1E-7, atol=1E-7)
+model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-7)
 
-#prob.run_driver()
+model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True , rtol = 1E-7, atol=1E-7)
+model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-7)
+
+prob.run_driver()
 
 #cr = om.CaseReader("cases.sql")
 #driver_cases = cr.list_cases('driver')

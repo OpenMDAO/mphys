@@ -91,7 +91,7 @@ class TacsSolver(om.ImplicitComponent):
 
     def setup(self):
         self.check_partials = self.options['check_partials']
-        self.set_check_partial_options(wrt='*',method='cs',directional=True)
+        #self.set_check_partial_options(wrt='*',method='cs',directional=True)
 
         tacs = self.options['struct_solver']
         struct_objects = self.options['struct_objects']
