@@ -96,6 +96,17 @@ class MeldDispXfer(om.ExplicitComponent):
             D = u_a - g(u_s,x_a0,x_s0)
         So explicit partials below for u_a are negative partials of D
         """
+        if self.check_partials:
+            x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
+            x_a0 = np.array(inputs['x_a0'],dtype=TransferScheme.dtype)
+            self.meld.setStructNodes(x_s0)
+            self.meld.setAeroNodes(x_a0)
+        u_s  = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+        for i in range(3):
+            u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
+        u_a = np.zeros(self.aero_nnodes*3,dtype=TransferScheme.dtype)
+        self.meld.transferDisps(u_s,u_a)
+
         if mode == 'fwd':
             if 'u_a' in d_outputs:
                 if 'u_s' in d_inputs:
@@ -209,24 +220,19 @@ class MeldLoadXfer(om.ExplicitComponent):
         #self.declare_partials('f_s',['x_s0','x_a0','u_s','f_a'])
 
     def compute(self, inputs, outputs):
-        u_s  = np.zeros(self.struct_nnodes*3)
-        for i in range(3):
-            u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
-
-        f_a =  np.array(inputs['f_a'],dtype=TransferScheme.dtype)
-        f_s = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
-
         if self.check_partials:
             x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
             x_a0 = np.array(inputs['x_a0'],dtype=TransferScheme.dtype)
             self.meld.setStructNodes(x_s0)
             self.meld.setAeroNodes(x_a0)
-            #TODO meld needs a set state rather requiring transferDisps to update the internal state
-            u_s  = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
-            for i in range(3):
-                u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
-            u_a = np.zeros(inputs['f_a'].size,dtype=TransferScheme.dtype)
-            self.meld.transferDisps(u_s,u_a)
+        f_a =  np.array(inputs['f_a'],dtype=TransferScheme.dtype)
+        f_s = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+
+        u_s  = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+        for i in range(3):
+            u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
+        u_a = np.zeros(inputs['f_a'].size,dtype=TransferScheme.dtype)
+        self.meld.transferDisps(u_s,u_a)
 
         self.meld.transferLoads(f_a,f_s)
 
@@ -242,6 +248,21 @@ class MeldLoadXfer(om.ExplicitComponent):
             L = f_s - g(f_a,u_s,x_a0,x_s0)
         So explicit partials below for f_s are negative partials of L
         """
+        if self.check_partials:
+            x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
+            x_a0 = np.array(inputs['x_a0'],dtype=TransferScheme.dtype)
+            self.meld.setStructNodes(x_s0)
+            self.meld.setAeroNodes(x_a0)
+        f_a =  np.array(inputs['f_a'],dtype=TransferScheme.dtype)
+        f_s = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+
+        u_s  = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
+        for i in range(3):
+            u_s[i::3] = inputs['u_s'][i::self.struct_ndof]
+        u_a = np.zeros(inputs['f_a'].size,dtype=TransferScheme.dtype)
+        self.meld.transferDisps(u_s,u_a)
+        self.meld.transferLoads(f_a,f_s)
+
         if mode == 'fwd':
             if 'f_s' in d_outputs:
                 if 'u_s' in d_inputs:
