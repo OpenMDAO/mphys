@@ -6,6 +6,7 @@ from mphys.base_classes import SolverBuilder
 from iris_wrapper import Iris
 from parfait.distance_calculator import DistanceCalculator
 from libmeshdef.meshdef_parfait import MeshDeformation
+from libmeshdef.meshdef_openmdao import MeshDeformationOpenMdao
 from sfe.sfe_parfait import SFE
 from sfe.sfe_openmdao import SfeSolverOpenMdao, SfeForcesOpenMdao
 from mphys.integrated_forces import IntegratedSurfaceForces
@@ -19,10 +20,14 @@ class Fun3dMesh(om.ExplicitComponent):
     def setup(self):
         boundary_tag_list = self.options['boundary_tag_list']
         meshdef = self.options['meshdef_solver']
-        self.x_a0 = meshdef.get_boundary_node_coordinates(boundary_tag_list, owned_only = True)
+        x,y,z = meshdef.get_boundary_node_coordinates(boundary_tag_list, owned_only = True)
+        self.x_a0 = self._flatten_vectors(x,y,z)
         coord_size = self.x_a0.size
         self.add_output('x_a0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
 
+    def _flatten_vectors(self, x, y, z):
+        matrix = np.concatenate((x.reshape((-1,1)),y.reshape((-1,1)),z.reshape((-1,1))),axis=1)
+        return matrix.flatten(order="C")
     def mphys_add_coordinate_input(self):
         local_size = self.x_a0.size
         n_list = self.comm.allgather(local_size)
@@ -62,12 +67,12 @@ class Fun3dFsiSolverGroup(om.Group):
         flow_comp = self.options['flow_comp']
         forces_comp = self.options['forces_comp']
 
-        self.add_subsytem('geo_disp', geodisp_comp,
-                                      promotes_inputs=['u_a', 'x_a0'])
+        self.add_subsystem('geo_disp', geodisp_comp,
+                                       promotes_inputs=['u_a', 'x_a0'])
         self.add_subsystem('meshdef', meshdef_comp)
         self.add_subsystem('flow', flow_comp)
         self.add_subsystem('forces', forces_comp,
-                                     promote_outputs=['f_a'])
+                                     promotes_outputs=['f_a'])
 
     def configure(self):
         self.connect('geo_disp.x_a','meshdef.x_a')
@@ -80,8 +85,8 @@ class Fun3dSfeBuilder(SolverBuilder):
         self.boundary_tag_list = boundary_tag_list
 
     def init_solver(self, comm):
-        self.dist_calc = DistanceCalculator.from_meshfile(meshfile,comm)
-        distance = self.dist_calc.compute(boundary_tags)
+        self.dist_calc = DistanceCalculator.from_meshfile(self.meshfile,comm)
+        distance = self.dist_calc.compute(self.boundary_tag_list)
 
         self.iris = Iris(comm)
         self.sfe = SFE(self.dist_calc.mesh,self.iris)
@@ -89,10 +94,11 @@ class Fun3dSfeBuilder(SolverBuilder):
         self.nnodes = self.meshdef.get_boundary_node_global_ids(self.boundary_tag_list, owned_only=True).size
 
     def get_mesh_element(self):
-        return Fun3dMesh(self.meshdef, self.boundary_tag_list)
+        return Fun3dMesh(meshdef_solver = self.meshdef,
+                         boundary_tag_list = self.boundary_tag_list)
 
     def get_element(self, **kwargs):
-        meshdef_om = MeshdeformationOpenMdao(meshdef_solver = self.meshdef,
+        meshdef_om = MeshDeformationOpenMdao(meshdef_solver = self.meshdef,
                                              boundary_tag_list = self.boundary_tag_list)
         sfe_om = SfeSolverOpenMdao(sfe_solver = self.sfe)
         forces_om = SfeForcesOpenMdao(sfe_solver = self.sfe,
@@ -103,4 +109,22 @@ class Fun3dSfeBuilder(SolverBuilder):
                                    forces_comp = forces_om,
                                    number_of_surface_nodes = self.nnodes)
     def get_scenario_element(self):
-        return IntegratedSurfaceForces(self.nnodes)
+        return IntegratedSurfaceForces(number_of_surface_nodes=self.nnodes)
+
+    def get_nnodes(self):
+        return self.nnodes
+
+    def get_scenario_connections(self):
+        mydict = {
+            'f_a': 'f_a',
+        }
+        return mydict
+
+    def get_mesh_connections(self):
+        mydict = {
+            'solver':{
+                'x_a0'  : 'x_a0',
+            },
+            'funcs':{},
+        }
+        return mydict
