@@ -19,9 +19,34 @@ class Fun3dMesh(om.ExplicitComponent):
         boundary_tag_list = self.options['boundary_tag_list']
         meshdef = self.options['meshdef_solver']
         self.x_a0 = meshdef.get_boundary_node_coordinates(boundary_tag_list, owned_only = True)
+        coord_size = self.x_a0.size
+        self.add_output('x_a0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
+
+    def mphys_add_coordinate_input(self):
+        local_size = self.x_a0.size
+        n_list = self.comm.allgather(local_size)
+        irank  = self.comm.rank
+
+        n1 = np.sum(n_list[:irank])
+        n2 = np.sum(n_list[:irank+1])
+
+        self.add_input('x_a0_points',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
+
+        return 'x_a0_points', self.x_a0
 
     def compute(self,inputs,outputs):
-        outputs['x_a0'] = self.x_a0
+        if 'x_a0_points' in inputs:
+            outputs['x_a0'] = inputs['x_a0_points']
+        else:
+            outputs['x_a0'] = self.x_a0
+
+    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
+        if mode == 'fwd':
+            if 'x_a0_points' in d_inputs:
+                d_outputs['x_a0'] += d_inputs['x_a0_points']
+        elif mode == 'rev':
+            if 'x_a0_points' in d_inputs:
+                d_inputs['x_a0_points'] += d_outputs['x_a0']
 
 class GeoDisp(ExplicitComponent):
     """
