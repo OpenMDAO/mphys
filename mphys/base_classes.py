@@ -1,6 +1,6 @@
 from __future__ import division, print_function
 
-class solver_builder(object):
+class SolverBuilder(object):
     """
     MPHYS builder base class. Template for developers to create their builders.
     """
@@ -72,7 +72,7 @@ class solver_builder(object):
         pass
 
 
-class xfer_builder(object):
+class XferBuilder(object):
 
     def __init__(self, options, aero_builder, struct_builder):
         '''
