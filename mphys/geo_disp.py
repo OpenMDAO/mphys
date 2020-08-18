@@ -8,11 +8,11 @@ class GeoDisp(om.ExplicitComponent):
     """
     def initialize(self):
         self.options['distributed'] = True
-        self.options.declare('nnodes')
+        self.options.declare('number_of_surface_nodes')
 
     def setup(self):
-        aero_nnodes = self.options['nnodes']
-        local_size = aero_nnodes * 3
+        nnodes = self.options['number_of_surface_nodes']
+        local_size = nnodes * 3
         n_list = self.comm.allgather(local_size)
         irank  = self.comm.rank
 
