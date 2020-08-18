@@ -35,7 +35,7 @@ class TacsMesh(om.ExplicitComponent):
         n1 = np.sum(n_list[:irank])
         n2 = np.sum(n_list[:irank+1])
         node_size  =     self.xpts.getArray().size
-        
+
         self.add_input('x_s0_points', shape=node_size, src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
 
         # return the promoted name and coordinates
@@ -125,7 +125,7 @@ class TacsSolver(om.ImplicitComponent):
         # inputs
         self.add_input('dv_struct', shape=ndv, desc='tacs design variables')
         self.add_input('x_s0', shape=node_size , src_indices=node_indices, desc='structural node coordinates')
-        self.add_input('F_summed', shape=state_size, src_indices=state_incides, desc='structural load vector')
+        self.add_input('F_summed', shape=state_size, src_indices=state_indices, desc='structural load vector')
 
         # outputs
         # its important that we set this to zero since this displacement value is used for the first iteration of the aero
@@ -241,23 +241,13 @@ class TacsSolver(om.ImplicitComponent):
         self._update_internal(inputs)
         # solve the linear system
         force_array = force.getArray()
-<<<<<<< HEAD
-        force_array[:] = inputs['f_s']
+        force_array[:] = inputs['F_summed']
         tacs_assembler.applyBCs(force)
-=======
-        force_array[:] = inputs['F_summed'] 
-        tacs.applyBCs(force)
->>>>>>> 2c9055836cce9de36af27fcb40f01d5107c3958a
 
         gmres.solve(force, ans)
         ans_array = ans.getArray()
         outputs['u_s'] = ans_array[:]
-<<<<<<< HEAD
         tacs_assembler.setVariables(ans)
-=======
-        print(outputs['u_s'][30812])
-        tacs.setVariables(ans)
->>>>>>> 2c9055836cce9de36af27fcb40f01d5107c3958a
 
     def solve_linear(self,d_outputs,d_residuals,mode):
         if mode == 'fwd':
@@ -678,14 +668,16 @@ class TacsGroup(om.Group):
             ), promotes_inputs=['x_s0'], promotes_outputs=['f_s'])
 
         # sum aero, inertial, and fual loads: result is F_summed, which tacs accepts as an input
+        nnodes = int(self.struct_solver.createNodeVec().getArray().size/3)
 
         self.add_subsystem('sum_loads',SumLoads(
-            load_size=self.struct_solver.getNumNodes()*6, 
-            load_list=['F_inertial','F_fuel','f_s']),
+            load_size=nnodes*6,
+            load_list=['f_s']),
             promotes_inputs=['f_s'],
             promotes_outputs=['F_summed']
         )
-        
+        #load_list=['F_inertial','F_fuel','f_s']),
+
         self.add_subsystem('solver', TacsSolver(
             struct_solver=self.struct_solver,
             struct_objects=self.struct_objects,
@@ -745,21 +737,12 @@ class TacsBuilder(object):
             ndof, ndv = self.options['add_elements'](mesh)
             self.n_dv_struct = ndv
 
-<<<<<<< HEAD
-        tacs_assembler = mesh.createTACS(ndof)
+            tacs_assembler = mesh.createTACS(ndof)
 
-        nnodes = int(tacs_assembler.createNodeVec().getArray().size / 3)
+            nnodes = int(tacs_assembler.createNodeVec().getArray().size / 3)
 
-        mat = tacs_assembler.createFEMat()
-        pc = TACS.Pc(mat)
-=======
-            tacs = mesh.createTACS(ndof)
-
-            nnodes = int(tacs.createNodeVec().getArray().size / 3)
-
-            mat = tacs.createFEMat()
+            mat = tacs_assembler.createFEMat()
             pc = TACS.Pc(mat)
->>>>>>> 2c9055836cce9de36af27fcb40f01d5107c3958a
 
             subspace = 100
             restarts = 2
@@ -781,13 +764,8 @@ class TacsBuilder(object):
             # put the rest of the stuff in a tuple
             solver_objects = [mat, pc, gmres, solver_dict]
 
-<<<<<<< HEAD
-        self.solver = tacs_assembler
-        self.solver_objects = solver_objects
-=======
-            self.solver = tacs
+            self.solver = tacs_assembler
             self.solver_objects = solver_objects
->>>>>>> 2c9055836cce9de36af27fcb40f01d5107c3958a
 
     # api level method for all builders
     def get_solver(self):
