@@ -15,8 +15,10 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         self.add_input('ref_length', val = 1.0)
         self.add_input('q_inf', val = 1.0)
 
-        self.add_input('x_a',shape=3*nnodes, desc = 'surface coordinates')
-        self.add_input('f_a',shape=3*nnodes, desc = 'dimensional forces at nodes')
+        # serial operation for now
+        nnodes_total = self.comm.allreduce(nnodes)
+        self.add_input('x_a',shape=3*nnodes_total, desc = 'surface coordinates')
+        self.add_input('f_a',shape=3*nnodes_total, desc = 'dimensional forces at nodes')
 
         self.add_output('C_L', desc = 'Lift coefficient')
         self.add_output('C_D', desc = 'Drag coefficient')
@@ -66,7 +68,6 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         outputs['C_Z'] = fz_total / (q_inf * area)
 
         outputs['Lift'] = -fx_total * np.sin(alpha_rad) + fz_total * np.cos(alpha_rad)
-        print('LIFT', alpha_rad, -fx_total, np.sin(alpha_rad), fz_total, np.cos(alpha_rad), outputs['Lift'])
         outputs['Drag'] = ( fx_total * np.cos(alpha_rad) * np.cos(beta_rad)
                           - fy_total * np.sin(beta_rad)
                           + fz_total * np.sin(alpha_rad) * np.cos(beta_rad)
