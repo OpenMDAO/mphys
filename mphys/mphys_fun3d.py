@@ -68,14 +68,15 @@ class Fun3dFsiSolverGroup(om.Group):
         forces_comp = self.options['forces_comp']
 
         self.add_subsystem('geo_disp', geodisp_comp,
-                                       promotes_inputs=['u_a', 'x_a0'])
+                                       promotes_inputs=['u_a', 'x_a0'],
+                                       promotes_outputs=['x_a'])
         self.add_subsystem('meshdef', meshdef_comp)
         self.add_subsystem('flow', flow_comp)
         self.add_subsystem('forces', forces_comp,
                                      promotes_outputs=['f_a'])
 
     def configure(self):
-        self.connect('geo_disp.x_a','meshdef.x_a')
+        self.connect('x_a','meshdef.x_a')
         self.connect('meshdef.u_g',['flow.u_g','forces.u_g'])
         self.connect('flow.q','forces.q')
 
@@ -92,6 +93,9 @@ class Fun3dSfeBuilder(SolverBuilder):
         self.sfe = SFE(self.dist_calc.mesh,self.iris)
         self.meshdef = MeshDeformation(self.dist_calc.mesh,self.iris)
         self.nnodes = self.meshdef.get_boundary_node_global_ids(self.boundary_tag_list, owned_only=True).size
+
+        self.sfe.set_node_wall_distance(distance, owned_only = False)
+        self.meshdef.set_node_wall_distance(distance, owned_only = False)
 
     def get_mesh_element(self):
         return Fun3dMesh(meshdef_solver = self.meshdef,
@@ -117,6 +121,7 @@ class Fun3dSfeBuilder(SolverBuilder):
     def get_scenario_connections(self):
         mydict = {
             'f_a': 'f_a',
+            'x_a': 'x_a'
         }
         return mydict
 
