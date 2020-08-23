@@ -51,9 +51,8 @@ class SolverGroup(om.Group):
         # set solvers
         # TODO add a nonlinear solver when we have feedback coupling to prop
         if self.as_coupling:
-            self.nonlinear_solver=om.NonlinearBlockGS(maxiter=100)
-            self.linear_solver = om.LinearBlockGS(maxiter=100)
-            self.nonlinear_solver.options['iprint']=2
+            self.nonlinear_solver=om.NonlinearBlockGS(maxiter=50, iprint=2, atol=1e-8, rtol=1e-8, use_aitken=True)
+            self.linear_solver = om.LinearBlockGS(maxiter=50, iprint =2, atol=1e-8,rtol=1e-8)
 
     def configure(self):
 
