@@ -8,10 +8,10 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
     def setup(self):
         nnodes = self.options['number_of_surface_nodes']
 
-        self.add_input('alpha',desc = 'angle of attack [deg]')
-        self.add_input('beta',desc = 'yaw angle [deg]')
+        self.add_input('alpha', val = 0.0, desc = 'angle of attack [deg]')
+        self.add_input('beta', val = 0.0, desc = 'yaw angle [deg]')
         self.add_input('ref_area', val = 1.0)
-        self.add_input('moment_center',shape=3)
+        self.add_input('moment_center',shape=3, val=np.zeros(3))
         self.add_input('ref_length', val = 1.0)
         self.add_input('q_inf', val = 1.0)
 
