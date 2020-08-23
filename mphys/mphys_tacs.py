@@ -123,7 +123,7 @@ class TacsSolver(om.ImplicitComponent):
         node_indices = self._create_global_index_list_for_rank(node_size)
 
         # inputs
-        self.add_input('dv_struct', shape=ndv, desc='tacs design variables')
+        self.add_input('dv_struct', shape=ndv, src_indices=np.arange(ndv), desc='tacs design variables')
         self.add_input('x_s0', shape=node_size , src_indices=node_indices, desc='structural node coordinates')
         self.add_input('F_summed', shape=state_size, src_indices=state_indices, desc='structural load vector')
 
@@ -420,7 +420,7 @@ class TacsFunctions(om.ExplicitComponent):
 
         # OpenMDAO part of setup
         # TODO move the dv_struct to an external call where we add the DVs
-        self.add_input('dv_struct', shape=ndv,                                                    desc='tacs design variables')
+        self.add_input('dv_struct', shape=ndv,        src_indices=np.arange(ndv),                 desc='tacs design variables')
         self.add_input('x_s0',      shape=node_size,  src_indices=np.arange(n1, n2, dtype=int),   desc='structural node coordinates')
         self.add_input('u_s',       shape=state_size, src_indices=np.arange(s1, s2, dtype=int),   desc='structural state vector')
 
