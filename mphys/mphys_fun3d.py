@@ -16,6 +16,7 @@ class Fun3dMesh(om.ExplicitComponent):
     def initialize(self):
         self.options.declare('meshdef_solver')
         self.options.declare('boundary_tag_list')
+        self.options['distributed'] = True
 
     def setup(self):
         boundary_tag_list = self.options['boundary_tag_list']
@@ -28,6 +29,7 @@ class Fun3dMesh(om.ExplicitComponent):
     def _flatten_vectors(self, x, y, z):
         matrix = np.concatenate((x.reshape((-1,1)),y.reshape((-1,1)),z.reshape((-1,1))),axis=1)
         return matrix.flatten(order="C")
+
     def mphys_add_coordinate_input(self):
         local_size = self.x_a0.size
         n_list = self.comm.allgather(local_size)
