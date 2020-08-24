@@ -50,7 +50,7 @@ class Top(om.Group):
 
         self.misc_parameters = {
             'structural_patch_lumping': False,                     # reduces all the component thickness DVs into a single one: useful for checking totals
-            'initial_thickness': 0.02,                             # starting thickness for each thickness DV, m
+            'initial_thickness': 0.01,                             # starting thickness for each thickness DV, m
             'elastic_modulus': 73.1e9,                             # elastic modulus, Pa
             'poisson': 0.33,                                       # poisson's ratio
             'k_corr': 5.0/6.0,                                     # shear correction factor
@@ -73,10 +73,10 @@ class Top(om.Group):
             'min_thickness': 0.003,                                # minimum thickness for each thickness DV, m
             'max_thickness': 0.03,                                 # maximum thickness for each thickness DV, m
             'delta_thickness': 0.001,                              # bound on smoothness constraints, m
-            'root_chord_bounds': [-.01, .01],#[-3.0, 3.0],                      # plus-minus bounds on root-chord delta, m
-            'tip_chord_bounds': [-.01, .01],#[-1.0, 1.0],                       # plus-minus bounds on tip-chord delta, m
-            'tip_sweep_bounds': [-.01, .01],#[-10., 10.],                       # plus-minus bounds on tip-sweep delta, m
-            'span_extend_bounds': [-.01, .01],#[-10., 10.],                     # plus-minus bounds on span-extension delta, m  
+            'root_chord_bounds': [-3.0, 3.0],                      # plus-minus bounds on root-chord delta, m
+            'tip_chord_bounds': [-1.0, 1.0],                       # plus-minus bounds on tip-chord delta, m
+            'tip_sweep_bounds': [-10., 10.],                       # plus-minus bounds on tip-sweep delta, m
+            'span_extend_bounds': [-10., 10.],                     # plus-minus bounds on span-extension delta, m  
             'allowable_airfoil_thickness_fraction': 0.5,           # fraction of baseline airfoil thickness allowable for plus-minus bounds, at each span station
             'wing_twist_bounds': np.array([-10., 10.])*np.pi/180., # plus-minus bounds on wing twist at each span station, rad 
             'f_struct_bound': 2.0/3.0,                             # upper allowable bound on f_struct
@@ -601,63 +601,36 @@ prob.model.add_objective('outputs.flight_metrics.final_objective',ref=1.0)
 prob.driver = om.ScipyOptimizeDriver(debug_print=['ln_cons','nl_cons','objs','totals'])
 #prob.driver = om.ScipyOptimizeDriver()
 prob.driver.options['optimizer'] = 'SLSQP'
-prob.driver.options['tol'] = 1e-4
+prob.driver.options['tol'] = 1e-3
 prob.driver.options['disp'] = True
-prob.driver.options['maxiter'] = 200
+prob.driver.options['maxiter'] = 3
 
 prob.driver.recording_options['includes'] = ['*']
 prob.driver.recording_options['record_objectives'] = True
 prob.driver.recording_options['record_constraints'] = True
 prob.driver.recording_options['record_desvars'] = True
 
-recorder = om.SqliteRecorder("cases_VLM.sql")
+recorder = om.SqliteRecorder("cases.sql")
 prob.driver.add_recorder(recorder)
 
 prob.setup(mode='rev')
 
 model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True ,rtol = 1E-7, atol=1E-7)
-model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=200, iprint=2, rtol = 1e-6, atol=1e-6)
-#model.mp_group.s0.linear_solver = om.ScipyKrylov(maxiter=500, iprint=2, rtol = 1e-7, atol=1e-7)
-#model.mp_group.s0.linear_solver.precon = om.LinearBlockGS()
-#model.mp_group.s0.linear_solver.precon.options['maxiter'] = 10
+model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-7)
 
 model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True , rtol = 1E-7, atol=1E-7)
-model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=200, iprint=2, rtol = 1e-6, atol=1e-6)
-#model.mp_group.s1.linear_solver = om.ScipyKrylov(iprint=2, rtol = 1e-7, atol=1e-24)
-#model.mp_group.s1.linear_solver.precon = om.LinearBlockGS()
-#model.mp_group.s1.linear_solver.precon.options['maxiter'] = 10
+model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-7)
 
 prob.run_driver()
 
-## write out data
+#cr = om.CaseReader("cases.sql")
+#driver_cases = cr.list_cases('driver')
 
-cr = om.CaseReader("cases_VLM.sql")
-driver_cases = cr.list_cases('driver')
-
-case = cr.get_case(0)
-cons = case.get_constraints()
-dvs = case.get_design_vars()
-objs = case.get_objectives()
-
-f = open("history_VLM.dat","w+")
-
-for i, k in enumerate(objs.keys()):
-    f.write('objective: ' + k + '\n')
-    for j, case_id in enumerate(driver_cases):
-        f.write(str(j) + ' ' + str(cr.get_case(case_id).get_objectives(scaled=False)[k][0]) + '\n')
-    f.write(' ' + '\n')
-
-for i, k in enumerate(cons.keys()):
-    f.write('constraint: ' + k + '\n')
-    for j, case_id in enumerate(driver_cases):
-        f.write(str(j) + ' ' + ' '.join(map(str,cr.get_case(case_id).get_constraints(scaled=False)[k])) + '\n')
-    f.write(' ' + '\n')
-
-for i, k in enumerate(dvs.keys()):
-    f.write('DV: ' + k + '\n')
-    for j, case_id in enumerate(driver_cases):
-        f.write(str(j) + ' ' + ' '.join(map(str,cr.get_case(case_id).get_design_vars(scaled=False)[k])) + '\n')
-    f.write(' ' + '\n')
-
-f.close()
-
+#matrix = np.zeros((len(driver_cases),4))
+#for i, case_id in enumerate(driver_cases):
+#    matrix[i,0] = i
+#    case = cr.get_case(case_id)
+#    matrix[i,1] = case.get_objectives()['mp_group.s0.struct.mass.mass'][0]
+#    matrix[i,2] = case.get_constraints()['mp_group.s0.aero.forces.CL'][0]
+#    matrix[i,3] = case.get_constraints()['mp_group.s0.struct.funcs.f_struct'][0]
+#np.savetxt('history.dat',matrix)
