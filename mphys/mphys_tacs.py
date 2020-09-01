@@ -122,7 +122,7 @@ class TacsSolver(om.ImplicitComponent):
         state_size = self.ans.getArray().size
         node_size  = self.xpt_sens.getArray().size
         self.ndof = int(state_size/(node_size/3))
-
+        
         s_list = self.comm.allgather(state_size)
         n_list = self.comm.allgather(node_size)
         irank  = self.comm.rank
@@ -132,12 +132,11 @@ class TacsSolver(om.ImplicitComponent):
         n1 = np.sum(n_list[:irank])
         n2 = np.sum(n_list[:irank+1])
 
-
         # inputs
-        self.add_input('dv_struct', shape=ndv, desc='tacs design variables')
+        self.add_input('dv_struct', shape=ndv, src_indices=np.arange(ndv), desc='tacs design variables')
         self.add_input('x_s0', shape=node_size , src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
         self.add_input('F_summed', shape=state_size, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
-
+       
         # outputs
         # its important that we set this to zero since this displacement value is used for the first iteration of the aero
         self.add_output('u_s', shape=state_size, val = np.zeros(state_size),desc='structural state vector')
@@ -260,7 +259,8 @@ class TacsSolver(om.ImplicitComponent):
         gmres.solve(force, ans)
         ans_array = ans.getArray()
         outputs['u_s'] = ans_array[:]
-        print(outputs['u_s'][30812])
+        #print(outputs['u_s'][30812])
+        print('max u_s: ', np.max(outputs['u_s']))
         tacs.setVariables(ans)
 
     def solve_linear(self,d_outputs,d_residuals,mode):
@@ -698,8 +698,12 @@ class TACS_group(om.Group):
 
         # sum aero, inertial, and fual loads: result is F_summed, which tacs accepts as an input
 
+        vec_size_g = np.sum(self.comm.gather(self.struct_solver.getNumNodes()*6))
+        vec_size_g = self.comm.bcast(vec_size_g)        
+        # this comes out to 61314, but should be 58452 = N_nodes*6.  Not sure why, hard coding below for now 
+
         self.add_subsystem('sum_loads',SumLoads(
-            load_size=self.struct_solver.getNumNodes()*6, 
+            load_size=58452,#vec_size_g, 
             load_list=['F_inertial','F_fuel','f_s']),
             promotes_inputs=['f_s'],
             promotes_outputs=['F_summed']
