@@ -39,11 +39,11 @@ class Top(om.Group):
 
         self.aero_parameters = {
             'mach': [0.2, 0.2],#[0.85, .64],                                   # mach number of each load case
-            'q_inf': [12930., 28800.],                             # dynamic pressure of each load case, Pa
+            'q_inf': [0.0000001,0.0000001],#[20000., 25000.],#[1000., 2000.],#[12930., 28800.],                             # dynamic pressure of each load case, Pa
             'vel': [254., 217.6],                                  # velocity of each load case, m/s
             'mu': [3.5E-5, 1.4E-5],                                # viscocity of each load case, 
             'reynolds_number': [254./3.5E-5, 217.6/1.4E-5],        # Re-per-length of each load case
-            'alpha': [1., 4.]                     ,                # AoA of each load case: this is a DV, so these values set the starting points
+            'alpha': [1., 1.],#[1., 4.]                     ,                # AoA of each load case: this is a DV, so these values set the starting points
         }
 
         self.trim_parameters = {
@@ -188,27 +188,24 @@ class Top(om.Group):
         
         # geometry mapper
 
+        aero_builder.init_solver(MPI.COMM_WORLD)
+        x,y,z = aero_builder.meshdef.get_global_image_of_coordinates_on_boundary(self.misc_parameters['FUN3D_boundary_list'],bcast=True)
+        x_a0 = np.concatenate((x.reshape((-1,1)),y.reshape((-1,1)),z.reshape((-1,1))),axis=1).flatten(order="C")
+        connect = aero_builder.meshdef.get_global_image_of_boundary_connectivity(self.misc_parameters['FUN3D_boundary_list'],bcast=True)
+        aero_surface_connect = np.zeros([len(connect),3],dtype=int)
+        for i in range(0,len(connect)):
+            aero_surface_connect[i,:] = connect[i] + 1
+
         struct_builder.init_solver(MPI.COMM_WORLD)
         tacs_solver = struct_builder.get_solver()
         xpts = tacs_solver.createNodeVec()
         tacs_solver.getNodes(xpts)
         x_s0 = xpts.getArray()
 
-        #aero_builder.init_solver(MPI.COMM_WORLD)
-        #x,y,z = aero_builder.meshdef.get_global_image_of_coordinates_on_boundary(self.misc_parameters['FUN3D_boundary_list'])
-        #x_a0 = np.concatenate((x.reshape((-1,1)),y.reshape((-1,1)),z.reshape((-1,1))),axis=1).flatten(order="C")
-        #connect = aero_builder.meshdef.get_global_image_of_boundary_connectivity(self.misc_parameters['FUN3D_boundary_list'])
-        #aero_surface_connect = np.zeros([len(connect),3],dtype=int)
-        #for i in range(0,len(connect)):
-        #    aero_surface_connect[i,:] = connect[i]
-        #aero_surface_connect = np.c_[aero_surface_connect,aero_surface_connect[:,2]]+1
+        x_s0 = aero_builder.meshdef._gatherv_vector(x_s0)
+        comm = MPI.COMM_WORLD
+        x_s0 = comm.bcast(x_s0)
 
-        x_a0 = np.loadtxt('x_a0.txt')
-        aero_surface_connect = np.loadtxt('connect.txt').astype(int)
-
-        #np.savetxt('x_a0.txt',x_a0)
-        #np.savetxt('connect.txt',aero_surface_connect)
-        #print(boo)
         self.add_subsystem('geometry_mapper',WingGeometry(
             xs=x_s0, 
             xa=x_a0, 
@@ -227,15 +224,15 @@ class Top(om.Group):
 
         self.add_subsystem('wing_area',WingAreaComponent(
             N_nodes=int(len(x_a0)/3),
-            quad=aero_surface_connect)
+            connect=aero_surface_connect)
         )
 
         self.baseline_wing_area = WingArea(
             nodes=x_a0,
-            quads=aero_surface_connect
+            connect=aero_surface_connect
         )
         self.baseline_wing_area.compute()
-
+         
         # each AS_Multipoint instance can keep multiple points with the same formulation
 
         mp = self.add_subsystem(
@@ -259,7 +256,13 @@ class Top(om.Group):
         for ielem, elem in enumerate(tacs_solver.getElements()):
             quad[ielem,:] = tacs_solver.getElementNodes(ielem)
             prop_ID[ielem] = elem.getComponentNum()
-
+        
+        quad = aero_builder.meshdef._gatherv_vector(quad.flatten())
+        quad = comm.bcast(quad)
+        quad = np.reshape(quad,(int(len(quad)/4),4))
+        prop_ID = aero_builder.meshdef._gatherv_vector(prop_ID)
+        prop_ID = comm.bcast(prop_ID)
+        
         self.mp_group.add_subsystem('non_aero_loads',om.Group())
 
         for i in range(0,self.misc_parameters['N_mp']):
@@ -282,7 +285,7 @@ class Top(om.Group):
                 reserve_fuel=self.misc_parameters['reserve_fuel'], 
                 fuel_density=self.misc_parameters['fuel_density'])
             )
-
+        
         self.baseline_available_fuel = FuelMass(
             nodes=x_s0,
             quads=quad,
@@ -291,7 +294,7 @@ class Top(om.Group):
             fuel_density=self.misc_parameters['fuel_density']
         )
         self.baseline_available_fuel.compute()
-        
+         
         # create a group to hold the various output parameters that don't belong anywhere else
 
         self.add_subsystem('outputs',om.Group())
@@ -483,10 +486,8 @@ model.linear_solver = om.LinearRunOnce()
 ## Also, can't use_aitken for this to work.  And since you can't use_aitken, q_inf/AoA has to be relatively low
 ## Also, turn patch_lumping on.
 
-prob.setup(mode='rev')#,force_alloc_complex=True)
-om.n2(prob, show_browser=False, outfile='CRM_mphys_as_fun3d.html')
-boo
-'next thing is to remove that hard-coded load of the surface mesh'
+#prob.setup(mode='rev')#,force_alloc_complex=True)
+#om.n2(prob, show_browser=False, outfile='CRM_mphys_as_fun3d.html')
 
 #model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-11, atol=1E-11)
 #model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-11, atol=1e-11)
@@ -530,16 +531,18 @@ boo
 
 ## Use this if you don't want to check totals, but just want to run the model once
 
-#prob.setup(mode='rev')
-#om.n2(prob, show_browser=False, outfile='CRM_mphys_as_fun3d.html')
+prob.setup(mode='rev')
+om.n2(prob, show_browser=False, outfile='CRM_mphys_as_fun3d.html')
 
-#model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True ,rtol = 1E-7, atol=1E-10)
-#model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-10)
+model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True ,rtol = 1E-7, atol=1E-10)
+model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-10)
 
-#model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True , rtol = 1E-7, atol=1E-10)
-#model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-10)
+model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True , rtol = 1E-7, atol=1E-10)
+model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-7, atol=1e-10)
 
-#prob.run_model()
+prob.run_model()
+
+boo
 
 ## add design variables
 
