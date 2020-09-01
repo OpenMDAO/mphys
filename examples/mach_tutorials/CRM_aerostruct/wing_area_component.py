@@ -3,10 +3,10 @@ import openmdao.api as om
    
 class WingArea:
     
-    def __init__(self,nodes,quads):
+    def __init__(self,nodes,connect):
         
         self.nodes = nodes
-        self.quad = quads
+        self.connect = connect
     
     def compute(self):
         
@@ -22,30 +22,27 @@ class WingArea:
         self.A_X = np.zeros(len(X))
         self.A_Y = np.zeros(len(Y))
         
-        for i in range(0,len(self.quad)):
+        for i in range(0,len(self.connect)):
             
-            X1 = X[self.quad[i,0]-1]; X2 = X[self.quad[i,1]-1]; X3 = X[self.quad[i,2]-1]; X4 = X[self.quad[i,3]-1];
-            Y1 = Y[self.quad[i,0]-1]; Y2 = Y[self.quad[i,1]-1]; Y3 = Y[self.quad[i,2]-1]; Y4 = Y[self.quad[i,3]-1];
+            X1 = X[self.connect[i,0]-1]; X2 = X[self.connect[i,1]-1]; X3 = X[self.connect[i,2]-1]; 
+            Y1 = Y[self.connect[i,0]-1]; Y2 = Y[self.connect[i,1]-1]; Y3 = Y[self.connect[i,2]-1]; 
 
             v12 = np.array([X2-X1,Y2-Y1,0.])
             v13 = np.array([X3-X1,Y3-Y1,0.])
-            v14 = np.array([X4-X1,Y4-Y1,0.])
 
             v1 = np.cross(v12,v13)
-            v2 = np.cross(v13,v14)
+            n1 = v1[2]
             
-            n1 = np.sqrt(v1[0]**2 + v1[1]**2 + v1[2]**2)
-            n2 = np.sqrt(v2[0]**2 + v2[1]**2 + v2[2]**2)
+            self.A = self.A + .5*n1*np.sign(np.real(n1))
             
-            self.A = self.A + .5*(n1+n2)
+            A_n1 = np.sign(np.real(n1))/2
+            n1_v1 = np.array([0,0,1.])
+
+            v1_X = np.array([[0,0,Y2-Y3],[0,0,Y3-Y1],[0,0,Y1-Y2]])
+            v1_Y = np.array([[0,0,X3-X2],[0,0,X1-X3],[0,0,X2-X1]])
             
-            v1_X = np.array([[0,0,Y2-Y3],[0,0,Y3-Y1],[0,0,Y1-Y2],[0,0,0]])
-            v1_Y = np.array([[0,0,X3-X2],[0,0,X1-X3],[0,0,X2-X1],[0,0,0]])
-            v2_X = np.array([[0,0,Y3-Y4],[0,0,0],[0,0,Y4-Y1],[0,0,Y1-Y3]])
-            v2_Y = np.array([[0,0,X4-X3],[0,0,0],[0,0,X1-X4],[0,0,X3-X1]])
-            
-            self.A_X[self.quad[i,:]-1] = self.A_X[self.quad[i,:]-1] + .5*(v1@v1_X.transpose()/n1 + v2@v2_X.transpose()/n2)
-            self.A_Y[self.quad[i,:]-1] = self.A_Y[self.quad[i,:]-1] + .5*(v1@v1_Y.transpose()/n1 + v2@v2_Y.transpose()/n2)
+            self.A_X[self.connect[i,:]-1] = self.A_X[self.connect[i,:]-1] + A_n1*n1_v1@v1_X.transpose()
+            self.A_Y[self.connect[i,:]-1] = self.A_Y[self.connect[i,:]-1] + A_n1*n1_v1@v1_Y.transpose()
             
         ## divide by 2, b/c you just computed the area of the upper and lower surfaces
         
@@ -61,7 +58,7 @@ class WingAreaComponent(om.ExplicitComponent):
     def initialize(self): 
         
         self.options.declare('N_nodes', types=int)
-        self.options.declare('quad', types=np.ndarray)
+        self.options.declare('connect', types=np.ndarray)
         
     def setup(self):
 
@@ -70,7 +67,7 @@ class WingAreaComponent(om.ExplicitComponent):
         
     def compute(self,inputs,outputs):
         
-        self.Area = WingArea(inputs['x'], self.options['quad'])
+        self.Area = WingArea(inputs['x'], self.options['connect'])
         self.Area.compute()
         
         outputs['area'] = self.Area.A
@@ -86,3 +83,4 @@ class WingAreaComponent(om.ExplicitComponent):
                 if 'x' in d_inputs:
                     d_inputs['x'][0::3] += self.Area.A_X*d_outputs['area']
                     d_inputs['x'][1::3] += self.Area.A_Y*d_outputs['area']
+

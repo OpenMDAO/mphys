@@ -289,7 +289,7 @@ class Top(om.Group):
             fuel_density=self.misc_parameters['fuel_density']
         )
         self.baseline_available_fuel.compute()
-        
+         
         # create a group to hold the various output parameters that don't belong anywhere else
 
         self.add_subsystem('outputs',om.Group())
@@ -298,15 +298,15 @@ class Top(om.Group):
 
         self.outputs.add_subsystem('wing_area',WingAreaComponent(
             N_nodes=aero_options['N_nodes'], 
-            quad=aero_options['quad'])
+            connect=np.r_[aero_options['quad'][:,[0,1,2]],aero_options['quad'][:,[2,3,0]]])
         )
 
         self.baseline_wing_area = WingArea(
             nodes=x_a0, 
-            quads=aero_options['quad']
+            connect=np.r_[aero_options['quad'][:,[0,1,2]],aero_options['quad'][:,[2,3,0]]]
         )
         self.baseline_wing_area.compute()
-
+        
         # add trim components
 
         for i in range(0,self.misc_parameters['N_mp']):
