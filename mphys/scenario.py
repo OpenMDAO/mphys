@@ -48,14 +48,6 @@ class Scenario(om.Group):
             aero_scenario_element = self.aero_builder.get_scenario_element()
             self.add_subsystem('aero_funcs', aero_scenario_element)
 
-            # if we have a scenario level element, we also need to
-            # figure out what needs to be connected from the solver
-            # level to the scenario level.
-            scenario_conn = self.aero_builder.get_scenario_connections()
-            # we can make these connections here
-            for k, v in scenario_conn.items():
-                self.connect('solver_group.aero.%s'%k, 'aero_funcs.%s'%v)
-
         # do the same for struct
         if hasattr(self.struct_builder, 'get_scenario_element'):
             struct_scenario_element = self.struct_builder.get_scenario_element()
@@ -66,7 +58,31 @@ class Scenario(om.Group):
                 self.connect('solver_group.struct.%s'%k, 'struct_funcs.%s'%v)
 
     def configure(self):
-        pass
+
+        # if we have a scenario level element for a disciplinary solver, we need to check if we have any
+        # connections between the solver level element and scenario level element
+
+        # aero
+        if self.aero_discipline:
+            # check if solver has any connections for funcs. this dictionary will be empty
+            # if we don't have any connections to the functionals group. If the functionals group
+            # do not exist, the dictionary should still be empty, so we don't check.
+            funcs_connections = self.solver_group.aero.get_io_metadata(iotypes='output', tags='funcs')
+
+            # connect these to the functionals group
+            for k, v in funcs_connections.items():
+                # get the variable name
+                var_name = k.split('.')[-1]
+                # we assume this variable exists for connection in the functional group
+                # # and is promoted to the functional group level.
+                self.connect('solver_group.aero.%s'%v['prom_name'], 'aero_funcs.%s'%var_name)
+
+        if self.struct_discipline:
+            # struct, see above for comments
+            funcs_connections = self.solver_group.struct.get_io_metadata(iotypes='output', tags='funcs')
+            for k, v in funcs_connections.items():
+                var_name = k.split('.')[-1]
+                self.connect('solver_group.struct.%s'%v['prom_name'], 'struct_funcs.%s'%var_name)
 
     def mphys_make_aeroprop_conn(self, aero2prop_conn, prop2aero_conn):
         # do the connections. we may want to do the solver level connections on the solver level but do them here for now

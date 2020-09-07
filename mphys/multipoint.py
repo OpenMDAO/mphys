@@ -87,88 +87,65 @@ class Multipoint(om.Group):
         # at this stage, everything is allocated and every group/component
         # below this level is set up.
 
-        # loop over scenarios and connect them all
-        for name in self.scenarios:
-            if self.struct_discipline:
-                # make the default mesh connections for as_coupling
+        # make the default and custom connections for the struct discipline
+        if self.struct_discipline:
+
+            # get if we have any connections to the solver level groups
+            solver_connections = self.struct_mesh.get_io_metadata(iotypes='output', tags='solver')
+
+            # similarly for functionals
+            funcs_connections = self.struct_mesh.get_io_metadata(iotypes='output', tags='funcs')
+
+            # now loop over scenarios and connect
+            for scenario in self.scenarios:
+                # first, make the default mesh connections for as_coupling
                 if self.as_coupling:
-                    target_x_s0 =     ['%s.solver_group.disp_xfer.x_s0'%name]
-                    target_x_s0.append('%s.solver_group.load_xfer.x_s0'%name)
+                    target_x_s0 =     ['%s.solver_group.disp_xfer.x_s0'%scenario]
+                    target_x_s0.append('%s.solver_group.load_xfer.x_s0'%scenario)
                     self.connect('struct_mesh.x_s0', target_x_s0)
 
-                # check if we have custom mesh connections
-                if hasattr(self.struct_builder, 'get_mesh_connections'):
-                    mesh_conn = self.struct_builder.get_mesh_connections()
+                # then connect the custom stuff to solver and functionals
+                for k, v in solver_connections.items():
+                    # get the variable name
+                    var_name = k.split('.')[-1]
+                    # we assume this variable exists for connection in the solver group
+                    # and is promoted to the group level.
+                    self.connect('struct_mesh.%s'%v['prom_name'], '%s.solver_group.struct.%s'%(scenario, var_name))
 
-                    # if mesh_conn has entries called 'solver' or 'funcs',
-                    # then we know that these are dictionaries of connections
-                    # to be made to solver or funcs. If there are no solver
-                    # or funcs entries in here, we just assume every key
-                    # will be connected to the solver.
-                    if ('solver' in mesh_conn) or ('funcs' not in mesh_conn):
-                        # if solver is in the dict, we connect the keys of that dict
-                        if 'solver' in mesh_conn:
-                            mesh_to_solver = mesh_conn['solver']
-                        # if solver is not in this, it means that funcs is not in
-                        # mesh_conn, which then means that mesh_conn only has
-                        # connections that go to the solver by default
-                        else:
-                            mesh_to_solver = mesh_conn
+                # same deal for functionals
+                for k, v in funcs_connections.items():
+                    var_name = k.split('.')[-1]
+                    self.connect('struct_mesh.%s'%v['prom_name'], '%s.struct_funcs.%s'%(scenario, var_name))
 
-                        for k,v in mesh_to_solver.items():
-                            self.connect('struct_mesh.%s'%k, '%s.solver_group.struct.%s'%(name, v))
+        # do the same for the aero discipline
+        if self.aero_discipline:
 
-                    # if funcs is in the dict, we just connect the entries from this to the funcs
-                    if 'funcs' in mesh_conn:
-                        mesh_to_funcs = mesh_conn['funcs']
-                        for k,v in mesh_to_funcs.items():
-                            self.connect('struct_mesh.%s'%k, '%s.struct_funcs.%s'%(name, v))
+            # get if we have any connections to the solver level groups
+            solver_connections = self.aero_mesh.get_io_metadata(iotypes='output', tags='solver')
 
-                # if the solver did not define any custom mesh connections,
-                # we will just connect the nodes from the mesh to solver
-                else:
-                    self.connect('struct_mesh.x_s0', '%s.solver_group.struct.x_s0'%name)
+            # similarly for functionals
+            funcs_connections = self.aero_mesh.get_io_metadata(iotypes='output', tags='funcs')
 
-            if self.aero_discipline:
-                # make the default mesh connections for as_coupling
+            # now loop over scenarios and connect
+            for scenario in self.scenarios:
+                # first, make the default mesh connections for as_coupling
                 if self.as_coupling:
-                    target_x_a0 =     ['%s.solver_group.load_xfer.x_a0'%name]
-                    target_x_a0.append('%s.solver_group.disp_xfer.x_a0'%name)
+                    target_x_a0 =     ['%s.solver_group.load_xfer.x_a0'%scenario]
+                    target_x_a0.append('%s.solver_group.disp_xfer.x_a0'%scenario)
                     self.connect('aero_mesh.x_a0', target_x_a0)
 
-                # check if we have custom mesh connections
-                if hasattr(self.aero_builder, 'get_mesh_connections'):
-                    mesh_conn = self.aero_builder.get_mesh_connections()
+                # then connect the custom stuff to solver and functionals
+                for k, v in solver_connections.items():
+                    # get the variable name
+                    var_name = k.split('.')[-1]
+                    # we assume this variable exists for connection in the solver group
+                    # and is promoted to the group level.
+                    self.connect('aero_mesh.%s'%v['prom_name'], '%s.solver_group.aero.%s'%(scenario, var_name))
 
-                    # if mesh_conn has entries called 'solver' or 'funcs',
-                    # then we know that these are dictionaries of connections
-                    # to be made to solver or funcs. If there are no solver
-                    # or funcs entries in here, we just assume every key
-                    # will be connected to the solver.
-                    if ('solver' in mesh_conn) or ('funcs' not in mesh_conn):
-                        # if solver is in the dict, we connect the keys of that dict
-                        if 'solver' in mesh_conn:
-                            mesh_to_solver = mesh_conn['solver']
-                        # if solver is not in this, it means that funcs is not in
-                        # mesh_conn, which then means that mesh_conn only has
-                        # connections that go to the solver by default
-                        else:
-                            mesh_to_solver = mesh_conn
-
-                        for k,v in mesh_to_solver.items():
-                            self.connect('aero_mesh.%s'%k, '%s.solver_group.aero.%s'%(name, v))
-
-                    # if funcs is in the dict, we just connect the entries from this to the funcs
-                    if 'funcs' in mesh_conn:
-                        mesh_to_funcs = mesh_conn['funcs']
-                        for k,v in mesh_to_funcs.items():
-                            self.connect('aero_mesh.%s'%k, '%s.aero_funcs.%s'%(name, v))
-
-                # if the solver did not define any custom mesh connections,
-                # we will just connect the nodes from the mesh to solver
-                else:
-                    self.connect('aero_mesh.x_a0', '%s.solver_group.aero.x_a0'%name)
-
+                # same deal for functionals
+                for k, v in funcs_connections.items():
+                    var_name = k.split('.')[-1]
+                    self.connect('aero_mesh.%s'%v['prom_name'], '%s.aero_funcs.%s'%(scenario, var_name))
 
     def mphys_add_scenario(self, name, **kwargs):
         # save all the data until we are ready to initialize the objects themselves
