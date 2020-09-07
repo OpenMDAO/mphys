@@ -375,9 +375,9 @@ class ADflowSolver(ImplicitComponent):
                     solver.writeSolution(baseName='analysis_fail' ,number=self.solution_counter)
                     self.solution_counter += 1
 
-                    solver.resetFlow(ap)
-                    self.cleanRestart = True
                     if self.analysis_error_on_failure:
+                        solver.resetFlow(ap)
+                        self.cleanRestart = True
                         raise AnalysisError('ADFLOW Solver Fatal Fail')
 
                 # the previous iteration restarted from another solution, so we can try again
@@ -407,11 +407,11 @@ class ADflowSolver(ImplicitComponent):
                         solver.writeSolution(baseName='analysis_fail' ,number=self.solution_counter)
                         self.solution_counter += 1
 
-                        # re-set the flow for the next iteration:
-                        solver.resetFlow(ap)
-                        # set the reset flow flag
-                        self.cleanRestart = True
                         if self.analysis_error_on_failure:
+                            # re-set the flow for the next iteration:
+                            solver.resetFlow(ap)
+                            # set the reset flow flag
+                            self.cleanRestart = True
                             raise AnalysisError('ADFLOW Solver Fatal Fail')
 
                     # see comment for the same flag below
