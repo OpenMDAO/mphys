@@ -19,6 +19,7 @@ class ADflowMesh(ExplicitComponent):
     """
     def initialize(self):
         self.options.declare('aero_solver', recordable=False)
+        self.options.declare('warp_in_solver', default=True)
         self.options['distributed'] = True
 
     def setup(self):
@@ -30,7 +31,15 @@ class ADflowMesh(ExplicitComponent):
 
         coord_size = self.x_a0.size
 
-        self.add_output('x_a0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
+        # if the volume warping happens in the solver, then we need to connect x_a0 to the solver
+        # so set the tag here
+        if self.options['warp_in_solver']:
+            tags = 'solver'
+        # warper is in the mesh group, so we do not connect surface coordinates to the solver.
+        else:
+            tags = []
+
+        self.add_output('x_a0', shape=coord_size, desc='initial aerodynamic surface node coordinates', tags=tags)
 
     def mphys_add_coordinate_input(self):
         local_size = self.x_a0.size
@@ -205,7 +214,7 @@ class ADflowWarper(ExplicitComponent):
 
         self.add_input('x_a', src_indices=np.arange(n1,n2,dtype=int),shape=local_coord_size)
 
-        self.add_output('x_g', shape=local_volume_coord_size)
+        self.add_output('x_g', shape=local_volume_coord_size, tags=['solver', 'funcs'])
 
         #self.declare_partials(of='x_g', wrt='x_s')
 
@@ -282,7 +291,7 @@ class ADflowSolver(ImplicitComponent):
 
         self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int),shape=local_coord_size)
 
-        self.add_output('q', shape=local_state_size)
+        self.add_output('q', shape=local_state_size, tags='funcs')
 
         #self.declare_partials(of='q', wrt='*')
 
@@ -997,7 +1006,7 @@ class ADflowMeshGroup(Group):
     def setup(self):
         aero_solver = self.options['aero_solver']
 
-        self.add_subsystem('surface_mesh',  ADflowMesh(aero_solver=aero_solver), promotes=['*'])
+        self.add_subsystem('surface_mesh',  ADflowMesh(aero_solver=aero_solver, warp_in_solver=False), promotes=['*'])
         self.add_subsystem('volume_mesh',
             ADflowWarper(
                 aero_solver=aero_solver
@@ -1044,49 +1053,10 @@ class ADflowBuilder(object):
         if use_warper:
             return ADflowMeshGroup(aero_solver=self.solver)
         else:
-            return ADflowMesh(aero_solver=self.solver)
+            return ADflowMesh(aero_solver=self.solver, warp_in_solver=True)
 
     def get_scenario_element(self):
         return ADflowFunctions(aero_solver=self.solver)
-
-    def get_scenario_connections(self):
-        # this is the stuff we want to be connected
-        # between the solver and the functionals.
-        # these variables FROM the solver are connected
-        # TO the funcs element. So the solver has output
-        # and funcs has input. key is the output,
-        # variable is the input in the returned dict.
-        if self.warp_in_solver:
-            mydict = {
-                'x_g': 'x_g',
-                'solver.q': 'q',
-            }
-        else:
-            mydict = {
-                'solver.q': 'q',
-            }
-
-        return mydict
-
-    def get_mesh_connections(self):
-        if self.warp_in_solver:
-            mydict = {
-                'solver':{
-                    'x_a0'  : 'x_a0',
-                },
-                'funcs':{},
-            }
-        else:
-            mydict = {
-                'solver':{
-                    'x_g'  : 'x_g',
-                },
-                'funcs':{
-                    'x_g'  : 'x_g',
-                },
-            }
-
-        return mydict
 
     def get_nnodes(self):
         return int(self.solver.getSurfaceCoordinates().size /3)
