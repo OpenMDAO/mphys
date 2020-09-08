@@ -101,8 +101,8 @@ class Top(om.Group):
         # common setup options
         tacs_setup = {'add_elements': add_elements,
                     'get_funcs'   : get_funcs,
-                    'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
-                    'f5_writer'   : f5_writer }
+                    'mesh_file'   : 'wingbox_Y_Z_flip.bdf',}
+                    # 'f5_writer'   : f5_writer }
 
         if self.modal_struct:
             nmodes = 15
@@ -175,6 +175,6 @@ om.n2(prob, show_browser=False, outfile='mphys_as_vlm.html')
 prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
+    print('cl =',prob['mp_group.s0.solver_group.aero.forces.CL'])
     print('f_struct =',prob['mp_group.s0.struct_funcs.funcs.f_struct'])
     print('mass =',prob['mp_group.s0.struct_funcs.mass.mass'])
-    print('cl =',prob['mp_group.s0.solver_loop.aero.funcs.CL'])
