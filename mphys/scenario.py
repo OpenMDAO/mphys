@@ -53,10 +53,6 @@ class Scenario(om.Group):
             struct_scenario_element = self.struct_builder.get_scenario_element()
             self.add_subsystem('struct_funcs', struct_scenario_element)
 
-            scenario_conn = self.struct_builder.get_scenario_connections()
-            for k, v in scenario_conn.items():
-                self.connect('solver_group.struct.%s'%k, 'struct_funcs.%s'%v)
-
     def configure(self):
 
         # if we have a scenario level element for a disciplinary solver, we need to check if we have any
