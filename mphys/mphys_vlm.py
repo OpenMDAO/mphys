@@ -15,7 +15,7 @@ class VlmMesh(om.ExplicitComponent):
 
         N_nodes = self.options['N_nodes']
         self.x_a0 = self.options['x_a0']
-        self.add_output('x_a0',np.zeros(N_nodes*3))
+        self.add_output('x_a0',np.zeros(N_nodes*3), tags='solver')
 
     def compute(self,inputs,outputs):
 

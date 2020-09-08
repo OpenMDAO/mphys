@@ -39,7 +39,7 @@ class ModalDecomp(om.ExplicitComponent):
         # instead of using 2d arrays for the mode shapes, we use a flattened array with modes back to back.
         # this is because in OpenMDAO version 2.10.1, the src_indices option for 2D arrays with empty i/o on
         # some procs is broken. Flattened works at least for the analysis.
-        self.add_output('mode_shape', shape=self.nmodes*self.state_size, desc='structural mode shapes')
+        self.add_output('mode_shape', shape=self.nmodes*self.state_size, desc='structural mode shapes', tags='solver')
 
         if self.comm.rank == 0:
             output_shape = self.nmodes
@@ -47,7 +47,7 @@ class ModalDecomp(om.ExplicitComponent):
             output_shape = 0
 
         self.add_output('modal_mass', shape=output_shape, desc='modal mass')
-        self.add_output('modal_stiffness', shape=output_shape, desc='modal stiffness')
+        self.add_output('modal_stiffness', shape=output_shape, desc='modal stiffness', tags='solver')
 
         self.add_output('x_s0', shape = node_size, desc = 'undeformed nodal coordinates')
 
@@ -370,15 +370,6 @@ class ModalBuilder(object):
         return ModalDecomp(struct_solver=self.solver,
                            ndv=self.solver_dict['ndv'],
                            nmodes=self.nmodes)
-
-    def get_mesh_connections(self):
-        return {
-            # because we dont have a solver or funcs key,
-            # mphys just assume that these will be connected
-            # to the solver.
-            'modal_stiffness': 'modal_stiffness',
-            'mode_shape': 'mode_shape',
-        }
 
     def get_ndof(self):
         return self.solver_dict['ndof']

@@ -23,7 +23,7 @@ class TacsMesh(om.ExplicitComponent):
 
         # OpenMDAO setup
         node_size  =     self.xpts.getArray().size
-        self.add_output('x_s0', shape=node_size, desc='structural node coordinates')
+        self.add_output('x_s0', shape=node_size, desc='structural node coordinates', tags=['solver', 'funcs'])
 
     def mphys_add_coordinate_input(self):
         local_size  = self.xpts.getArray().size
@@ -124,7 +124,7 @@ class TacsSolver(om.ImplicitComponent):
 
         # outputs
         # its important that we set this to zero since this displacement value is used for the first iteration of the aero
-        self.add_output('u_s', shape=state_size, val = np.zeros(state_size),desc='structural state vector')
+        self.add_output('u_s', shape=state_size, val = np.zeros(state_size),desc='structural state vector', tags='funcs')
 
         # partials
         #self.declare_partials('u_s',['dv_struct','x_s0','f_s'])
@@ -672,7 +672,7 @@ class TACSFuncsGroup(om.Group):
             struct_solver=self.struct_solver,
             struct_objects=self.struct_objects,
             check_partials=self.check_partials),
-            promotes_inputs=['x_s0', 'dv_struct']
+            promotes_inputs=['x_s0', 'dv_struct', 'u_s']
         )
 
         self.add_subsystem('mass', TacsMass(
@@ -743,33 +743,12 @@ class TacsBuilder(object):
     def get_mesh_element(self):
         return TacsMesh(struct_solver=self.solver)
 
-    def get_mesh_connections(self):
-        return {
-            'solver':{
-                'x_s0'  : 'x_s0',
-            },
-            'funcs':{
-                'x_s0'  : 'x_s0',
-            },
-        }
-
     def get_scenario_element(self):
         return TACSFuncsGroup(
             solver=self.solver,
             solver_objects=self.solver_objects,
             check_partials=self.check_partials
         )
-
-    def get_scenario_connections(self):
-        # this is the stuff we want to be connected
-        # between the solver and the functionals.
-        # these variables FROM the solver are connected
-        # TO the funcs element. So the solver has output
-        # and funcs has input. key is the output,
-        # variable is the input in the returned dict.
-        return {
-            'u_s'    : 'funcs.u_s',
-        }
 
     def get_ndof(self):
         return self.solver_dict['ndof']
