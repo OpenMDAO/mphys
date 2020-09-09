@@ -38,12 +38,12 @@ class Top(om.Group):
         }
 
         self.aero_parameters = {
-            'mach': [0.2, 0.2],#[0.85, .64],                                   # mach number of each load case
-            'q_inf': [0.0000001,0.0000001],#[20000., 25000.],#[1000., 2000.],#[12930., 28800.],                             # dynamic pressure of each load case, Pa
+            'mach': [0.85, .64],                                   # mach number of each load case
+            'q_inf': [12930., 28800.],                             # dynamic pressure of each load case, Pa
             'vel': [254., 217.6],                                  # velocity of each load case, m/s
             'mu': [3.5E-5, 1.4E-5],                                # viscocity of each load case, 
             'reynolds_number': [254./3.5E-5, 217.6/1.4E-5],        # Re-per-length of each load case
-            'alpha': [1., 1.],#[1., 4.]                     ,                # AoA of each load case: this is a DV, so these values set the starting points
+            'alpha': [1., 4.]                     ,                # AoA of each load case: this is a DV, so these values set the starting points
         }
 
         self.trim_parameters = {
@@ -52,7 +52,7 @@ class Top(om.Group):
         }
 
         self.misc_parameters = {
-            'structural_patch_lumping': False,                     # reduces all the component thickness DVs into a single one: useful for checking totals
+            'structural_patch_lumping': True,#False,                     # reduces all the component thickness DVs into a single one: useful for checking totals
             'initial_thickness': 0.02,                             # starting thickness for each thickness DV, m
             'elastic_modulus': 73.1e9,                             # elastic modulus, Pa
             'poisson': 0.33,                                       # poisson's ratio
@@ -69,7 +69,7 @@ class Top(om.Group):
             'cruise_case_ID': 0,                                   # load case ID which will be used to compute L/D
             'beta': 1.,                                            # weighting between FB and LGW, to compute final objective function: beta = 1 is pure FB minimization, 0 is pure LGW
             'BDF_file': 'CRM_box_2nd.bdf',                         # BDF file used to define FEM 
-            'FUN3D_mesh_file': 'crm_invis_tet.b8.ugrid',           # file which contains the baseline FUN3D grid
+            'FUN3D_mesh_file': 'crm_rans_coarse.b8.ugrid',           # file which contains the baseline FUN3D grid
             'FUN3D_boundary_list': [3],                            # wing boundary ID in mapbc
         }
 
@@ -192,10 +192,19 @@ class Top(om.Group):
         x,y,z = aero_builder.meshdef.get_global_image_of_coordinates_on_boundary(self.misc_parameters['FUN3D_boundary_list'],bcast=True)
         x_a0 = np.concatenate((x.reshape((-1,1)),y.reshape((-1,1)),z.reshape((-1,1))),axis=1).flatten(order="C")
         connect = aero_builder.meshdef.get_global_image_of_boundary_connectivity(self.misc_parameters['FUN3D_boundary_list'],bcast=True)
-        aero_surface_connect = np.zeros([len(connect),3],dtype=int)
-        for i in range(0,len(connect)):
-            aero_surface_connect[i,:] = connect[i] + 1
+        aero_surface_connect = np.zeros([len(connect)*2,3],dtype=int)
 
+        count = 0
+        for i in range(0,len(connect)):
+            if len(connect[i]) > 3:
+                aero_surface_connect[count,:] = connect[i][[0,1,2]] + 1
+                aero_surface_connect[count+1,:] = connect[i][[0,2,3]] + 1
+                count = count + 2
+            else: 
+                aero_surface_connect[count,:] = connect[i] + 1
+                count = count + 1
+        aero_surface_connect = aero_surface_connect[0:count,:]
+       
         struct_builder.init_solver(MPI.COMM_WORLD)
         tacs_solver = struct_builder.get_solver()
         xpts = tacs_solver.createNodeVec()
@@ -232,7 +241,7 @@ class Top(om.Group):
             connect=aero_surface_connect
         )
         self.baseline_wing_area.compute()
-         
+        
         # each AS_Multipoint instance can keep multiple points with the same formulation
 
         mp = self.add_subsystem(
@@ -482,51 +491,53 @@ model.linear_solver = om.LinearRunOnce()
 
 
 
-## Use this if you want to check totals: need to use CS versions of TACS and MELD.  
-## Also, can't use_aitken for this to work.  And since you can't use_aitken, q_inf/AoA has to be relatively low
-## Also, turn patch_lumping on.
+# Use this if you want to check totals: CS of FUN3D/SFE not availble for now, so can use aitken to do this
+# Also, turn patch_lumping on.
+  
+prob.setup(mode='rev')
 
-#prob.setup(mode='rev')#,force_alloc_complex=True)
-#om.n2(prob, show_browser=False, outfile='CRM_mphys_as_fun3d.html')
+model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=12, iprint=2, use_aitken=True ,rtol = 1E-7, atol=1E-10)
+model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=12, iprint=2, rtol = 1e-7, atol=1e-10)
 
-#model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-11, atol=1E-11)
-#model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-11, atol=1e-11)
-#
-#model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-11, atol=1E-11)
-#model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 1e-11, atol=1e-11)
-#
-#prob.run_model()
-#
-#prob.check_totals(
-#        of=[
-#        'mp_group.s1.struct.funcs.f_struct',
-#        'outputs.wing_area.area',
-#        'outputs.trim0.load_factor',
-#        'outputs.trim1.load_factor',
-#        'outputs.flight_metrics.FB',
-#        'outputs.flight_metrics.LGW',
-#        'outputs.flight_metrics.final_objective',
-#        'outputs.available_fuel_mass.available_fuel_mass',
-#        'outputs.fuel_match.fuel_mismatch',
-#        'outputs.spar_depth.spar_depth',
-#        ],
-#        wrt=[
-#        'alpha0',
-#        'alpha1',
-#        'upper_skin_thickness_lumped',
-#        'lower_skin_thickness_lumped',
-#        'le_spar_thickness_lumped', 
-#        'te_spar_thickness_lumped', 
-#        'rib_thickness_lumped', 
-#        'root_chord_delta', 
-#        'tip_chord_delta', 
-#        'tip_sweep_delta', 
-#        'span_delta', 
-#        'wing_thickness_delta', 
-#        'wing_twist_delta',
-#        'fuel_dv'
-#        ], method='cs')
+model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=12, iprint=2, use_aitken=True , rtol = 1E-7, atol=1E-10)
+model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=12, iprint=2, rtol = 1e-7, atol=1e-10)
 
+prob.run_model()
+
+boo
+
+prob.check_totals(
+        of=[
+        #'mp_group.s1.struct.funcs.f_struct',
+        #'wing_area.area',
+        #'outputs.trim0.load_factor',
+        'outputs.trim1.load_factor',
+        #'outputs.flight_metrics.FB',
+        #'outputs.flight_metrics.LGW',
+        #'outputs.flight_metrics.final_objective',
+        #'outputs.available_fuel_mass.available_fuel_mass',
+        #'outputs.fuel_match.fuel_mismatch',
+        #'outputs.spar_depth.spar_depth',
+        ],
+        wrt=[
+        #'alpha0',
+        #'alpha1',
+        'upper_skin_thickness_lumped',
+        #'lower_skin_thickness_lumped',
+        #'le_spar_thickness_lumped', 
+        #'te_spar_thickness_lumped', 
+        #'rib_thickness_lumped', 
+        #'root_chord_delta', 
+        #'tip_chord_delta', 
+        #'tip_sweep_delta', 
+        #'span_delta', 
+        #'wing_thickness_delta', 
+        #'wing_twist_delta',
+        #'fuel_dv'
+        ], method='fd', step=1e-06)
+
+
+boo
 
 
 ## Use this if you don't want to check totals, but just want to run the model once
