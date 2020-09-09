@@ -23,7 +23,7 @@ class WingGeometry(om.ExplicitComponent):
         self.add_input('tip_chord_delta')
         self.add_input('tip_sweep_delta')
         self.add_input('span_delta')
-        self.add_input('wing_thickness_delta',shape=self.N_knots)
+        self.add_input('wing_thickness_delta',shape=self.N_knots-1)
         self.add_input('wing_twist_delta',shape=(self.N_knots-1))
         
         self.add_output('x_s0_mesh',shape=len(self.options['xs']))
@@ -429,7 +429,8 @@ class WingGeometry(om.ExplicitComponent):
 
         """  
         
-        thickness = self._RBF_TPS(np.r_[-np.flip(y_knot,0),y_knot[1:]],np.r_[np.flip(self.thickness_DV,0),self.thickness_DV[1:]],Y)
+        #thickness = self._RBF_TPS(np.r_[-np.flip(y_knot,0),y_knot[1:]],np.r_[np.flip(self.thickness_DV,0),self.thickness_DV[1:]],Y)
+        thickness = self._RBF_TPS(np.r_[-np.flip(y_knot,0),y_knot[1:]],np.r_[np.flip(self.thickness_DV,0),0,self.thickness_DV],Y)
         
         z_eta = (Z - self._interp(y_knot,zl_knot,Y))/(self._interp(y_knot,zu_knot,Y) - self._interp(y_knot,zl_knot,Y))
     
@@ -525,6 +526,9 @@ def airfoil_thickness_bounds(xs,y_knot,airfoil_thickness_fraction):
     ## final bounds on thickness DVs
     
     thickness_min = -thickness*airfoil_thickness_fraction
+    thickness_min = thickness_min[1:]
+    
     thickness_max = thickness*airfoil_thickness_fraction
+    thickness_max = thickness_max[1:]
     
     return thickness_min, thickness_max
