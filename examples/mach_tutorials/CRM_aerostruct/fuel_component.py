@@ -219,7 +219,7 @@ class FuelLoads(om.ExplicitComponent):
         self.fuel = FuelMass(inputs['x_s0'],quad,self.options['prop_ID'],self.options['patches'],self.options['fuel_density'])
         self.fuel.set_CS(self.under_complex_step)
         self.fuel.compute()
-                                       
+
         ## find fuel_fraction: percentage of fuel_mass seen by this load case
 
         self.fuel_fraction = (inputs['load_case_fuel_burned']*(inputs['fuel_DV']*np.sum(self.fuel.mass) - self.options['reserve_fuel']) + \
@@ -246,11 +246,11 @@ class FuelLoads(om.ExplicitComponent):
         rib = _component_elements(self.options['patches'].rib,self.options['prop_ID'])
         rib = np.unique(quad[rib].flatten())
         
-        top_front = np.intersect1d(np.intersect1d(US,LE),rib)
-        bot_front = np.intersect1d(np.intersect1d(LS,LE),rib)
-        top_rear = np.intersect1d(np.intersect1d(US,TE),rib)
-        bot_rear = np.intersect1d(np.intersect1d(LS,TE),rib)
-        
+        top_front = np.intersect1d(np.intersect1d(US,LE),rib); j = np.argsort(Y[top_front]); top_front = top_front[j]
+        bot_front = np.intersect1d(np.intersect1d(LS,LE),rib); j = np.argsort(Y[bot_front]); bot_front = bot_front[j]
+        top_rear = np.intersect1d(np.intersect1d(US,TE),rib);  j = np.argsort(Y[top_rear]);  top_rear = top_rear[j]
+        bot_rear = np.intersect1d(np.intersect1d(LS,TE),rib);  j = np.argsort(Y[bot_rear]);  bot_rear = bot_rear[j]
+ 
         ## find fuel force vector
 
         outputs['F_fuel'] = np.zeros(self.options['N_nodes']*6)
@@ -305,7 +305,7 @@ class FuelLoads(om.ExplicitComponent):
             outputs['F_fuel'][self.connect[:,i]*6+0] = outputs['F_fuel'][self.connect[:,i]*6+0]  + f[0::6]
             outputs['F_fuel'][self.connect[:,i]*6+1] = outputs['F_fuel'][self.connect[:,i]*6+1]  + f[1::6]
             outputs['F_fuel'][self.connect[:,i]*6+2] = outputs['F_fuel'][self.connect[:,i]*6+2]  + f[2::6]
-         
+ 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode): 
 
         gravity = -self.options['gravity']*inputs['load_factor']
