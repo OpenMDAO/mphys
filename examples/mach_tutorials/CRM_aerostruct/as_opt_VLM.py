@@ -617,10 +617,12 @@ prob.driver.add_recorder(recorder)
 prob.setup(mode='rev')
 
 model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True ,rtol = 1E-7, atol=1E-7)
-model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=200, iprint=2, rtol = 1e-6, atol=1e-6)
+#model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=200, iprint=2, rtol = 1e-6, atol=1e-6)
+model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=200, iprint=2, use_aitken=True, rtol = 1e-6, atol=1e-6)
 
 model.mp_group.s1.nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=True , rtol = 1E-7, atol=1E-7)
-model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=200, iprint=2, rtol = 1e-6, atol=1e-6)
+#model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=200, iprint=2, rtol = 1e-6, atol=1e-6)
+model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=200, iprint=2, use_aitken=True, rtol = 1e-6, atol=1e-6)
 
 prob.run_driver()
 
