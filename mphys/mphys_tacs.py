@@ -253,12 +253,13 @@ class TacsSolver(om.ImplicitComponent):
         self._update_internal(inputs)
         # solve the linear system
         force_array = force.getArray()
-        force_array[:] = inputs['F_summed'] 
+        force_array[:] = inputs['F_summed']
         tacs.applyBCs(force)
-
+        
         gmres.solve(force, ans)
         ans_array = ans.getArray()
         outputs['u_s'] = ans_array[:]
+        
         #print(outputs['u_s'][30812])
         print('max u_s: ', np.max(outputs['u_s']))
         tacs.setVariables(ans)
@@ -698,12 +699,11 @@ class TACS_group(om.Group):
 
         # sum aero, inertial, and fual loads: result is F_summed, which tacs accepts as an input
 
-        vec_size_g = np.sum(self.comm.gather(self.struct_solver.getNumNodes()*6))
-        vec_size_g = self.comm.bcast(vec_size_g)        
-        # this comes out to 61314, but should be 58452 = N_nodes*6.  Not sure why, hard coding below for now 
-
+        vec_size_g = np.sum(self.comm.gather(self.struct_solver.getNumOwnedNodes()*6))
+        vec_size_g = int(self.comm.bcast(vec_size_g))        
+        
         self.add_subsystem('sum_loads',SumLoads(
-            load_size=58452,#vec_size_g, 
+            load_size=vec_size_g, 
             load_list=['F_inertial','F_fuel','f_s']),
             promotes_inputs=['f_s'],
             promotes_outputs=['F_summed']
