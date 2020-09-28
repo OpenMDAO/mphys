@@ -7,7 +7,7 @@ class MeldDispXfer(om.ExplicitComponent):
     Component to perform displacement transfer using MELD
     """
     def initialize(self):
-        self.options.declare('xfer_object')
+        self.options.declare('xfer_object', recordable=False)
         self.options.declare('struct_ndof')
         self.options.declare('struct_nnodes')
         self.options.declare('aero_nnodes')
@@ -155,7 +155,7 @@ class MeldLoadXfer(om.ExplicitComponent):
     Component to perform load transfers using MELD
     """
     def initialize(self):
-        self.options.declare('xfer_object')
+        self.options.declare('xfer_object', recordable=False)
         self.options.declare('struct_ndof')
         self.options.declare('struct_nnodes')
         self.options.declare('aero_nnodes')
