@@ -8,10 +8,10 @@ class Multipoint(om.Group):
     def initialize(self):
 
         # define the inputs we need
-        self.options.declare('aero_builder', default=None)
-        self.options.declare('struct_builder', default=None)
-        self.options.declare('xfer_builder', default=None)
-        self.options.declare('prop_builder', default=None)
+        self.options.declare('aero_builder', default=None, recordable=False)
+        self.options.declare('struct_builder', default=None, recordable=False)
+        self.options.declare('xfer_builder', default=None, recordable=False)
+        self.options.declare('prop_builder', default=None, recordable=False)
 
         # ordered dict to save all the scenarios user adds
         self.scenarios = OrderedDict()
