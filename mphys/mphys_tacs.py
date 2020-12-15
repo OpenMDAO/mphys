@@ -4,6 +4,8 @@ import openmdao.api as om
 from tacs import TACS,functions
 import numpy as np
 
+from sum_loads import SumLoads
+
 class TacsMesh(om.ExplicitComponent):
     """
     Component to read the initial mesh coordinates with TACS
@@ -38,6 +40,7 @@ class TacsMesh(om.ExplicitComponent):
 
         n1 = np.sum(n_list[:irank])
         n2 = np.sum(n_list[:irank+1])
+        node_size  =     self.xpts.getArray().size
 
         self.add_input('x_s0_points', shape=node_size, src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
 
@@ -89,9 +92,11 @@ class TacsSolver(om.ImplicitComponent):
         self.check_partials = False
 
         self.old_dvs = None
+        self.old_xs = None
 
     def setup(self):
         self.check_partials = self.options['check_partials']
+        #self.set_check_partial_options(wrt='*',method='cs',directional=True)
 
         tacs_assembler = self.options['struct_solver']
         struct_objects = self.options['struct_objects']
@@ -157,16 +162,28 @@ class TacsSolver(om.ImplicitComponent):
         return self.solver_dict['get_funcs']
 
     def _need_update(self,inputs):
+
+        update = False
+
         if self.old_dvs is None:
             self.old_dvs = inputs['dv_struct'].copy()
-            return True
+            update =  True
 
         for dv, dv_old in zip(inputs['dv_struct'],self.old_dvs):
-            if np.abs(dv - dv_old) > 1e-10:
+            if np.abs(dv - dv_old) > 0.:#1e-7:
                 self.old_dvs = inputs['dv_struct'].copy()
-                return True
+                update =  True
 
-        return False
+        if self.old_xs is None:
+            self.old_xs = inputs['x_s0'].copy()
+            update =  True
+
+        for xs, xs_old in zip(inputs['x_s0'],self.old_xs):
+            if np.abs(xs - xs_old) > 0.:#1e-7:
+                self.old_xs = inputs['x_s0'].copy()
+                update =  True
+
+        return update
 
     def _update_internal(self,inputs,outputs=None):
         if self._need_update(inputs):
@@ -202,6 +219,7 @@ class TacsSolver(om.ImplicitComponent):
         tacs_assembler = self.tacs_assembler
         res  = self.res
         ans  = self.ans
+        #print ('apply_nonlinear')
 
         self._update_internal(inputs,outputs)
 
@@ -212,7 +230,7 @@ class TacsSolver(om.ImplicitComponent):
         tacs_assembler.assembleRes(res)
 
         # Add the external loads
-        res_array[:] -= inputs['f_s']
+        res_array[:] -= inputs['F_summed']
 
         # Apply BCs to the residual (forces)
         tacs_assembler.applyBCs(res)
@@ -229,6 +247,8 @@ class TacsSolver(om.ImplicitComponent):
         ans    = self.ans
         pc     = self.pc
         gmres  = self.gmres
+        #print ('solve_nonlinear')
+        #print('f_s', inputs['f_s'][:])
 
         self._update_internal(inputs)
         # solve the linear system
@@ -328,8 +348,8 @@ class TacsSolver(om.ImplicitComponent):
                     d_outputs['u_s'] += np.array(res_array[:],dtype=float)
                     d_outputs['u_s'] -= np.array(after - before,dtype=np.float64)
 
-                if 'f_s' in d_inputs:
-                    d_inputs['f_s'] -= np.array(psi_array[:],dtype=float)
+                if 'F_summed' in d_inputs:
+                    d_inputs['F_summed'] -= np.array(psi_array[:],dtype=float)
 
                 if 'x_s0' in d_inputs:
                     xpt_sens = self.xpt_sens
@@ -687,7 +707,7 @@ class TacsMass(om.ExplicitComponent):
         self.struct_objects = self.options['struct_objects']
         self.check_partials = self.options['check_partials']
 
-        # self.set_check_partial_options(wrt='*',directional=True)
+        self.set_check_partial_options(wrt='*',directional=True)
 
         tacs_assembler = self.tacs_assembler
 
@@ -836,6 +856,25 @@ class TacsGroup(om.Group):
                 promotes_inputs=['f_s', 'x_s0', 'dv_struct'],
                 promotes_outputs=['u_s']
             )
+        # sum aero, inertial, and fual loads: result is F_summed, which tacs accepts as an input
+
+        vec_size_g = np.sum(self.comm.gather(self.struct_solver.getNumOwnedNodes()*6))
+        vec_size_g = int(self.comm.bcast(vec_size_g))
+
+        self.add_subsystem('sum_loads',SumLoads(
+            load_size=vec_size_g,
+            load_list=['F_inertial','F_fuel','f_s']),
+            promotes_inputs=['f_s'],
+            promotes_outputs=['F_summed']
+        )
+
+        self.add_subsystem('solver', TacsSolver(
+            struct_solver=self.struct_solver,
+            struct_objects=self.struct_objects,
+            check_partials=self.check_partials),
+            promotes_inputs=['x_s0', 'dv_struct', 'F_summed'],
+            promotes_outputs=['u_s']
+        )
 
     def configure(self):
         if not self.options['conduction']:
@@ -864,7 +903,8 @@ class TACSFuncsGroup(om.Group):
             struct_solver=self.struct_solver,
             struct_objects=self.struct_objects,
             check_partials=self.check_partials),
-            promotes_inputs=['x_s0', 'dv_struct']
+            promotes_inputs=['x_s0', 'dv_struct'],
+            promotes_outputs=['mass'],
         )
 
     def configure(self):
@@ -880,14 +920,15 @@ class TacsBuilder(object):
 
     # api level method for all builders
     def init_solver(self, comm):
+        if self.solver is None:
 
-        solver_dict={}
+            solver_dict={}
 
-        mesh = TACS.MeshLoader(comm)
-        mesh.scanBDFFile(self.options['mesh_file'])
+            mesh = TACS.MeshLoader(comm)
+            mesh.scanBDFFile(self.options['mesh_file'])
 
-        ndof, ndv = self.options['add_elements'](mesh)
-        self.n_dv_struct = ndv
+            ndof, ndv = self.options['add_elements'](mesh)
+            self.n_dv_struct = ndv
 
         tacs_assembler = mesh.createTACS(ndof)
 
@@ -900,9 +941,9 @@ class TacsBuilder(object):
 
         pc = TACS.Pc(mat)
 
-        subspace = 100
-        restarts = 2
-        gmres = TACS.KSM(mat, pc, subspace, restarts)
+            subspace = 100
+            restarts = 2
+            gmres = TACS.KSM(mat, pc, subspace, restarts)
 
         solver_dict['ndv']    = ndv
         solver_dict['ndof']   = ndof
@@ -916,14 +957,14 @@ class TacsBuilder(object):
         if 'f5_writer' in self.options.keys():
             solver_dict['f5_writer'] = self.options['f5_writer']
 
-        # check if the user provided a load function
-        if 'load_function' in self.options:
-            solver_dict['load_function'] = self.options['load_function']
+            # check if the user provided a load function
+            if 'load_function' in self.options:
+                solver_dict['load_function'] = self.options['load_function']
 
-        self.solver_dict=solver_dict
+            self.solver_dict=solver_dict
 
-        # put the rest of the stuff in a tuple
-        solver_objects = [mat, pc, gmres, solver_dict]
+            # put the rest of the stuff in a tuple
+            solver_objects = [mat, pc, gmres, solver_dict]
 
         self.solver = tacs_assembler
         self.solver_objects = solver_objects
