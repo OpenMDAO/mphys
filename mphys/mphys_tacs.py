@@ -711,7 +711,7 @@ class TacsMass(om.ExplicitComponent):
 
         tacs_assembler = self.tacs_assembler
 
-        # TACS part of setup
+        # TACS part of setupk
         self.tacs_assembler = tacs_assembler
         ndv  = self.struct_objects[3]['ndv']
 

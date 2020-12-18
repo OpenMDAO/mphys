@@ -1,13 +1,16 @@
 .DS_Store
 *pyc
 *out
-*cgnsls -
+*cgns
 *plt
 *dat
 *swp
 *f5
 *html
 *bdf
+*tar.gz
+*vtk
+*.su2
 
 mphys.egg-info/*
 docs/build/doctrees
