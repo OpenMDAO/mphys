@@ -4,7 +4,7 @@ from pprint import pprint as pp
 from mpi4py import MPI
 
 from baseclasses import AeroProblem
-from builder_class import Builder
+# from builder_class import Builder
 
 from adflow import ADFLOW
 from idwarp import USMesh
@@ -30,14 +30,13 @@ class ADflowMesh(ExplicitComponent):
         # self.x_a0 = self.aero_solver.mesh.getSurfaceCoordinates().flatten(order='C')
 
         coord_size = self.x_a0.size
-        print('mesh_adlfow.x_a0', coord_size )
         self.add_output('x_a0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
 
-        self.x_a0_surf = self.aero_solver.getSurfaceCoordinates(self.aero_solver.allIsothermalWallsGroup).flatten(order='C')
+        # self.x_a0_surf = self.aero_solver.getSurfaceCoordinates(self.aero_solver.allIsothermalWallsGroup).flatten(order='C')
 
-        print('mesh_adlfow.x_a0_surface', self.x_a0_surf.size )
+        # print('mesh_adlfow.x_a0_surface', self.x_a0_surf.size )
 
-        self.add_output('x_a0_surface', shape=self.x_a0_surf.size, desc='initial aerodynamic surface node coordinates')
+        # self.add_output('x_a0_surface', shape=self.x_a0_surf.size, desc='initial aerodynamic surface node coordinates')
 
     def mphys_add_coordinate_input(self):
         local_size = self.x_a0.size
@@ -127,7 +126,7 @@ class ADflowMesh(ExplicitComponent):
             outputs['x_a0'] = inputs['x_a0_points']
         else:
             outputs['x_a0'] = self.x_a0
-            outputs['x_a0_surface'] = self.x_a0_surf
+            # outputs['x_a0_surface'] = self.x_a0_surf
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
@@ -942,7 +941,7 @@ class ADflowFunctions(ExplicitComponent):
         if self.ap_funcs:
             # without the sorted, each proc might get a different order...
             eval_funcs = sorted(list(self.ap.evalFuncs))
-            solver.evalFunctions(ap, funcs, evalFuncs=eval_funcs)
+            solver.evalFunctions(self.ap, funcs, evalFuncs=eval_funcs)
 
             for name in self.ap.evalFuncs:
                 f_name = self._get_func_name(name)
@@ -951,7 +950,7 @@ class ADflowFunctions(ExplicitComponent):
 
         if self.prop_funcs is not None:
             # also do the prop
-            solver.evalFunctions(ap, funcs, evalFuncs=self.prop_funcs)
+            solver.evalFunctions(self.ap, funcs, evalFuncs=self.prop_funcs)
             for name in self.prop_funcs:
                 f_name = self._get_func_name(name)
                 if f_name in funcs:
@@ -1098,9 +1097,9 @@ class ADflowGroup(Group):
             )
 
 
-        self.add_subsystem('funcs', AdflowFunctions(
-            aero_solver=self.aero_solver
-        ))
+        # self.add_subsystem('funcs', AdflowFunctions(
+        #     aero_solver=self.aero_solver
+        # ))
 
         if balance_group is not None:
             self.add_subsystem('balance', balance_group)
@@ -1193,20 +1192,17 @@ class ADflowMeshGroup(Group):
 
 class ADflowBuilder(object):
 
-    def __init__(self, options, warp_in_solver=True, balance_group=None, prop_coupling=False):
+    def __init__(self, options, warp_in_solver=True, balance_group=None, prop_coupling=False, heat_transfer=False):
         self.options = options
         self.warp_in_solver = warp_in_solver
         self.prop_coupling = prop_coupling
 
         self.balance_group = balance_group
-            if self.heat_transfer:
-                self.promotes('heat_xfer', inputs=[name])
+        self.heat_transfer = heat_transfer
 
-class ADflow_builder(Builder):
+        if self.heat_transfer:
+            self.promotes('heat_xfer', inputs=[name])
 
-    def __init__(self, options, **kwargs):
-        super(ADflow_builder, self).__init__(options)
-        self.kwargs = kwargs
     # api level method for all builders
     def init_solver(self, comm):
         self.solver = ADFLOW(options=self.options, comm=comm)
@@ -1283,8 +1279,8 @@ class ADflow_builder(Builder):
         self.init_solver(comm)
         self.object_built
 
-    def get_component(self, **kwargs):
-        yield '_mesh', AdflowMesh(aero_solver=self.solver)
-        kwargs.update(self.kwargs)
-        yield '', ADflow_group(solver=self.solver, **kwargs)
+    # def get_component(self, **kwargs):
+    #     yield '_mesh', AdflowMesh(aero_solver=self.solver)
+    #     kwargs.update(self.kwargs)
+    #     yield '', ADflow_group(solver=self.solver, **kwargs)
 

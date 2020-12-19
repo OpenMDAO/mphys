@@ -1,10 +1,10 @@
 from __future__ import division, print_function
-from builder_class import Builder
+# from builder_class import Builder
 import openmdao.api as om
 from tacs import TACS,functions
 import numpy as np
 
-from sum_loads import SumLoads
+# from sum_loads import SumLoads
 
 class TacsMesh(om.ExplicitComponent):
     """
@@ -31,7 +31,7 @@ class TacsMesh(om.ExplicitComponent):
         self.surface_nodes = self.options['surface_nodes']
         self.add_output('x_s0', shape=node_size, desc='structural node coordinates')
 
-        self.add_output('x_s0_surface', shape= self.surface_nodes.size, desc='structural node coordinates')
+        # self.add_output('x_s0_surface', shape= self.surface_nodes.size, desc='structural node coordinates')
 
     def mphys_add_coordinate_input(self):
         local_size  = self.xpts.getArray().size
@@ -53,7 +53,7 @@ class TacsMesh(om.ExplicitComponent):
         else:
 
             outputs['x_s0'] = self.xpts.getArray()
-            outputs['x_s0_surface'] = self.surface_nodes
+            # outputs['x_s0_surface'] = self.surface_nodes
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
@@ -219,7 +219,6 @@ class TacsSolver(om.ImplicitComponent):
         tacs_assembler = self.tacs_assembler
         res  = self.res
         ans  = self.ans
-        #print ('apply_nonlinear')
 
         self._update_internal(inputs,outputs)
 
@@ -230,25 +229,20 @@ class TacsSolver(om.ImplicitComponent):
         tacs_assembler.assembleRes(res)
 
         # Add the external loads
-        res_array[:] -= inputs['F_summed']
+        res_array[:] -= inputs['f_s']
 
         # Apply BCs to the residual (forces)
         tacs_assembler.applyBCs(res)
 
         residuals['u_s'][:] = res_array[:]
 
-
-
-
-
     def solve_nonlinear(self, inputs, outputs):
+
         tacs_assembler   = self.tacs_assembler
         force  = self.force
         ans    = self.ans
         pc     = self.pc
         gmres  = self.gmres
-        #print ('solve_nonlinear')
-        #print('f_s', inputs['f_s'][:])
 
         self._update_internal(inputs)
         # solve the linear system
@@ -262,6 +256,7 @@ class TacsSolver(om.ImplicitComponent):
         tacs_assembler.setVariables(ans)
 
     def solve_linear(self,d_outputs,d_residuals,mode):
+
         if mode == 'fwd':
             if self.check_partials:
                 print ('solver fwd')
@@ -300,6 +295,7 @@ class TacsSolver(om.ImplicitComponent):
             d_residuals['u_s'] -= np.array(after - before,dtype=np.float64)
 
     def apply_linear(self,inputs,outputs,d_inputs,d_outputs,d_residuals,mode):
+        # import ipdb; ipdb.set_trace()
         self._update_internal(inputs,outputs)
         if mode == 'fwd':
             if self.check_partials:
@@ -348,8 +344,8 @@ class TacsSolver(om.ImplicitComponent):
                     d_outputs['u_s'] += np.array(res_array[:],dtype=float)
                     d_outputs['u_s'] -= np.array(after - before,dtype=np.float64)
 
-                if 'F_summed' in d_inputs:
-                    d_inputs['F_summed'] -= np.array(psi_array[:],dtype=float)
+                if 'f_s' in d_inputs:
+                    d_inputs['f_s'] -= np.array(psi_array[:],dtype=float)
 
                 if 'x_s0' in d_inputs:
                     xpt_sens = self.xpt_sens
@@ -822,7 +818,8 @@ class TacsGroup(om.Group):
         self.options.declare('solver')
         self.options.declare('solver_objects')
         self.options.declare('check_partials')
-        self.options.declare('conduction')
+        self.options.declare('conduction', default=False)
+        self.options.declare('as_coupling')
 
 
     def setup(self):
@@ -861,24 +858,24 @@ class TacsGroup(om.Group):
         vec_size_g = np.sum(self.comm.gather(self.struct_solver.getNumOwnedNodes()*6))
         vec_size_g = int(self.comm.bcast(vec_size_g))
 
-        self.add_subsystem('sum_loads',SumLoads(
-            load_size=vec_size_g,
-            load_list=['F_inertial','F_fuel','f_s']),
-            promotes_inputs=['f_s'],
-            promotes_outputs=['F_summed']
-        )
+        # self.add_subsystem('sum_loads',SumLoads(
+        #     load_size=vec_size_g,
+        #     load_list=['F_inertial','F_fuel','f_s']),
+        #     promotes_inputs=['f_s'],
+        #     promotes_outputs=['F_summed']
+        # )
 
-        self.add_subsystem('solver', TacsSolver(
-            struct_solver=self.struct_solver,
-            struct_objects=self.struct_objects,
-            check_partials=self.check_partials),
-            promotes_inputs=['x_s0', 'dv_struct', 'F_summed'],
-            promotes_outputs=['u_s']
-        )
+        # self.add_subsystem('solver', TacsSolver(
+        #     struct_solver=self.struct_solver,
+        #     struct_objects=self.struct_objects,
+        #     check_partials=self.check_partials),
+        #     promotes_inputs=['x_s0', 'dv_struct', 'F_summed'],
+        #     promotes_outputs=['u_s']
+        # )
 
-    def configure(self):
-        if not self.options['conduction']:
-            self.connect('u_s', 'funcs.u_s')
+    # def configure(self):
+    #     if not self.options['conduction']:
+    #         self.connect('u_s', 'funcs.u_s')
 
 
 class TACSFuncsGroup(om.Group):
@@ -913,37 +910,38 @@ class TACSFuncsGroup(om.Group):
 class TacsBuilder(object):
 
     def __init__(self, options,check_partials=False, conduction=False):
-        super(TACS_builder, self).__init__(options)
+        # super(TACS_builder, self).__init__(options)
+        self.options = options
         self.check_partials = check_partials
         self.conduction = conduction
 
 
     # api level method for all builders
     def init_solver(self, comm):
-        if self.solver is None:
+        # if self.solver is None:
 
-            solver_dict={}
+        solver_dict={}
 
-            mesh = TACS.MeshLoader(comm)
-            mesh.scanBDFFile(self.options['mesh_file'])
+        mesh = TACS.MeshLoader(comm)
+        mesh.scanBDFFile(self.options['mesh_file'])
 
-            ndof, ndv = self.options['add_elements'](mesh)
-            self.n_dv_struct = ndv
+        ndof, ndv = self.options['add_elements'](mesh)
+        self.n_dv_struct = ndv
 
         tacs_assembler = mesh.createTACS(ndof)
 
         nnodes = int(tacs_assembler.createNodeVec().getArray().size / 3)
 
         if self.conduction:
-            mat = tacs.createSchurMat()
+            mat = tacs_assembler.createSchurMat()
         else:
-            mat = tacs.createFEMat()
+            mat = tacs_assembler.createFEMat()
 
         pc = TACS.Pc(mat)
 
-            subspace = 100
-            restarts = 2
-            gmres = TACS.KSM(mat, pc, subspace, restarts)
+        subspace = 100
+        restarts = 2
+        gmres = TACS.KSM(mat, pc, subspace, restarts)
 
         solver_dict['ndv']    = ndv
         solver_dict['ndof']   = ndof
@@ -957,14 +955,14 @@ class TacsBuilder(object):
         if 'f5_writer' in self.options.keys():
             solver_dict['f5_writer'] = self.options['f5_writer']
 
-            # check if the user provided a load function
-            if 'load_function' in self.options:
-                solver_dict['load_function'] = self.options['load_function']
+        # check if the user provided a load function
+        if 'load_function' in self.options:
+            solver_dict['load_function'] = self.options['load_function']
 
-            self.solver_dict=solver_dict
+        self.solver_dict=solver_dict
 
-            # put the rest of the stuff in a tuple
-            solver_objects = [mat, pc, gmres, solver_dict]
+        # put the rest of the stuff in a tuple
+        solver_objects = [mat, pc, gmres, solver_dict]
 
         self.solver = tacs_assembler
         self.solver_objects = solver_objects
@@ -975,7 +973,7 @@ class TacsBuilder(object):
 
     # api level method for all builders
     def get_element(self, **kwargs):
-        return TacsGroup(solver=self.solver, solver_objects=self.solver_objects,check_partials=self.check_partials, **kwargs)
+        return TacsGroup(solver=self.solver, solver_objects=self.solver_objects, check_partials=self.check_partials, **kwargs)
 
     def get_mesh_element(self):
         return TacsMesh(struct_solver=self.solver)
