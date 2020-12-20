@@ -55,24 +55,6 @@ class SolverGroup(om.Group):
             self.linear_solver = om.LinearBlockGS(maxiter=100)
             self.nonlinear_solver.options['iprint']=2
 
-        # # check if builders provide a scenario-level element.
-        # # e.g. a functionals component that is run once after
-        # # the nonlinear solver is converged.
-        # # we only check for disciplines, and we assume transfer
-        # # components do not have scenario level elements.
-        # if hasattr(self.aero_builder, 'get_scenario_element'):
-        #     aero_scenario_element = self.aero_builder.get_scenario_element()
-        #     self.add_subsystem('aero_funcs', aero_scenario_element)
-
-        #     # if we have a scenario level element, we also need to
-        #     # figure out what needs to be connected from the solver
-        #     # level to the scenario level.
-        #     scenario_conn = self.aero_builder.get_scenario_connections()
-        #     # we can make these connections here
-        #     for k, v in scenario_conn.items():
-        #         #self.connect('solver_group.aero.%s'%k, 'aero_funcs.%s'%v)
-        #         self.connect('aero.%s'%k, 'aero_funcs.%s'%v)
-
     def configure(self):
 
         # do the connections, this can be also done in setup

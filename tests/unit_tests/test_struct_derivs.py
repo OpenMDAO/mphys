@@ -7,6 +7,7 @@
 
 # === Standard Python modules ===
 import unittest
+import os
 
 # === External Python modules ===
 import numpy as np
@@ -21,6 +22,11 @@ from mphys.multipoint import Multipoint
 
 from tacs import elements, constitutive, functions
 from mphys.mphys_tacs import TacsBuilder
+
+
+
+baseDir = os.path.dirname(os.path.abspath(__file__))
+
 
 # factors
 ks_weight = 50.0
@@ -73,24 +79,18 @@ class Top(om.Group):
         def f5_writer(tacs):
             flag = TACS.ToFH5.NODES | TACS.ToFH5.DISPLACEMENTS | TACS.ToFH5.STRAINS | TACS.ToFH5.EXTRAS
             f5 = TACS.ToFH5(tacs, TACS.PY_SHELL, flag)
-            f5.writeToFile("../output_files/wingbox.f5")
+            f5.writeToFile(os.path.join(baseDir, "../output_files/wingbox.f5"))
 
         # common setup options
         struct_options = {
             "add_elements": add_elements,
             "get_funcs": get_funcs,
-            "mesh_file": "../input_files/wingbox.bdf",
+            "mesh_file": os.path.join(baseDir, "../input_files/wingbox.bdf"),
             # 'f5_writer'   : f5_writer,
         }
 
-        # if args.struct == "tacs":
-
         struct_builder = TacsBuilder(struct_options)
 
-        # elif args.struct == "modal":
-        # from mphys.mphys_modal_solver import ModalBuilder
-
-        # struct_builder = ModalBuilder(struct_options, args.nmodes)
 
         ################################################################################
         # MPHYS setup
@@ -143,7 +143,6 @@ class TestTACs(unittest.TestCase):
         prob.model.add_design_var("dv_struct", indices=[0, 3, 5], lower=-5, upper=10, ref=10.0)
         prob.model.add_design_var("f_s", indices=[0, 12, 34, 100], lower=-5, upper=10, ref=10.0)
         prob.model.add_design_var("xpts", indices=[0, 2, 5, 10], lower=-5, upper=10, ref=10.0)
-        # prob.model.add_design_var("xpts", indices=[0], lower=-5, upper=10, ref=10.0)
 
         prob.setup(mode="rev")
         # om.n2(

@@ -8,10 +8,7 @@
 
 # === Standard Python modules ===
 import unittest
-
-# === External Python modules ===
-# import numpy as np
-# from mpi4py import MPI
+import os
 
 # === Extension modules ===
 import openmdao.api as om
@@ -21,6 +18,9 @@ from mphys.multipoint import Multipoint
 
 from adflow import ADFLOW
 from baseclasses import AeroProblem
+
+
+baseDir = os.path.dirname(os.path.abspath(__file__))
 
 
 class Top(om.Group):
@@ -34,8 +34,8 @@ class Top(om.Group):
 
         aero_options = {
             # I/O Parameters
-            "gridFile": "../input_files/wing_vol_L3.cgns",
-            "outputDirectory": "../output_files/",
+            "gridFile": os.path.join(baseDir, "../input_files/wing_vol_L3.cgns"),
+            "outputDirectory": os.path.join(baseDir, "../output_files/"),
             "monitorvariables": ["resrho", "resturb", "cl", "cd"],
             "surfacevariables": ["cp", "vx", "vy", "vz", "mach"],
             # 'isovariables': ['shock'],
@@ -88,9 +88,6 @@ class Top(om.Group):
         x_a = CFDSolver.getSurfaceCoordinates(groupName="allWalls")
         dvs.add_output("x_a", val=x_a)
 
-        # component to map the structural DVs
-        # self.add_subsystem("struct_mapper", StructDvMapper(), promotes=["*"])
-
         # create the multiphysics multipoint group.
         mp = self.add_subsystem("mp", Multipoint(aero_builder=aero_builder, struct_builder=None, xfer_builder=None))
 
@@ -130,7 +127,7 @@ class TestADFlow(unittest.TestCase):
 
         # DVs
         prob.model.add_design_var("alpha", lower=-5, upper=10, ref=10.0)
-        prob.model.add_design_var("x_a", indices=[ 3, 14, 20, 9], lower=-5, upper=10, ref=10.0)
+        prob.model.add_design_var("x_a", indices=[3, 14, 20, 9], lower=-5, upper=10, ref=10.0)
 
         prob.model.add_constraint("mp.s0.aero_funcs.cl", ref=1.0, equals=0.5)
         prob.model.add_constraint("mp.s0.aero_funcs.cd", ref=1.0, equals=0.5)
@@ -138,30 +135,27 @@ class TestADFlow(unittest.TestCase):
         prob.setup()
 
         self.prob = prob
-        om.n2(
-            prob,
-            show_browser=False,
-            outfile="test_aero_derivs.html" ,
-        )
+        # om.n2(
+        #     prob,
+        #     show_browser=False,
+        #     outfile="test_aero_derivs.html" ,
+        # )
 
-    # def test_run_model(self):
-    #     self.prob.run_model()
+    def test_run_model(self):
+        self.prob.run_model()
 
     def test_derivatives(self):
         self.prob.run_model()
-        print("----------------strating check totals--------------")
-        data = self.prob.check_totals( wrt='alpha', step=1e-8, step_calc="rel")  # out_stream=None
-        for var, err in data.items():
 
-            rel_err = err["rel error"]  # ,  'rel error']
+        data = self.prob.check_totals(wrt="alpha", step=1e-8, step_calc="rel")
+        for var, err in data.items():
+            rel_err = err["rel error"]
             assert_near_equal(rel_err.forward, 0.0, 1e-3)
-        data = self.prob.check_totals( wrt='x_a', step=1e-8)  # out_stream=None
+
+        data = self.prob.check_totals(wrt="x_a", step=1e-8)
         for var, err in data.items():
-
-            rel_err = err["rel error"]  # ,  'rel error']
+            rel_err = err["rel error"]
             assert_near_equal(rel_err.forward, 0.0, 5e-3)
-
-        # assert_check_partials(data, atol=1e-6, rtol=1e-6)
 
 
 

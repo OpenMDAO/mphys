@@ -1,13 +1,14 @@
 # --- Python 3.8 ---
-'''
+"""
 @File    :   test_con_derivs.py
 @Time    :   2020/12/19
 @Author  :   Josh Anibal
 @Desc    :   Test the derivatives of the geometric constraint functions
-'''
+"""
 
 # === Standard Python modules ===
 import unittest
+import os
 
 # === External Python modules ===
 import numpy as np
@@ -30,9 +31,11 @@ from mphys.mphys_dvgeo import OM_DVGEOCOMP
 from adflow import ADFLOW
 
 
+baseDir = os.path.dirname(os.path.abspath(__file__))
+
+
 class Top(om.Group):
     def setup(self):
-
 
         ################################################################################
         # MPHYS setup
@@ -44,10 +47,9 @@ class Top(om.Group):
         self.add_subsystem(
             "geo",
             OM_DVGEOCOMP(
-                ffd_file="../input_files/ffd.xyz",
+                ffd_file=os.path.join(baseDir, "../input_files/ffd.xyz"),
             ),
         )
-
 
         # # create the multiphysics multipoint group.
         # mp = self.add_subsystem(
@@ -66,8 +68,8 @@ class Top(om.Group):
 
         aero_options = {
             # I/O Parameters
-            "gridFile": "../input_files/wing_vol_L3.cgns",
-            "outputDirectory":"../output_files",
+            "gridFile": os.path.join(baseDir, "../input_files/wing_vol_L3.cgns"),
+            "outputDirectory": os.path.join(baseDir, "../output_files"),
             "monitorvariables": ["resrho", "resturb", "cl", "cd"],
             "surfacevariables": ["cp", "vx", "vy", "vz", "mach"],
             # 'isovariables': ['shock'],
@@ -104,21 +106,19 @@ class Top(om.Group):
             "adjointl2convergencerel": 1e-14,
             "adjointl2convergence": 1e-14
             # force integration
-            }
+        }
 
         aero_builder = ADflowBuilder(aero_options)
 
         aero_builder.init_solver(self.comm)
         aero_mesh = aero_builder.get_mesh_element()
 
-
-
         aero_mesh.aero_solver = aero_builder.get_solver()
 
         tri_points = aero_mesh._getTriangulatedMeshSurface()
 
         points = {}
-        points['aero_points'] = aero_mesh.aero_solver.getSurfaceCoordinates(includeZipper=False).flatten(order='C')
+        points["aero_points"] = aero_mesh.aero_solver.getSurfaceCoordinates(includeZipper=False).flatten(order="C")
 
         # add these points to the geometry object
         self.geo.nom_add_point_dict(points)
@@ -165,7 +165,7 @@ class Top(om.Group):
         self.geo.nom_addThicknessConstraints2D("2Dvolcon", leList, teList, 10, 10)
 
         if MPI.COMM_WORLD.rank == 0:
-            fileName = os.path.join("../output_files", "constraints.dat")
+            fileName = os.path.join(baseDir, "../output_files/constraints.dat")
             self.geo.DVCon.writeTecplot(fileName)
 
 
@@ -177,7 +177,6 @@ class TestDVCon(unittest.TestCase):
         prob = om.Problem()
         prob.model = Top()
 
-
         prob.model.add_design_var("twist")
         prob.model.add_design_var("local")
 
@@ -188,15 +187,14 @@ class TestDVCon(unittest.TestCase):
         prob.model.add_constraint("geo.volcon")
         prob.model.add_constraint("geo.2Dvolcon")
 
-
         prob.setup(mode="rev")
 
         self.prob = prob
-        om.n2(
-            prob,
-            show_browser=False,
-            outfile="test_con_derivs.html" ,
-        )
+        # om.n2(
+        #     prob,
+        #     show_browser=False,
+        #     outfile="test_con_derivs.html",
+        # )
 
     def test_run_model(self):
         self.prob.run_model()
@@ -208,14 +206,11 @@ class TestDVCon(unittest.TestCase):
         data = self.prob.check_totals(step=1e-8, compact_print=True)  # out_stream=None
         for var, err in data.items():
 
-            rel_err = err["abs error"]  # ,  'rel error']
+            rel_err = err[
+                "abs error"
+            ]  # abs error used here because for some values should be zero so the ref err is undefined
             assert_near_equal(rel_err.forward, 0.0, 1e-6)
 
-
-# for step in np.logspace(-1, -10, 10):
-#     print()
-#     print('===========step=======', step)
-#     data = prob.check_totals(step=step, compact_print=True, form="forward")
 
 if __name__ == "__main__":
     unittest.main()

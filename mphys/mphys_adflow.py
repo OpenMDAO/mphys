@@ -4,7 +4,6 @@ from pprint import pprint as pp
 from mpi4py import MPI
 
 from baseclasses import AeroProblem
-# from builder_class import Builder
 
 from adflow import ADFLOW
 from idwarp import USMesh
@@ -27,16 +26,10 @@ class ADflowMesh(ExplicitComponent):
         self.aero_solver = self.options['aero_solver']
 
         self.x_a0 = self.aero_solver.getSurfaceCoordinates(includeZipper=False).flatten(order='C')
-        # self.x_a0 = self.aero_solver.mesh.getSurfaceCoordinates().flatten(order='C')
 
         coord_size = self.x_a0.size
         self.add_output('x_a0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
 
-        # self.x_a0_surf = self.aero_solver.getSurfaceCoordinates(self.aero_solver.allIsothermalWallsGroup).flatten(order='C')
-
-        # print('mesh_adlfow.x_a0_surface', self.x_a0_surf.size )
-
-        # self.add_output('x_a0_surface', shape=self.x_a0_surf.size, desc='initial aerodynamic surface node coordinates')
 
     def mphys_add_coordinate_input(self):
         local_size = self.x_a0.size
@@ -126,7 +119,6 @@ class ADflowMesh(ExplicitComponent):
             outputs['x_a0'] = inputs['x_a0_points']
         else:
             outputs['x_a0'] = self.x_a0
-            # outputs['x_a0_surface'] = self.x_a0_surf
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
@@ -820,14 +812,6 @@ class ADflowFunctions(ExplicitComponent):
 
             #self.declare_partials(of=f_name, wrt='*')
 
-    # def _set_ap(self, inputs):
-    #     tmp = {}
-    #     for (args, kwargs) in self.ap_vars:
-    #         name = args[0]
-    #         tmp[name] = inputs[name][0]
-
-    #     self.ap.setDesignVars(tmp)
-    #     #self.options['solver'].setAeroProblem(self.options['ap'])
 
     def _set_ap(self, inputs):
         tmp = {}
@@ -1036,6 +1020,8 @@ class ADflowGroup(Group):
     def initialize(self):
         self.options.declare('solver')
         # TODO remove the default
+        # - I (Josh) do not understand this ^ comment
+
         self.options.declare('as_coupling', default=False )
         self.options.declare('prop_coupling', default=False)
         self.options.declare('heat_transfer', default=False )
@@ -1096,11 +1082,6 @@ class ADflowGroup(Group):
                 promotes_outputs=['heatflux']
             )
 
-
-        # self.add_subsystem('funcs', AdflowFunctions(
-        #     aero_solver=self.aero_solver
-        # ))
-
         if balance_group is not None:
             self.add_subsystem('balance', balance_group)
 
@@ -1108,8 +1089,12 @@ class ADflowGroup(Group):
 
         if self.as_coupling:
             self.connect('geo_disp.x_a', 'deformer.x_a')
-            self.connect('deformer.x_g', 'force.x_g')
+            # self.connect('deformer.x_g', 'force.x_g') # the deformer x_g is promoted else where
             self.connect('solver.q', 'force.q')
+        else:
+            if self.use_warper:
+                self.promotes('deformer', inputs=[('x_a', 'x_a0')])
+
         if self.heat_transfer:
             self.promotes('deformer', inputs=[('x_a', 'x_a0')])
             self.connect('deformer.x_g', 'heat_xfer.x_g')
@@ -1119,12 +1104,6 @@ class ADflowGroup(Group):
             self.promotes('heat_xfer', outputs=[('heatflux')])
 
 
-        else:
-            if self.use_warper:
-                self.promotes('deformer', inputs=[('x_a', 'x_a0')])
-
-        if self.as_coupling:
-            self.connect('solver.q', 'force.q')
 
         if self.prop_coupling:
             self.connect('solver.q', 'prop.q')
@@ -1270,17 +1249,3 @@ class ADflowBuilder(object):
 
     def get_nnodes(self, groupName=None):
         return int(self.solver.getSurfaceCoordinates(groupName=groupName).size /3)
-
-
-    def get_object(self):
-        return self.solver
-
-    def build_object(self, comm):
-        self.init_solver(comm)
-        self.object_built
-
-    # def get_component(self, **kwargs):
-    #     yield '_mesh', AdflowMesh(aero_solver=self.solver)
-    #     kwargs.update(self.kwargs)
-    #     yield '', ADflow_group(solver=self.solver, **kwargs)
-

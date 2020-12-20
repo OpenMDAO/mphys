@@ -8,6 +8,7 @@
 
 # === Standard Python modules ===
 import unittest
+import os
 
 # === External Python modules ===
 import numpy as np
@@ -24,6 +25,9 @@ from adflow import ADFLOW
 from mphys.mphys_dvgeo import OM_DVGEOCOMP
 
 
+baseDir = os.path.dirname(os.path.abspath(__file__))
+
+
 class Top(om.Group):
     def setup(self):
 
@@ -37,7 +41,7 @@ class Top(om.Group):
         self.add_subsystem(
             "geo",
             OM_DVGEOCOMP(
-                ffd_file="../input_files/ffd.xyz",
+                ffd_file=os.path.join(baseDir, "../input_files/ffd.xyz"),
             ),
         )
 
@@ -51,8 +55,8 @@ class Top(om.Group):
 
         aero_options = {
             # I/O Parameters
-            "gridFile": "../input_files/wing_vol_L3.cgns",
-            "outputDirectory": "../output_files",
+            "gridFile": os.path.join(baseDir, "../input_files/wing_vol_L3.cgns"),
+            "outputDirectory": os.path.join(baseDir, "../output_files"),
             "monitorvariables": ["resrho", "resturb", "cl", "cd"],
             "surfacevariables": ["cp", "vx", "vy", "vz", "mach"],
             # 'isovariables': ['shock'],
@@ -124,9 +128,8 @@ class Top(om.Group):
         self.connect("local", "geo.local")
 
 
-class TestTACs(unittest.TestCase):
+class TestDVGeo(unittest.TestCase):
     def setUp(self):
-
 
         ################################################################################
         # OpenMDAO setup
@@ -134,13 +137,11 @@ class TestTACs(unittest.TestCase):
         prob = om.Problem()
         prob.model = Top()
 
-
         prob.model.add_design_var("twist")
         prob.model.add_design_var("local")
 
         # objectives and nonlinear constraints
         prob.model.add_constraint("geo.aero_points")
-
 
         prob.setup(mode="rev")
         # om.n2(
@@ -151,10 +152,8 @@ class TestTACs(unittest.TestCase):
 
         self.prob = prob
 
-
     def test_run_model(self):
         self.prob.run_model()
-
 
     def test_derivatives(self):
         self.prob.run_model()
@@ -165,6 +164,7 @@ class TestTACs(unittest.TestCase):
 
             rel_err = err["rel error"]  # ,  'rel error']
             assert_near_equal(rel_err.forward, 0.0, 1e-5)
+
 
 if __name__ == "__main__":
     unittest.main()
