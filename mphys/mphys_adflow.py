@@ -255,12 +255,17 @@ class ADflowSolver(ImplicitComponent):
         # testing flag used for unit-testing to prevent the call to actually solve
         # NOT INTENDED FOR USERS!!! FOR TESTING ONLY
         self._do_solve = True
+        self.analysis_error_on_failure = True
 
     def setup(self):
         #self.set_check_partial_options(wrt='*',directional=True)
 
         self.solver = self.options['aero_solver']
         solver = self.solver
+
+        # this is the solution counter for failed solution outputs.
+        # the converged solutions are written by the adflow functionals group
+        self.solution_counter = 0
 
         # flag to keep track if the current solution started from a clean restart,
         # or it was restarted from the previous converged state.
@@ -287,7 +292,7 @@ class ADflowSolver(ImplicitComponent):
             name = args[0]
             tmp[name] = inputs[name]
 
-        # # print aero inputs
+        # enable if you want to print all aero dv inputs
         # if self.comm.rank == 0:
         #     print('aero dv inputs:')
         #     pp(tmp)
@@ -361,12 +366,19 @@ class ADflowSolver(ImplicitComponent):
             if ap.solveFailed: # the mesh was fine, but it didn't converge
                 # if the previous iteration was already a clean restart, dont try again
                 if self.cleanRestart:
-                    print('###############################################################')
-                    print('# This was a clean restart. Will not try another one.')
-                    print('###############################################################')
-                    solver.resetFlow(ap)
-                    self.cleanRestart = True
-                    raise AnalysisError('ADFLOW Solver Fatal Fail')
+                    if self.comm.rank == 0:
+                        print('###############################################################')
+                        print('# This was a clean restart. Will not try another one.')
+                        print('###############################################################')
+
+                    # write the solution so that we can diagnose
+                    solver.writeSolution(baseName='analysis_fail' ,number=self.solution_counter)
+                    self.solution_counter += 1
+
+                    if self.analysis_error_on_failure:
+                        solver.resetFlow(ap)
+                        self.cleanRestart = True
+                        raise AnalysisError('ADFLOW Solver Fatal Fail')
 
                 # the previous iteration restarted from another solution, so we can try again
                 # with a re-set flowfield for the initial guess.
@@ -376,21 +388,31 @@ class ADflowSolver(ImplicitComponent):
                         print('# Solve Failed, attempting a clean restart!')
                         print('###############################################################')
 
+                    # write the solution so that we can diagnose
+                    solver.writeSolution(baseName='analysis_fail' ,number=self.solution_counter)
+                    self.solution_counter += 1
+
                     ap.solveFailed = False
                     ap.fatalFail = False
                     solver.resetFlow(ap)
                     solver(ap, writeSolution=False)
 
                     if ap.solveFailed or ap.fatalFail: # we tried, but there was no saving it
-                        print('###############################################################')
-                        print('# Clean Restart failed. There is no saving this one!')
-                        print('###############################################################')
+                        if self.comm.rank == 0:
+                            print('###############################################################')
+                            print('# Clean Restart failed. There is no saving this one!')
+                            print('###############################################################')
 
-                        # re-set the flow for the next iteration:
-                        solver.resetFlow(ap)
-                        # set the reset flow flag
-                        self.cleanRestart = True
-                        raise AnalysisError('ADFLOW Solver Fatal Fail')
+                        # write the solution so that we can diagnose
+                        solver.writeSolution(baseName='analysis_fail' ,number=self.solution_counter)
+                        self.solution_counter += 1
+
+                        if self.analysis_error_on_failure:
+                            # re-set the flow for the next iteration:
+                            solver.resetFlow(ap)
+                            # set the reset flow flag
+                            self.cleanRestart = True
+                            raise AnalysisError('ADFLOW Solver Fatal Fail')
 
                     # see comment for the same flag below
                     else:
@@ -518,14 +540,14 @@ class ADflowForces(ExplicitComponent):
         self.ap_vars,_ = get_dvs_and_cons(ap=ap)
 
         # parameter inputs
-        if self.comm.rank == 0:
-            print('adding ap var inputs:')
+        # if self.comm.rank == 0:
+        #     print('adding ap var inputs:')
         for (args, kwargs) in self.ap_vars:
             name = args[0]
             size = args[1]
             self.add_input(name, shape=size, units=kwargs['units'])
-            if self.comm.rank == 0:
-                print('%s (%s)'%(name, kwargs['units']))
+            # if self.comm.rank == 0:
+            #     print('%s (%s)'%(name, kwargs['units']))
 
     def _set_states(self, inputs):
         self.solver.setStates(inputs['q'])
@@ -672,14 +694,14 @@ class ADflowFunctions(ExplicitComponent):
         self.ap_vars,_ = get_dvs_and_cons(ap=ap)
 
         # parameter inputs
-        if self.comm.rank == 0:
-            print('adding ap var inputs:')
+        # if self.comm.rank == 0:
+            # print('adding ap var inputs:')
         for (args, kwargs) in self.ap_vars:
             name = args[0]
             size = args[1]
             self.add_input(name, shape=size, units=kwargs['units'])
-            if self.comm.rank == 0:
-                print('%s with units %s'%(name, kwargs['units']))
+            # if self.comm.rank == 0:
+                # print('%s with units %s'%(name, kwargs['units']))
 
         if self.ap_funcs:
             if self.comm.rank == 0:
@@ -731,6 +753,20 @@ class ADflowFunctions(ExplicitComponent):
 
     def _get_func_name(self, name):
         return '%s_%s' % (self.ap.name, name.lower())
+
+    def nom_write_solution(self, **kwargs):
+        # this writes the solution files and is callable from outside openmdao call routines
+        solver = self.solver
+        ap = self.ap
+
+        # re-set the AP so that we are sure state is updated
+        solver.setAeroProblem(ap)
+
+        # write the solution files. Internally, this checks the
+        # types of solution files specified in the options and
+        # only outsputs these
+        solver.writeSolution(number=self.solution_counter, **kwargs)
+        self.solution_counter += 1
 
     def compute(self, inputs, outputs):
         solver = self.solver
