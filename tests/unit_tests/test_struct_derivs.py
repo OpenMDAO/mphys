@@ -137,7 +137,7 @@ class TestTACs(unittest.TestCase):
         # DVs
 
         # objectives and nonlinear constraints
-        # prob.model.add_objective("mp.s0.struct_funcs.mass.mass", ref=100.0)
+        prob.model.add_objective("mp.s0.struct_funcs.mass", ref=100.0)
         prob.model.add_constraint("mp.s0.struct_funcs.funcs.f_struct", ref=1.0, upper=1.0)
 
         prob.model.add_design_var("dv_struct", indices=[0, 3, 5], lower=-5, upper=10, ref=10.0)
@@ -166,7 +166,7 @@ class TestTACs(unittest.TestCase):
 
             rel_err = err["rel error"]  # ,  'rel error']
             assert_near_equal(rel_err.forward, 0.0, 1e-2)
-        data = self.prob.check_totals(wrt="f_s", step=3e-5, step_calc="rel")  # out_stream=None
+        data = self.prob.check_totals(of=["mp.s0.struct_funcs.funcs.f_struct"], wrt="f_s", step=3e-5, step_calc="rel")  # out_stream=None
         for var, err in data.items():
 
             rel_err = err["rel error"]  # ,  'rel error']

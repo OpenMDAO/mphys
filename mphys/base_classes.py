@@ -168,6 +168,9 @@ class SolverBuilder(object):
 
 class DummyBuilder(SolverBuilder):
     def __init__(self, **kwargs):
+        """
+        all the keywords that are passed as argument are set as attributes of the class
+        """
         self.__dict__.update(kwargs)
 
 
