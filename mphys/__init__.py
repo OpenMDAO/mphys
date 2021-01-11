@@ -1,2 +1,3 @@
 #!/usr/bin/env python
-from .mphys_dummy_builder import DummyBuilder
+from .base_classes import SolverBuilder, DummyBuilder, XferBuilder
+from .multipoint import Multipoint

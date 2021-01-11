@@ -7,7 +7,7 @@ import openmdao.api as om
 
 from tacs import elements, constitutive, functions, TACS
 
-from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys import Multipoint
 from mphys.mphys_vlm import VLM_builder
 from mphys.mphys_tacs import TACS_builder
 from mphys.mphys_modal_solver import ModalBuilder
@@ -39,7 +39,7 @@ class Top(om.Group):
             'mach': [0.85, .64],                                   # mach number of each load case
             'q_inf': [12930., 28800.],                             # dynamic pressure of each load case, Pa
             'vel': [254., 217.6],                                  # velocity of each load case, m/s
-            'mu': [3.5E-5, 1.4E-5],                                # viscocity of each load case, 
+            'mu': [3.5E-5, 1.4E-5],                                # viscocity of each load case,
             'alpha': np.array([1., 4.])*np.pi/180.,                # AoA of each load case: this is a DV, so these values set the starting points
         }
 
@@ -65,7 +65,7 @@ class Top(om.Group):
             'N_mp': 2,                                             # number of load cases
             'cruise_case_ID': 0,                                   # load case ID which will be used to compute L/D
             'beta': 1.,                                            # weighting between FB and LGW, to compute final objective function: beta = 1 is pure FB minimization, 0 is pure LGW
-            'BDF_file': 'CRM_box_2nd.bdf',                         # BDF file used to define FEM 
+            'BDF_file': 'CRM_box_2nd.bdf',                         # BDF file used to define FEM
             'VLM_mesh_file': 'CRM_VLM_mesh_extended.dat'           # file which contains the baseline VLM grid
         }
 
@@ -76,9 +76,9 @@ class Top(om.Group):
             'root_chord_bounds': [-.01, .01],#[-3.0, 3.0],                      # plus-minus bounds on root-chord delta, m
             'tip_chord_bounds': [-.01, .01],#[-1.0, 1.0],                       # plus-minus bounds on tip-chord delta, m
             'tip_sweep_bounds': [-.01, .01],#[-10., 10.],                       # plus-minus bounds on tip-sweep delta, m
-            'span_extend_bounds': [-.01, .01],#[-10., 10.],                     # plus-minus bounds on span-extension delta, m  
+            'span_extend_bounds': [-.01, .01],#[-10., 10.],                     # plus-minus bounds on span-extension delta, m
             'allowable_airfoil_thickness_fraction': 0.5,           # fraction of baseline airfoil thickness allowable for plus-minus bounds, at each span station
-            'wing_twist_bounds': np.array([-10., 10.])*np.pi/180., # plus-minus bounds on wing twist at each span station, rad 
+            'wing_twist_bounds': np.array([-10., 10.])*np.pi/180., # plus-minus bounds on wing twist at each span station, rad
             'f_struct_bound': 2.0/3.0,                             # upper allowable bound on f_struct
             'spar_depth_bound': 0.19,                              # lower allowable bound on spar depth, m
         }
@@ -124,8 +124,8 @@ class Top(om.Group):
         # TACS setup
 
         def add_elements(mesh):
-            rho = self.misc_parameters['structural_density']         
-            E = self.misc_parameters['elastic_modulus']            
+            rho = self.misc_parameters['structural_density']
+            E = self.misc_parameters['elastic_modulus']
             nu = self.misc_parameters['poisson']
             kcorr = self.misc_parameters['k_corr']
             ys = self.misc_parameters['ys']
@@ -169,7 +169,7 @@ class Top(om.Group):
                     'f5_writer'   : f5_writer }
 
         struct_builder = TACS_builder(tacs_setup, check_partials=False)
-        
+
         meld_options = {'isym': 1,
                         'n': 200,
                         'beta': 0.5}
@@ -192,13 +192,13 @@ class Top(om.Group):
         self.add_subsystem('geometric_dvs', om.IndepVarComp(), promotes=['*'])
         self.add_subsystem('fuel_dvs', om.IndepVarComp(), promotes=['*'])
         self.add_subsystem('trim_dvs', om.IndepVarComp(), promotes=['*'])
-        
+
         # lump all structural dvs attached to a given component (upper skin, e.g.) into a single value: useful for checking_totals
 
         if self.misc_parameters['structural_patch_lumping'] is True:
             self.add_subsystem('struct_lumping',om.Group())
             for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar','rib'],[self.patches.n_us,self.patches.n_ls,self.patches.n_le,self.patches.n_te,self.patches.n_rib]):
-                self.struct_lumping.add_subsystem(comp+'_lumper',LumpPatches(N=n)) 
+                self.struct_lumping.add_subsystem(comp+'_lumper',LumpPatches(N=n))
 
         # structural mapper: map structural component arrays into the unified array that goes into tacs
 
@@ -207,9 +207,9 @@ class Top(om.Group):
         # patch smoothness constraints
 
         self.add_subsystem('struct_smoothness',om.Group())
-        for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar'],[self.patches.n_us,self.patches.n_ls,self.patches.n_le,self.patches.n_te]):        
+        for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar'],[self.patches.n_us,self.patches.n_ls,self.patches.n_le,self.patches.n_te]):
             self.struct_smoothness.add_subsystem(comp+'_smoothness',PatchSmoothness(N=n, delta=self.opt_parameters['delta_thickness']))
-        
+
         # geometry mapper
 
         struct_builder.init_solver(MPI.COMM_WORLD)
@@ -221,16 +221,16 @@ class Top(om.Group):
         x_a0 = vlm_builder.options['x_a0']
 
         self.add_subsystem('geometry_mapper',WingGeometry(
-            xs=x_s0, 
-            xa=x_a0, 
-            y_knot=self.geometry_parameters['y_knot'], 
-            LE_knot=self.geometry_parameters['LE_knot'], 
+            xs=x_s0,
+            xa=x_a0,
+            y_knot=self.geometry_parameters['y_knot'],
+            LE_knot=self.geometry_parameters['LE_knot'],
             TE_knot=self.geometry_parameters['TE_knot'])
         )
 
         self.min_airfoil_thickness, self.max_airfoil_thickness = airfoil_thickness_bounds(
-            xs=x_s0, 
-            y_knot=self.geometry_parameters['y_knot'], 
+            xs=x_s0,
+            y_knot=self.geometry_parameters['y_knot'],
             airfoil_thickness_fraction=self.opt_parameters['allowable_airfoil_thickness_fraction']
         )
 
@@ -238,7 +238,7 @@ class Top(om.Group):
 
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(
+            Multipoint(
                 aero_builder   = vlm_builder,
                 struct_builder = struct_builder,
                 xfer_builder   = meld_builder
@@ -246,7 +246,7 @@ class Top(om.Group):
         )
 
         # this is the method that needs to be called for every point in this mp_group
-        
+
         for i in range(0,self.misc_parameters['N_mp']):
             mp.mphys_add_scenario('s'+str(i))
 
@@ -263,21 +263,21 @@ class Top(om.Group):
         for i in range(0,self.misc_parameters['N_mp']):
 
             self.mp_group.non_aero_loads.add_subsystem('inertial_loads'+str(i),InertialLoads(
-                N_nodes=int(len(x_s0)/3), 
-                elements=quad, 
-                prop_ID=prop_ID, 
-                n_dvs=len(self.patches.families), 
-                rho=self.misc_parameters['structural_density'], 
+                N_nodes=int(len(x_s0)/3),
+                elements=quad,
+                prop_ID=prop_ID,
+                n_dvs=len(self.patches.families),
+                rho=self.misc_parameters['structural_density'],
                 gravity=self.misc_parameters['gravity'])
             )
 
             self.mp_group.non_aero_loads.add_subsystem('fuel_loads'+str(i),FuelLoads(
-                N_nodes=int(len(x_s0)/3), 
-                elements=quad, 
-                prop_ID=prop_ID, 
-                patches=self.patches, 
-                gravity=self.misc_parameters['gravity'], 
-                reserve_fuel=self.misc_parameters['reserve_fuel'], 
+                N_nodes=int(len(x_s0)/3),
+                elements=quad,
+                prop_ID=prop_ID,
+                patches=self.patches,
+                gravity=self.misc_parameters['gravity'],
+                reserve_fuel=self.misc_parameters['reserve_fuel'],
                 fuel_density=self.misc_parameters['fuel_density'])
             )
 
@@ -289,24 +289,24 @@ class Top(om.Group):
             fuel_density=self.misc_parameters['fuel_density']
         )
         self.baseline_available_fuel.compute()
-         
+
         # create a group to hold the various output parameters that don't belong anywhere else
 
         self.add_subsystem('outputs',om.Group())
-        
+
         # add a component to compute wing area
 
         self.outputs.add_subsystem('wing_area',WingAreaComponent(
-            N_nodes=aero_options['N_nodes'], 
+            N_nodes=aero_options['N_nodes'],
             connect=np.r_[aero_options['quad'][:,[0,1,2]],aero_options['quad'][:,[2,3,0]]])
         )
 
         self.baseline_wing_area = WingArea(
-            nodes=x_a0, 
+            nodes=x_a0,
             connect=np.r_[aero_options['quad'][:,[0,1,2]],aero_options['quad'][:,[2,3,0]]]
         )
         self.baseline_wing_area.compute()
-        
+
         # add trim components
 
         for i in range(0,self.misc_parameters['N_mp']):
@@ -318,9 +318,9 @@ class Top(om.Group):
         # add a component which computes flight metrics: FB, TOGW, LGW
 
         self.outputs.add_subsystem('flight_metrics',FlightMetrics(
-            non_designable_weight=self.misc_parameters['non_designable_weight'], 
-            range=self.misc_parameters['cruise_range'], 
-            TSFC=self.misc_parameters['TSFC'], 
+            non_designable_weight=self.misc_parameters['non_designable_weight'],
+            range=self.misc_parameters['cruise_range'],
+            TSFC=self.misc_parameters['TSFC'],
             beta=self.misc_parameters['beta'],
             gravity=self.misc_parameters['gravity'])
         )
@@ -336,9 +336,9 @@ class Top(om.Group):
         # add a component which computes the minimum TE spar depth
 
         self.outputs.add_subsystem('spar_depth',SparDepth(
-            N_nodes=int(len(x_s0)/3), 
-            elements=quad, 
-            prop_ID=prop_ID, 
+            N_nodes=int(len(x_s0)/3),
+            elements=quad,
+            prop_ID=prop_ID,
             patches=self.patches)
         )
 
@@ -355,9 +355,9 @@ class Top(om.Group):
                 self.connect(param+str(i), 'mp_group.s'+str(i)+'.aero.'+param)
 
             # add trim mp parameters
- 
+
             param = 'load_factor'
-            self.mp_parameters.add_output(param+str(i), val = self.trim_parameters[param][i])        
+            self.mp_parameters.add_output(param+str(i), val = self.trim_parameters[param][i])
             self.connect(param+str(i),'mp_group.non_aero_loads.inertial_loads'+str(i)+'.'+param)
             self.connect(param+str(i),'mp_group.non_aero_loads.fuel_loads'+str(i)+'.'+param)
 
@@ -366,15 +366,15 @@ class Top(om.Group):
             self.connect(param+str(i),'mp_group.non_aero_loads.fuel_loads'+str(i)+'.'+param)
 
             # add AoA DV
-            
-            param = 'alpha' 
+
+            param = 'alpha'
             self.trim_dvs.add_output(param+str(i), val = self.aero_parameters[param][i])
             self.connect(param+str(i),'mp_group.s'+str(i)+'.aero.'+param)
 
         # add the structural thickness DVs
 
         for comp, n in zip(['upper_skin','lower_skin','le_spar','te_spar','rib'],[self.patches.n_us,self.patches.n_ls,self.patches.n_le,self.patches.n_te,self.patches.n_rib]):
-            if self.misc_parameters['structural_patch_lumping'] is False:                
+            if self.misc_parameters['structural_patch_lumping'] is False:
                 self.sizing_dvs.add_output(comp+'_thickness', val=self.misc_parameters['initial_thickness'], shape=n)
                 self.connect(comp+'_thickness','struct_mapper.'+comp+'_thickness')
             else:
@@ -383,7 +383,7 @@ class Top(om.Group):
                 self.connect('struct_lumping.'+comp+'_lumper.thickness','struct_mapper.'+comp+'_thickness')
 
         # add the geometry DVs
-        
+
         for comp, n in zip(['root_chord_delta','tip_chord_delta','tip_sweep_delta','span_delta','wing_thickness_delta','wing_twist_delta'],[1,1,1,1,len(self.geometry_parameters['y_knot']),len(self.geometry_parameters['y_knot'])-1]):
             self.geometric_dvs.add_output(comp, val=0.0, shape=n)
             self.connect(comp,'geometry_mapper.'+comp)
@@ -425,7 +425,7 @@ class Top(om.Group):
 
         # connect the wing area module
 
-        self.connect('mp_group.aero_mesh.x_a0','outputs.wing_area.x') 
+        self.connect('mp_group.aero_mesh.x_a0','outputs.wing_area.x')
 
         # connect the trim components
 
@@ -437,7 +437,7 @@ class Top(om.Group):
             self.connect('q_inf'+str(i),'outputs.trim'+str(i)+'.q_inf')
 
         # connect the flight metric components
-        
+
         self.connect('mp_group.s'+str(self.misc_parameters['cruise_case_ID'])+'.aero.CL','outputs.flight_metrics.CL')
         self.connect('mp_group.s'+str(self.misc_parameters['cruise_case_ID'])+'.aero.CD','outputs.flight_metrics.CD')
         i = self.trim_parameters['load_case_fuel_burned'].index(1.)  # want to use a full fuel weight for TOGW computation
@@ -459,7 +459,7 @@ class Top(om.Group):
 
         # connect the spar depth components
 
-        self.connect('mp_group.struct_mesh.x_s0','outputs.spar_depth.x')        
+        self.connect('mp_group.struct_mesh.x_s0','outputs.spar_depth.x')
 
 
 
@@ -478,7 +478,7 @@ model.linear_solver = om.LinearRunOnce()
 
 
 
-## Use this if you want to check totals: need to use CS versions of TACS and MELD.  
+## Use this if you want to check totals: need to use CS versions of TACS and MELD.
 ## Also, can't use_aitken for this to work.  And since you can't use_aitken, q_inf/AoA has to be relatively low
 ## Also, turn patch_lumping on.
 
@@ -511,14 +511,14 @@ model.linear_solver = om.LinearRunOnce()
 #        'alpha1',
 #        'upper_skin_thickness_lumped',
 #        'lower_skin_thickness_lumped',
-#        'le_spar_thickness_lumped', 
-#        'te_spar_thickness_lumped', 
-#        'rib_thickness_lumped', 
-#        'root_chord_delta', 
-#        'tip_chord_delta', 
-#        'tip_sweep_delta', 
-#        'span_delta', 
-#        'wing_thickness_delta', 
+#        'le_spar_thickness_lumped',
+#        'te_spar_thickness_lumped',
+#        'rib_thickness_lumped',
+#        'root_chord_delta',
+#        'tip_chord_delta',
+#        'tip_sweep_delta',
+#        'span_delta',
+#        'wing_thickness_delta',
 #        'wing_twist_delta',
 #        'fuel_dv'
 #        ], method='cs')
@@ -548,7 +548,7 @@ prob.model.add_design_var('lower_skin_thickness',  lower=model.opt_parameters['m
 prob.model.add_design_var('le_spar_thickness',     lower=model.opt_parameters['min_thickness'],         upper=model.opt_parameters['max_thickness'],         ref=model.misc_parameters['initial_thickness'])
 prob.model.add_design_var('te_spar_thickness',     lower=model.opt_parameters['min_thickness'],         upper=model.opt_parameters['max_thickness'],         ref=model.misc_parameters['initial_thickness'])
 prob.model.add_design_var('rib_thickness',         lower=model.opt_parameters['min_thickness'],         upper=model.opt_parameters['max_thickness'],         ref=model.misc_parameters['initial_thickness'])
-prob.model.add_design_var('root_chord_delta',      lower=model.opt_parameters['root_chord_bounds'][0],  upper=model.opt_parameters['root_chord_bounds'][1],  ref=1.0) 
+prob.model.add_design_var('root_chord_delta',      lower=model.opt_parameters['root_chord_bounds'][0],  upper=model.opt_parameters['root_chord_bounds'][1],  ref=1.0)
 prob.model.add_design_var('tip_chord_delta',       lower=model.opt_parameters['tip_chord_bounds'][0],   upper=model.opt_parameters['tip_chord_bounds'][1],   ref=1.0)
 prob.model.add_design_var('tip_sweep_delta',       lower=model.opt_parameters['tip_sweep_bounds'][0],   upper=model.opt_parameters['tip_sweep_bounds'][1],   ref=1.0)
 prob.model.add_design_var('span_delta',            lower=model.opt_parameters['span_extend_bounds'][0], upper=model.opt_parameters['span_extend_bounds'][1], ref=1.0)
