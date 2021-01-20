@@ -890,7 +890,7 @@ class ADflowGroup(Group):
         # TODO remove the default
         self.options.declare('prop_coupling', default=False)
         self.options.declare('use_warper', default=True)
-        self.options.declare('balance_group', default=None)
+        self.options.declare('balance_group', default=None, recordable=False)
 
     def setup(self):
 
