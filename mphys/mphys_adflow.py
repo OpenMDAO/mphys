@@ -298,6 +298,8 @@ class ADflowSolver(ImplicitComponent):
         #     pp(tmp)
 
         self.ap.setDesignVars(tmp)
+        if self.comm.rank == 0:
+            pp(tmp)
 
     def set_ap(self, ap):
         # this is the external function to set the ap to this component
@@ -481,6 +483,8 @@ class ADflowSolver(ImplicitComponent):
     def solve_linear(self, d_outputs, d_residuals, mode):
         solver = self.solver
         ap = self.ap
+        if self.comm.rank == 0:
+            print("Solving linear in mphys_adflow", flush=True)
         if mode == 'fwd':
             d_outputs['q'] = solver.solveDirectForRHS(d_residuals['q'])
         elif mode == 'rev':
@@ -532,6 +536,8 @@ class ADflowForces(ExplicitComponent):
             tmp[name] = inputs[name]
 
         self.ap.setDesignVars(tmp)
+        if self.comm.rank == 0:
+            pp(tmp)
 
     def set_ap(self, ap):
         # this is the external function to set the ap to this component
@@ -686,6 +692,8 @@ class ADflowFunctions(ExplicitComponent):
 
         self.ap.setDesignVars(tmp)
         #self.options['solver'].setAeroProblem(self.options['ap'])
+        if self.comm.rank == 0:
+            pp(tmp)
 
     def mphys_set_ap(self, ap):
         # this is the external function to set the ap to this component
@@ -1016,8 +1024,9 @@ class ADflowMeshGroup(Group):
 
 class ADflowBuilder(object):
 
-    def __init__(self, options, warp_in_solver=True, balance_group=None, prop_coupling=False):
+    def __init__(self, options, mesh_options=None, warp_in_solver=True, balance_group=None, prop_coupling=False):
         self.options = options
+        self.mesh_options = mesh_options
         self.warp_in_solver = warp_in_solver
         self.prop_coupling = prop_coupling
 
@@ -1026,7 +1035,7 @@ class ADflowBuilder(object):
     # api level method for all builders
     def init_solver(self, comm):
         self.solver = ADFLOW(options=self.options, comm=comm)
-        mesh = USMesh(options=self.options, comm=comm)
+        mesh = USMesh(options=self.mesh_options, comm=comm)
         self.solver.setMesh(mesh)
 
     # api level method for all builders
