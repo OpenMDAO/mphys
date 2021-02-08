@@ -1019,8 +1019,6 @@ class ADflowGroup(Group):
 
     def initialize(self):
         self.options.declare('solver')
-        # TODO remove the default
-        # - I (Josh) do not understand this ^ comment
 
         self.options.declare('as_coupling', default=False )
         self.options.declare('prop_coupling', default=False)
