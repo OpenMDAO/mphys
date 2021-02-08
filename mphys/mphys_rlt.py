@@ -19,10 +19,12 @@ class RltDispXfer(om.ExplicitComponent):
         self.options.declare('nn_s')
         self.options.declare('nn_a')
 
+        # Flag used to prevent warning for fwd derivative d(u_a)/d(x_a0)
+        self.options.declare('check_partials', default=False)
+
+
         self.options['distributed'] = True
 
-        # Flag used to prevent warning for fwd derivative d(u_a)/d(x_a0)
-        self.check_partials = True
 
     def setup(self):
 
@@ -31,6 +33,7 @@ class RltDispXfer(om.ExplicitComponent):
         ndof_s = self.options['ndof_s']
         nn_s   = self.options['nn_s']
         nn_a   = self.options['nn_a']
+        self.check_partials= self.options['check_partials']
 
         # get the isAero and isStruct flags from RLT python object
         # this is done to pseudo parallelize the modal solver, where
@@ -167,6 +170,8 @@ class RltLoadXfer(om.ExplicitComponent):
         self.options.declare('ndof_s')
         self.options.declare('nn_s')
         self.options.declare('nn_a')
+        # Flag used to prevent warning for fwd derivative d(u_a)/d(x_a0)
+        self.options.declare('check_partials', default=True)
 
         self.options['distributed'] = True
 
@@ -178,8 +183,6 @@ class RltLoadXfer(om.ExplicitComponent):
         self.nn_s = None
         self.nn_a = None
 
-        # Flag used to prevent warning for fwd derivative d(u_a)/d(x_a0)
-        self.check_partials = True
 
     def setup(self):
 
@@ -188,6 +191,7 @@ class RltLoadXfer(om.ExplicitComponent):
         ndof_s = self.options['ndof_s']
         nn_s   = self.options['nn_s']
         nn_a   = self.options['nn_a']
+        self.check_partials= self.options['check_partials']
 
         # get the isAero and isStruct flags from RLT python object
         # this is done to pseudo parallelize the modal solver, where
@@ -317,10 +321,12 @@ class RltLoadXfer(om.ExplicitComponent):
 
 class RltBuilder(object):
 
-    def __init__(self, options, aero_builder, struct_builder):
+    def __init__(self, options, aero_builder, struct_builder, check_partials=False):
         self.options=options
         self.aero_builder = aero_builder
         self.struct_builder = struct_builder
+
+        self.check_partials = check_partials
 
     # api level method for all builders
     def init_xfer_object(self, comm):
@@ -368,13 +374,15 @@ class RltBuilder(object):
             ndof_s=self.struct_ndof,
             nn_s=self.struct_nnodes,
             nn_a=self.aero_nnodes,
+            check_partials=self.check_partials
         )
 
         load_xfer = RltLoadXfer(
             xfer_object=self.xfer_object,
             ndof_s=self.struct_ndof,
             nn_s=self.struct_nnodes,
-            nn_a=self.aero_nnodes,
+           nn_a=self.aero_nnodes,
+           check_partials=self.check_partials
         )
 
         return disp_xfer, load_xfer

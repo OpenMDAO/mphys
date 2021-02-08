@@ -17,9 +17,26 @@ class VlmMesh(om.ExplicitComponent):
         self.x_a0 = self.options['x_a0']
         self.add_output('x_a0',np.zeros(N_nodes*3))
 
+    def mphys_add_coordinate_input(self):
+
+        N_nodes = self.options['N_nodes']
+        self.add_input('x_a0_points',np.zeros(N_nodes*3))
+        return 'x_a0_points', self.x_a0
+
     def compute(self,inputs,outputs):
 
-        outputs['x_a0'] = self.x_a0
+        if 'x_a0_points' in inputs:
+            outputs['x_a0'] = inputs['x_a0_points']
+        else:
+            outputs['x_a0'] = self.x_a0
+
+    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
+        if mode == 'fwd':
+            if 'x_a0_points' in d_inputs:
+                d_outputs['x_a0'] += d_inputs['x_a0_points']
+        elif mode == 'rev':
+            if 'x_a0_points' in d_inputs:
+                d_inputs['x_a0_points'] += d_outputs['x_a0']
 
 class GeoDisp(om.ExplicitComponent):
     """
@@ -74,11 +91,6 @@ class VlmGroup(om.Group):
 
         options_dict = self.options['options_dict']
         # this can be done much more cleanly with **options_dict
-        mach       = options_dict['mach']
-        alpha      = options_dict['alpha']
-        q_inf      = options_dict['q_inf']
-        vel        = options_dict['vel']
-        mu         = options_dict['mu']
         N_nodes    = options_dict['N_nodes']
         N_elements = options_dict['N_elements']
         x_a0       = options_dict['x_a0']
@@ -95,20 +107,16 @@ class VlmGroup(om.Group):
         self.add_subsystem('solver', VLM_solver(
             N_nodes=N_nodes,
             N_elements=N_elements,
-            quad=quad,
-            mach=mach
-        ), promotes_inputs=['alpha'])
+            quad=quad), 
+            promotes_inputs=['alpha','mach'])
 
         self.add_subsystem('forces', VLM_forces(
             N_nodes=N_nodes,
             N_elements=N_elements,
             quad=quad,
-            q_inf=q_inf,
-            mach=mach,
-            vel=vel,
-            mu=mu,
-            compute_traction=compute_traction
-        ), promotes_outputs=[('fa','f_a')])
+            compute_traction=compute_traction), 
+            promotes_inputs=['mach','q_inf','vel','mu'],            
+            promotes_outputs=[('fa','f_a'),'CL','CD'])
 
     def configure(self):
         self.connect('geo_disp.x_a', ['solver.xa', 'forces.xa'])
