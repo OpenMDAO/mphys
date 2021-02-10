@@ -86,18 +86,22 @@ class Fun3dSfeBuilder(SolverBuilder):
     def __init__(self, meshfile, boundary_tag_list):
         self.meshfile = meshfile
         self.boundary_tag_list = boundary_tag_list
+        self.is_initialized = False
 
     def init_solver(self, comm):
-        self.dist_calc = DistanceCalculator.from_meshfile(self.meshfile,comm)
-        distance = self.dist_calc.compute(self.boundary_tag_list)
+        if not self.is_initialized:
+            self.dist_calc = DistanceCalculator.from_meshfile(self.meshfile,comm)
+            distance = self.dist_calc.compute(self.boundary_tag_list)
 
-        self.iris = Iris(comm)
-        self.sfe = SFE(self.dist_calc.mesh,self.iris)
-        self.meshdef = MeshDeformation(self.dist_calc.mesh,self.iris)
-        self.nnodes = self.meshdef.get_boundary_node_global_ids(self.boundary_tag_list, owned_only=True).size
+            self.iris = Iris(comm)
+            self.sfe = SFE(self.dist_calc.mesh,self.iris)
+            self.meshdef = MeshDeformation(self.dist_calc.mesh,self.iris)
+            self.nnodes = self.meshdef.get_boundary_node_global_ids(self.boundary_tag_list, owned_only=True).size
 
-        self.sfe.set_node_wall_distance(distance, owned_only = False)
-        self.meshdef.set_node_wall_distance(distance, owned_only = False)
+            self.sfe.set_node_wall_distance(distance, owned_only = False)
+            self.meshdef.set_node_wall_distance(distance, owned_only = False)
+
+            self.is_initialized = True
 
     def get_mesh_element(self):
         return Fun3dMesh(meshdef_solver = self.meshdef,
@@ -109,7 +113,6 @@ class Fun3dSfeBuilder(SolverBuilder):
         sfe_om = SfeSolverOpenMdao(sfe_solver = self.sfe)
         forces_om = SfeForcesOpenMdao(sfe_solver = self.sfe,
                                       boundary_tag_list = self.boundary_tag_list)
-
         return Fun3dFsiSolverGroup(meshdef_comp = meshdef_om,
                                    flow_comp = sfe_om,
                                    forces_comp = forces_om,

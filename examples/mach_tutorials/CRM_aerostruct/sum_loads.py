@@ -9,10 +9,10 @@ class SumLoads(om.ExplicitComponent):
         self.options.declare('load_list')
         
     def setup(self):
-        
+
         for name in self.options['load_list']:
-            self.add_input(name,np.zeros(self.options['load_size']))
-        
+            self.add_input(name,np.zeros(self.options['load_size']),src_indices=np.arange(0, self.options['load_size'], dtype=int))
+
         self.add_output('F_summed',np.zeros(self.options['load_size']))
         
     def compute(self,inputs,outputs):
