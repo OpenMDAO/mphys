@@ -7,7 +7,7 @@ class MeldDispXfer(om.ExplicitComponent):
     Component to perform displacement transfer using MELD
     """
     def initialize(self):
-        self.options.declare('xfer_object')
+        self.options.declare('xfer_object', recordable=False)
         self.options.declare('struct_ndof')
         self.options.declare('struct_nnodes')
         self.options.declare('aero_nnodes')
@@ -30,6 +30,8 @@ class MeldDispXfer(om.ExplicitComponent):
         self.struct_nnodes = self.options['struct_nnodes']
         self.aero_nnodes   = self.options['aero_nnodes']
         self.check_partials= self.options['check_partials']
+
+        #self.set_check_partial_options(wrt='*',method='cs',directional=True)
 
         struct_ndof = self.struct_ndof
         struct_nnodes = self.struct_nnodes
@@ -155,7 +157,7 @@ class MeldLoadXfer(om.ExplicitComponent):
     Component to perform load transfers using MELD
     """
     def initialize(self):
-        self.options.declare('xfer_object')
+        self.options.declare('xfer_object', recordable=False)
         self.options.declare('struct_ndof')
         self.options.declare('struct_nnodes')
         self.options.declare('aero_nnodes')
@@ -179,6 +181,8 @@ class MeldLoadXfer(om.ExplicitComponent):
         self.struct_nnodes = self.options['struct_nnodes']
         self.aero_nnodes   = self.options['aero_nnodes']
         self.check_partials= self.options['check_partials']
+
+        #self.set_check_partial_options(wrt='*',method='cs',directional=True)
 
         struct_ndof = self.struct_ndof
         struct_nnodes = self.struct_nnodes

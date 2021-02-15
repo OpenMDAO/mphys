@@ -8,6 +8,9 @@
 *f5
 *html
 *bdf
+*tar.gz
+*vtk
+*.su2
 
 mphys.egg-info/*
 docs/build/doctrees
