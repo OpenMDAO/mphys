@@ -200,17 +200,17 @@ class Top(om.Group):
 
 @parameterized_class(
     [
-        # {
-        #     "name": "meld",
-        #     "xfer_builder_class": MeldBuilder,
-        #     "xfer_options": {"isym": 1, "n": 200, "beta": 0.5},
-        #     "ref_vals": {
-        #         "xa": 5.443441765975671,
-        #         "cl": 0.33844664,
-        #         "f_struct": 0.24355979,
-        #         "cd": 0.02988495,
-        #     },
-        # },
+        {
+            "name": "meld",
+            "xfer_builder_class": MeldBuilder,
+            "xfer_options": {"isym": 1, "n": 200, "beta": 0.5},
+            "ref_vals": {
+                "xa": 5.443441765975671,
+                "cl": 0.33844664,
+                "f_struct": 0.24355979,
+                "cd": 0.02988495,
+            },
+        },
         {
             "name": "rlt",
             "xfer_builder_class": RltBuilder,
