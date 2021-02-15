@@ -7,11 +7,11 @@ import openmdao.api as om
 
 from tacs import elements, constitutive, functions, TACS
 
-from mphys.mphys_multipoint import MPHYS_Multipoint
-from mphys.mphys_vlm import VLM_builder
-from mphys.mphys_tacs import TACS_builder
+from mphys.multipoint import Multipoint
+from mphys.mphys_vlm import VlmBuilder
+from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_modal_solver import ModalBuilder
-from mphys.mphys_meld import MELD_builder
+from mphys.mphys_meld import MeldBuilder
 
 from struct_dv_components import StructDvMapper, SmoothnessEvaluatorGrid, struct_comps
 
@@ -55,7 +55,7 @@ class Top(om.Group):
         aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
 
         # VLM builder
-        vlm_builder = VLM_builder(aero_options)
+        vlm_builder = VlmBuilder(aero_options)
 
         # TACS setup
 
@@ -103,7 +103,7 @@ class Top(om.Group):
                     'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
                     'f5_writer'   : f5_writer }
 
-        struct_builder = TACS_builder(tacs_setup)
+        struct_builder = TacsBuilder(tacs_setup)
 
         # MELD setup
         meld_options = {'isym': 1,
@@ -111,7 +111,7 @@ class Top(om.Group):
                         'beta': 0.5}
 
         # MELD builder
-        meld_builder = MELD_builder(meld_options, vlm_builder, struct_builder)
+        meld_builder = MeldBuilder(meld_options, vlm_builder, struct_builder)
 
         ################################################################################
         # MPHYS setup
@@ -125,10 +125,10 @@ class Top(om.Group):
         self.add_subsystem('up_skin_smoothness',SmoothnessEvaluatorGrid(columns=9,rows=struct_comps['up_skin']//9))
         self.add_subsystem('lo_skin_smoothness',SmoothnessEvaluatorGrid(columns=9,rows=int(struct_comps['lo_skin']/9)))
 
-        # each AS_Multipoint instance can keep multiple points with the same formulation
+        # each MPHYS_Multipoint instance can keep multiple points with the same formulation
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(
+            Multipoint(
                 aero_builder   = vlm_builder,
                 struct_builder = struct_builder,
                 xfer_builder   = meld_builder
@@ -143,7 +143,7 @@ class Top(om.Group):
         # add AoA DV
 
         self.dvs.add_output('alpha', val=2*np.pi/180.)
-        self.connect('alpha', 'mp_group.s0.aero.alpha')
+        self.connect('alpha', 'mp_group.s0.solver_group.aero.alpha')
 
         # add the structural thickness DVs
         initial_thickness = 0.003
@@ -162,7 +162,7 @@ class Top(om.Group):
         self.connect('lo_skin','lo_skin_smoothness.thickness')
 
         # connect solver data
-        self.connect('dv_struct', ['mp_group.s0.struct.dv_struct'])
+        self.connect('dv_struct', ['mp_group.s0.solver_group.struct.dv_struct', 'mp_group.s0.struct_funcs.dv_struct'])
 
 ################################################################################
 # OpenMDAO setup
@@ -181,9 +181,9 @@ prob.model.add_design_var('lo_skin',     lower=0.003, upper=0.020, ref=0.005)
 prob.model.add_design_var('up_stringer', lower=0.003, upper=0.020, ref=0.005)
 prob.model.add_design_var('lo_stringer', lower=0.003, upper=0.020, ref=0.005)
 
-prob.model.add_objective('mp_group.s0.struct.mass.mass',ref=1000.0)
-prob.model.add_constraint('mp_group.s0.aero.forces.CL',ref=1.0,equals=0.5)
-prob.model.add_constraint('mp_group.s0.struct.funcs.f_struct',ref=1.0, upper = 2.0/3.0)
+prob.model.add_objective('mp_group.s0.struct_funcs.mass.mass',ref=1000.0)
+prob.model.add_constraint('mp_group.s0.solver_group.aero.forces.CL',ref=1.0,equals=0.5)
+prob.model.add_constraint('mp_group.s0.struct_funcs.funcs.f_struct',ref=1.0, upper = 2.0/3.0)
 
 prob.model.add_constraint('le_spar_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
 prob.model.add_constraint('te_spar_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
@@ -223,7 +223,7 @@ matrix = np.zeros((len(driver_cases),4))
 for i, case_id in enumerate(driver_cases):
     matrix[i,0] = i
     case = cr.get_case(case_id)
-    matrix[i,1] = case.get_objectives()['mp_group.s0.struct.mass.mass'][0]
-    matrix[i,2] = case.get_constraints()['mp_group.s0.aero.forces.CL'][0]
-    matrix[i,3] = case.get_constraints()['mp_group.s0.struct.funcs.f_struct'][0]
+    matrix[i,1] = case.get_objectives()['mp_group.s0.struct_funcs.mass.mass'][0]
+    matrix[i,2] = case.get_constraints()['mp_group.s0.solver_group.aero.forces.CL'][0]
+    matrix[i,3] = case.get_constraints()['mp_group.s0.struct_funcs.funcs.f_struct'][0]
 np.savetxt('history.dat',matrix)

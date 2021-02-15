@@ -8,7 +8,7 @@ transfer_dtype = 'd'
 # hard-coded ndof for aerodynamic solver
 ndof_a = 3
 
-class RLT_disp_xfer(om.ExplicitComponent):
+class RltDispXfer(om.ExplicitComponent):
     """
     Component to perform displacement transfer using RLT
     """
@@ -19,10 +19,12 @@ class RLT_disp_xfer(om.ExplicitComponent):
         self.options.declare('nn_s')
         self.options.declare('nn_a')
 
+        # Flag used to prevent warning for fwd derivative d(u_a)/d(x_a0)
+        self.options.declare('check_partials', default=False)
+
+
         self.options['distributed'] = True
 
-        # Flag used to prevent warning for fwd derivative d(u_a)/d(x_a0)
-        self.check_partials = True
 
     def setup(self):
 
@@ -31,6 +33,7 @@ class RLT_disp_xfer(om.ExplicitComponent):
         ndof_s = self.options['ndof_s']
         nn_s   = self.options['nn_s']
         nn_a   = self.options['nn_a']
+        self.check_partials= self.options['check_partials']
 
         # get the isAero and isStruct flags from RLT python object
         # this is done to pseudo parallelize the modal solver, where
@@ -64,7 +67,7 @@ class RLT_disp_xfer(om.ExplicitComponent):
         ax1 = np.sum(ax_list[:irank])
         ax2 = np.sum(ax_list[:irank+1])
 
-        sx_list = self.comm.allgather(total_dof_struct)
+        sx_list = self.comm.allgather(nn_s * 3)
         sx1 = np.sum(sx_list[:irank])
         sx2 = np.sum(sx_list[:irank+1])
 
@@ -76,7 +79,7 @@ class RLT_disp_xfer(om.ExplicitComponent):
         self.add_input('x_a0', shape=total_dof_aero,
                        src_indices=np.arange(ax1, ax2, dtype=int),
                        desc='Initial aerodynamic surface node coordinates')
-        self.add_input('x_s0', shape = total_dof_struct,
+        self.add_input('x_s0', shape = nn_s * 3,
                        src_indices = np.arange(sx1, sx2, dtype=int),
                        desc='initial structural node coordinates')
         self.add_input('u_s', shape=total_dof_struct,
@@ -157,7 +160,7 @@ class RLT_disp_xfer(om.ExplicitComponent):
                     d_inputs['x_a0'] += x_a0d
 
 
-class RLT_load_xfer(om.ExplicitComponent):
+class RltLoadXfer(om.ExplicitComponent):
     """
     Component to perform load transfers using MELD
     """
@@ -167,6 +170,8 @@ class RLT_load_xfer(om.ExplicitComponent):
         self.options.declare('ndof_s')
         self.options.declare('nn_s')
         self.options.declare('nn_a')
+        # Flag used to prevent warning for fwd derivative d(u_a)/d(x_a0)
+        self.options.declare('check_partials', default=True)
 
         self.options['distributed'] = True
 
@@ -178,8 +183,6 @@ class RLT_load_xfer(om.ExplicitComponent):
         self.nn_s = None
         self.nn_a = None
 
-        # Flag used to prevent warning for fwd derivative d(u_a)/d(x_a0)
-        self.check_partials = True
 
     def setup(self):
 
@@ -188,6 +191,7 @@ class RLT_load_xfer(om.ExplicitComponent):
         ndof_s = self.options['ndof_s']
         nn_s   = self.options['nn_s']
         nn_a   = self.options['nn_a']
+        self.check_partials= self.options['check_partials']
 
         # get the isAero and isStruct flags from RLT python object
         # this is done to pseudo parallelize the modal solver, where
@@ -221,7 +225,7 @@ class RLT_load_xfer(om.ExplicitComponent):
         ax1 = np.sum(ax_list[:irank])
         ax2 = np.sum(ax_list[:irank+1])
 
-        sx_list = self.comm.allgather(total_dof_struct)
+        sx_list = self.comm.allgather(nn_s * 3)
         sx1 = np.sum(sx_list[:irank])
         sx2 = np.sum(sx_list[:irank+1])
 
@@ -233,7 +237,7 @@ class RLT_load_xfer(om.ExplicitComponent):
         self.add_input('x_a0', shape=total_dof_aero,
                        src_indices=np.arange(ax1, ax2, dtype=int),
                        desc='Initial aerodynamic surface node coordinates')
-        self.add_input('x_s0', shape = total_dof_struct,
+        self.add_input('x_s0', shape = nn_s * 3,
                        src_indices = np.arange(sx1, sx2, dtype=int),
                        desc='initial structural node coordinates')
         self.add_input('u_s', shape=total_dof_struct,
@@ -315,12 +319,14 @@ class RLT_load_xfer(om.ExplicitComponent):
                     self.transfer.setAeroSurfaceNodesSens(x_a0d)
                     d_inputs['x_a0'] -= x_a0d
 
-class RLT_builder(object):
+class RltBuilder(object):
 
-    def __init__(self, options, aero_builder, struct_builder):
+    def __init__(self, options, aero_builder, struct_builder, check_partials=False):
         self.options=options
         self.aero_builder = aero_builder
         self.struct_builder = struct_builder
+
+        self.check_partials = check_partials
 
     # api level method for all builders
     def init_xfer_object(self, comm):
@@ -363,18 +369,20 @@ class RLT_builder(object):
     # api level method for all builders
     def get_element(self):
 
-        disp_xfer = RLT_disp_xfer(
+        disp_xfer = RltDispXfer(
             xfer_object=self.xfer_object,
             ndof_s=self.struct_ndof,
             nn_s=self.struct_nnodes,
             nn_a=self.aero_nnodes,
+            check_partials=self.check_partials
         )
 
-        load_xfer = RLT_load_xfer(
+        load_xfer = RltLoadXfer(
             xfer_object=self.xfer_object,
             ndof_s=self.struct_ndof,
             nn_s=self.struct_nnodes,
-            nn_a=self.aero_nnodes,
+           nn_a=self.aero_nnodes,
+           check_partials=self.check_partials
         )
 
         return disp_xfer, load_xfer

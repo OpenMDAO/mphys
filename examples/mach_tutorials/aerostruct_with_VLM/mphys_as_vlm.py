@@ -7,11 +7,11 @@ import openmdao.api as om
 
 from tacs import elements, constitutive, functions
 
-from mphys.mphys_multipoint import MPHYS_Multipoint
-from mphys.mphys_vlm import VLM_builder
-from mphys.mphys_tacs import TACS_builder
+from mphys.multipoint import Multipoint
+from mphys.mphys_vlm import VlmBuilder
+from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_modal_solver import ModalBuilder
-from mphys.mphys_meld import MELD_builder
+from mphys.mphys_meld import MeldBuilder
 
 
 class Top(om.Group):
@@ -56,7 +56,7 @@ class Top(om.Group):
         aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
 
         # VLM builder
-        vlm_builder = VLM_builder(aero_options)
+        vlm_builder = VlmBuilder(aero_options)
 
         # TACS setup
 
@@ -108,7 +108,7 @@ class Top(om.Group):
             nmodes = 15
             struct_builder = ModalBuilder(tacs_setup,nmodes)
         else:
-            struct_builder = TACS_builder(tacs_setup)
+            struct_builder = TacsBuilder(tacs_setup)
 
         # MELD setup
         meld_options = {'isym': 1,
@@ -116,7 +116,7 @@ class Top(om.Group):
                         'beta': 0.5}
 
         # MELD builder
-        meld_builder = MELD_builder(meld_options, vlm_builder, struct_builder)
+        meld_builder = MeldBuilder(meld_options, vlm_builder, struct_builder)
 
         ################################################################################
         # MPHYS setup
@@ -124,10 +124,10 @@ class Top(om.Group):
         # ivc to keep the top level DVs
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
 
-        # each AS_Multipoint instance can keep multiple points with the same formulation
+        # each MPHYS_Multipoint instance can keep multiple points with the same formulation
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(
+            Multipoint(
                 aero_builder   = vlm_builder,
                 struct_builder = struct_builder,
                 xfer_builder   = meld_builder
@@ -141,7 +141,7 @@ class Top(om.Group):
 
         # add AoA DV
         self.dvs.add_output('alpha', val=2*np.pi/180.)
-        self.connect('alpha', 'mp_group.s0.aero.alpha')
+        self.connect('alpha', 'mp_group.s0.solver_group.aero.alpha')
 
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()
@@ -151,7 +151,7 @@ class Top(om.Group):
         if self.modal_struct:
             self.connect('dv_struct', ['mp_group.struct_mesh.dv_struct'])
         else:
-            self.connect('dv_struct', ['mp_group.s0.struct.dv_struct'])
+            self.connect('dv_struct', ['mp_group.s0.solver_group.struct.dv_struct', 'mp_group.s0.struct_funcs.dv_struct'])
 
 ################################################################################
 # OpenMDAO setup
@@ -175,6 +175,6 @@ om.n2(prob, show_browser=False, outfile='mphys_as_vlm_tacs_meld.html')
 prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
-    print('f_struct =',prob['mp_group.s0.struct.funcs.f_struct'])
-    print('mass =',prob['mp_group.s0.struct.mass.mass'])
-    print('cl =',prob['mp_group.s0.aero.funcs.CL'])
+    print('f_struct =',prob['mp_group.s0.struct_funcs.funcs.f_struct'])
+    print('mass =',prob['mp_group.s0.struct_funcs.mass.mass'])
+    print('cl =',prob['mp_group.s0.solver_loop.aero.funcs.CL'])

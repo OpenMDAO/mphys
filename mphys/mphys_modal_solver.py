@@ -4,95 +4,6 @@ import numpy as np
 from mpi4py import MPI
 from tacs import TACS, elements, functions
 import openmdao.api as om
-#from omfsi.tacs_component import TacsMass, TacsFunctions
-
-"""
-class ModalStructAssembler(OmfsiSolverAssembler):
-    def __init__(self,solver_options):
-        self.add_elements = solver_options['add_elements']
-        self.mesh_file    = solver_options['mesh_file']
-        self.nmodes       = solver_options['nmodes']
-        self.get_funcs    = solver_options['get_funcs']
-        self.f5_writer    = solver_options['f5_writer']
-
-        self.tacs = None
-
-    def get_tacs(self,comm):
-        if self.tacs is None:
-            self.comm = comm
-            mesh = TACS.MeshLoader(comm)
-            mesh.scanBDFFile(self.mesh_file)
-
-            self.ndof, self.ndv = self.add_elements(mesh)
-
-            self.tacs = mesh.createTACS(self.ndof)
-            self.nnodes = int(self.tacs.createNodeVec().getArray().size / 3)
-        return self.tacs
-
-    def get_ndv(self):
-        return self.ndv
-
-    def get_ndof(self):
-        return self.ndof
-
-    def get_nnodes(self):
-        return self.nnodes
-
-    def get_modal_sizes(self):
-        return self.nmodes, self.nnodes*self.ndof
-
-    def add_model_components(self,model,connection_srcs):
-        model.add_subsystem('struct_modal_decomp',ModalDecomp(get_tacs = self.get_tacs,
-                                                              get_ndv = self.get_ndv,
-                                                              nmodes = self.nmodes))
-
-        connection_srcs['x_s0'] = 'struct_modal_decomp.x_s0'
-        connection_srcs['mode_shape'] = 'struct_modal_decomp.mode_shape'
-        connection_srcs['modal_mass'] = 'struct_modal_decomp.modal_mass'
-        connection_srcs['modal_stiffness'] = 'struct_modal_decomp.modal_stiffness'
-
-    def add_scenario_components(self,model,scenario,connection_srcs):
-        scenario.add_subsystem('struct_funcs',TacsFunctions(get_tacs=self.get_tacs,get_ndv=self.get_ndv,get_funcs=self.get_funcs,f5_writer=self.f5_writer))
-        scenario.add_subsystem('struct_mass',TacsMass(get_tacs=self.get_tacs,get_ndv=self.get_ndv))
-
-        connection_srcs['f_struct'] = scenario.name+'.struct_funcs.f_struct'
-        connection_srcs['mass'] = scenario.name+'.struct_mass.mass'
-
-    def add_fsi_components(self,model,scenario,fsi_group,connection_srcs):
-
-        struct = Group()
-        struct.add_subsystem('modal_forces',ModalForces(get_modal_sizes=self.get_modal_sizes))
-        struct.add_subsystem('modal_solver',ModalSolver(nmodes=self.nmodes))
-        struct.add_subsystem('modal_disps',ModalDisplacements(get_modal_sizes=self.get_modal_sizes))
-
-        fsi_group.add_subsystem('struct',struct)
-
-        connection_srcs['mf']  = scenario.name+'.'+fsi_group.name+'.struct.modal_forces.mf'
-        connection_srcs['z']   = scenario.name+'.'+fsi_group.name+'.struct.modal_solver.z'
-        connection_srcs['u_s'] = scenario.name+'.'+fsi_group.name+'.struct.modal_disps.u_s'
-
-    def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
-
-        forces_path =  scenario.name+'.'+fsi_group.name+'.struct.modal_forces'
-        solver_path =  scenario.name+'.'+fsi_group.name+'.struct.modal_solver'
-        disps_path  =  scenario.name+'.'+fsi_group.name+'.struct.modal_disps'
-
-        model.connect(connection_srcs['dv_struct'],'struct_modal_decomp.dv_struct')
-
-        model.connect(connection_srcs['f_s'],[forces_path+'.f_s'])
-        model.connect(connection_srcs['mf'],[solver_path+'.mf'])
-        model.connect(connection_srcs['z'],[disps_path+'.z'])
-
-        model.connect(connection_srcs['mode_shape'],forces_path+'.mode_shape')
-        model.connect(connection_srcs['mode_shape'],disps_path+'.mode_shape')
-        model.connect(connection_srcs['modal_stiffness'],[solver_path+'.k'])
-
-        model.connect(connection_srcs['x_s0'],scenario.name+'.struct_funcs.x_s0')
-        model.connect(connection_srcs['u_s'],scenario.name+'.struct_funcs.u_s')
-        model.connect(connection_srcs['dv_struct'],scenario.name+'.struct_funcs.dv_struct')
-        model.connect(connection_srcs['x_s0'],scenario.name+'.struct_mass.x_s0')
-        model.connect(connection_srcs['dv_struct'],scenario.name+'.struct_mass.dv_struct')
-"""
 
 class ModalDecomp(om.ExplicitComponent):
     def initialize(self):
@@ -191,10 +102,17 @@ class ModalSolver(om.ExplicitComponent):
             src_indices = np.zeros(0)
             input_shape=0
 
-        self.add_input('modal_stiffness', shape=input_shape, src_indices=src_indices, val=np.ones(nmodes), desc = 'modal stiffness')
-        self.add_input('mf', shape=input_shape, src_indices=src_indices, val=np.ones(nmodes), desc = 'modal force')
+        self.add_input('modal_stiffness', shape=input_shape,
+                                          src_indices=src_indices,
+                                          val=np.ones(nmodes), desc = 'modal stiffness')
+        self.add_input('mf', shape=input_shape,
+                             src_indices=src_indices,
+                             val=np.ones(nmodes),
+                             desc = 'modal force')
 
-        self.add_output('z', shape=nmodes, val=np.ones(nmodes), desc = 'modal displacement')
+        self.add_output('z', shape=nmodes,
+                             val=np.ones(nmodes),
+                             desc = 'modal displacement')
 
     def compute(self,inputs,outputs):
         if self.comm.rank == 0:
@@ -381,8 +299,6 @@ class ModalBuilder(object):
         self.nmodes = nmodes
         self.check_partials = check_partials
 
-        self.mesh_connections = ['modal_stiffness','mode_shape']
-
     # api level method for all builders
     def init_solver(self, comm):
 
@@ -454,6 +370,15 @@ class ModalBuilder(object):
         return ModalDecomp(struct_solver=self.solver,
                            ndv=self.solver_dict['ndv'],
                            nmodes=self.nmodes)
+
+    def get_mesh_connections(self):
+        return {
+            # because we dont have a solver or funcs key,
+            # mphys just assume that these will be connected
+            # to the solver.
+            'modal_stiffness': 'modal_stiffness',
+            'mode_shape': 'mode_shape',
+        }
 
     def get_ndof(self):
         return self.solver_dict['ndof']

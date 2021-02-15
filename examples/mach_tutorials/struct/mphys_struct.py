@@ -5,10 +5,10 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.multipoint import Multipoint
 
 # these imports will be from the respective codes' repos rather than omfsi
-from mphys.mphys_tacs import TACS_builder
+from mphys.mphys_tacs import TacsBuilder
 from tacs import elements, constitutive, functions
 
 # set these for convenience
@@ -63,7 +63,7 @@ class Top(om.Group):
             'load_function':load_function
         }
 
-        tacs_builder = TACS_builder(tacs_options)
+        tacs_builder = TacsBuilder(tacs_options)
 
         ################################################################################
         # MPHY setup
@@ -75,7 +75,7 @@ class Top(om.Group):
         # create the multiphysics multipoint group.
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(struct_builder = tacs_builder)
+            Multipoint(struct_builder = tacs_builder)
         )
 
         # this is the method that needs to be called for every point in this mp_group
@@ -85,7 +85,7 @@ class Top(om.Group):
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()
         self.dvs.add_output('dv_struct', np.array(ndv_struct*[0.01]))
-        self.connect('dv_struct', ['mp_group.s0.struct.dv_struct'])
+        self.connect('dv_struct', ['mp_group.s0.solver_group.struct.dv_struct', 'mp_group.s0.struct_funcs.dv_struct'])
 
 ################################################################################
 # OpenMDAO setup

@@ -4,13 +4,13 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from mphys.mphys_multipoint import MPHYS_Multipoint
+from mphys.multipoint import Multipoint
 
 # these imports will be from the respective codes' repos rather than mphys
-from mphys.mphys_adflow import ADflow_builder
-from mphys.mphys_tacs import TACS_builder
-from mphys.mphys_meld import MELD_builder
-from mphys.mphys_rlt import RLT_builder
+from mphys.mphys_adflow import ADflowBuilder
+from mphys.mphys_tacs import TacsBuilder
+from mphys.mphys_meld import MeldBuilder
+from mphys.mphys_rlt import RltBuilder
 
 from baseclasses import *
 from tacs import elements, constitutive, functions
@@ -41,8 +41,8 @@ class Top(om.Group):
             'outputDirectory':'.',
             'monitorvariables':['resrho','resturb','cl','cd'],
             'writeTecplotSurfaceSolution':False,
-            'writevolumesolution':False,
-            'writesurfacesolution':False,
+            # 'writevolumesolution':False,
+            # 'writesurfacesolution':False,
 
             # Physics Parameters
             'equationType':'RANS',
@@ -74,7 +74,7 @@ class Top(om.Group):
             'forcesAsTractions': forcesAsTractions,
         }
 
-        adflow_builder = ADflow_builder(aero_options)
+        adflow_builder = ADflowBuilder(aero_options)
 
         ################################################################################
         # TACS options
@@ -114,7 +114,7 @@ class Top(om.Group):
             'get_funcs'   : get_funcs
         }
 
-        tacs_builder = TACS_builder(tacs_options)
+        tacs_builder = TacsBuilder(tacs_options)
 
         ################################################################################
         # Transfer scheme options
@@ -127,11 +127,11 @@ class Top(om.Group):
                 'beta': 0.5,
             }
 
-            xfer_builder = MELD_builder(xfer_options, adflow_builder, tacs_builder)
+            xfer_builder = MeldBuilder(xfer_options, adflow_builder, tacs_builder)
         else:
             # or we can use RLT:
             xfer_options = {'transfergaussorder': 2}
-            xfer_builder = RLT_builder(xfer_options, adflow_builder, tacs_builder)
+            xfer_builder = RltBuilder(xfer_options, adflow_builder, tacs_builder)
 
         ################################################################################
         # MPHYS setup
@@ -143,7 +143,7 @@ class Top(om.Group):
         # create the multiphysics multipoint group.
         mp = self.add_subsystem(
             'mp_group',
-            MPHYS_Multipoint(
+            Multipoint(
                 aero_builder   = adflow_builder,
                 struct_builder = tacs_builder,
                 xfer_builder   = xfer_builder
@@ -175,7 +175,8 @@ class Top(om.Group):
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
-        self.mp_group.s0.aero.mphys_set_ap(ap0)
+        self.mp_group.s0.solver_group.aero.mphys_set_ap(ap0)
+        self.mp_group.s0.aero_funcs.mphys_set_ap(ap0)
 
         # define the aero DVs in the IVC
         # s0
@@ -183,13 +184,13 @@ class Top(om.Group):
         self.dvs.add_output('mach0', val=0.8)
 
         # connect to the aero for each scenario
-        self.connect('alpha0', 'mp_group.s0.aero.alpha')
-        self.connect('mach0', 'mp_group.s0.aero.mach')
+        self.connect('alpha0', ['mp_group.s0.solver_group.aero.alpha', 'mp_group.s0.aero_funcs.alpha'])
+        self.connect('mach0', ['mp_group.s0.solver_group.aero.mach', 'mp_group.s0.aero_funcs.mach'])
 
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()
         self.dvs.add_output('dv_struct', np.array(ndv_struct*[0.01]))
-        self.connect('dv_struct', ['mp_group.s0.struct.dv_struct'])
+        self.connect('dv_struct', ['mp_group.s0.solver_group.struct.dv_struct', 'mp_group.s0.struct_funcs.dv_struct',])
 
         # we can also add additional design variables, constraints and set the objective function here.
         # every solver is already initialized, so we can perform solver-specific calls
@@ -207,5 +208,5 @@ prob.run_model()
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
     print("Scenario 0")
-    print('cl =',prob['mp_group.s0.aero.funcs.cl'])
-    print('cd =',prob['mp_group.s0.aero.funcs.cd'])
+    print('cl =',prob['mp_group.s0.aero_funcs.cl'])
+    print('cd =',prob['mp_group.s0.aero_funcs.cd'])
