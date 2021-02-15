@@ -331,6 +331,13 @@ class RltBuilder(object):
     # api level method for all builders
     def init_xfer_object(self, comm):
 
+        print("calling init transfer", flush=True)
+        if comm is None:
+            print("comm is none")
+
+        print(comm)
+        a = comm.allgather(1)
+
         aero_solver   = self.aero_builder.get_solver()
         struct_solver = self.struct_builder.get_solver()
 
@@ -352,8 +359,8 @@ class RltBuilder(object):
         self.xfer_object = SimpleLDTransfer(
             aero_solver,
             dummy_pytacs,
-            comm=comm,
-            options=self.options
+            comm,
+            self.options,
         )
 
         # TODO also do the necessary calls to the struct and aero builders to fully initialize MELD
