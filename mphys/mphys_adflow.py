@@ -1028,13 +1028,13 @@ class ADflowFunctions(ExplicitComponent):
 class ADflowGroup(Group):
 
     def initialize(self):
-        self.options.declare('solver')
+        self.options.declare('solver', recordable=False)
 
-        self.options.declare('as_coupling', default=False )
+        self.options.declare('as_coupling', default=False)
         self.options.declare('prop_coupling', default=False)
-        self.options.declare('heat_transfer', default=False )
+        self.options.declare('heat_transfer', default=False)
         self.options.declare('use_warper', default=True)
-        self.options.declare('balance_group', default=None)
+        self.options.declare('balance_group', default=None, recordable=False)
         self.options.declare('restart_failed_analysis', default=False)
 
     def setup(self):
@@ -1158,7 +1158,7 @@ class ADflowGroup(Group):
 class ADflowMeshGroup(Group):
 
     def initialize(self):
-        self.options.declare('aero_solver')
+        self.options.declare('aero_solver', recordable=False)
 
     def setup(self):
         aero_solver = self.options['aero_solver']
@@ -1182,15 +1182,54 @@ class ADflowMeshGroup(Group):
 
 class ADflowBuilder(object):
 
-    def __init__(self, options, mesh_options=None, warp_in_solver=True, balance_group=None, prop_coupling=False, heat_transfer=False, restart_failed_analysis=False):
+    def __init__(
+        self,
+        options,
+        mesh_options=None,
+        warp_in_solver=True,
+        balance_group=None,
+        prop_coupling=False,
+        heat_transfer=False,
+        restart_failed_analysis=False,
+    ):
+
+        # options dictionary for ADflow
         self.options = options
-        self.mesh_options = mesh_options
+
+        # MACH tools now require separate option dictionaries for solver and mesh
+        # if user did not provide a separate mesh_options dictionary, we just use
+        # the grid file option from the aero options.
+        if mesh_options is None:
+            if 'gridFile' in options:
+                self.mesh_options = {
+                    'gridFile': options['gridFile'],
+                }
+            elif 'gridfile' in options:
+                self.mesh_options = {
+                    'gridfile': options['gridFile'],
+                }
+        else:
+            self.mesh_options = mesh_options
+
+        # flag to determine if the mesh warping component is added
+        # in the nonlinear solver loop (e.g. for aerostructural)
+        # or as a preprocessing step like the surface mesh coordinates
+        # (e.g. for aeropropulsive). This will avoid doing extra work
+        # for mesh deformation when the volume mesh does not change
+        # during nonlinear iterations
         self.warp_in_solver = warp_in_solver
+
+        # flag to enable propulsion coupling variables
         self.prop_coupling = prop_coupling
+
+        # flag to enable heat transfer coupling variables
+        self.heat_transfer = heat_transfer
+
+        # flag to determine if we want to restart a failed solution from free stream
         self.restart_failed_analysis = restart_failed_analysis
 
+        # balance group for propulsion
         self.balance_group = balance_group
-        self.heat_transfer = heat_transfer
 
         if self.heat_transfer:
             self.promotes('heat_xfer', inputs=[name])
