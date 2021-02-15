@@ -13,7 +13,7 @@ class TacsMesh(om.ExplicitComponent):
     """
     def initialize(self):
         # self.options.declare('get_tacs', default = None, desc='function to get tacs')
-        self.options.declare('struct_solver', default = None, desc='the tacs object itself')
+        self.options.declare('struct_solver', default = None, desc='the tacs object itself', recordable=False)
         self.options.declare('surface_nodes', default = None, desc='surface nodes')
         self.options['distributed'] = True
 
@@ -40,9 +40,8 @@ class TacsMesh(om.ExplicitComponent):
 
         n1 = np.sum(n_list[:irank])
         n2 = np.sum(n_list[:irank+1])
-        node_size  =     self.xpts.getArray().size
 
-        self.add_input('x_s0_points', shape=node_size, src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
+        self.add_input('x_s0_points', shape=local_size, src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
 
         # return the promoted name and coordinates
         return 'x_s0_points', self.xpts.getArray()
@@ -73,8 +72,8 @@ class TacsSolver(om.ImplicitComponent):
     """
     def initialize(self):
 
-        self.options.declare('struct_solver')
-        self.options.declare('struct_objects')
+        self.options.declare('struct_solver', recordable=False)
+        self.options.declare('struct_objects', recordable=False)
         self.options.declare('check_partials')
 
         self.options['distributed'] = True
@@ -542,8 +541,8 @@ class TacsFunctions(om.ExplicitComponent):
     Component to compute TACS functions
     """
     def initialize(self):
-        self.options.declare('struct_solver')
-        self.options.declare('struct_objects')
+        self.options.declare('struct_solver', recordable=False)
+        self.options.declare('struct_objects', recordable=False)
         self.options.declare('check_partials')
 
         self.ans = None
@@ -686,8 +685,8 @@ class TacsMass(om.ExplicitComponent):
     Component to compute TACS mass
     """
     def initialize(self):
-        self.options.declare('struct_solver')
-        self.options.declare('struct_objects')
+        self.options.declare('struct_solver', recordable=False)
+        self.options.declare('struct_objects', recordable=False)
         self.options.declare('check_partials')
 
         self.ans = None
@@ -775,8 +774,8 @@ class PrescribedLoad(om.ExplicitComponent):
     Prescribe a load to tacs
     """
     def initialize(self):
-        self.options.declare('load_function', default = None, desc='function that prescribes the loads')
-        self.options.declare('tacs_assembler')
+        self.options.declare('load_function', default = None, desc='function that prescribes the loads', recordable=False)
+        self.options.declare('tacs_assembler', recordable=False)
 
         self.options['distributed'] = True
 
@@ -815,8 +814,8 @@ class PrescribedLoad(om.ExplicitComponent):
 
 class TacsGroup(om.Group):
     def initialize(self):
-        self.options.declare('solver')
-        self.options.declare('solver_objects')
+        self.options.declare('solver', recordable=False)
+        self.options.declare('solver_objects', recordable=False)
         self.options.declare('check_partials')
         self.options.declare('conduction', default=False)
         self.options.declare('as_coupling')
@@ -880,8 +879,8 @@ class TacsGroup(om.Group):
 
 class TACSFuncsGroup(om.Group):
     def initialize(self):
-        self.options.declare('solver')
-        self.options.declare('solver_objects')
+        self.options.declare('solver', recordable=False)
+        self.options.declare('solver_objects', recordable=False)
         self.options.declare('check_partials')
 
     def setup(self):

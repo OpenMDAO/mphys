@@ -1018,13 +1018,12 @@ class ADflowFunctions(ExplicitComponent):
 class ADflowGroup(Group):
 
     def initialize(self):
-        self.options.declare('solver')
-
+        self.options.declare('solver', recordable=False)
         self.options.declare('as_coupling', default=False )
         self.options.declare('prop_coupling', default=False)
         self.options.declare('heat_transfer', default=False )
         self.options.declare('use_warper', default=True)
-        self.options.declare('balance_group', default=None)
+        self.options.declare('balance_group', default=None, recordable=False)
 
     def setup(self):
 
@@ -1145,7 +1144,7 @@ class ADflowGroup(Group):
 class ADflowMeshGroup(Group):
 
     def initialize(self):
-        self.options.declare('aero_solver')
+        self.options.declare('aero_solver', recordable=False)
 
     def setup(self):
         aero_solver = self.options['aero_solver']
