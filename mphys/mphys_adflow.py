@@ -1029,7 +1029,6 @@ class ADflowGroup(Group):
 
     def initialize(self):
         self.options.declare('solver', recordable=False)
-
         self.options.declare('as_coupling', default=False)
         self.options.declare('prop_coupling', default=False)
         self.options.declare('heat_transfer', default=False)

@@ -6,7 +6,7 @@ class Scenario(om.Group):
     def initialize(self):
 
         # define the inputs we need
-        self.options.declare('builders', allow_none=False)
+        self.options.declare('builders', allow_none=False, recordable=False)
         self.options.declare('aero_discipline', allow_none=False)
         self.options.declare('struct_discipline', allow_none=False)
         self.options.declare('prop_discipline', allow_none=False)
