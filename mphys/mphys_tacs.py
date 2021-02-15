@@ -40,7 +40,6 @@ class TacsMesh(om.ExplicitComponent):
 
         n1 = np.sum(n_list[:irank])
         n2 = np.sum(n_list[:irank+1])
-        node_size  =     self.xpts.getArray().size
 
         self.add_input('x_s0_points', shape=local_size, src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
 
