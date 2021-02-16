@@ -76,12 +76,12 @@ class Top(om.Group):
             "isoSurface": {"shock": 1},  # ,'vx':-0.0001},
             "writeTecplotSurfaceSolution": False,
             "writevolumesolution": False,
-            # 'writesurfacesolution':False,
+            'writesurfacesolution':False,
             "liftindex": 3,
             # Physics Parameters
             "equationType": "RANS",
             # Solver Parameters
-            "smoother": "dadi",
+            "smoother": "DADI",
             "CFL": 1.5,
             "MGCycle": "sg",
             "MGStartLevel": -1,
@@ -163,10 +163,6 @@ class Top(om.Group):
 
         # # Thickness constraints
         self.geo.nom_addThicknessConstraints2D("2Dvolcon", leList, teList, 10, 10)
-
-        if MPI.COMM_WORLD.rank == 0:
-            fileName = os.path.join(baseDir, "../output_files/constraints.dat")
-            self.geo.DVCon.writeTecplot(fileName)
 
 
 class TestDVCon(unittest.TestCase):

@@ -352,8 +352,8 @@ class RltBuilder(object):
         self.xfer_object = SimpleLDTransfer(
             aero_solver,
             dummy_pytacs,
-            comm=comm,
-            options=self.options
+            comm,
+            self.options,
         )
 
         # TODO also do the necessary calls to the struct and aero builders to fully initialize MELD
