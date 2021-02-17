@@ -1205,7 +1205,7 @@ class ADflowBuilder(object):
                 }
             elif 'gridfile' in options:
                 self.mesh_options = {
-                    'gridfile': options['gridFile'],
+                    'gridFile': options['gridfile'],
                 }
         else:
             self.mesh_options = mesh_options
