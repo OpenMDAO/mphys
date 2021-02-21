@@ -1,7 +1,7 @@
 import numpy as np
 import openmdao.api as om
 
-from mphys.mphys_base_classes import solver_builder
+from mphys.base_classes import SolverBuilder
 
 from iris_wrapper import Iris
 from parfait.distance_calculator import DistanceCalculator
@@ -82,14 +82,13 @@ class Fun3dFsiSolverGroup(om.Group):
         self.connect('meshdef.u_g',['flow.u_g','forces.u_g'])
         self.connect('flow.q','forces.q')
 
-class Fun3dSfeBuilder(solver_builder):
+class Fun3dSfeBuilder(SolverBuilder):
     def __init__(self, meshfile, boundary_tag_list):
         self.meshfile = meshfile
         self.boundary_tag_list = boundary_tag_list
         self.is_initialized = False
 
     def init_solver(self, comm):
-
         if not self.is_initialized:
             self.dist_calc = DistanceCalculator.from_meshfile(self.meshfile,comm)
             distance = self.dist_calc.compute(self.boundary_tag_list)

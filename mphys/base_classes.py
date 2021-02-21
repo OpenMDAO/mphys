@@ -1,6 +1,5 @@
 from __future__ import division, print_function
 
-
 class SolverBuilder(object):
     """
     MPHYS builder base class. Template for developers to create their builders.

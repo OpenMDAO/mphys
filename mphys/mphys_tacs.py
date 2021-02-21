@@ -589,7 +589,7 @@ class TacsFunctions(om.ExplicitComponent):
 
         # OpenMDAO part of setup
         # TODO move the dv_struct to an external call where we add the DVs
-        self.add_input('dv_struct', shape=ndv,                                                    desc='tacs design variables')
+        self.add_input('dv_struct', shape=ndv,        src_indices=np.arange(ndv),                 desc='tacs design variables')
         self.add_input('x_s0',      shape=node_size,  src_indices=np.arange(n1, n2, dtype=int),   desc='structural node coordinates')
         self.add_input('u_s',       shape=state_size, src_indices=np.arange(s1, s2, dtype=int),   desc='structural state vector')
 
@@ -853,6 +853,7 @@ class TacsGroup(om.Group):
                 promotes_outputs=['u_s']
             )
         # sum aero, inertial, and fual loads: result is F_summed, which tacs accepts as an input
+        nnodes = int(self.struct_solver.createNodeVec().getArray().size/3)
 
         vec_size_g = np.sum(self.comm.gather(self.struct_solver.getNumOwnedNodes()*6))
         vec_size_g = int(self.comm.bcast(vec_size_g))
