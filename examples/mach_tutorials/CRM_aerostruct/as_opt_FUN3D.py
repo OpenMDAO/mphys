@@ -42,7 +42,7 @@ class Top(om.Group):
             'q_inf': [12930., 28800.],                             # dynamic pressure of each load case, Pa
             'vel': [254., 217.6],                                  # velocity of each load case, m/s
             'mu': [3.5E-5, 1.4E-5],                                # viscocity of each load case,
-            'reynolds_number': [254./3.5E-5, 217.6/1.4E-5],        # Re-per-length of each load case
+            'reynolds': [254./3.5E-5, 217.6/1.4E-5],        # Re-per-length of each load case
             'aoa': [1., 4.],                                       # AoA of each load case: this is a DV, so these values set the starting points
         }
 
@@ -351,13 +351,13 @@ class Top(om.Group):
 
             # add flow mp parameters
 
-            for param in ['mach','vel','q_inf','reynolds_number']:
+            for param in ['mach','vel','q_inf','reynolds']:
                 self.mp_parameters.add_output(param+str(i), val = self.aero_parameters[param][i])
 
-            for param in ['mach','reynolds_number']:
+            for param in ['mach','reynolds']:
                 self.connect(param+str(i), 'mp_group.s'+str(i)+'.aero.flow.'+param)
 
-            for param in ['mach','reynolds_number','q_inf']:
+            for param in ['mach','reynolds','q_inf']:
                 self.connect(param+str(i), 'mp_group.s'+str(i)+'.aero.forces.'+param)
 
             for param in ['q_inf']:

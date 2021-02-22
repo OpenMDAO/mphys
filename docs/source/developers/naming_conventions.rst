@@ -50,6 +50,8 @@ To make swapping solvers easier, it is also helpful to share noncoupling variabl
 +----------------------+-------------------+---------------------------------------------------------------------------------+
 | :code:`reynolds`     | Aerodynamic       |  Aerodynamic reference Reynolds number                                          |
 +----------------------+-------------------+---------------------------------------------------------------------------------+
+| :code:`q_inf`        | Aerodynamic       |  Aerodynamic reference Reynolds number                                          |
++----------------------+-------------------+---------------------------------------------------------------------------------+
 
 ===============
 Reference Frame

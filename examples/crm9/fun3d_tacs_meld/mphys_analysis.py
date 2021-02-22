@@ -105,7 +105,7 @@ class Top(om.Group):
     def configure(self):
         self.dvs.add_output('aoa', val=0.0, units='deg')
         self.dvs.add_output('mach', val=0.2)
-        self.dvs.add_output('reynolds_number', val=0.0)
+        self.dvs.add_output('reynolds', val=0.0)
         #self.dvs.add_output('q_inf', val=20000.0)
         self.dvs.add_output('q_inf', val=1000.0)
         self.dvs.add_output('ref_area', val=1.0)
@@ -118,7 +118,7 @@ class Top(om.Group):
                               'mp_group.s0.solver_group.aero.forces.mach'])
         self.connect('aoa',['mp_group.s0.solver_group.aero.flow.aoa',
                               'mp_group.s0.aero_funcs.aoa'])
-        self.connect('reynolds_number',['mp_group.s0.solver_group.aero.flow.reynolds_number',
+        self.connect('reynolds',['mp_group.s0.solver_group.aero.flow.reynolds_number',
                                         'mp_group.s0.solver_group.aero.forces.reynolds_number'])
         self.connect('q_inf',['mp_group.s0.solver_group.aero.forces.q_inf',
                               'mp_group.s0.aero_funcs.q_inf'])

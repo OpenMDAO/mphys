@@ -35,7 +35,7 @@ model = prob.model
 ivc = model.add_subsystem('ivc',om.IndepVarComp())
 ivc.add_output('mach',0.2)
 ivc.add_output('aoa',1.0, units='deg')
-ivc.add_output('reynolds_number',0.0)
+ivc.add_output('reynolds',0.0)
 ivc.add_output('u_g',np.zeros(comm.allreduce(num_nodes*3)))
 ivc.add_output('x_a',full_coords)
 ivc.add_output('q_inf',1.0)
