@@ -1,6 +1,6 @@
-#rst Imports
-from __future__ import print_function, division
 import numpy as np
+import argparse
+
 from mpi4py import MPI
 
 import openmdao.api as om
@@ -14,10 +14,14 @@ from mphys.mphys_modal_solver import ModalBuilder
 from mphys.mphys_meld import MeldBuilder
 
 
+parser=argparse.ArgumentParser()
+parser.add_argument('--modal', default=False, action="store_true")
+args = parser.parse_args()
+
 class Top(om.Group):
 
     def setup(self):
-        self.modal_struct = False
+        self.modal_struct = args.modal
 
         # VLM options
         aero_options = {
@@ -170,7 +174,12 @@ prob.setup()
 # model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=20, iprint=2, use_aitken=False, rtol = 1E-14, atol=1E-14)
 # model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, rtol = 1e-14, atol=1e-14)
 
-om.n2(prob, show_browser=False, outfile='mphys_as_vlm_tacs_meld.html')
+if args.modal:
+    n2name = 'mphys_as_vlm_modal_meld.html'
+else:
+    n2name = 'mphys_as_vlm_tacs_meld.html'
+
+om.n2(prob, show_browser=False, outfile=n2name)
 
 prob.run_model()
 
