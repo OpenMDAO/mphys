@@ -39,17 +39,17 @@ This table provides the required names for coupling variables associated with a 
 
 To make swapping solvers easier, it is also helpful to share noncoupling variable names if possible:
 
-+----------------------+-------------------+-------------------------------------------------------------------------------+
-| Variable             | Associated Solver | Variable description                                                          |
-+======================+===================+===============================================================================+
-| :code:`aoa`          | Aerodynamic       |  Aerodynamic angle of attack                                                  |
-+----------------------+-------------------+-------------------------------------------------------------------------------+
-| :code:`yaw`          | Aerodynamic       |  Aerodynamic yaw angle of attack                                              |
-+----------------------+-------------------+-------------------------------------------------------------------------------+
-| :code:`mach`         | Aerodynamic       |  Aerodynamic reference Mach number                                            |
-+----------------------+-------------------+-------------------------------------------------------------------------------+
-| :code:`reynolds`     | Aerodynamic       |  Aerodynamic reference Reynolds number                                        |
-+----------------------+-------------------+-------------------------------------------------------------------------------+
++----------------------+-------------------+---------------------------------------------------------------------------------+
+| Variable             | Associated Solver | Variable description                                                            |
++======================+===================+=================================================================================+
+| :code:`aoa`          | Aerodynamic       |  Aerodynamic angle of attack (please include units='deg' or 'rad' when declared)|
++----------------------+-------------------+---------------------------------------------------------------------------------+
+| :code:`yaw`          | Aerodynamic       |  Aerodynamic yaw angle  (please include units='deg' or 'rad' when declared)     |
++----------------------+-------------------+---------------------------------------------------------------------------------+
+| :code:`mach`         | Aerodynamic       |  Aerodynamic reference Mach number                                              |
++----------------------+-------------------+---------------------------------------------------------------------------------+
+| :code:`reynolds`     | Aerodynamic       |  Aerodynamic reference Reynolds number                                          |
++----------------------+-------------------+---------------------------------------------------------------------------------+
 
 ===============
 Reference Frame

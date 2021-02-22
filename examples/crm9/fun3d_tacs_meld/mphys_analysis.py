@@ -111,7 +111,7 @@ class Top(om.Group):
         self.dvs.add_output('ref_area', val=1.0)
         self.dvs.add_output('ref_length', val=1.0)
         self.dvs.add_output('moment_center',val=np.zeros(3))
-        self.dvs.add_output('beta', val=0.0)
+        self.dvs.add_output('yaw', val=0.0, units='deg')
 
         # connect to the aero for each scenario
         self.connect('mach', ['mp_group.s0.solver_group.aero.flow.mach',
@@ -125,7 +125,7 @@ class Top(om.Group):
         self.connect('ref_area',['mp_group.s0.aero_funcs.ref_area'])
         self.connect('ref_length',['mp_group.s0.aero_funcs.ref_length'])
         self.connect('moment_center',['mp_group.s0.aero_funcs.moment_center'])
-        self.connect('beta',['mp_group.s0.aero_funcs.beta'])
+        self.connect('yaw',['mp_group.s0.aero_funcs.yaw'])
 
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()
