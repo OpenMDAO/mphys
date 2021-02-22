@@ -21,7 +21,7 @@ class Top(om.Group):
             'equationType':'RANS',
 
             # Solver Parameters
-            'smoother':'dadi',
+            'smoother':'DADI',
             'CFL':0.5,
             'CFLCoarse':0.25,
             'MGCycle':'sg',

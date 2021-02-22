@@ -48,7 +48,7 @@ class Top(om.Group):
             'equationType':'RANS',
 
             # Solver Parameters
-            'smoother':'dadi',
+            'smoother':'DADI',
             'CFL':1.5,
             'CFLCoarse':1.25,
             'MGCycle':'sg',

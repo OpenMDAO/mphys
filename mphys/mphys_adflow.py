@@ -245,6 +245,7 @@ class ADflowSolver(ImplicitComponent):
         self.options.declare('aero_solver', recordable=False)
         #self.options.declare('use_OM_KSP', default=False, types=bool,
         #    desc="uses OpenMDAO's PestcKSP linear solver with ADflow's preconditioner to solve the adjoint.")
+        self.options.declare('restart_failed_analysis', default=False)
 
         self.options['distributed'] = True
 
@@ -256,6 +257,7 @@ class ADflowSolver(ImplicitComponent):
     def setup(self):
         #self.set_check_partial_options(wrt='*',directional=True)
 
+        self.restart_failed_analysis = self.options['restart_failed_analysis']
         self.solver = self.options['aero_solver']
         solver = self.solver
 
@@ -294,6 +296,8 @@ class ADflowSolver(ImplicitComponent):
         #     pp(tmp)
 
         self.ap.setDesignVars(tmp)
+        if self.comm.rank == 0:
+            pp(tmp)
 
 
     def set_ap(self, ap):
@@ -358,7 +362,7 @@ class ADflowSolver(ImplicitComponent):
                 raise AnalysisError('ADFLOW Solver Fatal Fail')
 
 
-            if ap.solveFailed: # the mesh was fine, but it didn't converge
+            if ap.solveFailed and self.restart_failed_analysis: # the mesh was fine, but it didn't converge
                 # if the previous iteration was already a clean restart, dont try again
                 if self.cleanRestart:
                     if self.comm.rank == 0:
@@ -476,6 +480,8 @@ class ADflowSolver(ImplicitComponent):
     def solve_linear(self, d_outputs, d_residuals, mode):
         solver = self.solver
         ap = self.ap
+        if self.comm.rank == 0:
+            print("Solving linear in mphys_adflow", flush=True)
         if mode == 'fwd':
             d_outputs['q'] = solver.solveDirectForRHS(d_residuals['q'])
         elif mode == 'rev':
@@ -527,6 +533,8 @@ class ADflowForces(ExplicitComponent):
             tmp[name] = inputs[name]
 
         self.ap.setDesignVars(tmp)
+        if self.comm.rank == 0:
+            pp(tmp)
 
     def set_ap(self, ap):
         # this is the external function to set the ap to this component
@@ -820,7 +828,9 @@ class ADflowFunctions(ExplicitComponent):
             tmp[name] = inputs[name]
 
         self.ap.setDesignVars(tmp)
-
+        #self.options['solver'].setAeroProblem(self.options['ap'])
+        if self.comm.rank == 0:
+            pp(tmp)
 
     def mphys_set_ap(self, ap):
         # this is the external function to set the ap to this component
@@ -1019,17 +1029,19 @@ class ADflowGroup(Group):
 
     def initialize(self):
         self.options.declare('solver', recordable=False)
-        self.options.declare('as_coupling', default=False )
+        self.options.declare('as_coupling', default=False)
         self.options.declare('prop_coupling', default=False)
-        self.options.declare('heat_transfer', default=False )
+        self.options.declare('heat_transfer', default=False)
         self.options.declare('use_warper', default=True)
         self.options.declare('balance_group', default=None, recordable=False)
+        self.options.declare('restart_failed_analysis', default=False)
 
     def setup(self):
 
         self.aero_solver = self.options['solver']
         self.as_coupling = self.options['as_coupling']
         self.prop_coupling = self.options['prop_coupling']
+        self.restart_failed_analysis = self.options['restart_failed_analysis']
 
         self.use_warper = self.options['use_warper']
 
@@ -1053,6 +1065,7 @@ class ADflowGroup(Group):
         self.add_subsystem('solver',
             ADflowSolver(
                 aero_solver=self.aero_solver,
+                restart_failed_analysis=self.restart_failed_analysis,
             ),
             promotes_inputs=['x_g'],
         )
@@ -1168,13 +1181,54 @@ class ADflowMeshGroup(Group):
 
 class ADflowBuilder(object):
 
-    def __init__(self, options, warp_in_solver=True, balance_group=None, prop_coupling=False, heat_transfer=False):
+    def __init__(
+        self,
+        options,
+        mesh_options=None,
+        warp_in_solver=True,
+        balance_group=None,
+        prop_coupling=False,
+        heat_transfer=False,
+        restart_failed_analysis=False,
+    ):
+
+        # options dictionary for ADflow
         self.options = options
+
+        # MACH tools now require separate option dictionaries for solver and mesh
+        # if user did not provide a separate mesh_options dictionary, we just use
+        # the grid file option from the aero options.
+        if mesh_options is None:
+            if 'gridFile' in options:
+                self.mesh_options = {
+                    'gridFile': options['gridFile'],
+                }
+            elif 'gridfile' in options:
+                self.mesh_options = {
+                    'gridFile': options['gridfile'],
+                }
+        else:
+            self.mesh_options = mesh_options
+
+        # flag to determine if the mesh warping component is added
+        # in the nonlinear solver loop (e.g. for aerostructural)
+        # or as a preprocessing step like the surface mesh coordinates
+        # (e.g. for aeropropulsive). This will avoid doing extra work
+        # for mesh deformation when the volume mesh does not change
+        # during nonlinear iterations
         self.warp_in_solver = warp_in_solver
+
+        # flag to enable propulsion coupling variables
         self.prop_coupling = prop_coupling
 
-        self.balance_group = balance_group
+        # flag to enable heat transfer coupling variables
         self.heat_transfer = heat_transfer
+
+        # flag to determine if we want to restart a failed solution from free stream
+        self.restart_failed_analysis = restart_failed_analysis
+
+        # balance group for propulsion
+        self.balance_group = balance_group
 
         if self.heat_transfer:
             self.promotes('heat_xfer', inputs=[name])
@@ -1182,7 +1236,7 @@ class ADflowBuilder(object):
     # api level method for all builders
     def init_solver(self, comm):
         self.solver = ADFLOW(options=self.options, comm=comm)
-        mesh = USMesh(options=self.options, comm=comm)
+        mesh = USMesh(options=self.mesh_options, comm=comm)
         self.solver.setMesh(mesh)
 
     # api level method for all builders
@@ -1192,7 +1246,15 @@ class ADflowBuilder(object):
     # api level method for all builders
     def get_element(self, **kwargs):
         use_warper = self.warp_in_solver
-        return ADflowGroup(solver=self.solver, use_warper=use_warper, balance_group=self.balance_group, prop_coupling=self.prop_coupling, **kwargs)
+        adflow_group = ADflowGroup(
+            solver=self.solver,
+            use_warper=use_warper,
+            balance_group=self.balance_group,
+            prop_coupling=self.prop_coupling,
+            restart_failed_analysis=self.restart_failed_analysis,
+            **kwargs
+        )
+        return adflow_group
 
     def get_mesh_element(self):
         use_warper = not self.warp_in_solver
