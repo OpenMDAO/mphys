@@ -420,9 +420,9 @@ class Top(om.Group):
         # connect the inertial/fuel load geometry and dv_struct inputs, and connect the outputs to the load summer
 
         for i in range(0,self.misc_parameters['N_mp']):
-            self.connect('geometry_mapper.x_s0_mesh','mp_group.non_aero_loads.inertial_loads'+str(i)+'.x_s0')
+            self.connect('geometry_mapper.x_struct0_mesh','mp_group.non_aero_loads.inertial_loads'+str(i)+'.x_struct0')
             self.connect('struct_mapper.dv_struct','mp_group.non_aero_loads.inertial_loads'+str(i)+'.dv_struct')
-            self.connect('geometry_mapper.x_s0_mesh','mp_group.non_aero_loads.fuel_loads'+str(i)+'.x_s0')
+            self.connect('geometry_mapper.x_struct0_mesh','mp_group.non_aero_loads.fuel_loads'+str(i)+'.x_struct0')
 
             self.connect('mp_group.non_aero_loads.inertial_loads'+str(i)+'.F_inertial','mp_group.s'+str(i)+'.struct.sum_loads.F_inertial')
             self.connect('mp_group.non_aero_loads.fuel_loads'+str(i)+'.F_fuel','mp_group.s'+str(i)+'.struct.sum_loads.F_fuel')
@@ -430,12 +430,12 @@ class Top(om.Group):
         # connect the geometry mesh outputs
 
         points = self.mp_group.mphys_add_coordinate_input()
-        self.connect('geometry_mapper.x_s0_mesh','mp_group.struct_points')
-        self.connect('geometry_mapper.x_a0_mesh','mp_group.aero_points')
+        self.connect('geometry_mapper.x_struct0_mesh','mp_group.struct_points')
+        self.connect('geometry_mapper.x_aero0_mesh','mp_group.aero_points')
 
         # connect the wing area module
 
-        self.connect('geometry_mapper.x_a0_mesh','wing_area.x')
+        self.connect('geometry_mapper.x_aero0_mesh','wing_area.x')
 
         for i in range(0,self.misc_parameters['N_mp']):
             self.connect('wing_area.area','mp_group.s'+str(i)+'.aero_funcs.ref_area')
@@ -472,7 +472,7 @@ class Top(om.Group):
 
         # connect the spar depth components
 
-        self.connect('mp_group.struct_mesh.x_s0','outputs.spar_depth.x')
+        self.connect('mp_group.struct_mesh.x_struct0','outputs.spar_depth.x')
 
 
 

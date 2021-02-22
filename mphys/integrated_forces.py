@@ -15,8 +15,8 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         self.add_input('ref_length', val = 1.0)
         self.add_input('q_inf', val = 1.0)
 
-        self.add_input('x_a',shape=3*nnodes, desc = 'surface coordinates')
-        self.add_input('f_a',shape=3*nnodes, desc = 'dimensional forces at nodes')
+        self.add_input('x_aero',shape=3*nnodes, desc = 'surface coordinates')
+        self.add_input('f_aero',shape=3*nnodes, desc = 'dimensional forces at nodes')
 
         self.add_output('C_L', desc = 'Lift coefficient')
         self.add_output('C_D', desc = 'Drag coefficient')
@@ -46,13 +46,13 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         zc = inputs['moment_center'][2]
         c = inputs['ref_length']
 
-        x  = inputs['x_a'][0::3]
-        y  = inputs['x_a'][1::3]
-        z  = inputs['x_a'][2::3]
+        x  = inputs['x_aero'][0::3]
+        y  = inputs['x_aero'][1::3]
+        z  = inputs['x_aero'][2::3]
 
-        fx = inputs['f_a'][0::3]
-        fy = inputs['f_a'][1::3]
-        fz = inputs['f_a'][2::3]
+        fx = inputs['f_aero'][0::3]
+        fy = inputs['f_aero'][1::3]
+        fz = inputs['f_aero'][2::3]
 
         fx_total = np.sum(fx)
         fy_total = np.sum(fy)
@@ -93,13 +93,13 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         zc = inputs['moment_center'][2]
         c = inputs['ref_length']
 
-        x  = inputs['x_a'][0::3]
-        y  = inputs['x_a'][1::3]
-        z  = inputs['x_a'][2::3]
+        x  = inputs['x_aero'][0::3]
+        y  = inputs['x_aero'][1::3]
+        z  = inputs['x_aero'][2::3]
 
-        fx = inputs['f_a'][0::3]
-        fy = inputs['f_a'][1::3]
-        fz = inputs['f_a'][2::3]
+        fx = inputs['f_aero'][0::3]
+        fy = inputs['f_aero'][1::3]
+        fz = inputs['f_aero'][2::3]
 
         fx_total = np.sum(fx)
         fy_total = np.sum(fy)
@@ -208,10 +208,10 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                 if 'CM_Z' in d_outputs:
                     d_outputs['CM_Z'] += m_z * d_nondim / c
 
-            if 'x_a' in d_inputs:
-                dx = d_inputs['x_a'][0::3]
-                dy = d_inputs['x_a'][1::3]
-                dz = d_inputs['x_a'][2::3]
+            if 'x_aero' in d_inputs:
+                dx = d_inputs['x_aero'][0::3]
+                dy = d_inputs['x_aero'][1::3]
+                dz = d_inputs['x_aero'][2::3]
                 if 'M_X' in d_outputs:
                     d_outputs['M_X'] +=  np.dot(fz,dy) - np.dot(fy,dz)
                 if 'M_Y' in d_outputs:
@@ -225,10 +225,10 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                 if 'CM_Z' in d_outputs:
                     d_outputs['CM_Z'] += ( np.dot(fy,dx) - np.dot(fx,dy)) / (q_inf * area * c)
 
-            if 'f_a' in d_inputs:
-                dfx = d_inputs['f_a'][0::3]
-                dfy = d_inputs['f_a'][1::3]
-                dfz = d_inputs['f_a'][2::3]
+            if 'f_aero' in d_inputs:
+                dfx = d_inputs['f_aero'][0::3]
+                dfy = d_inputs['f_aero'][1::3]
+                dfz = d_inputs['f_aero'][2::3]
                 dfx_total = np.sum(dfx)
                 dfy_total = np.sum(dfy)
                 dfz_total = np.sum(dfz)
@@ -365,7 +365,7 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                 if 'CM_Z' in d_outputs:
                     d_inputs['q_inf'] += d_outputs['CM_Z'] * m_z * d_nondim / c
 
-            if 'x_a' in d_inputs:
+            if 'x_aero' in d_inputs:
                 nondim = 1.0 / (q_inf * area * c)
                 dm_x = d_outputs['M_X'] if 'M_X' in d_outputs else 0.0
                 dm_y = d_outputs['M_Y'] if 'M_Y' in d_outputs else 0.0
@@ -373,56 +373,56 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                 dcm_x = d_outputs['CM_X']*nondim if 'CM_X' in d_outputs else 0.0
                 dcm_y = d_outputs['CM_Y']*nondim if 'CM_Y' in d_outputs else 0.0
                 dcm_z = d_outputs['CM_Z']*nondim if 'CM_Z' in d_outputs else 0.0
-                d_inputs['x_a'][0::3] += -fz * (dm_y + dcm_y) + fy * (dm_z + dcm_z)
-                d_inputs['x_a'][1::3] +=  fz * (dm_x + dcm_x) - fx * (dm_z + dcm_z)
-                d_inputs['x_a'][2::3] += -fy * (dm_x + dcm_x) + fx * (dm_y + dcm_y)
+                d_inputs['x_aero'][0::3] += -fz * (dm_y + dcm_y) + fy * (dm_z + dcm_z)
+                d_inputs['x_aero'][1::3] +=  fz * (dm_x + dcm_x) - fx * (dm_z + dcm_z)
+                d_inputs['x_aero'][2::3] += -fy * (dm_x + dcm_x) + fx * (dm_y + dcm_y)
 
-            if 'f_a' in d_inputs:
+            if 'f_aero' in d_inputs:
                 if 'F_X' in d_outputs:
-                    d_inputs['f_a'][0::3] += d_outputs['F_X']
+                    d_inputs['f_aero'][0::3] += d_outputs['F_X']
                 if 'F_Y' in d_outputs:
-                    d_inputs['f_a'][1::3] += d_outputs['F_Y']
+                    d_inputs['f_aero'][1::3] += d_outputs['F_Y']
                 if 'F_Z' in d_outputs:
-                    d_inputs['f_a'][2::3] += d_outputs['F_Z']
+                    d_inputs['f_aero'][2::3] += d_outputs['F_Z']
                 if 'C_X' in d_outputs:
-                    d_inputs['f_a'][0::3] += d_outputs['C_X'] / (q_inf * area)
+                    d_inputs['f_aero'][0::3] += d_outputs['C_X'] / (q_inf * area)
                 if 'C_Y' in d_outputs:
-                    d_inputs['f_a'][1::3] += d_outputs['C_Y'] / (q_inf * area)
+                    d_inputs['f_aero'][1::3] += d_outputs['C_Y'] / (q_inf * area)
                 if 'C_Z' in d_outputs:
-                    d_inputs['f_a'][2::3] += d_outputs['C_Z'] / (q_inf * area)
+                    d_inputs['f_aero'][2::3] += d_outputs['C_Z'] / (q_inf * area)
                 if 'Lift' in d_outputs:
-                    d_inputs['f_a'][0::3] += -np.sin(aoa_rad) * d_outputs['Lift']
-                    d_inputs['f_a'][2::3] +=  np.cos(aoa_rad) * d_outputs['Lift']
+                    d_inputs['f_aero'][0::3] += -np.sin(aoa_rad) * d_outputs['Lift']
+                    d_inputs['f_aero'][2::3] +=  np.cos(aoa_rad) * d_outputs['Lift']
                 if 'Drag' in d_outputs:
-                    d_inputs['f_a'][0::3] +=  np.cos(aoa_rad) * np.cos(yaw_rad) * d_outputs['Drag']
-                    d_inputs['f_a'][1::3] += -np.sin(yaw_rad) * d_outputs['Drag']
-                    d_inputs['f_a'][2::3] +=  np.sin(aoa_rad) * np.cos(yaw_rad) * d_outputs['Drag']
+                    d_inputs['f_aero'][0::3] +=  np.cos(aoa_rad) * np.cos(yaw_rad) * d_outputs['Drag']
+                    d_inputs['f_aero'][1::3] += -np.sin(yaw_rad) * d_outputs['Drag']
+                    d_inputs['f_aero'][2::3] +=  np.sin(aoa_rad) * np.cos(yaw_rad) * d_outputs['Drag']
                 if 'C_L' in d_outputs:
-                    d_inputs['f_a'][0::3] += -np.sin(aoa_rad) * d_outputs['C_L'] / (q_inf * area)
-                    d_inputs['f_a'][2::3] +=  np.cos(aoa_rad) * d_outputs['C_L'] / (q_inf * area)
+                    d_inputs['f_aero'][0::3] += -np.sin(aoa_rad) * d_outputs['C_L'] / (q_inf * area)
+                    d_inputs['f_aero'][2::3] +=  np.cos(aoa_rad) * d_outputs['C_L'] / (q_inf * area)
                 if 'C_D' in d_outputs:
-                    d_inputs['f_a'][0::3] +=  np.cos(aoa_rad) * np.cos(yaw_rad) * d_outputs['C_D'] / (q_inf * area)
-                    d_inputs['f_a'][1::3] += -np.sin(yaw_rad) * d_outputs['C_D'] / (q_inf * area)
-                    d_inputs['f_a'][2::3] +=  np.sin(aoa_rad) * np.cos(yaw_rad) * d_outputs['C_D'] / (q_inf * area)
+                    d_inputs['f_aero'][0::3] +=  np.cos(aoa_rad) * np.cos(yaw_rad) * d_outputs['C_D'] / (q_inf * area)
+                    d_inputs['f_aero'][1::3] += -np.sin(yaw_rad) * d_outputs['C_D'] / (q_inf * area)
+                    d_inputs['f_aero'][2::3] +=  np.sin(aoa_rad) * np.cos(yaw_rad) * d_outputs['C_D'] / (q_inf * area)
 
                 if 'M_X' in d_outputs:
-                    d_inputs['f_a'][1::3] += -(z-zc) * d_outputs['M_X']
-                    d_inputs['f_a'][2::3] +=  (y-yc) * d_outputs['M_X']
+                    d_inputs['f_aero'][1::3] += -(z-zc) * d_outputs['M_X']
+                    d_inputs['f_aero'][2::3] +=  (y-yc) * d_outputs['M_X']
                 if 'M_Y' in d_outputs:
-                    d_inputs['f_a'][0::3] +=  (z-zc) * d_outputs['M_Y']
-                    d_inputs['f_a'][2::3] += -(x-xc) * d_outputs['M_Y']
+                    d_inputs['f_aero'][0::3] +=  (z-zc) * d_outputs['M_Y']
+                    d_inputs['f_aero'][2::3] += -(x-xc) * d_outputs['M_Y']
                 if 'M_Z' in d_outputs:
-                    d_inputs['f_a'][0::3] += -(y-yc) * d_outputs['M_Z']
-                    d_inputs['f_a'][1::3] +=  (x-xc) * d_outputs['M_Z']
+                    d_inputs['f_aero'][0::3] += -(y-yc) * d_outputs['M_Z']
+                    d_inputs['f_aero'][1::3] +=  (x-xc) * d_outputs['M_Z']
                 if 'CM_X' in d_outputs:
-                    d_inputs['f_a'][1::3] += -(z-zc) * d_outputs['CM_X'] / (q_inf * area * c)
-                    d_inputs['f_a'][2::3] +=  (y-yc) * d_outputs['CM_X'] / (q_inf * area * c)
+                    d_inputs['f_aero'][1::3] += -(z-zc) * d_outputs['CM_X'] / (q_inf * area * c)
+                    d_inputs['f_aero'][2::3] +=  (y-yc) * d_outputs['CM_X'] / (q_inf * area * c)
                 if 'CM_Y' in d_outputs:
-                    d_inputs['f_a'][0::3] +=  (z-zc) * d_outputs['CM_Y'] / (q_inf * area * c)
-                    d_inputs['f_a'][2::3] += -(x-xc) * d_outputs['CM_Y'] / (q_inf * area * c)
+                    d_inputs['f_aero'][0::3] +=  (z-zc) * d_outputs['CM_Y'] / (q_inf * area * c)
+                    d_inputs['f_aero'][2::3] += -(x-xc) * d_outputs['CM_Y'] / (q_inf * area * c)
                 if 'CM_Z' in d_outputs:
-                    d_inputs['f_a'][0::3] += -(y-yc) * d_outputs['CM_Z'] / (q_inf * area * c)
-                    d_inputs['f_a'][1::3] +=  (x-xc) * d_outputs['CM_Z'] / (q_inf * area * c)
+                    d_inputs['f_aero'][0::3] += -(y-yc) * d_outputs['CM_Z'] / (q_inf * area * c)
+                    d_inputs['f_aero'][1::3] +=  (x-xc) * d_outputs['CM_Z'] / (q_inf * area * c)
 if __name__ == '__main__':
     from openmdao.api import Problem, IndepVarComp
 
@@ -435,8 +435,8 @@ if __name__ == '__main__':
     ivc.add_output('moment_center',shape=3,val=np.zeros(3))
     ivc.add_output('ref_length', val = 3.0)
     ivc.add_output('q_inf',val=10.0)
-    ivc.add_output('x_a',shape=3*nnodes,val=np.random.rand(3*nnodes))
-    ivc.add_output('f_a',shape=3*nnodes,val=np.random.rand(3*nnodes))
+    ivc.add_output('x_aero',shape=3*nnodes,val=np.random.rand(3*nnodes))
+    ivc.add_output('f_aero',shape=3*nnodes,val=np.random.rand(3*nnodes))
     prob.model.add_subsystem('ivc',ivc,promotes_outputs=['*'])
     prob.model.add_subsystem('forces',IntegratedSurfaceForces(number_of_surface_nodes = nnodes),
                                       promotes_inputs=['*'])

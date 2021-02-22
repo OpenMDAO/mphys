@@ -24,7 +24,7 @@ class Fun3dMesh(om.ExplicitComponent):
         x,y,z = meshdef.get_boundary_node_coordinates(boundary_tag_list, owned_only = True)
         self.x_a0 = self._flatten_vectors(x,y,z)
         coord_size = self.x_a0.size
-        self.add_output('x_a0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
+        self.add_output('x_aero0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
 
     def _flatten_vectors(self, x, y, z):
         matrix = np.concatenate((x.reshape((-1,1)),y.reshape((-1,1)),z.reshape((-1,1))),axis=1)
@@ -44,17 +44,17 @@ class Fun3dMesh(om.ExplicitComponent):
 
     def compute(self,inputs,outputs):
         if 'x_a0_points' in inputs:
-            outputs['x_a0'] = inputs['x_a0_points']
+            outputs['x_aero0'] = inputs['x_a0_points']
         else:
-            outputs['x_a0'] = self.x_a0
+            outputs['x_aero0'] = self.x_a0
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
             if 'x_a0_points' in d_inputs:
-                d_outputs['x_a0'] += d_inputs['x_a0_points']
+                d_outputs['x_aero0'] += d_inputs['x_a0_points']
         elif mode == 'rev':
             if 'x_a0_points' in d_inputs:
-                d_inputs['x_a0_points'] += d_outputs['x_a0']
+                d_inputs['x_a0_points'] += d_outputs['x_aero0']
 
 class Fun3dFsiSolverGroup(om.Group):
     def initialize(self):
@@ -70,15 +70,15 @@ class Fun3dFsiSolverGroup(om.Group):
         forces_comp = self.options['forces_comp']
 
         self.add_subsystem('geo_disp', geodisp_comp,
-                                       promotes_inputs=['u_a', 'x_a0'],
-                                       promotes_outputs=['x_a'])
+                                       promotes_inputs=['u_aero', 'x_aero0'],
+                                       promotes_outputs=['x_aero'])
         self.add_subsystem('meshdef', meshdef_comp)
         self.add_subsystem('flow', flow_comp)
         self.add_subsystem('forces', forces_comp,
-                                     promotes_outputs=['f_a'])
+                                     promotes_outputs=['f_aero'])
 
     def configure(self):
-        self.connect('x_a','meshdef.x_a')
+        self.connect('x_aero','meshdef.x_aero')
         self.connect('meshdef.u_g',['flow.u_g','forces.u_g'])
         self.connect('flow.q','forces.q')
 
@@ -125,15 +125,15 @@ class Fun3dSfeBuilder(SolverBuilder):
 
     def get_scenario_connections(self):
         mydict = {
-            'f_a': 'f_a',
-            'x_a': 'x_a'
+            'f_aero': 'f_aero',
+            'x_aero': 'x_aero'
         }
         return mydict
 
     def get_mesh_connections(self):
         mydict = {
             'solver':{
-                'x_a0'  : 'x_a0',
+                'x_aero0'  : 'x_aero0',
             },
             'funcs':{},
         }

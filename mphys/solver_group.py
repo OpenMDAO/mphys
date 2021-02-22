@@ -58,7 +58,7 @@ class SolverGroup(om.Group):
 
         # do the connections, this can be also done in setup
         if self.as_coupling:
-            self.connect('disp_xfer.u_a', 'aero.u_a')
-            self.connect('aero.f_a', 'load_xfer.f_a')
-            self.connect('load_xfer.f_s', 'struct.f_s')
-            self.connect('struct.u_s', ['disp_xfer.u_s', 'load_xfer.u_s'])
+            self.connect('disp_xfer.u_aero', 'aero.u_aero')
+            self.connect('aero.f_aero', 'load_xfer.f_aero')
+            self.connect('load_xfer.f_struct', 'struct.f_struct')
+            self.connect('struct.u_struct', ['disp_xfer.u_struct', 'load_xfer.u_struct'])

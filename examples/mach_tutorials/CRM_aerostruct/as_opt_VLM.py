@@ -115,7 +115,7 @@ class Top(om.Group):
             return N_nodes, N_elements, xa, quad
 
         aero_options = {}
-        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(self.misc_parameters['VLM_mesh_file'])
+        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_aero0'], aero_options['quad'] = read_VLM_mesh(self.misc_parameters['VLM_mesh_file'])
 
         # VLM builder
 
@@ -218,7 +218,7 @@ class Top(om.Group):
         tacs_solver.getNodes(xpts)
         x_s0 = xpts.getArray()
 
-        x_a0 = vlm_builder.options['x_a0']
+        x_a0 = vlm_builder.options['x_aero0']
 
         self.add_subsystem('geometry_mapper',WingGeometry(
             xs=x_s0,
@@ -410,9 +410,9 @@ class Top(om.Group):
         # connect the inertial/fuel load geometry and dv_struct inputs, and connect the outputs to the load summer
 
         for i in range(0,self.misc_parameters['N_mp']):
-            self.connect('geometry_mapper.x_s0_mesh','mp_group.non_aero_loads.inertial_loads'+str(i)+'.x_s0')
+            self.connect('geometry_mapper.x_struct0_mesh','mp_group.non_aero_loads.inertial_loads'+str(i)+'.x_struct0')
             self.connect('struct_mapper.dv_struct','mp_group.non_aero_loads.inertial_loads'+str(i)+'.dv_struct')
-            self.connect('geometry_mapper.x_s0_mesh','mp_group.non_aero_loads.fuel_loads'+str(i)+'.x_s0')
+            self.connect('geometry_mapper.x_struct0_mesh','mp_group.non_aero_loads.fuel_loads'+str(i)+'.x_struct0')
 
             self.connect('mp_group.non_aero_loads.inertial_loads'+str(i)+'.F_inertial','mp_group.s'+str(i)+'.struct.sum_loads.F_inertial')
             self.connect('mp_group.non_aero_loads.fuel_loads'+str(i)+'.F_fuel','mp_group.s'+str(i)+'.struct.sum_loads.F_fuel')
@@ -420,12 +420,12 @@ class Top(om.Group):
         # connect the geometry mesh outputs
 
         points = self.mp_group.mphys_add_coordinate_input()
-        self.connect('geometry_mapper.x_s0_mesh','mp_group.struct_points')
-        self.connect('geometry_mapper.x_a0_mesh','mp_group.aero_points')
+        self.connect('geometry_mapper.x_struct0_mesh','mp_group.struct_points')
+        self.connect('geometry_mapper.x_aero0_mesh','mp_group.aero_points')
 
         # connect the wing area module
 
-        self.connect('mp_group.aero_mesh.x_a0','outputs.wing_area.x')
+        self.connect('mp_group.aero_mesh.x_aero0','outputs.wing_area.x')
 
         # connect the trim components
 
@@ -459,7 +459,7 @@ class Top(om.Group):
 
         # connect the spar depth components
 
-        self.connect('mp_group.struct_mesh.x_s0','outputs.spar_depth.x')
+        self.connect('mp_group.struct_mesh.x_struct0','outputs.spar_depth.x')
 
 
 

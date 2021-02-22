@@ -19,29 +19,29 @@ class GeoDisp(om.ExplicitComponent):
         n1 = np.sum(n_list[:irank])
         n2 = np.sum(n_list[:irank+1])
 
-        self.add_input('x_a0', shape=local_size,
+        self.add_input('x_aero0', shape=local_size,
                                src_indices=np.arange(n1,n2,dtype=int),
                                desc='aerodynamic surface with geom changes')
-        self.add_input('u_a',  shape=local_size,
+        self.add_input('u_aero',  shape=local_size,
                                val=np.zeros(local_size),
                                src_indices=np.arange(n1,n2,dtype=int),
                                desc='aerodynamic surface displacements')
 
-        self.add_output('x_a', shape=local_size, desc='deformed aerodynamic surface')
+        self.add_output('x_aero', shape=local_size, desc='deformed aerodynamic surface')
 
     def compute(self,inputs,outputs):
-        outputs['x_a'] = inputs['x_a0'] + inputs['u_a']
+        outputs['x_aero'] = inputs['x_aero0'] + inputs['u_aero']
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
         if mode == 'fwd':
-            if 'x_a' in d_outputs:
-                if 'x_a0' in d_inputs:
-                    d_outputs['x_a'] += d_inputs['x_a0']
-                if 'u_a' in d_inputs:
-                    d_outputs['x_a'] += d_inputs['u_a']
+            if 'x_aero' in d_outputs:
+                if 'x_aero0' in d_inputs:
+                    d_outputs['x_aero'] += d_inputs['x_aero0']
+                if 'u_aero' in d_inputs:
+                    d_outputs['x_aero'] += d_inputs['u_aero']
         if mode == 'rev':
-            if 'x_a' in d_outputs:
-                if 'x_a0' in d_inputs:
-                    d_inputs['x_a0'] += d_outputs['x_a']
-                if 'u_a' in d_inputs:
-                    d_inputs['u_a']  += d_outputs['x_a']
+            if 'x_aero' in d_outputs:
+                if 'x_aero0' in d_inputs:
+                    d_inputs['x_aero0'] += d_outputs['x_aero']
+                if 'u_aero' in d_inputs:
+                    d_inputs['u_aero']  += d_outputs['x_aero']
