@@ -22,9 +22,9 @@ This table provides the required names for coupling variables associated with a 
 +----------------------+-------------------+-------------------------------------------------------------------------------+
 | :code:`f_aero`       | Aerodynamic       |  Aerodynamic surface forces                                                   |
 +----------------------+-------------------+-------------------------------------------------------------------------------+
-| :code:`T_aero`       | Aerodynamic       |  Aerodynamic surface temperature                                              |
+| :code:`T_convect`    | Aerodynamic       |  Temperature for convective solver at interface                               |
 +----------------------+-------------------+-------------------------------------------------------------------------------+
-| :code:`q_aero`       | Aerodynamic       |  Aerodynamic heat flow                                                        |
+| :code:`q_convect`    | Aerodynamic       |  Convective heat flow at interface                                            |
 +----------------------+-------------------+-------------------------------------------------------------------------------+
 | :code:`x_struct`     | Structural        |  Structural coordinates                                                       |
 +----------------------+-------------------+-------------------------------------------------------------------------------+
@@ -32,9 +32,9 @@ This table provides the required names for coupling variables associated with a 
 +----------------------+-------------------+-------------------------------------------------------------------------------+
 | :code:`f_struct`     | Structural        |  Structural forces                                                            |
 +----------------------+-------------------+-------------------------------------------------------------------------------+
-| :code:`T_therm`      | Thermal           |  Thermal (structural) temperature                                             |
+| :code:`T_conduct`    | Thermal           |  Temperature at interface (structural side)                                   |
 +----------------------+-------------------+-------------------------------------------------------------------------------+
-| :code:`q_therm`      | Thermal           |  Thermal (structural) heat flow                                               |
+| :code:`q_conduct`    | Thermal           |  Conductive heat flow at interface (structural side)                          |
 +----------------------+-------------------+-------------------------------------------------------------------------------+
 
 To make swapping solvers easier, it is also helpful to share noncoupling variable names if possible:
@@ -50,7 +50,7 @@ To make swapping solvers easier, it is also helpful to share noncoupling variabl
 +----------------------+-------------------+---------------------------------------------------------------------------------+
 | :code:`reynolds`     | Aerodynamic       |  Aerodynamic reference Reynolds number                                          |
 +----------------------+-------------------+---------------------------------------------------------------------------------+
-| :code:`q_inf`        | Aerodynamic       |  Aerodynamic reference Reynolds number                                          |
+| :code:`q_inf`        | Aerodynamic       |  Aerodynamic dynamic pressure                                                   |
 +----------------------+-------------------+---------------------------------------------------------------------------------+
 
 ===============
