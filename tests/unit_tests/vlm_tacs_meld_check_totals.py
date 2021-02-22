@@ -19,7 +19,7 @@ class Top(om.Group):
         aero_options = {
             'mesh_file':'debug_VLM.dat',
             'mach':0.85,
-            'alpha':1*np.pi/180.,
+            'aoa':1*np.pi/180.,
             'q_inf':25000.,
             'vel':178.,
             'mu':3.5E-5,
@@ -127,8 +127,8 @@ class Top(om.Group):
         s0 = mp.mphys_add_scenario('s0')
 
     def configure(self):
-        self.dvs.add_output('alpha', self.aero_options['alpha'])
-        self.connect('alpha',['mp_group.s0.solver_group.aero.alpha'])
+        self.dvs.add_output('aoa', self.aero_options['aoa'], units='rad')
+        self.connect('aoa',['mp_group.s0.solver_group.aero.aoa'])
 
         self.dvs.add_output('dv_struct',np.array([0.03]))
         self.connect('dv_struct',['mp_group.s0.solver_group.struct.dv_struct, mp_group.s0.struct_funcs.dv_struct'])
@@ -146,4 +146,4 @@ prob.model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=10, iprint=2)
 prob.setup(force_alloc_complex=True, mode='rev')
 
 prob.run_model()
-prob.check_totals(of=['mp_group.s0.struct.funcs.f_struct'], wrt=['alpha'], method='cs')
+prob.check_totals(of=['mp_group.s0.struct.funcs.f_struct'], wrt=['aoa'], method='cs')

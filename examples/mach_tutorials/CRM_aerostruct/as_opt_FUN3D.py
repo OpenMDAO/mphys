@@ -43,7 +43,7 @@ class Top(om.Group):
             'vel': [254., 217.6],                                  # velocity of each load case, m/s
             'mu': [3.5E-5, 1.4E-5],                                # viscocity of each load case,
             'reynolds_number': [254./3.5E-5, 217.6/1.4E-5],        # Re-per-length of each load case
-            'alpha': [1., 4.]                     ,                # AoA of each load case: this is a DV, so these values set the starting points
+            'aoa': [1., 4.],                                       # AoA of each load case: this is a DV, so these values set the starting points
         }
 
         self.trim_parameters = {
@@ -376,8 +376,8 @@ class Top(om.Group):
 
             # add AoA DV
 
-            param = 'alpha'
-            self.trim_dvs.add_output(param+str(i), val = self.aero_parameters[param][i])
+            param = 'aoa'
+            self.trim_dvs.add_output(param+str(i), val = self.aero_parameters[param][i], units='deg')
             self.connect(param+str(i),'mp_group.s'+str(i)+'.aero.flow.'+param)
             self.connect(param+str(i),'mp_group.s'+str(i)+'.aero_funcs.'+param)
 
@@ -520,8 +520,8 @@ prob.check_totals(
         #'outputs.spar_depth.spar_depth',
         ],
         wrt=[
-        #'alpha0',
-        #'alpha1',
+        #'aoa0',
+        #'aoa1',
         'upper_skin_thickness_lumped',
         #'lower_skin_thickness_lumped',
         #'le_spar_thickness_lumped',
@@ -574,7 +574,7 @@ prob.model.add_design_var('wing_twist_delta',      lower=model.opt_parameters['w
 prob.model.add_design_var('fuel_dv',               lower=0.0,                                           upper=1.0,                                           ref=1.0)
 
 for i in range(0,model.misc_parameters['N_mp']):
-    prob.model.add_design_var('alpha'+str(i),         lower=-10,                                           upper=10          ,                                 ref=1.0)
+    prob.model.add_design_var('aoa'+str(i),         lower=-10,                                           upper=10          ,                                 ref=1.0, units='deg')
 
 ## add sizing smoothness constraints
 
@@ -672,4 +672,3 @@ for i, k in enumerate(dvs.keys()):
     f.write(' ' + '\n')
 
 f.close()
-

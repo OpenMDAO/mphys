@@ -107,15 +107,15 @@ class VlmGroup(om.Group):
         self.add_subsystem('solver', VLM_solver(
             N_nodes=N_nodes,
             N_elements=N_elements,
-            quad=quad), 
-            promotes_inputs=['alpha','mach'])
+            quad=quad),
+            promotes_inputs=['aoa','mach'])
 
         self.add_subsystem('forces', VLM_forces(
             N_nodes=N_nodes,
             N_elements=N_elements,
             quad=quad,
-            compute_traction=compute_traction), 
-            promotes_inputs=['mach','q_inf','vel','mu'],            
+            compute_traction=compute_traction),
+            promotes_inputs=['mach','q_inf','vel','mu'],
             promotes_outputs=[('fa','f_a'),'CL','CD'])
 
     def configure(self):

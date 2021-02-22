@@ -140,8 +140,8 @@ class Top(om.Group):
     def configure(self):
 
         # add AoA DV
-        self.dvs.add_output('alpha', val=2*np.pi/180.)
-        self.connect('alpha', 'mp_group.s0.solver_group.aero.alpha')
+        self.dvs.add_output('aoa', val=2*np.pi/180., units='rad')
+        self.connect('aoa', 'mp_group.s0.solver_group.aero.aoa')
 
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()
