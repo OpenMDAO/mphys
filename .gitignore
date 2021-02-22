@@ -17,3 +17,6 @@ docs/build/doctrees
 *__pycache__
 build/
 dist/
+
+# input files
+tests/input_files/*.xyz

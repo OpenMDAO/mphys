@@ -64,7 +64,7 @@ class Top(om.Group):
             # Physics Parameters
             "equationType": "RANS",
             # Solver Parameters
-            "smoother": "dadi",
+            "smoother": "DADI",
             "CFL": 1.5,
             "CFLCoarse": 1.25,
             "MGCycle": "sg",
