@@ -26,11 +26,6 @@ class Top(om.Group):
         # VLM options
         aero_options = {
             'mesh_file':'wing_VLM.dat',
-            'mach':0.85,
-            'alpha':2*np.pi/180.,
-            'q_inf':3000.,
-            'vel':178.,
-            'mu':3.5E-5,
         }
 
         # VLM mesh read
@@ -103,10 +98,12 @@ class Top(om.Group):
 
 
         # common setup options
-        tacs_setup = {'add_elements': add_elements,
-                    'get_funcs'   : get_funcs,
-                    'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
-                    'f5_writer'   : f5_writer }
+        tacs_setup = {
+            'add_elements': add_elements,
+            'get_funcs'   : get_funcs,
+            'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
+            # 'f5_writer'   : f5_writer,
+        }
 
         if self.modal_struct:
             nmodes = 15
@@ -145,7 +142,16 @@ class Top(om.Group):
 
         # add AoA DV
         self.dvs.add_output('alpha', val=2*np.pi/180.)
+        self.dvs.add_output('mach', val=0.85)
+        self.dvs.add_output('q_inf', val=3000.)
+        self.dvs.add_output('vel', val=178.)
+        self.dvs.add_output('mu', val=3.5E-5)
+
         self.connect('alpha', 'mp_group.s0.solver_group.aero.alpha')
+        self.connect('mach', 'mp_group.s0.solver_group.aero.mach')
+        self.connect('q_inf', 'mp_group.s0.solver_group.aero.q_inf')
+        self.connect('vel', 'mp_group.s0.solver_group.aero.vel')
+        self.connect('mu', 'mp_group.s0.solver_group.aero.mu')
 
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()
@@ -184,6 +190,7 @@ om.n2(prob, show_browser=False, outfile=n2name)
 prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
-    print('f_struct =',prob['mp_group.s0.struct_funcs.funcs.f_struct'])
-    print('mass =',prob['mp_group.s0.struct_funcs.mass.mass'])
-    print('cl =',prob['mp_group.s0.solver_loop.aero.funcs.CL'])
+    print('cl =',prob['mp_group.s0.solver_group.aero.CL'])
+    if not args.modal:
+        print('f_struct =',prob['mp_group.s0.struct_funcs.funcs.f_struct'])
+        print('mass =',prob['mp_group.s0.struct_funcs.mass.mass'])
