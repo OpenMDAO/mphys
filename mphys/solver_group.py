@@ -61,5 +61,4 @@ class SolverGroup(om.Group):
             self.connect('disp_xfer.u_aero', 'aero.u_aero')
             self.connect('aero.f_aero', 'load_xfer.f_aero')
             self.connect('load_xfer.f_struct', 'struct.f_struct')
-            self.connect('struct.u_struct', ['load_xfer.u_struct'])
-            self.connect('struct.u_struct', 'disp_xfer.u_struct', src_indices=self.disp_xfer.src_indices['u_struct'])
+            self.connect('struct.u_struct', ['disp_xfer.u_struct', 'load_xfer.u_struct'])
