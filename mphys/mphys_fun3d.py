@@ -38,23 +38,23 @@ class Fun3dMesh(om.ExplicitComponent):
         n1 = np.sum(n_list[:irank])
         n2 = np.sum(n_list[:irank+1])
 
-        self.add_input('x_a0_points',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
+        self.add_input('x_aero0_points',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
 
-        return 'x_a0_points', self.x_a0
+        return 'x_aero0_points', self.x_a0
 
     def compute(self,inputs,outputs):
-        if 'x_a0_points' in inputs:
-            outputs['x_aero0'] = inputs['x_a0_points']
+        if 'x_aero0_points' in inputs:
+            outputs['x_aero0'] = inputs['x_aero0_points']
         else:
             outputs['x_aero0'] = self.x_a0
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
-            if 'x_a0_points' in d_inputs:
-                d_outputs['x_aero0'] += d_inputs['x_a0_points']
+            if 'x_aero0_points' in d_inputs:
+                d_outputs['x_aero0'] += d_inputs['x_aero0_points']
         elif mode == 'rev':
-            if 'x_a0_points' in d_inputs:
-                d_inputs['x_a0_points'] += d_outputs['x_aero0']
+            if 'x_aero0_points' in d_inputs:
+                d_inputs['x_aero0_points'] += d_outputs['x_aero0']
 
 class Fun3dFsiSolverGroup(om.Group):
     def initialize(self):
