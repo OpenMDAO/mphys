@@ -5,7 +5,7 @@ class SolverGroup(om.Group):
     def initialize(self):
 
         # define the inputs we need
-        self.options.declare('builders', allow_none=False)
+        self.options.declare('builders', allow_none=False, recordable=False)
         self.options.declare('aero_discipline', allow_none=False)
         self.options.declare('struct_discipline', allow_none=False)
         self.options.declare('prop_discipline', allow_none=False)
@@ -51,15 +51,14 @@ class SolverGroup(om.Group):
         # set solvers
         # TODO add a nonlinear solver when we have feedback coupling to prop
         if self.as_coupling:
-            self.nonlinear_solver=om.NonlinearBlockGS(maxiter=100)
-            self.linear_solver = om.LinearBlockGS(maxiter=100)
-            self.nonlinear_solver.options['iprint']=2
+            self.nonlinear_solver=om.NonlinearBlockGS(maxiter=50, iprint=2, atol=1e-8, rtol=1e-8, use_aitken=True)
+            self.linear_solver = om.LinearBlockGS(maxiter=50, iprint =2, atol=1e-8,rtol=1e-8)
 
     def configure(self):
 
         # do the connections, this can be also done in setup
         if self.as_coupling:
-            self.connect('disp_xfer.u_a', 'aero.u_a')
-            self.connect('aero.f_a', 'load_xfer.f_a')
-            self.connect('load_xfer.f_s', 'struct.f_s')
-            self.connect('struct.u_s', ['disp_xfer.u_s', 'load_xfer.u_s'])
+            self.connect('disp_xfer.u_aero', 'aero.u_aero')
+            self.connect('aero.f_aero', 'load_xfer.f_aero')
+            self.connect('load_xfer.f_struct', 'struct.f_struct')
+            self.connect('struct.u_struct', ['disp_xfer.u_struct', 'load_xfer.u_struct'])

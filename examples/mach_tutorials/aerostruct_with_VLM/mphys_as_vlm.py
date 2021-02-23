@@ -53,7 +53,7 @@ class Top(om.Group):
 
             return N_nodes, N_elements, xa, quad
 
-        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
+        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_aero0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
 
         # VLM builder
         vlm_builder = VlmBuilder(aero_options)
@@ -140,8 +140,8 @@ class Top(om.Group):
     def configure(self):
 
         # add AoA DV
-        self.dvs.add_output('alpha', val=2*np.pi/180.)
-        self.connect('alpha', 'mp_group.s0.solver_group.aero.alpha')
+        self.dvs.add_output('aoa', val=2*np.pi/180., units='rad')
+        self.connect('aoa', 'mp_group.s0.solver_group.aero.aoa')
 
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()

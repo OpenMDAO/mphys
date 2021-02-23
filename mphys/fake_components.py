@@ -40,10 +40,10 @@ class FakeStructAssembler(OmfsiSolverAssembler):
         fake_struct = FakeStructSolver(self.nnodes, self.c0, self.c1, self.symmetry)
         fsi_group.add_subsystem('fake_struct',fake_struct)
 
-        connection_srcs['u_s'] = scenario.name+'.'+fsi_group.name+'.fake_struct.u_s'
+        connection_srcs['u_struct'] = scenario.name+'.'+fsi_group.name+'.fake_struct.u_struct'
 
     def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
-        model.connect(connection_srcs['f_s'],scenario.name+'.'+fsi_group.name+'.fake_struct.f_s')
+        model.connect(connection_srcs['f_struct'],scenario.name+'.'+fsi_group.name+'.fake_struct.f_struct')
 
 class FakeStructSolver(ExplicitComponent):
     """
@@ -56,8 +56,8 @@ class FakeStructSolver(ExplicitComponent):
         self.options.declare('symmetry', default = False, desc='symmetry-only use z equation')
 
     def setup(self):
-        self.add_input('f_s',shape=int(3*self.options['nnodes']))
-        self.add_output('u_s',shape=int(3*self.options['nnodes']))
+        self.add_input('f_struct',shape=int(3*self.options['nnodes']))
+        self.add_output('u_struct',shape=int(3*self.options['nnodes']))
 
     def _symmetry_indices(self):
         if self.options['symmetry']:
@@ -73,7 +73,7 @@ class FakeStructSolver(ExplicitComponent):
         c0 = self.options['c0']
         c1 = self.options['c1']
 
-        outputs['u_s'][start::skip] = c0 + c1 * inputs['f_s'][start::skip]
+        outputs['u_struct'][start::skip] = c0 + c1 * inputs['f_struct'][start::skip]
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs, mode):
         start, skip = self._symmetry_indices()
@@ -81,13 +81,13 @@ class FakeStructSolver(ExplicitComponent):
         c1 = self.options['c1']
 
         if mode == 'fwd':
-            if 'u_s' in d_outputs:
-                if 'f_s' in d_inputs:
-                    d_outputs['u_s'][start::skip] = c1 * d_inputs['f_s'][start::skip]
+            if 'u_struct' in d_outputs:
+                if 'f_struct' in d_inputs:
+                    d_outputs['u_struct'][start::skip] = c1 * d_inputs['f_struct'][start::skip]
         if mode == 'rev':
-            if 'u_s' in d_outputs:
-                if 'f_s' in d_inputs:
-                    d_inputs['f_s'][start::skip] = c1 * d_outputs['u_s'][start::skip]
+            if 'u_struct' in d_outputs:
+                if 'f_struct' in d_inputs:
+                    d_inputs['f_struct'][start::skip] = c1 * d_outputs['u_struct'][start::skip]
 
 class FakeAeroAssembler(OmfsiSolverAssembler):
     def __init__(self,c0,c1,symmetry,nodes=None):
@@ -118,10 +118,10 @@ class FakeAeroAssembler(OmfsiSolverAssembler):
         fake_aero = FakeAeroSolver(self.nnodes, self.c0, self.c1, self.symmetry)
         fsi_group.add_subsystem('fake_aero',fake_aero)
 
-        connection_srcs['f_a'] = scenario.name+'.'+fsi_group.name+'.fake_aero.f_a'
+        connection_srcs['f_aero'] = scenario.name+'.'+fsi_group.name+'.fake_aero.f_a'
 
     def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
-        model.connect(connection_srcs['x_a'],scenario.name+'.'+fsi_group.name+'.fake_aero.x_a')
+        model.connect(connection_srcs['x_aero'],scenario.name+'.'+fsi_group.name+'.fake_aero.x_aero')
 
 class FakeAeroSolver(ExplicitComponent):
     """
@@ -134,8 +134,8 @@ class FakeAeroSolver(ExplicitComponent):
         self.options.declare('symmetry', default = False, desc='symmetry-only use z equation')
 
     def setup(self):
-        self.add_input('x_a',shape=int(3*self.options['nnodes']))
-        self.add_output('f_a',shape=int(3*self.options['nnodes']))
+        self.add_input('x_aero',shape=int(3*self.options['nnodes']))
+        self.add_output('f_aero',shape=int(3*self.options['nnodes']))
 
     def _symmetry_indices(self):
         if self.options['symmetry']:
@@ -151,7 +151,7 @@ class FakeAeroSolver(ExplicitComponent):
         c0 = self.options['c0']
         c1 = self.options['c1']
 
-        outputs['f_a'][start::skip] = c0 + c1 * inputs['x_a'][start::skip]
+        outputs['f_aero'][start::skip] = c0 + c1 * inputs['x_aero'][start::skip]
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs, mode):
         start, skip = self._symmetry_indices()
@@ -159,13 +159,13 @@ class FakeAeroSolver(ExplicitComponent):
         c1 = self.options['c1']
 
         if mode == 'fwd':
-            if 'f_a' in d_outputs:
-                if 'x_a' in d_inputs:
-                    d_outputs['f_a'][start::skip] = c1 * d_inputs['x_a'][start::skip]
+            if 'f_aero' in d_outputs:
+                if 'x_aero' in d_inputs:
+                    d_outputs['f_aero'][start::skip] = c1 * d_inputs['x_aero'][start::skip]
         if mode == 'rev':
-            if 'f_a' in d_outputs:
-                if 'x_a' in d_inputs:
-                    d_inputs['x_a'][start::skip] = c1 * d_outputs['f_a'][start::skip]
+            if 'f_aero' in d_outputs:
+                if 'x_aero' in d_inputs:
+                    d_inputs['x_aero'][start::skip] = c1 * d_outputs['f_aero'][start::skip]
 
 class FakeXferAssembler(OmfsiAssembler):
     def __init__(self,struct_assembler,aero_assembler):
@@ -197,12 +197,12 @@ class FakeXferAssembler(OmfsiAssembler):
         fsi_group.add_subsystem('fake_disp_xfer',fake_disp_xfer)
         fsi_group.add_subsystem('fake_load_xfer',fake_load_xfer)
 
-        connection_srcs['u_a'] = scenario.name+'.'+fsi_group.name+'.fake_disp_xfer.u_a'
-        connection_srcs['f_s'] = scenario.name+'.'+fsi_group.name+'.fake_load_xfer.f_s'
+        connection_srcs['u_aero'] = scenario.name+'.'+fsi_group.name+'.fake_disp_xfer.u_a'
+        connection_srcs['f_struct'] = scenario.name+'.'+fsi_group.name+'.fake_load_xfer.f_struct'
 
     def connect_inputs(self,model,scenario,fsi_group,connection_srcs):
-        model.connect(connection_srcs['u_s'],scenario.name+'.'+fsi_group.name+'.fake_disp_xfer.u_s')
-        model.connect(connection_srcs['f_a'],scenario.name+'.'+fsi_group.name+'.fake_aero.f_a')
+        model.connect(connection_srcs['u_struct'],scenario.name+'.'+fsi_group.name+'.fake_disp_xfer.u_struct')
+        model.connect(connection_srcs['f_aero'],scenario.name+'.'+fsi_group.name+'.fake_aero.f_a')
 
 class FakeDispXfer(ExplicitComponent):
     """
@@ -218,8 +218,8 @@ class FakeDispXfer(ExplicitComponent):
         self.options.declare('symmetry', default = False, desc='symmetry-only use z equation')
 
     def setup(self):
-        self.add_input('u_s',shape=int(self.options['struct_ndof']*self.options['struct_nnodes']))
-        self.add_output('u_a',shape=int(3*self.options['aero_nnodes']))
+        self.add_input('u_struct',shape=int(self.options['struct_ndof']*self.options['struct_nnodes']))
+        self.add_output('u_aero',shape=int(3*self.options['aero_nnodes']))
 
         self.start_indices = [2] if self.options['symmetry'] else [0,1,2]
 
@@ -228,22 +228,22 @@ class FakeDispXfer(ExplicitComponent):
         c1 = self.options['c1']
 
         for start in self.start_indices:
-            outputs['u_a'][start::3] = c0 + c1 * np.sum(inputs['u_s'][start::3])
+            outputs['u_aero'][start::3] = c0 + c1 * np.sum(inputs['u_struct'][start::3])
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs, mode):
         c0 = self.options['c0']
         c1 = self.options['c1']
 
         if mode == 'fwd':
-            if 'u_a' in d_outputs:
-                if 'u_s' in d_inputs:
+            if 'u_aero' in d_outputs:
+                if 'u_struct' in d_inputs:
                     for start in self.start_indices:
-                        d_outputs['u_a'][start::3] = c1 * np.sum(d_inputs['u_s'][start::3])
+                        d_outputs['u_aero'][start::3] = c1 * np.sum(d_inputs['u_struct'][start::3])
         if mode == 'rev':
-            if 'u_a' in d_outputs:
-                if 'u_s' in d_inputs:
+            if 'u_aero' in d_outputs:
+                if 'u_struct' in d_inputs:
                     for start in self.start_indices:
-                        d_inputs['u_s'][start::3] = c1 * np.sum(d_outputs['u_a'][start::3])
+                        d_inputs['u_struct'][start::3] = c1 * np.sum(d_outputs['u_aero'][start::3])
 
 class FakeLoadXfer(ExplicitComponent):
     """
@@ -259,8 +259,8 @@ class FakeLoadXfer(ExplicitComponent):
         self.options.declare('symmetry', default = False, desc='symmetry-only use z equation')
 
     def setup(self):
-        self.add_input('f_a',shape=int(3*self.options['aero_nnodes']))
-        self.add_output('f_s',shape=int(self.options['struct_ndof']*self.options['struct_nnodes']))
+        self.add_input('f_aero',shape=int(3*self.options['aero_nnodes']))
+        self.add_output('f_struct',shape=int(self.options['struct_ndof']*self.options['struct_nnodes']))
 
         self.start_indices = [2] if self.options['symmetry'] else [0,1,2]
 
@@ -269,19 +269,19 @@ class FakeLoadXfer(ExplicitComponent):
         c1 = self.options['c1']
 
         for start in self.start_indices:
-            outputs['f_s'][start::3] = c0 + c1 * np.sum(inputs['f_a'][start::3])
+            outputs['f_struct'][start::3] = c0 + c1 * np.sum(inputs['f_aero'][start::3])
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs, mode):
         c0 = self.options['c0']
         c1 = self.options['c1']
 
         if mode == 'fwd':
-            if 'f_s' in d_outputs:
-                if 'f_a' in d_inputs:
+            if 'f_struct' in d_outputs:
+                if 'f_aero' in d_inputs:
                     for start in self.start_indices:
-                        d_outputs['f_s'][start::3] = c1 * np.sum(d_inputs['f_a'][start::3])
+                        d_outputs['f_struct'][start::3] = c1 * np.sum(d_inputs['f_aero'][start::3])
         if mode == 'rev':
-            if 'f_s' in d_outputs:
-                if 'f_a' in d_inputs:
+            if 'f_struct' in d_outputs:
+                if 'f_aero' in d_inputs:
                     for start in self.start_indices:
-                        d_inputs['f_a'][start::3] = c1 * np.sum(d_outputs['f_s'][start::3])
+                        d_inputs['f_aero'][start::3] = c1 * np.sum(d_outputs['f_struct'][start::3])

@@ -8,9 +8,15 @@
 *f5
 *html
 *bdf
+*tar.gz
+*vtk
+*.su2
 
 mphys.egg-info/*
 docs/build/doctrees
 *__pycache__
 build/
 dist/
+
+# input files
+tests/input_files/*.xyz

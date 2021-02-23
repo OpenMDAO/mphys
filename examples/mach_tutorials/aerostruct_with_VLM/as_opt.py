@@ -52,7 +52,7 @@ class Top(om.Group):
 
             return N_nodes, N_elements, xa, quad
 
-        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
+        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_aero0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
 
         # VLM builder
         vlm_builder = VlmBuilder(aero_options)
@@ -142,8 +142,8 @@ class Top(om.Group):
 
         # add AoA DV
 
-        self.dvs.add_output('alpha', val=2*np.pi/180.)
-        self.connect('alpha', 'mp_group.s0.solver_group.aero.alpha')
+        self.dvs.add_output('aoa', val=2*np.pi/180., units='rad')
+        self.connect('aoa', 'mp_group.s0.solver_group.aero.aoa')
 
         # add the structural thickness DVs
         initial_thickness = 0.003
@@ -172,7 +172,7 @@ prob.model = Top()
 model = prob.model
 
 # optimization set up
-prob.model.add_design_var('alpha',lower=-5*np.pi/180, upper=10*np.pi/180.0, ref=1.0)
+prob.model.add_design_var('aoa',lower=-5*np.pi/180, upper=10*np.pi/180.0, ref=1.0, units='rad')
 prob.model.add_design_var('ribs',        lower=0.003, upper=0.020, ref=0.005)
 prob.model.add_design_var('le_spar',     lower=0.003, upper=0.020, ref=0.005)
 prob.model.add_design_var('te_spar',     lower=0.003, upper=0.020, ref=0.005)
