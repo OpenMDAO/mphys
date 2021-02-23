@@ -52,15 +52,18 @@ class MeldDispXfer(om.ExplicitComponent):
         su2 = np.sum(su_list[:irank+1])
 
         # inputs
+        self.src_indices = {}
         self.add_input('x_struct0', shape = struct_nnodes*3,
-                               src_indices = np.arange(sx1, sx2, dtype=int),
                                desc='initial structural node coordinates')
+        self.src_indices['x_struct0'] = np.arange(sx1, sx2, dtype=int)
+
         self.add_input('x_aero0', shape = aero_nnodes*3,
-                               src_indices = np.arange(ax1, ax2, dtype=int),
                                desc='initial aero surface node coordinates')
+        self.src_indices['x_aero0'] = np.arange(ax1, ax2, dtype=int)
+
         self.add_input('u_struct',  shape = struct_nnodes*struct_ndof,
-                               src_indices = np.arange(su1, su2, dtype=int),
-                               desc='structural node displacements')
+                                    desc='structural node displacements')
+        self.src_indices['u_struct'] = np.arange(su1, su2, dtype=int)
 
         # outputs
         self.add_output('u_aero', shape = aero_nnodes*3,
