@@ -160,8 +160,8 @@ class VlmBuilder(object):
 
     def get_mesh_element(self):
         N_nodes = self.options['N_nodes']
-        x_a0 = self.options['x_aero0']
-        return VlmMesh(N_nodes=N_nodes, x_a0=x_a0)
+        x_aero0 = self.options['x_aero0']
+        return VlmMesh(N_nodes=N_nodes, x_aero0=x_aero0)
 
     def get_nnodes(self):
         return self.options['N_nodes']
