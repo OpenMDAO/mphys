@@ -66,7 +66,6 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         outputs['C_Z'] = fz_total / (q_inf * area)
 
         outputs['Lift'] = -fx_total * np.sin(aoa_rad) + fz_total * np.cos(aoa_rad)
-        print('LIFT', aoa_rad, -fx_total, np.sin(aoa_rad), fz_total, np.cos(aoa_rad), outputs['Lift'])
         outputs['Drag'] = ( fx_total * np.cos(aoa_rad) * np.cos(yaw_rad)
                           - fy_total * np.sin(yaw_rad)
                           + fz_total * np.sin(aoa_rad) * np.cos(yaw_rad)
@@ -278,25 +277,25 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                     d_lift = d_outputs['Lift'] if 'Lift' in d_outputs else 0.0
                     d_cl   = d_outputs['C_L']  if 'C_L'  in d_outputs else 0.0
                     d_lift_d_aoa_rad = ( - fx_total * np.cos(aoa_rad)
-                                           - fz_total * np.sin(aoa_rad)
-                                         ) * (d_lift + d_cl / (q_inf * area))
+                                         - fz_total * np.sin(aoa_rad)
+                                       ) * (d_lift + d_cl / (q_inf * area))
 
                     d_inputs['aoa'] += d_lift_d_aoa_rad * np.pi / 180.0
                 if 'Drag' in d_outputs or 'C_D' in d_outputs:
                     d_drag = d_outputs['Drag'] if 'Drag' in d_outputs else 0.0
                     d_cd   = d_outputs['C_D']  if 'C_D'  in d_outputs else 0.0
                     d_drag_d_aoa_rad = ( fx_total * (-np.sin(aoa_rad)) * np.cos(yaw_rad)
-                                         + fz_total * ( np.cos(aoa_rad)) * np.cos(yaw_rad)
-                                         ) * (d_drag + d_cd / (q_inf * area))
+                                       + fz_total * ( np.cos(aoa_rad)) * np.cos(yaw_rad)
+                                       ) * (d_drag + d_cd / (q_inf * area))
                     d_inputs['aoa'] += d_drag_d_aoa_rad * np.pi / 180.0
             if 'yaw' in d_inputs:
                 if 'Drag' in d_outputs or 'C_D' in d_outputs:
                     d_drag = d_outputs['Drag'] if 'Drag' in d_outputs else 0.0
                     d_cd   = d_outputs['C_D']  if 'C_D'  in d_outputs else 0.0
                     d_drag_d_yaw_rad = ( fx_total * np.cos(aoa_rad) * (-np.sin(yaw_rad))
-                                        - fy_total * np.cos(yaw_rad)
-                                        + fz_total * np.sin(aoa_rad) * (-np.sin(yaw_rad))
-                                        ) * (d_drag + d_cd / (q_inf * area))
+                                       - fy_total * np.cos(yaw_rad)
+                                       + fz_total * np.sin(aoa_rad) * (-np.sin(yaw_rad))
+                                       ) * (d_drag + d_cd / (q_inf * area))
                     d_inputs['yaw'] += d_drag_d_yaw_rad * np.pi / 180.0
 
             if 'ref_area' in d_inputs:
