@@ -651,7 +651,7 @@ class AdflowHeatTransfer(ExplicitComponent):
         self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
 
 
-        self.add_output('heatflux', val=np.ones(local_nodes)*-499, shape=local_nodes, units='W/m**2')
+        self.add_output('q_convect', val=np.ones(local_nodes)*-499, shape=local_nodes, units='W/m**2')
 
         #self.declare_partials(of='f_aero', wrt='*')
 
@@ -696,7 +696,7 @@ class AdflowHeatTransfer(ExplicitComponent):
         #
         # self._set_states(inputs)
 
-        outputs['heatflux'] = solver.getHeatFluxes().flatten(order='C')
+        outputs['q_convect'] = solver.getHeatFluxes().flatten(order='C')
         # print()
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
@@ -705,7 +705,7 @@ class AdflowHeatTransfer(ExplicitComponent):
         ap = self.options['ap']
 
         if mode == 'fwd':
-            if 'heatflux' in d_outputs:
+            if 'q_convect' in d_outputs:
                 xDvDot = {}
                 for var_name in d_inputs:
                     xDvDot[var_name] = d_inputs[var_name]
@@ -726,11 +726,11 @@ class AdflowHeatTransfer(ExplicitComponent):
                     dhfdot_map[:,0] = dhfdot.flatten()
                     dhfdot_map =  self.solver.mapVector(dhfdot_map, self.solver.allWallsGroup, self.solver.allIsothermalWallsGroup)
                     dhfdot = dhfdot_map[:,0]
-                    d_outputs['heatflux'] += dhfdot
+                    d_outputs['q_convect'] += dhfdot
 
         elif mode == 'rev':
-            if 'heatflux' in d_outputs:
-                hfBar = d_outputs['heatflux']
+            if 'q_convect' in d_outputs:
+                hfBar = d_outputs['q_convect']
 
                 hfBar_map = np.zeros((hfBar.size, 3))
                 hfBar_map[:,0] = hfBar.flatten()
@@ -1089,7 +1089,7 @@ class ADflowGroup(Group):
         if self.heat_transfer:
             self.add_subsystem('heat_xfer', AdflowHeatTransfer(
                 aero_solver=self.aero_solver),
-                promotes_outputs=['heatflux']
+                promotes_outputs=['q_convect']
             )
 
         if balance_group is not None:
@@ -1111,7 +1111,7 @@ class ADflowGroup(Group):
 
             self.connect('solver.q', 'heat_xfer.q')
 
-            self.promotes('heat_xfer', outputs=[('heatflux')])
+            self.promotes('heat_xfer', outputs=[('q_convect')])
 
 
 
