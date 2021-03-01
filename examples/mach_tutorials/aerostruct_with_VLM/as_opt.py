@@ -228,5 +228,5 @@ for i, case_id in enumerate(driver_cases):
     case = cr.get_case(case_id)
     matrix[i,1] = case.get_objectives()['mp_group.s0.struct_funcs.mass'][0]
     matrix[i,2] = case.get_constraints()['mp_group.s0.solver_group.aero.forces.CL'][0]
-    matrix[i,3] = case.get_constraints()['mp_group.s0.struct_funcs.f_struct'][0]
+    matrix[i,3] = case.get_constraints()['mp_group.s0.struct_funcs.funcs.f_struct'][0]
 np.savetxt('history.dat',matrix)
