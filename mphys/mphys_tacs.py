@@ -559,7 +559,7 @@ class TacsFunctions(om.ExplicitComponent):
 
         self.func_list = func_no_mass
         if len(self.func_list) > 0:
-            self.add_output('f_struct', shape=len(self.func_list), desc='structural function values')
+            self.add_output('func_struct', shape=len(self.func_list), desc='structural function values')
 
             # declare the partials
             #self.declare_partials('f_struct',['dv_struct','x_struct0','u_struct'])
@@ -597,9 +597,9 @@ class TacsFunctions(om.ExplicitComponent):
         if self.check_partials:
             self._update_internal(inputs)
 
-        if 'f_struct' in outputs:
-            outputs['f_struct'] = self.tacs_assembler.evalFunctions(self.func_list)
-            print('f_struct',outputs['f_struct'])
+        if 'func_struct' in outputs:
+            outputs['func_struct'] = self.tacs_assembler.evalFunctions(self.func_list)
+            print('func_struct',outputs['func_struct'])
 
         if self.f5_writer is not None:
             self.f5_writer(self.tacs_assembler)
@@ -614,28 +614,28 @@ class TacsFunctions(om.ExplicitComponent):
             if self.check_partials:
                 self._update_internal(inputs)
 
-            if 'f_struct' in d_outputs:
+            if 'func_struct' in d_outputs:
                 for ifunc, func in enumerate(self.func_list):
                     self.tacs_assembler.evalFunctions([func])
                     if 'dv_struct' in d_inputs:
                         dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
                         self.tacs_assembler.evalDVSens(func, dvsens)
 
-                        d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_outputs['f_struct'][ifunc]
+                        d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_outputs['func_struct'][ifunc]
 
                     if 'x_struct0' in d_inputs:
                         xpt_sens = self.xpt_sens
                         xpt_sens_array = xpt_sens.getArray()
                         self.tacs_assembler.evalXptSens(func, xpt_sens)
 
-                        d_inputs['x_struct0'][:] += np.array(xpt_sens_array,dtype=float) * d_outputs['f_struct'][ifunc]
+                        d_inputs['x_struct0'][:] += np.array(xpt_sens_array,dtype=float) * d_outputs['func_struct'][ifunc]
 
                     if 'u_struct' in d_inputs:
                         prod = self.tacs_assembler.createVec()
                         self.tacs_assembler.evalSVSens(func,prod)
                         prod_array = prod.getArray()
 
-                        d_inputs['u_struct'][:] += np.array(prod_array,dtype=float) * d_outputs['f_struct'][ifunc]
+                        d_inputs['u_struct'][:] += np.array(prod_array,dtype=float) * d_outputs['func_struct'][ifunc]
 
 class TacsMass(om.ExplicitComponent):
     """
