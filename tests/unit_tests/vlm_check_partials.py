@@ -12,7 +12,7 @@ class Top(om.Group):
         # VLM options
 
         aero_options = {
-            'mesh_file':'debug_VLM.dat',
+            'mesh_file':'../input_files/debug_VLM.dat',
             'mach':0.85,
             'aoa':1*np.pi/180.,
             'q_inf':25000.,
@@ -58,7 +58,9 @@ class Top(om.Group):
 
     def configure(self):
         self.dvs.add_output('aoa', self.aero_options['aoa'], units='rad')
+        self.dvs.add_output('u_aero', np.zeros_like(self.aero_options['x_aero0']))
         self.connect('aoa',['mp_group.s0.solver_group.aero.aoa'])
+        self.connect('u_aero','mp_group.s0.solver_group.aero.u_aero')
 
 ## openmdao setup
 

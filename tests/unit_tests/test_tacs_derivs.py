@@ -85,7 +85,7 @@ class Top(om.Group):
         struct_options = {
             'add_elements': add_elements,
             'get_funcs': get_funcs,
-            'mesh_file': os.path.join(baseDir, '../input_files/wingbox.bdf'),
+            'mesh_file': os.path.join(baseDir, '../input_files/debug.bdf'),
             # 'f5_writer'   : f5_writer,
         }
 
@@ -140,8 +140,8 @@ class TestTACs(unittest.TestCase):
         prob.model.add_objective('mp.s0.struct_funcs.mass', ref=100.0)
         prob.model.add_constraint('mp.s0.struct_funcs.funcs.func_struct', ref=1.0, upper=1.0)
 
-        prob.model.add_design_var('dv_struct', indices=[0, 3, 5], lower=-5, upper=10, ref=10.0)
-        prob.model.add_design_var('f_struct', indices=[0, 12, 34, 100], lower=-5, upper=10, ref=10.0)
+        prob.model.add_design_var('dv_struct', indices=[0], lower=-5, upper=10, ref=10.0)
+        prob.model.add_design_var('f_struct', indices=[0, 12, 34, 40], lower=-5, upper=10, ref=10.0)
         prob.model.add_design_var('xpts', indices=[0, 2, 5, 10], lower=-5, upper=10, ref=10.0)
 
         prob.setup(mode='rev',force_alloc_complex=True)

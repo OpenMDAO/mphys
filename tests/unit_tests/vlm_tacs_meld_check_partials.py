@@ -18,7 +18,7 @@ class Top(om.Group):
     def setup(self):
         # VLM options
         aero_options = {
-            'mesh_file':'debug_VLM.dat',
+            'mesh_file':'../input_files/debug_VLM.dat',
             'mach':0.85,
             'aoa':1*np.pi/180.,
             'q_inf':25000.,
@@ -52,7 +52,7 @@ class Top(om.Group):
         aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_aero0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
         self.aero_options = aero_options
 
-        # VLM assembler
+        # VLM builder
         aero_builder = VlmBuilder(aero_options)
 
         # TACS setup
@@ -97,7 +97,7 @@ class Top(om.Group):
         # common setup options
         tacs_setup = {'add_elements': add_elements,
                       'get_funcs'   : get_funcs,
-                      'mesh_file'   : 'debug.bdf',
+                      'mesh_file'   : '../input_files/debug.bdf',
                       'f5_writer'   : f5_writer }
 
         # TACS assembler
@@ -106,7 +106,7 @@ class Top(om.Group):
             tacs_setup['nmodes'] = 15
             #struct_assembler = ModalStructAssembler(tacs_setup)
         else:
-            struct_builder = TacsBuilder(tacs_setup,check_partials=True)
+            struct_builder = TacsBuilder(tacs_setup, check_partials=True)
 
         # MELD setup
 
@@ -129,10 +129,11 @@ class Top(om.Group):
 
     def configure(self):
         self.dvs.add_output('aoa', self.aero_options['aoa'], units='rad')
-        #self.connect('aoa',['mp_group.s0.aero.aoa'])
+        self.connect('aoa',['mp_group.s0.solver_group.aero.aoa'])
 
         self.dvs.add_output('dv_struct',np.array([0.03]))
-        #self.connect('dv_struct',['mp_group.so.struct.dv_struct'])
+        self.connect('dv_struct',['mp_group.s0.solver_group.struct.dv_struct',
+                                  'mp_group.s0.struct_funcs.dv_struct' ])
 
 # OpenMDAO setup
 
