@@ -160,18 +160,18 @@ class TestTACs(unittest.TestCase):
         self.prob.run_model()
         print('----------------strating check totals--------------')
         # data = self.prob.check_totals(step=1e-7, form='forward')
-        data = self.prob.check_totals(wrt='xpts', step=1e-7, step_calc='rel')  # out_stream=None
+        data = self.prob.check_totals(wrt='xpts', method='cs', step=1e-30, step_calc='rel')  # out_stream=None
 
         for var, err in data.items():
 
             rel_err = err['rel error']  # ,  'rel error']
             assert_near_equal(rel_err.forward, 0.0, 1e-2)
-        data = self.prob.check_totals(of=['mp.s0.struct_funcs.funcs.func_struct'], wrt='f_struct', step=3e-5, step_calc='rel')  # out_stream=None
+        data = self.prob.check_totals(of=['mp.s0.struct_funcs.funcs.func_struct'], wrt='f_struct', method='cs', step=1e-30, step_calc='rel')  # out_stream=None
         for var, err in data.items():
 
             rel_err = err['rel error']  # ,  'rel error']
             assert_near_equal(rel_err.forward, 0.0, 1e-2)
-        data = self.prob.check_totals(wrt='dv_struct', step=5e-6, step_calc='rel')  # out_stream=None
+        data = self.prob.check_totals(wrt='dv_struct', method='cs', step=1e-30, step_calc='rel')  # out_stream=None
         for var, err in data.items():
 
             rel_err = err['rel error']  # ,  'rel error']
