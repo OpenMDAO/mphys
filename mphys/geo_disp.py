@@ -19,13 +19,10 @@ class GeoDisp(om.ExplicitComponent):
         n1 = np.sum(n_list[:irank])
         n2 = np.sum(n_list[:irank+1])
 
-        self.add_input('x_aero0', shape=local_size,
-                               src_indices=np.arange(n1,n2,dtype=int),
-                               desc='aerodynamic surface with geom changes')
-        self.add_input('u_aero',  shape=local_size,
-                               val=np.zeros(local_size),
-                               src_indices=np.arange(n1,n2,dtype=int),
-                               desc='aerodynamic surface displacements')
+        self.add_input('x_aero0', shape_by_conn=True,
+                                  desc='aerodynamic surface with geom changes')
+        self.add_input('u_aero',  shape_by_conn=True,
+                                  desc='aerodynamic surface displacements')
 
         self.add_output('x_aero', shape=local_size, desc='deformed aerodynamic surface')
 

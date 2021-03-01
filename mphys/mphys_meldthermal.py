@@ -37,46 +37,19 @@ class MELDThermal_temp_xfer(om.ExplicitComponent):
         self.cond_nnodes = self.options['cond_nnodes']
         self.conv_nnodes   = self.options['conv_nnodes']
         self.check_partials= self.options['check_partials']
-        cond_ndof = self.cond_ndof
-        cond_nnodes = self.cond_nnodes
         conv_nnodes = self.conv_nnodes
 
-        irank = self.comm.rank
-
-
-
-        ax_list = self.comm.allgather(conv_nnodes*3)
-        ax1 = np.sum(ax_list[:irank])
-        ax2 = np.sum(ax_list[:irank+1])
-
-        sx_list = self.comm.allgather(cond_nnodes*3)
-        sx1 = np.sum(sx_list[:irank])
-        sx2 = np.sum(sx_list[:irank+1])
-
-
-        cond_temp_list = self.comm.allgather(self.cond_nnodes*cond_ndof)
-        cond_temp_n1 = np.sum(cond_temp_list[:irank])
-        cond_temp_n2 = np.sum(cond_temp_list[:irank+1])
-
-        print('cond_ndof', cond_ndof)
         # inputs
-        print('x_struct0',sx1, sx2,   cond_nnodes*3)
-
-
-        self.add_input('x_struct0', shape = cond_nnodes*3,           src_indices = np.arange(sx1, sx2, dtype=int), desc='initial structural node coordinates')
-        print('x_aero0',ax1, ax2,   conv_nnodes*3)
-        self.add_input('x_aero0', shape = conv_nnodes*3,             src_indices = np.arange(ax1, ax2, dtype=int), desc='initial aerodynamic surface node coordinates')
-
-
-        print('T_conduct',cond_temp_n1, cond_temp_n2,  self.cond_nnodes*cond_ndof)
-
-        self.add_input('T_conduct',  shape = self.cond_nnodes*cond_ndof, src_indices = np.arange(cond_temp_n1, cond_temp_n2, dtype=int),
-                                     desc='conductive node displacements')
+        self.add_input('x_struct0', shape_by_conn=True, desc='initial structural node coordinates')
+        self.add_input('x_aero0', shape_by_conn=True, desc='initial aerodynamic surface node coordinates')
+        self.add_input('T_conduct', shape_by_conn=True, desc='conductive node displacements')
 
         # outputs
         print('T_convect', conv_nnodes)
 
-        self.add_output('T_convect', shape = conv_nnodes, val=np.ones(conv_nnodes)*301, desc='conv surface temperatures')
+        self.add_output('T_convect', shape = conv_nnodes,
+                                     val=np.ones(conv_nnodes)*301,
+                                     desc='conv surface temperatures')
 
 
     def compute(self, inputs, outputs):
@@ -144,46 +117,10 @@ class MELDThermal_heat_xfer_rate_xfer(om.ExplicitComponent):
         self.conv_nnodes   = self.options['conv_nnodes']
         self.check_partials= self.options['check_partials']
 
-        cond_ndof = self.cond_ndof
-        cond_nnodes = self.cond_nnodes
-        conv_nnodes = self.conv_nnodes
-
-        irank = self.comm.rank
-
-
-
-        ax_list = self.comm.allgather(conv_nnodes*3)
-        ax1 = np.sum(ax_list[:irank])
-        ax2 = np.sum(ax_list[:irank+1])
-
-        sx_list = self.comm.allgather(cond_nnodes*3)
-        sx1 = np.sum(sx_list[:irank])
-        sx2 = np.sum(sx_list[:irank+1])
-
-        conv_node_list = self.comm.allgather(conv_nnodes)
-        conv_heat_n1 = np.sum(conv_node_list[:irank])
-        conv_heat_n2 = np.sum(conv_node_list[:irank+1])
-
-
-        stemp_list = self.comm.allgather(cond_nnodes*cond_ndof)
-        su1 = np.sum(stemp_list[:irank])
-        cond_temp_n2 = np.sum(stemp_list[:irank+1])
-
-
         # inputs
-
-        # inputs
-        print('x_struct0',sx1, sx2,   cond_nnodes*3)
-        self.add_input('x_struct0', shape = cond_nnodes*3, src_indices = np.arange(sx1, sx2, dtype=int), desc='initial structural node coordinates')
-
-        print('x_aero0',ax1, ax2,   conv_nnodes*3)
-
-        self.add_input('x_aero0', shape = conv_nnodes*3, src_indices = np.arange(ax1, ax2, dtype=int), desc='initial aerodynamic surface node coordinates')
-
-
-        print('q_convect',conv_heat_n1, conv_heat_n2,  conv_nnodes)
-
-        self.add_input('q_convect', shape = conv_nnodes, src_indices = np.arange(conv_heat_n1, conv_heat_n2, dtype=int), desc='initial conv heat transfer rate')
+        self.add_input('x_struct0', shape_by_conn=True, desc='initial structural node coordinates')
+        self.add_input('x_aero0', shape_by_conn=True, desc='initial aerodynamic surface node coordinates')
+        self.add_input('q_convect', shape_by_conn=True, desc='initial conv heat transfer rate')
 
         print('q_conduct', self.cond_nnodes)
 

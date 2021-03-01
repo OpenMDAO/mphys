@@ -32,14 +32,7 @@ class ADflowMesh(ExplicitComponent):
 
 
     def mphys_add_coordinate_input(self):
-        local_size = self.x_a0.size
-        n_list = self.comm.allgather(local_size)
-        irank  = self.comm.rank
-
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
-
-        self.add_input('x_aero0_points',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
+        self.add_input('x_aero0_points', shape_by_conn=True, desc='aerodynamic surface with geom changes')
 
         # return the promoted name and coordinates
         return 'x_aero0_points', self.x_a0
@@ -140,14 +133,9 @@ class GeoDisp(ExplicitComponent):
     def setup(self):
         aero_nnodes = self.options['nnodes']
         local_size = aero_nnodes * 3
-        n_list = self.comm.allgather(local_size)
-        irank  = self.comm.rank
 
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
-
-        self.add_input('x_aero0',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
-        self.add_input('u_aero', shape=local_size,val=np.zeros(local_size),src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface displacements')
+        self.add_input('x_aero0',shape_by_conn=True, desc='aerodynamic surface with geom changes')
+        self.add_input('u_aero', shape_by_conn=True, desc='aerodynamic surface displacements')
 
         self.add_output('x_aero',shape=local_size,desc='deformed aerodynamic surface')
 
@@ -185,22 +173,14 @@ class ADflowWarper(ExplicitComponent):
         #self.set_check_partial_options(wrt='*',directional=True)
 
         self.solver = self.options['aero_solver']
-        # self.add_output('foo', val=1.0)
         solver = self.solver
 
         # self.ap_vars,_ = get_dvs_and_cons(ap=ap)
 
         # state inputs and outputs
-        local_coord_size = solver.getSurfaceCoordinates(includeZipper=False).size
         local_volume_coord_size = solver.mesh.getSolverGrid().size
 
-        n_list = self.comm.allgather(local_coord_size)
-        irank  = self.comm.rank
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
-
-        self.add_input('x_aero', src_indices=np.arange(n1,n2,dtype=int),shape=local_coord_size)
-
+        self.add_input('x_aero', shape_by_conn=True)
         self.add_output('x_g', shape=local_volume_coord_size)
 
         #self.declare_partials(of='x_g', wrt='x_aero')
@@ -273,13 +253,7 @@ class ADflowSolver(ImplicitComponent):
         local_state_size = solver.getStateSize()
         local_coord_size = solver.mesh.getSolverGrid().size
 
-        n_list = self.comm.allgather(local_coord_size)
-        irank  = self.comm.rank
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
-
-        self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int),shape=local_coord_size)
-
+        self.add_input('x_g', shape_by_conn=True)
         self.add_output('q', shape=local_state_size)
 
         #self.declare_partials(of='q', wrt='*')
@@ -507,19 +481,8 @@ class ADflowForces(ExplicitComponent):
         self.solver = self.options['aero_solver']
         solver = self.solver
 
-        local_state_size = solver.getStateSize()
-        local_coord_size = solver.mesh.getSolverGrid().size
-        s_list = self.comm.allgather(local_state_size)
-        n_list = self.comm.allgather(local_coord_size)
-        irank  = self.comm.rank
-
-        s1 = np.sum(s_list[:irank])
-        s2 = np.sum(s_list[:irank+1])
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
-
-        self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size)
-        self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
+        self.add_input('x_g', shape_by_conn=True)
+        self.add_input('q', shape_by_conn=True)
 
         local_surface_coord_size = solver.mesh.getSurfaceCoordinates().size
         self.add_output('f_aero', shape=local_surface_coord_size)
@@ -629,27 +592,10 @@ class AdflowHeatTransfer(ExplicitComponent):
         self.solver = self.options['aero_solver']
         solver = self.solver
 
+        local_nodes, _ = solver._getSurfaceSize(solver.allIsothermalWallsGroup)
 
-        local_state_size = solver.getStateSize()
-        local_coord_size = solver.mesh.getSolverGrid().size
-        s_list = self.comm.allgather(local_state_size)
-        n_list = self.comm.allgather(local_coord_size)
-        irank  = self.comm.rank
-
-        s1 = np.sum(s_list[:irank])
-        s2 = np.sum(s_list[:irank+1])
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
-
-        local_nodes, nCells = solver._getSurfaceSize(solver.allIsothermalWallsGroup)
-        t_list = self.comm.allgather(local_nodes)
-
-        t1 = np.sum(t_list[:irank])
-        t2 = np.sum(t_list[:irank+1])
-
-        self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size)
-        self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
-
+        self.add_input('x_g', shape_by_conn=True)
+        self.add_input('q', shape_by_conn=True)
 
         self.add_output('q_convect', val=np.ones(local_nodes)*-499, shape=local_nodes, units='W/m**2')
 
@@ -800,23 +746,11 @@ class ADflowFunctions(ExplicitComponent):
         self.solver = self.options['aero_solver']
         self.ap_funcs = self.options['ap_funcs']
         self.write_solution = self.options['write_solution']
-        solver = self.solver
         #self.set_check_partial_options(wrt='*',directional=True)
         self.solution_counter = 0
 
-        local_state_size = solver.getStateSize()
-        local_coord_size = solver.mesh.getSolverGrid().size
-        s_list = self.comm.allgather(local_state_size)
-        n_list = self.comm.allgather(local_coord_size)
-        irank  = self.comm.rank
-
-        s1 = np.sum(s_list[:irank])
-        s2 = np.sum(s_list[:irank+1])
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
-
-        self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size)
-        self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
+        self.add_input('x_g', shape_by_conn=True)
+        self.add_input('q', shape_by_conn=True)
 
             #self.declare_partials(of=f_name, wrt='*')
 

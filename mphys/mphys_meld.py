@@ -33,39 +33,18 @@ class MeldDispXfer(om.ExplicitComponent):
 
         #self.set_check_partial_options(wrt='*',method='cs',directional=True)
 
-        struct_ndof = self.struct_ndof
-        struct_nnodes = self.struct_nnodes
-        aero_nnodes = self.aero_nnodes
-
-        irank = self.comm.rank
-
-        ax_list = self.comm.allgather(aero_nnodes*3)
-        ax1 = np.sum(ax_list[:irank])
-        ax2 = np.sum(ax_list[:irank+1])
-
-        sx_list = self.comm.allgather(struct_nnodes*3)
-        sx1 = np.sum(sx_list[:irank])
-        sx2 = np.sum(sx_list[:irank+1])
-
-        su_list = self.comm.allgather(struct_nnodes*struct_ndof)
-        su1 = np.sum(su_list[:irank])
-        su2 = np.sum(su_list[:irank+1])
-
         # inputs
-        self.add_input('x_struct0', shape = struct_nnodes*3,
-                               src_indices = np.arange(sx1, sx2, dtype=int),
-                               desc='initial structural node coordinates')
-        self.add_input('x_aero0', shape = aero_nnodes*3,
-                               src_indices = np.arange(ax1, ax2, dtype=int),
-                               desc='initial aero surface node coordinates')
-        self.add_input('u_struct',  shape = struct_nnodes*struct_ndof,
-                               src_indices = np.arange(su1, su2, dtype=int),
-                               desc='structural node displacements')
+        self.add_input('x_struct0', shape_by_conn=True,
+                                    desc='initial structural node coordinates')
+        self.add_input('x_aero0',   shape_by_conn=True,
+                                    desc='initial aero surface node coordinates')
+        self.add_input('u_struct',  shape_by_conn=True,
+                                    desc='structural node displacements')
 
         # outputs
-        self.add_output('u_aero', shape = aero_nnodes*3,
-                               val=np.zeros(aero_nnodes*3),
-                               desc='aerodynamic surface displacements')
+        self.add_output('u_aero', shape = self.aero_nnodes*3,
+                                  val=np.zeros(self.aero_nnodes*3),
+                                  desc='aerodynamic surface displacements')
 
         # partials
         #self.declare_partials('u_aero',['x_struct0','x_aero0','u_struct'])
@@ -186,34 +165,15 @@ class MeldLoadXfer(om.ExplicitComponent):
 
         struct_ndof = self.struct_ndof
         struct_nnodes = self.struct_nnodes
-        aero_nnodes = self.aero_nnodes
-
-        irank = self.comm.rank
-
-        ax_list = self.comm.allgather(aero_nnodes*3)
-        ax1 = np.sum(ax_list[:irank])
-        ax2 = np.sum(ax_list[:irank+1])
-
-        sx_list = self.comm.allgather(struct_nnodes*3)
-        sx1 = np.sum(sx_list[:irank])
-        sx2 = np.sum(sx_list[:irank+1])
-
-        su_list = self.comm.allgather(struct_nnodes*struct_ndof)
-        su1 = np.sum(su_list[:irank])
-        su2 = np.sum(su_list[:irank+1])
 
         # inputs
-        self.add_input('x_struct0', shape = struct_nnodes*3,
-                                    src_indices = np.arange(sx1, sx2, dtype=int),
+        self.add_input('x_struct0', shape_by_conn=True,
                                     desc='initial structural node coordinates')
-        self.add_input('x_aero0', shape = aero_nnodes*3,
-                                  src_indices = np.arange(ax1, ax2, dtype=int),
+        self.add_input('x_aero0', shape_by_conn=True,
                                   desc='initial aero surface node coordinates')
-        self.add_input('u_struct', shape = struct_nnodes*struct_ndof,
-                                   src_indices = np.arange(su1, su2, dtype=int),
+        self.add_input('u_struct', shape_by_conn=True,
                                    desc='structural node displacements')
-        self.add_input('f_aero', shape = aero_nnodes*3,
-                                 src_indices = np.arange(ax1, ax2, dtype=int),
+        self.add_input('f_aero', shape_by_conn=True,
                                  desc='aerodynamic force vector')
 
         # outputs

@@ -15,8 +15,8 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         self.add_input('ref_length', val = 1.0)
         self.add_input('q_inf', val = 1.0)
 
-        self.add_input('x_aero',shape=3*nnodes, desc = 'surface coordinates')
-        self.add_input('f_aero',shape=3*nnodes, desc = 'dimensional forces at nodes')
+        self.add_input('x_aero', shape_by_conn=True, desc = 'surface coordinates')
+        self.add_input('f_aero', shape_by_conn=True, desc = 'dimensional forces at nodes')
 
         self.add_output('C_L', desc = 'Lift coefficient')
         self.add_output('C_D', desc = 'Drag coefficient')
