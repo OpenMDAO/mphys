@@ -146,4 +146,4 @@ prob.model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=10, iprint=2)
 prob.setup(force_alloc_complex=True, mode='rev')
 
 prob.run_model()
-prob.check_totals(of=['mp_group.s0.struct.funcs.f_struct'], wrt=['aoa'], method='cs')
+prob.check_totals(of=['mp_group.s0.struct.funcs.func_struct'], wrt=['aoa'], method='cs')

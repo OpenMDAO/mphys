@@ -179,6 +179,6 @@ om.n2(prob, show_browser=False, outfile='mphys_as_vlm.html')
 prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
-    print('f_struct =',prob['mp_group.s0.struct_funcs.funcs.f_struct'])
+    print('func_struct =',prob['mp_group.s0.struct_funcs.funcs.func_struct'])
     print('mass =',prob['mp_group.s0.struct_funcs.mass.mass'])
     print('cl =',prob['mp_group.s0.solver_group.aero.forces.CL'])
