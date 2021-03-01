@@ -45,7 +45,7 @@ class Top(om.Group):
 
         tacs_options = {'add_elements': add_elements,
                         'get_funcs'   : get_funcs,
-                        'mesh_file'   : 'debug.bdf',
+                        'mesh_file'   : '../input_files/debug.bdf',
                         'load_function' : forcer}
 
         tacs_builder = TacsBuilder(tacs_options, check_partials=True)
