@@ -659,7 +659,7 @@ class TacsMass(om.ExplicitComponent):
         self.struct_objects = self.options['struct_objects']
         self.check_partials = self.options['check_partials']
 
-        self.set_check_partial_options(wrt='*',directional=True)
+        #self.set_check_partial_options(wrt='*',directional=True)
 
         tacs_assembler = self.tacs_assembler
 
