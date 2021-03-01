@@ -19,10 +19,10 @@ class Top(om.Group):
 
     def setup(self):
         # VLM options
-        aero_options = {
+        self.aero_options = {
             'mesh_file':'wing_VLM.dat',
             'mach':0.85,
-            'alpha':2*np.pi/180.,
+            'aoa':2*np.pi/180.,
             'q_inf':9000.,
             'vel':178.,
             'mu':3.5E-5,
@@ -52,10 +52,10 @@ class Top(om.Group):
 
             return N_nodes, N_elements, xa, quad
 
-        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_aero0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
+        self.aero_options['N_nodes'], self.aero_options['N_elements'], self.aero_options['x_aero0'], self.aero_options['quad'] = read_VLM_mesh(self.aero_options['mesh_file'])
 
         # VLM builder
-        vlm_builder = VlmBuilder(aero_options)
+        vlm_builder = VlmBuilder(self.aero_options)
 
         # TACS setup
 
@@ -140,10 +140,13 @@ class Top(om.Group):
 
     def configure(self):
 
-        # add AoA DV
-
-        self.dvs.add_output('aoa', val=2*np.pi/180., units='rad')
-        self.connect('aoa', 'mp_group.s0.solver_group.aero.aoa')
+        # add aero DVs
+        for dv_name in ['aoa','q_inf','vel','mu','mach']:
+            if dv_name == 'aoa':
+                self.dvs.add_output(dv_name, val=self.aero_options[dv_name], units='rad')
+            else:
+                self.dvs.add_output(dv_name, val=self.aero_options[dv_name])
+            self.connect(dv_name, 'mp_group.s0.solver_group.aero.%s' % dv_name)
 
         # add the structural thickness DVs
         initial_thickness = 0.003
@@ -181,8 +184,8 @@ prob.model.add_design_var('lo_skin',     lower=0.003, upper=0.020, ref=0.005)
 prob.model.add_design_var('up_stringer', lower=0.003, upper=0.020, ref=0.005)
 prob.model.add_design_var('lo_stringer', lower=0.003, upper=0.020, ref=0.005)
 
-prob.model.add_objective('mp_group.s0.struct_funcs.mass.mass',ref=1000.0)
-prob.model.add_constraint('mp_group.s0.solver_group.aero.forces.CL',ref=1.0,equals=0.5)
+prob.model.add_objective('mp_group.s0.struct_funcs.mass',ref=1000.0)
+prob.model.add_constraint('mp_group.s0.solver_group.aero.CL',ref=1.0,equals=0.5)
 prob.model.add_constraint('mp_group.s0.struct_funcs.funcs.f_struct',ref=1.0, upper = 2.0/3.0)
 
 prob.model.add_constraint('le_spar_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
@@ -223,7 +226,7 @@ matrix = np.zeros((len(driver_cases),4))
 for i, case_id in enumerate(driver_cases):
     matrix[i,0] = i
     case = cr.get_case(case_id)
-    matrix[i,1] = case.get_objectives()['mp_group.s0.struct_funcs.mass.mass'][0]
+    matrix[i,1] = case.get_objectives()['mp_group.s0.struct_funcs.mass'][0]
     matrix[i,2] = case.get_constraints()['mp_group.s0.solver_group.aero.forces.CL'][0]
-    matrix[i,3] = case.get_constraints()['mp_group.s0.struct_funcs.funcs.f_struct'][0]
+    matrix[i,3] = case.get_constraints()['mp_group.s0.struct_funcs.f_struct'][0]
 np.savetxt('history.dat',matrix)

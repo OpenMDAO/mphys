@@ -52,7 +52,7 @@ model.connect('ivc.u_g',['sfe.u_g','forces.u_g'])
 model.connect('ivc.q_inf',['forces.q_inf','integrated_forces.q_inf'])
 model.connect('ivc.x_aero',['integrated_forces.x_aero'])
 model.connect('sfe.q',['forces.q'])
-model.connect('forces.f_a',['integrated_forces.f_a'])
+model.connect('forces.f_aero',['integrated_forces.f_aero'])
 
 prob.setup(mode='rev')
 #om.n2(prob, show_browser=False, outfile='n2_sfe.html')
