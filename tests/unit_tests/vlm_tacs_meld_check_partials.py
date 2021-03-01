@@ -128,8 +128,12 @@ class Top(om.Group):
         s0 = mp.mphys_add_scenario('s0')
 
     def configure(self):
-        self.dvs.add_output('aoa', self.aero_options['aoa'], units='rad')
-        self.connect('aoa',['mp_group.s0.solver_group.aero.aoa'])
+        for dv_name in ['aoa','q_inf','vel','mu','mach']:
+            if dv_name == 'aoa':
+                self.dvs.add_output(dv_name, val=self.aero_options[dv_name], units='rad')
+            else:
+                self.dvs.add_output(dv_name, val=self.aero_options[dv_name])
+            self.connect(dv_name, 'mp_group.s0.solver_group.aero.%s' % dv_name)
 
         self.dvs.add_output('dv_struct',np.array([0.03]))
         self.connect('dv_struct',['mp_group.s0.solver_group.struct.dv_struct',
