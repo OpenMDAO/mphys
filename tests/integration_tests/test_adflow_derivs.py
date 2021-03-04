@@ -106,7 +106,7 @@ class Top(om.Group):
             chordRef=3.25,
             evalFuncs=["lift", "drag", "cl", "cd"],
         )
-        ap0.addDV("alpha", value=2.0, name="alpha")
+        ap0.addDV("alpha", value=2.0, name="aoa")
         self.mp.s0.solver_group.aero.mphys_set_ap(ap0)
         # self.mp.s0.solver_group.aero_funcs.mphys_set_ap(ap0)
         self.mp.s0.aero_funcs.mphys_set_ap(ap0)
