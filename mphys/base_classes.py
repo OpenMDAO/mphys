@@ -38,7 +38,7 @@ class SolverBuilder(object):
         The method that returns the python objects that represents the solver.
 
         Returns
-        _______
+        -------
         solver : object
             The solver used inside of the openmdao component that does the calculations
         """
@@ -52,7 +52,7 @@ class SolverBuilder(object):
         Method that returns the openmdao element for this solver
 
         Parameters
-        __________
+        ----------
         **kwargs : optional parameter dictionary
             The builder may or may not propagate the keyword arguments
             provided in this dictionary to the element. These options
@@ -61,7 +61,7 @@ class SolverBuilder(object):
             should be enabled in the solver. Subject to change
 
         Returns
-        _______
+        -------
         solver_element : openmdao component or group
             The openmdao element that handles all the computations for
             this solver. This group needs to comply with the MPHYS API
@@ -79,7 +79,7 @@ class SolverBuilder(object):
         is connected to the every flight condition that is created using this builder
 
         Returns
-        _______
+        -------
         mesh_element : openmdao component (or group)
             The openmdao element that stores the original coordinates of the mesh used
             for this solver. For an aerodynamic or structural solver examples, these
@@ -94,8 +94,9 @@ class SolverBuilder(object):
     def get_mesh_connections(self):
         """
         Method that returns a dictionary of connections between the mesh element and the element
+
         Returns
-        _______
+        -------
         mesh_element_conns : dict
             The keys of the dictionary represent the components of the element the mesh is connected to and the keys
             represent the variables to connect from the mesh to the element component
@@ -110,7 +111,7 @@ class SolverBuilder(object):
         Method that returns the openmdao element to be added to each scenario
 
         Returns
-        _______
+        -------
         scenario_element : openmdao component or group
             The openmdao element that handles all the added computations for
             that should be run in each scenario. These may represent functional that
@@ -126,7 +127,7 @@ class SolverBuilder(object):
         Method that returns a dictionary of connections between the scenario element and the element
 
         Returns
-        _______
+        -------
         scenario_connections : dict
             The keys of the dictionary represent the components of the element the scenario is connected to and the keys
             represent the variables to connect from the scenario to the element component
@@ -141,7 +142,7 @@ class SolverBuilder(object):
         Method that returns the number of nodes used in the calculation
 
         Returns
-        _______
+        -------
         nnodes : int
             number of nodes in the computational domain
         """
@@ -155,7 +156,7 @@ class SolverBuilder(object):
         Method that returns the number of degrees of freedom used at each node.
 
         Returns
-        _______
+        -------
         ndof : int
             number of degrees of freedom of each node in the computational domain
         """
