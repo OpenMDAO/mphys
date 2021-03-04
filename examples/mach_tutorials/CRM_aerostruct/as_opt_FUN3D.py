@@ -553,8 +553,6 @@ model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 
 
 prob.run_model()
 
-boo
-
 ## add design variables
 
 prob.setup(mode='rev')

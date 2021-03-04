@@ -164,7 +164,7 @@ class Top(om.Group):
             chordRef=3.25,
             evalFuncs=["lift", "drag", "cl", "cd"],
         )
-        ap0.addDV("alpha", value=aoa, name="alpha")
+        ap0.addDV("alpha", value=aoa, name="aoa")
         ap0.addDV("mach", value=0.8, name="mach")
 
         # here we set the aero problems for every cruise case we have.
@@ -251,13 +251,13 @@ class TestAeroStructSolve(unittest.TestCase):
         if MPI.COMM_WORLD.rank == 0:
             print("Scenario 0")
 
-            print("xa =", np.mean(self.prob.get_val("mp_group.s0.solver_group.aero.geo_disp.x_a", get_remote=True)))
+            print("xa =", np.mean(self.prob.get_val("mp_group.s0.solver_group.aero.geo_disp.x_aero", get_remote=True)))
             print("cl =", self.prob.get_val("mp_group.s0.aero_funcs.cl", get_remote=True))
             print("cd =", self.prob.get_val("mp_group.s0.aero_funcs.cd", get_remote=True))
             print("cd =", self.prob.get_val("mp_group.s0.struct_funcs.funcs.f_struct", get_remote=True))
 
             assert_near_equal(
-                np.mean(self.prob.get_val("mp_group.s0.solver_group.aero.geo_disp.x_a", get_remote=True)),
+                np.mean(self.prob.get_val("mp_group.s0.solver_group.aero.geo_disp.x_aero", get_remote=True)),
                 self.ref_vals["xa"],
                 1e-6,
             )

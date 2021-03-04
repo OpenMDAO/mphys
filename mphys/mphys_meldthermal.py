@@ -68,15 +68,15 @@ class MELDThermal_temp_xfer(om.ExplicitComponent):
         self.add_input('x_aero0', shape = conv_nnodes*3,             src_indices = np.arange(ax1, ax2, dtype=int), desc='initial aerodynamic surface node coordinates')
 
 
-        print('temp_cond',cond_temp_n1, cond_temp_n2,  self.cond_nnodes*cond_ndof)
+        print('T_conduct',cond_temp_n1, cond_temp_n2,  self.cond_nnodes*cond_ndof)
 
-        self.add_input('temp_cond',  shape = self.cond_nnodes*cond_ndof, src_indices = np.arange(cond_temp_n1, cond_temp_n2, dtype=int),
+        self.add_input('T_conduct',  shape = self.cond_nnodes*cond_ndof, src_indices = np.arange(cond_temp_n1, cond_temp_n2, dtype=int),
                                      desc='conductive node displacements')
 
         # outputs
-        print('temp_conv', conv_nnodes)
+        print('T_convect', conv_nnodes)
 
-        self.add_output('temp_conv', shape = conv_nnodes, val=np.ones(conv_nnodes)*301, desc='conv surface temperatures')
+        self.add_output('T_convect', shape = conv_nnodes, val=np.ones(conv_nnodes)*301, desc='conv surface temperatures')
 
 
     def compute(self, inputs, outputs):
@@ -97,11 +97,11 @@ class MELDThermal_temp_xfer(om.ExplicitComponent):
 
         # heat_xfer_cond0 = np.array(inputs['heat_xfer_cond0'],dtype=TransferScheme.dtype)
         # heat_xfer_conv0 = np.array(inputs['heat_xfer_conv0'],dtype=TransferScheme.dtype)
-        temp_conv  = np.array(outputs['temp_conv'],dtype=TransferScheme.dtype)
+        temp_conv  = np.array(outputs['T_convect'],dtype=TransferScheme.dtype)
 
-        temp_cond  = np.array(inputs['temp_cond'],dtype=TransferScheme.dtype)
+        temp_cond  = np.array(inputs['T_conduct'],dtype=TransferScheme.dtype)
         # for i in range(3):
-        #     temp_cond[i::3] = inputs['temp_cond'][i::self.cond_ndof]
+        #     temp_cond[i::3] = inputs['T_conduct'][i::self.cond_ndof]
 
 
         if not self.initialized_meld:
@@ -110,7 +110,7 @@ class MELDThermal_temp_xfer(om.ExplicitComponent):
 
         self.meldThermal.transferTemp(temp_cond,temp_conv)
 
-        outputs['temp_conv'] = temp_conv
+        outputs['T_convect'] = temp_conv
 
 class MELDThermal_heat_xfer_rate_xfer(om.ExplicitComponent):
     """
@@ -181,19 +181,19 @@ class MELDThermal_heat_xfer_rate_xfer(om.ExplicitComponent):
         self.add_input('x_aero0', shape = conv_nnodes*3, src_indices = np.arange(ax1, ax2, dtype=int), desc='initial aerodynamic surface node coordinates')
 
 
-        print('heat_xfer_conv',conv_heat_n1, conv_heat_n2,  conv_nnodes)
+        print('q_convect',conv_heat_n1, conv_heat_n2,  conv_nnodes)
 
-        self.add_input('heat_xfer_conv', shape = conv_nnodes, src_indices = np.arange(conv_heat_n1, conv_heat_n2, dtype=int), desc='initial conv heat transfer rate')
+        self.add_input('q_convect', shape = conv_nnodes, src_indices = np.arange(conv_heat_n1, conv_heat_n2, dtype=int), desc='initial conv heat transfer rate')
 
-        print('heat_xfer_cond', self.cond_nnodes)
+        print('q_conduct', self.cond_nnodes)
 
         # outputs
-        self.add_output('heat_xfer_cond', shape = self.cond_nnodes, desc='heat transfer rate on the conduction mesh at the interface')
+        self.add_output('q_conduct', shape = self.cond_nnodes, desc='heat transfer rate on the conduction mesh at the interface')
 
 
     def compute(self, inputs, outputs):
 
-        heat_xfer_conv =  np.array(inputs['heat_xfer_conv'],dtype=TransferScheme.dtype)
+        heat_xfer_conv =  np.array(inputs['q_convect'],dtype=TransferScheme.dtype)
         heat_xfer_cond = np.zeros(self.cond_nnodes,dtype=TransferScheme.dtype)
 
         # if self.check_partials:
@@ -204,16 +204,16 @@ class MELDThermal_heat_xfer_rate_xfer(om.ExplicitComponent):
 
         #     #TODO meld needs a set state rather requiring transferDisps to update the internal state
 
-        #     temp_conv = np.zeros(inputs['heat_xfer_conv'].size,dtype=TransferScheme.dtype)
+        #     temp_conv = np.zeros(inputs['q_convect'].size,dtype=TransferScheme.dtype)
         #     temp_cond  = np.zeros(self.cond_surface_nnodes,dtype=TransferScheme.dtype)
         #     for i in range(3):
-        #         temp_cond[i::3] = inputs['temp_cond'][i::self.cond_ndof]
+        #         temp_cond[i::3] = inputs['T_conduct'][i::self.cond_ndof]
 
 
         #     self.meldThermal.transferTemp(temp_cond,temp_conv)
 
         self.meldThermal.transferFlux(heat_xfer_conv,heat_xfer_cond)
-        outputs['heat_xfer_cond'] = heat_xfer_cond
+        outputs['q_conduct'] = heat_xfer_cond
 
 class MELDThermal_builder(Builder):
 

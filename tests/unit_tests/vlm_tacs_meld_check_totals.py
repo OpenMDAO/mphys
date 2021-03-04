@@ -9,7 +9,7 @@ from mphys.mphys_vlm import VlmBuilder
 from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_meld import MeldBuilder
 
-from tacs import elements, constitutive, functions
+from tacs import elements, constitutive, functions, TACS
 
 use_modal = False
 
