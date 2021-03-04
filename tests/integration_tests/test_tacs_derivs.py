@@ -159,23 +159,22 @@ class TestTACs(unittest.TestCase):
     def test_derivatives(self):
         self.prob.run_model()
         print('----------------strating check totals--------------')
-        # data = self.prob.check_totals(step=1e-7, form='forward')
         data = self.prob.check_totals(wrt='xpts', method='cs', step=1e-30, step_calc='rel')  # out_stream=None
 
         for var, err in data.items():
 
             rel_err = err['rel error']  # ,  'rel error']
-            assert_near_equal(rel_err.forward, 0.0, 1e-2)
+            assert_near_equal(rel_err.forward, 0.0, 1e-8)
         data = self.prob.check_totals(of=['mp.s0.struct_funcs.funcs.func_struct'], wrt='f_struct', method='cs', step=1e-30, step_calc='rel')  # out_stream=None
         for var, err in data.items():
 
             rel_err = err['rel error']  # ,  'rel error']
-            assert_near_equal(rel_err.forward, 0.0, 1e-2)
+            assert_near_equal(rel_err.forward, 0.0, 1e-8)
         data = self.prob.check_totals(wrt='dv_struct', method='cs', step=1e-30, step_calc='rel')  # out_stream=None
         for var, err in data.items():
 
             rel_err = err['rel error']  # ,  'rel error']
-            assert_near_equal(rel_err.forward, 0.0, 1e-2)
+            assert_near_equal(rel_err.forward, 0.0, 5e-8)
 
 
 if __name__ == '__main__':
