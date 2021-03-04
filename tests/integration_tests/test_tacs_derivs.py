@@ -85,7 +85,7 @@ class Top(om.Group):
         struct_options = {
             'add_elements': add_elements,
             'get_funcs': get_funcs,
-            'mesh_file': os.path.join(baseDir, '../input_files/wingbox.bdf'),
+            'mesh_file': os.path.join(baseDir, '../input_files/debug.bdf'),
             # 'f5_writer'   : f5_writer,
         }
 
