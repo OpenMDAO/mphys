@@ -25,7 +25,7 @@ class Builder:
         """
         pass
 
-    def get_mesh_coordinate_subsytem(self):
+    def get_mesh_coordinate_subsystem(self):
         return None
 
     def get_coupling_group_subsystem(self):
