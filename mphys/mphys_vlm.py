@@ -6,112 +6,89 @@ from mphys import Builder
 
 from vlm_solver import VLM_solver, VLM_forces
 
-class VlmMesh(om.ExplicitComponent):
-
+class VlmMesh(om.IndepVarComp):
     def initialize(self):
-        self.options.declare('N_nodes')
         self.options.declare('x_aero0')
-
     def setup(self):
-
-        N_nodes = self.options['N_nodes']
-        self.x_a0 = self.options['x_aero0']
-        self.add_output('x_aero0',np.zeros(N_nodes*3))
-
-    def compute(self,inputs,outputs):
-
-        if 'x_aero0_points' in inputs:
-            outputs['x_aero0'] = inputs['x_aero0_points']
-        else:
-            outputs['x_aero0'] = self.x_a0
-
-    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
-        if mode == 'fwd':
-            if 'x_aero0_points' in d_inputs:
-                d_outputs['x_aero0'] += d_inputs['x_aero0_points']
-        elif mode == 'rev':
-            if 'x_aero0_points' in d_inputs:
-                d_inputs['x_aero0_points'] += d_outputs['x_aero0']
+        self.add_output('x_aero0', val=self.options['x_aero0'])
 
 class VlmGroup(om.Group):
 
     def initialize(self):
-        self.options.declare('options_dict')
-        # Flag to enable AS coupling items
-        # TODO we do not use this now and assume we have as_coupling = True always.
-        # this needs to be updated to run aero-only vlm
-        self.options.declare('as_coupling')
+        self.options.declare('connectivity')
+        self.options.declare('number_of_nodes')
+        self.options.declare('compute_tractions', default=False)
 
     def setup(self):
+        self.add_subsystem('solver', VLM_solver(connectivity=self.options['connectivity']),
+                           promotes_inputs=['aoa','mach','x_aero'])
 
-        options_dict = self.options['options_dict']
-        # this can be done much more cleanly with **options_dict
-        N_nodes    = options_dict['N_nodes']
-        N_elements = options_dict['N_elements']
-        x_a0       = options_dict['x_aero0']
-        quad       = options_dict['quad']
+        self.add_subsystem('forces', VLM_forces(connectivity=self.options['connectivity'],
+                                                number_of_nodes = self.options['number_of_nodes'],
+                                                compute_tractions=self.options['compute_tractions']),
+                           promotes_inputs=['mach','q_inf','vel','mu', 'x_aero'],
+                           promotes_outputs=['f_aero','C_L','C_D'])
 
-        # by default, we use nodal forces. however, if the user wants to use
-        # tractions, they can specify it in the options_dict
-        compute_traction = False
-        if 'compute_traction' in options_dict:
-            compute_traction = options_dict['compute_traction']
-
-        self.add_subsystem('solver', VLM_solver(
-            N_nodes=N_nodes,
-            N_elements=N_elements,
-            quad=quad),
-            promotes_inputs=['aoa','mach',('xa','x_aero'),])
-
-        self.add_subsystem('forces', VLM_forces(
-            N_nodes=N_nodes,
-            N_elements=N_elements,
-            quad=quad,
-            compute_traction=compute_traction),
-            promotes_inputs=['mach','q_inf','vel','mu', ('xa','x_aero')],
-            promotes_outputs=[('fa','f_aero'),'CL','CD'])
-
-    def configure(self):
         self.connect('solver.Cp', 'forces.Cp')
 
 class DummyVlmSolver(object):
-    '''
-    a dummy object that can be used to hold the
-    memory associated with a single VLM solver so that
-    multiple OpenMDAO components share the same memory.
-    '''
-    def __init__(self, options, comm):
-        self.options = options
-        self.comm = comm
+    """
+    RLT specific data storage and methods
+    """
+    def __init__(self, x_aero0, conn):
+        self.x_aero0 = x_aero0
+        self.conn = conn
 
-    # the methods below here are required for RLT
     def getSurfaceCoordinates(self, group):
-        return self.options['x_aero0']
+        return self.x_aero0
 
     def getSurfaceConnectivity(self, group):
         fortran_offset = -1
-        conn = self.options['quad'].copy() + fortran_offset
+        conn = self.conn.copy() + fortran_offset
         faceSizes = 4*np.ones(len(conn), 'intc')
         return conn.astype('intc'), faceSizes
 
 class VlmBuilder(Builder):
+    def __init__(self, meshfile, compute_tractions=False):
+        self.meshfile = meshfile
+        self.compute_tractions = compute_tractions
 
-    def __init__(self, options):
-        self.options = options
+    def read_mesh(self, meshfile):
+        with  open(meshfile,'r') as f:
+            contents = f.read().split()
 
-    def init_solver(self, comm):
-        self.solver = DummyVlmSolver(options=self.options, comm=comm)
+        a = [i for i in contents if 'NODES' in i][0]
+        num_nodes = int(a[a.find("=")+1:a.find(",")])
+        a = [i for i in contents if 'ELEMENTS' in i][0]
+        num_elements = int(a[a.find("=")+1:a.find(",")])
 
-    def get_solver(self):
-        return self.solver
+        a = np.array(contents[16:16+num_nodes*3],'float')
+        x = a[0:num_nodes*3:3]
+        y = a[1:num_nodes*3:3]
+        z = a[2:num_nodes*3:3]
+        a = np.array(contents[16+num_nodes*3:None],'int')
 
-    def get_element(self, **kwargs):
-        return VlmGroup(options_dict=self.options, **kwargs)
+        self.connectivity = np.reshape(a,[num_elements,4])
+        self.x_aero0 = np.c_[x,y,z].flatten(order='C')
 
-    def get_mesh_element(self):
-        N_nodes = self.options['N_nodes']
-        x_aero0 = self.options['x_aero0']
-        return VlmMesh(N_nodes=N_nodes, x_aero0=x_aero0)
+    def initialize(self, comm):
+        self.read_mesh(self.meshfile)
+        self.solver = DummyVlmSolver(self.x_aero0, self.connectivity)
 
-    def get_nnodes(self):
-        return self.options['N_nodes']
+    def get_mesh_coordinate_subsystem(self):
+        return VlmMesh(x_aero0=self.x_aero0)
+
+    def get_coupling_group_subsystem(self):
+        number_of_nodes = self.x_aero0.size // 3
+        return VlmGroup(connectivity=self.connectivity,
+                        number_of_nodes=number_of_nodes,
+                        compute_tractions=self.compute_tractions)
+
+    def get_scenario_subsystems(self):
+        return None, None
+
+    def get_number_of_nodes(self):
+        return self.x_aero0.size // 3
+
+    def get_ndof(self):
+        return self.x_aero0.size // 3
