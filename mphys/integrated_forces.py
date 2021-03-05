@@ -2,43 +2,38 @@ import numpy as np
 import openmdao.api as om
 
 class IntegratedSurfaceForces(om.ExplicitComponent):
-    def initialize(self):
-        self.options.declare('number_of_surface_nodes')
-
     def setup(self):
-        nnodes = self.options['number_of_surface_nodes']
+        self.add_input('aoa',desc = 'angle of attack', units='rad',tags=['mphys_dv'])
+        self.add_input('yaw',desc = 'yaw angle',units='rad',tags=['mphys_dv'])
+        self.add_input('ref_area', val = 1.0,tags=['mphys_dv'])
+        self.add_input('moment_center',shape=3,tags=['mphys_dv'])
+        self.add_input('ref_length', val = 1.0,tags=['mphys_dv'])
+        self.add_input('q_inf', val = 1.0,tags=['mphys_dv'])
 
-        self.add_input('aoa',desc = 'angle of attack', units='deg')
-        self.add_input('yaw',desc = 'yaw angle',units='deg')
-        self.add_input('ref_area', val = 1.0)
-        self.add_input('moment_center',shape=3)
-        self.add_input('ref_length', val = 1.0)
-        self.add_input('q_inf', val = 1.0)
+        self.add_input('x_aero', shape_by_conn=True, desc = 'surface coordinates', tags=['mphys_coupling'])
+        self.add_input('f_aero', shape_by_conn=True, desc = 'dimensional forces at nodes', tags=['mphys_coupling'])
 
-        self.add_input('x_aero', shape_by_conn=True, desc = 'surface coordinates')
-        self.add_input('f_aero', shape_by_conn=True, desc = 'dimensional forces at nodes')
+        self.add_output('C_L', desc = 'Lift coefficient', tags=['mphys_result'])
+        self.add_output('C_D', desc = 'Drag coefficient', tags=['mphys_result'])
+        self.add_output('C_X', desc = 'X Force coefficient', tags=['mphys_result'])
+        self.add_output('C_Y', desc = 'Y Force coefficient', tags=['mphys_result'])
+        self.add_output('C_Z', desc = 'Z Force coefficient', tags=['mphys_result'])
+        self.add_output('CM_X', desc = 'X Moment coefficient', tags=['mphys_result'])
+        self.add_output('CM_Y', desc = 'Y Moment coefficient', tags=['mphys_result'])
+        self.add_output('CM_Z', desc = 'Z Moment coefficient', tags=['mphys_result'])
 
-        self.add_output('C_L', desc = 'Lift coefficient')
-        self.add_output('C_D', desc = 'Drag coefficient')
-        self.add_output('C_X', desc = 'X Force coefficient')
-        self.add_output('C_Y', desc = 'Y Force coefficient')
-        self.add_output('C_Z', desc = 'Z Force coefficient')
-        self.add_output('CM_X', desc = 'X Moment coefficient')
-        self.add_output('CM_Y', desc = 'Y Moment coefficient')
-        self.add_output('CM_Z', desc = 'Z Moment coefficient')
-
-        self.add_output('Lift', desc = 'Total Lift')
-        self.add_output('Drag', desc = 'Total Drag')
-        self.add_output('F_X', desc = 'Total X Force')
-        self.add_output('F_Y', desc = 'Total Y Force')
-        self.add_output('F_Z', desc = 'Total Z Force')
-        self.add_output('M_X', desc = 'Total X Moment')
-        self.add_output('M_Y', desc = 'Total Y Moment')
-        self.add_output('M_Z', desc = 'Total Z Moment')
+        self.add_output('Lift', desc = 'Total Lift', tags=['mphys_result'])
+        self.add_output('Drag', desc = 'Total Drag', tags=['mphys_result'])
+        self.add_output('F_X', desc = 'Total X Force', tags=['mphys_result'])
+        self.add_output('F_Y', desc = 'Total Y Force', tags=['mphys_result'])
+        self.add_output('F_Z', desc = 'Total Z Force', tags=['mphys_result'])
+        self.add_output('M_X', desc = 'Total X Moment', tags=['mphys_result'])
+        self.add_output('M_Y', desc = 'Total Y Moment', tags=['mphys_result'])
+        self.add_output('M_Z', desc = 'Total Z Moment', tags=['mphys_result'])
 
     def compute(self,inputs,outputs):
-        aoa_rad = np.pi / 180.0 * inputs['aoa']
-        yaw_rad  = np.pi / 180.0 * inputs['yaw']
+        aoa = inputs['aoa']
+        yaw  = inputs['yaw']
         area = inputs['ref_area']
         q_inf = inputs['q_inf']
         xc = inputs['moment_center'][0]
@@ -65,10 +60,10 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         outputs['C_Y'] = fy_total / (q_inf * area)
         outputs['C_Z'] = fz_total / (q_inf * area)
 
-        outputs['Lift'] = -fx_total * np.sin(aoa_rad) + fz_total * np.cos(aoa_rad)
-        outputs['Drag'] = ( fx_total * np.cos(aoa_rad) * np.cos(yaw_rad)
-                          - fy_total * np.sin(yaw_rad)
-                          + fz_total * np.sin(aoa_rad) * np.cos(yaw_rad)
+        outputs['Lift'] = -fx_total * np.sin(aoa) + fz_total * np.cos(aoa)
+        outputs['Drag'] = ( fx_total * np.cos(aoa) * np.cos(yaw)
+                          - fy_total * np.sin(yaw)
+                          + fz_total * np.sin(aoa) * np.cos(yaw)
                           )
 
         outputs['C_L'] = outputs['Lift'] / (q_inf * area)
@@ -83,8 +78,8 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         outputs['CM_Z'] = outputs['M_Z'] / (q_inf * area * c)
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
-        aoa_rad = np.pi / 180.0 * inputs['aoa']
-        yaw_rad  = np.pi / 180.0 * inputs['yaw']
+        aoa = inputs['aoa']
+        yaw  = inputs['yaw']
         area = inputs['ref_area']
         q_inf = inputs['q_inf']
         xc = inputs['moment_center'][0]
@@ -103,10 +98,10 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         fx_total = np.sum(fx)
         fy_total = np.sum(fy)
         fz_total = np.sum(fz)
-        lift = -fx_total * np.sin(aoa_rad) + fz_total * np.cos(aoa_rad)
-        drag = ( fx_total * np.cos(aoa_rad) * np.cos(yaw_rad)
-               - fy_total * np.sin(yaw_rad)
-               + fz_total * np.sin(aoa_rad) * np.cos(yaw_rad)
+        lift = -fx_total * np.sin(aoa) + fz_total * np.cos(aoa)
+        drag = ( fx_total * np.cos(aoa) * np.cos(yaw)
+               - fy_total * np.sin(yaw)
+               + fz_total * np.sin(aoa) * np.cos(yaw)
                )
 
         m_x =  np.dot(fz,(y-yc)) - np.dot(fy,(z-zc))
@@ -117,16 +112,16 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
             if 'aoa' in d_inputs:
                 daoa_rad = np.pi / 180.0 * d_inputs['aoa']
                 if 'Lift' in d_outputs or 'C_L' in d_outputs:
-                    d_lift_d_aoa = ( - fx_total * np.cos(aoa_rad) * daoa_rad
-                                       - fz_total * np.sin(aoa_rad) * daoa_rad )
+                    d_lift_d_aoa = ( - fx_total * np.cos(aoa) * daoa_rad
+                                       - fz_total * np.sin(aoa) * daoa_rad )
 
                     if 'Lift' in d_outputs:
                         d_outputs['Lift'] += d_lift_d_aoa
                     if 'C_L' in d_outputs:
                         d_outputs['C_L'] += d_lift_d_aoa / (q_inf * area)
                 if 'Drag' in d_outputs or 'C_D' in d_outputs:
-                    d_drag_d_aoa = ( fx_total * (-np.sin(aoa_rad) * daoa_rad) * np.cos(yaw_rad)
-                                     + fz_total * ( np.cos(aoa_rad) * daoa_rad) * np.cos(yaw_rad))
+                    d_drag_d_aoa = ( fx_total * (-np.sin(aoa) * daoa_rad) * np.cos(yaw)
+                                     + fz_total * ( np.cos(aoa) * daoa_rad) * np.cos(yaw))
                     if 'Drag' in d_outputs:
                         d_outputs['Drag'] += d_drag_d_aoa
                     if 'C_D' in d_outputs:
@@ -135,9 +130,9 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
             if 'yaw' in d_inputs:
                 dyaw_rad = np.pi / 180.0 * d_inputs['yaw']
                 if 'Drag' in d_outputs or 'C_D' in d_outputs:
-                    d_drag_d_yaw = ( fx_total * np.cos(aoa_rad) * (-np.sin(yaw_rad) * dyaw_rad)
-                                    - fy_total * np.cos(yaw_rad) * dyaw_rad
-                                    + fz_total * np.sin(aoa_rad) * (-np.sin(yaw_rad) * dyaw_rad)
+                    d_drag_d_yaw = ( fx_total * np.cos(aoa) * (-np.sin(yaw) * dyaw_rad)
+                                    - fy_total * np.cos(yaw) * dyaw_rad
+                                    + fz_total * np.sin(aoa) * (-np.sin(yaw) * dyaw_rad)
                                     )
                     if 'Drag' in d_outputs:
                         d_outputs['Drag'] += d_drag_d_yaw
@@ -244,18 +239,18 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                 if 'C_Z' in d_outputs:
                     d_outputs['C_Z'] += dfz_total / (q_inf * area)
                 if 'Lift' in d_outputs:
-                    d_outputs['Lift'] += -dfx_total * np.sin(aoa_rad) + dfz_total * np.cos(aoa_rad)
+                    d_outputs['Lift'] += -dfx_total * np.sin(aoa) + dfz_total * np.cos(aoa)
                 if 'Drag' in d_outputs:
-                    d_outputs['Drag'] += ( dfx_total * np.cos(aoa_rad) * np.cos(yaw_rad)
-                                         - dfy_total * np.sin(yaw_rad)
-                                         + dfz_total * np.sin(aoa_rad) * np.cos(yaw_rad)
+                    d_outputs['Drag'] += ( dfx_total * np.cos(aoa) * np.cos(yaw)
+                                         - dfy_total * np.sin(yaw)
+                                         + dfz_total * np.sin(aoa) * np.cos(yaw)
                                          )
                 if 'C_L' in d_outputs:
-                    d_outputs['C_L'] += (-dfx_total * np.sin(aoa_rad) + dfz_total * np.cos(aoa_rad)) / (q_inf * area)
+                    d_outputs['C_L'] += (-dfx_total * np.sin(aoa) + dfz_total * np.cos(aoa)) / (q_inf * area)
                 if 'C_D' in d_outputs:
-                    d_outputs['C_D'] += ( dfx_total * np.cos(aoa_rad) * np.cos(yaw_rad)
-                                        - dfy_total * np.sin(yaw_rad)
-                                        + dfz_total * np.sin(aoa_rad) * np.cos(yaw_rad)
+                    d_outputs['C_D'] += ( dfx_total * np.cos(aoa) * np.cos(yaw)
+                                        - dfy_total * np.sin(yaw)
+                                        + dfz_total * np.sin(aoa) * np.cos(yaw)
                                         ) / (q_inf * area)
 
                 if 'M_X' in d_outputs:
@@ -276,25 +271,25 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                 if 'Lift' in d_outputs or 'C_L' in d_outputs:
                     d_lift = d_outputs['Lift'] if 'Lift' in d_outputs else 0.0
                     d_cl   = d_outputs['C_L']  if 'C_L'  in d_outputs else 0.0
-                    d_lift_d_aoa_rad = ( - fx_total * np.cos(aoa_rad)
-                                         - fz_total * np.sin(aoa_rad)
+                    d_lift_d_aoa_rad = ( - fx_total * np.cos(aoa)
+                                         - fz_total * np.sin(aoa)
                                        ) * (d_lift + d_cl / (q_inf * area))
 
                     d_inputs['aoa'] += d_lift_d_aoa_rad * np.pi / 180.0
                 if 'Drag' in d_outputs or 'C_D' in d_outputs:
                     d_drag = d_outputs['Drag'] if 'Drag' in d_outputs else 0.0
                     d_cd   = d_outputs['C_D']  if 'C_D'  in d_outputs else 0.0
-                    d_drag_d_aoa_rad = ( fx_total * (-np.sin(aoa_rad)) * np.cos(yaw_rad)
-                                       + fz_total * ( np.cos(aoa_rad)) * np.cos(yaw_rad)
+                    d_drag_d_aoa_rad = ( fx_total * (-np.sin(aoa)) * np.cos(yaw)
+                                       + fz_total * ( np.cos(aoa)) * np.cos(yaw)
                                        ) * (d_drag + d_cd / (q_inf * area))
                     d_inputs['aoa'] += d_drag_d_aoa_rad * np.pi / 180.0
             if 'yaw' in d_inputs:
                 if 'Drag' in d_outputs or 'C_D' in d_outputs:
                     d_drag = d_outputs['Drag'] if 'Drag' in d_outputs else 0.0
                     d_cd   = d_outputs['C_D']  if 'C_D'  in d_outputs else 0.0
-                    d_drag_d_yaw_rad = ( fx_total * np.cos(aoa_rad) * (-np.sin(yaw_rad))
-                                       - fy_total * np.cos(yaw_rad)
-                                       + fz_total * np.sin(aoa_rad) * (-np.sin(yaw_rad))
+                    d_drag_d_yaw_rad = ( fx_total * np.cos(aoa) * (-np.sin(yaw))
+                                       - fy_total * np.cos(yaw)
+                                       + fz_total * np.sin(aoa) * (-np.sin(yaw))
                                        ) * (d_drag + d_cd / (q_inf * area))
                     d_inputs['yaw'] += d_drag_d_yaw_rad * np.pi / 180.0
 
@@ -390,19 +385,19 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                 if 'C_Z' in d_outputs:
                     d_inputs['f_aero'][2::3] += d_outputs['C_Z'] / (q_inf * area)
                 if 'Lift' in d_outputs:
-                    d_inputs['f_aero'][0::3] += -np.sin(aoa_rad) * d_outputs['Lift']
-                    d_inputs['f_aero'][2::3] +=  np.cos(aoa_rad) * d_outputs['Lift']
+                    d_inputs['f_aero'][0::3] += -np.sin(aoa) * d_outputs['Lift']
+                    d_inputs['f_aero'][2::3] +=  np.cos(aoa) * d_outputs['Lift']
                 if 'Drag' in d_outputs:
-                    d_inputs['f_aero'][0::3] +=  np.cos(aoa_rad) * np.cos(yaw_rad) * d_outputs['Drag']
-                    d_inputs['f_aero'][1::3] += -np.sin(yaw_rad) * d_outputs['Drag']
-                    d_inputs['f_aero'][2::3] +=  np.sin(aoa_rad) * np.cos(yaw_rad) * d_outputs['Drag']
+                    d_inputs['f_aero'][0::3] +=  np.cos(aoa) * np.cos(yaw) * d_outputs['Drag']
+                    d_inputs['f_aero'][1::3] += -np.sin(yaw) * d_outputs['Drag']
+                    d_inputs['f_aero'][2::3] +=  np.sin(aoa) * np.cos(yaw) * d_outputs['Drag']
                 if 'C_L' in d_outputs:
-                    d_inputs['f_aero'][0::3] += -np.sin(aoa_rad) * d_outputs['C_L'] / (q_inf * area)
-                    d_inputs['f_aero'][2::3] +=  np.cos(aoa_rad) * d_outputs['C_L'] / (q_inf * area)
+                    d_inputs['f_aero'][0::3] += -np.sin(aoa) * d_outputs['C_L'] / (q_inf * area)
+                    d_inputs['f_aero'][2::3] +=  np.cos(aoa) * d_outputs['C_L'] / (q_inf * area)
                 if 'C_D' in d_outputs:
-                    d_inputs['f_aero'][0::3] +=  np.cos(aoa_rad) * np.cos(yaw_rad) * d_outputs['C_D'] / (q_inf * area)
-                    d_inputs['f_aero'][1::3] += -np.sin(yaw_rad) * d_outputs['C_D'] / (q_inf * area)
-                    d_inputs['f_aero'][2::3] +=  np.sin(aoa_rad) * np.cos(yaw_rad) * d_outputs['C_D'] / (q_inf * area)
+                    d_inputs['f_aero'][0::3] +=  np.cos(aoa) * np.cos(yaw) * d_outputs['C_D'] / (q_inf * area)
+                    d_inputs['f_aero'][1::3] += -np.sin(yaw) * d_outputs['C_D'] / (q_inf * area)
+                    d_inputs['f_aero'][2::3] +=  np.sin(aoa) * np.cos(yaw) * d_outputs['C_D'] / (q_inf * area)
 
                 if 'M_X' in d_outputs:
                     d_inputs['f_aero'][1::3] += -(z-zc) * d_outputs['M_X']
@@ -437,7 +432,7 @@ if __name__ == '__main__':
     ivc.add_output('x_aero',shape=3*nnodes,val=np.random.rand(3*nnodes))
     ivc.add_output('f_aero',shape=3*nnodes,val=np.random.rand(3*nnodes))
     prob.model.add_subsystem('ivc',ivc,promotes_outputs=['*'])
-    prob.model.add_subsystem('forces',IntegratedSurfaceForces(number_of_surface_nodes = nnodes),
+    prob.model.add_subsystem('forces',IntegratedSurfaceForces(),
                                       promotes_inputs=['*'])
 
     prob.setup(force_alloc_complex=True)
