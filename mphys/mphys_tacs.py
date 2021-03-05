@@ -828,7 +828,7 @@ class TacsBuilder(Builder):
 
         tacs_assembler = mesh.createTACS(ndof)
 
-        nnodes = tacs_assembler.createNodeVec().getArray().size // 3
+        number_of_nodes = tacs_assembler.createNodeVec().getArray().size // 3
 
         if self.conduction:
             mat = tacs_assembler.createSchurMat()
@@ -843,7 +843,7 @@ class TacsBuilder(Builder):
 
         solver_dict['ndv']    = ndv
         solver_dict['ndof']   = ndof
-        solver_dict['nnodes'] = nnodes
+        solver_dict['number_of_nodes'] = number_of_nodes
         solver_dict['get_funcs'] = self.options['get_funcs']
 
         #use the supplied function to get the surface points and mapping
@@ -861,7 +861,6 @@ class TacsBuilder(Builder):
         self.tacs_assembler = tacs_assembler
         self.solver_objects = [mat, pc, gmres, solver_dict]
 
-    # api level method for all builders
     def get_coupling_group_subsystem(self, **kwargs):
         return TacsGroup(tacs_assembler=self.tacs_assembler,
                          solver_objects=self.solver_objects,
@@ -881,8 +880,8 @@ class TacsBuilder(Builder):
     def get_ndof(self):
         return self.solver_dict['ndof']
 
-    def get_nnodes(self):
-        return self.solver_dict['nnodes']
+    def get_number_of_nodes(self):
+        return self.solver_dict['number_of_nodes']
 
     def get_ndv(self):
         return self.solver_dict['ndv']
