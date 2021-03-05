@@ -12,29 +12,25 @@ from mphys import Multipoint
 from mphys.scenario_structural import ScenarioStructural
 import tacs_setup
 
-use_tacs = True
-
 class Top(Multipoint):
     def setup(self):
-        if use_tacs:
-            tacs_options = {'add_elements' : tacs_setup.add_elements,
-                            'mesh_file'    : 'CRM_box_2nd.bdf',
-                            'get_funcs'    : tacs_setup.get_funcs,
-                            'load_function': tacs_setup.forcer_function,
-                            'f5_writer'    : tacs_setup.f5_writer}
+        tacs_options = {'add_elements' : tacs_setup.add_elements,
+                        'mesh_file'    : 'CRM_box_2nd.bdf',
+                        'get_funcs'    : tacs_setup.get_funcs,
+                        'load_function': tacs_setup.forcer_function,
+                        'f5_writer'    : tacs_setup.f5_writer}
 
-            struct_builder = TacsBuilder(tacs_options)
-            struct_builder.initialize(self.comm)
-            self.ndv_struct = struct_builder.get_ndv()
+        struct_builder = TacsBuilder(tacs_options)
+        struct_builder.initialize(self.comm)
+        self.ndv_struct = struct_builder.get_ndv()
 
-        self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
-        self.dvs.add_output('dv_struct',np.array(self.ndv_struct*[0.0031]))
+        dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
+        dvs.add_output('dv_struct',np.array(self.ndv_struct*[0.0031]))
 
         self.add_subsystem('mesh',struct_builder.get_mesh_coordinate_subsystem())
-
         self.mphys_add_scenario('analysis', ScenarioStructural(struct_builder=struct_builder))
-
         self.mphys_connect_scenario_coordinate_source('mesh','analysis','struct')
+
         self.connect('dv_struct', 'analysis.dv_struct')
 
 ################################################################################
