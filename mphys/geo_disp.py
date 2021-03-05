@@ -1,4 +1,3 @@
-import numpy as np
 import openmdao.api as om
 
 class GeoDisp(om.ExplicitComponent):
@@ -8,18 +7,13 @@ class GeoDisp(om.ExplicitComponent):
     """
     def initialize(self):
         self.options['distributed'] = True
-        self.options.declare('number_of_surface_nodes')
+        self.options.declare('number_of_nodes')
 
     def setup(self):
-        nnodes = self.options['number_of_surface_nodes']
+        nnodes = self.options['number_of_nodes']
         local_size = nnodes * 3
-        n_list = self.comm.allgather(local_size)
-        irank  = self.comm.rank
 
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
-
-        self.add_input('x_aero0', shape_by_conn=True,
+        self.add_input('x_aero0', shape_by_conn=True, tags = ['mphys_coordinates'],
                                   desc='aerodynamic surface with geom changes')
         self.add_input('u_aero',  shape_by_conn=True,
                                   desc='aerodynamic surface displacements')

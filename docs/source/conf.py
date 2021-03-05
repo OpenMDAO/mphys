@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = 'Mphys'
-copyright = '2020, NASA'
+copyright = '2021, NASA'
 author = 'NASA'
 
 
@@ -38,6 +38,7 @@ templates_path = ['_templates']
 exclude_patterns = []
 
 autoclass_content = 'both'
+autodoc_member_order = 'bysource'
 
 
 # -- Options for HTML output -------------------------------------------------

@@ -316,10 +316,6 @@ class MeldBuilder(object):
         self.aero_nnodes = self.aero_builder.get_nnodes()
 
     # api level method for all builders
-    def get_xfer_object(self):
-        return self.xfer_object
-
-    # api level method for all builders
     def get_element(self):
 
         disp_xfer = MeldDispXfer(

@@ -20,3 +20,5 @@ dist/
 
 # input files
 tests/input_files/*.xyz
+
+.ropeproject

@@ -2,6 +2,7 @@ from __future__ import division, print_function
 import numpy as np
 
 import openmdao.api as om
+from mphys import Builder
 
 from vlm_solver import VLM_solver, VLM_forces
 
@@ -17,12 +18,6 @@ class VlmMesh(om.ExplicitComponent):
         self.x_a0 = self.options['x_aero0']
         self.add_output('x_aero0',np.zeros(N_nodes*3))
 
-    def mphys_add_coordinate_input(self):
-
-        N_nodes = self.options['N_nodes']
-        self.add_input('x_aero0_points',np.zeros(N_nodes*3))
-        return 'x_aero0_points', self.x_a0
-
     def compute(self,inputs,outputs):
 
         if 'x_aero0_points' in inputs:
@@ -37,41 +32,6 @@ class VlmMesh(om.ExplicitComponent):
         elif mode == 'rev':
             if 'x_aero0_points' in d_inputs:
                 d_inputs['x_aero0_points'] += d_outputs['x_aero0']
-
-class GeoDisp(om.ExplicitComponent):
-    """
-    This component adds the aerodynamic
-    displacements to the geometry-changed aerodynamic surface
-    """
-    def initialize(self):
-        self.options['distributed'] = True
-        self.options.declare('nnodes')
-
-    def setup(self):
-        aero_nnodes = self.options['nnodes']
-        local_size = aero_nnodes * 3
-
-        self.add_input('x_aero0', shape_by_conn=True ,desc='aerodynamic surface with geom changes')
-        self.add_input('u_aero',  shape_by_conn=True, desc='aerodynamic surface displacements')
-
-        self.add_output('x_aero',shape=local_size,desc='deformed aerodynamic surface')
-
-    def compute(self,inputs,outputs):
-        outputs['x_aero'] = inputs['x_aero0'] + inputs['u_aero']
-
-    def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
-        if mode == 'fwd':
-            if 'x_aero' in d_outputs:
-                if 'x_aero0' in d_inputs:
-                    d_outputs['x_aero'] += d_inputs['x_aero0']
-                if 'u_aero' in d_inputs:
-                    d_outputs['x_aero'] += d_inputs['u_aero']
-        if mode == 'rev':
-            if 'x_aero' in d_outputs:
-                if 'x_aero0' in d_inputs:
-                    d_inputs['x_aero0'] += d_outputs['x_aero']
-                if 'u_aero' in d_inputs:
-                    d_inputs['u_aero']  += d_outputs['x_aero']
 
 class VlmGroup(om.Group):
 
@@ -97,24 +57,21 @@ class VlmGroup(om.Group):
         if 'compute_traction' in options_dict:
             compute_traction = options_dict['compute_traction']
 
-        self.add_subsystem('geo_disp', GeoDisp(nnodes=N_nodes), promotes_inputs=['u_aero', 'x_aero0'])
-
         self.add_subsystem('solver', VLM_solver(
             N_nodes=N_nodes,
             N_elements=N_elements,
             quad=quad),
-            promotes_inputs=['aoa','mach'])
+            promotes_inputs=['aoa','mach',('xa','x_aero'),])
 
         self.add_subsystem('forces', VLM_forces(
             N_nodes=N_nodes,
             N_elements=N_elements,
             quad=quad,
             compute_traction=compute_traction),
-            promotes_inputs=['mach','q_inf','vel','mu'],
+            promotes_inputs=['mach','q_inf','vel','mu', ('xa','x_aero')],
             promotes_outputs=[('fa','f_aero'),'CL','CD'])
 
     def configure(self):
-        self.connect('geo_disp.x_aero', ['solver.xa', 'forces.xa'])
         self.connect('solver.Cp', 'forces.Cp')
 
 class DummyVlmSolver(object):
@@ -126,20 +83,18 @@ class DummyVlmSolver(object):
     def __init__(self, options, comm):
         self.options = options
         self.comm = comm
-        self.allWallsGroup = 'allWalls'
 
     # the methods below here are required for RLT
     def getSurfaceCoordinates(self, group):
-        # just return the full coordinates
         return self.options['x_aero0']
 
     def getSurfaceConnectivity(self, group):
-        # -1 for the conversion between fortran and C
-        conn = self.options['quad'].copy() -1
+        fortran_offset = -1
+        conn = self.options['quad'].copy() + fortran_offset
         faceSizes = 4*np.ones(len(conn), 'intc')
         return conn.astype('intc'), faceSizes
 
-class VlmBuilder(object):
+class VlmBuilder(Builder):
 
     def __init__(self, options):
         self.options = options

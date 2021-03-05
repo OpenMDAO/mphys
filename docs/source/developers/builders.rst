@@ -15,30 +15,7 @@ Solver Builders
 The code/discipline assembler are designed for either solvers or transfer scheme modules.
 The three tasks common to all the code assemblers are:
 
-#. Define functions to add its components to the appropriate group levels in the model hierarchy.
-#. Identify the outputs of its components by adding them the :code:`connection_srcs` dictionary;
-#. Connect its components' inputs from the :code:`connection_srcs` dictionary.
+.. automodule:: mphys.builder
 
-The solver assemblers must provide three additional getter functions: :code:`get_comm`, :code:`get_nnodes`, and :code:`get_ndof` which get the mpi communicator, number of nodes owned by the local processor, and the number of degrees of freedom per node, respectively.
-Thse getter functions allow transfer scheme components
-
-
-.. automodule:: omfsi.assembler
-
-.. autoclass:: OmfsiAssembler
-  :members:
-
-.. autoclass:: OmfsiSolverAssembler
-  :members:
-  :show-inheritance:
-
-**************************
-Coupling Problem Assembler
-**************************
-The coupling problem assemblers wrap the code assemblers into smaller functions that the user can use to build their model.
-
-.. automodule:: omfsi.fsi_assembler
-
-
-.. autoclass:: FsiAssembler
+.. autoclass:: Builder
   :members:
