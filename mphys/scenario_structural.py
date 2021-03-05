@@ -1,5 +1,4 @@
 from .scenario import Scenario
-from .coupling_aerostructural import CouplingAeroStructural
 
 class ScenarioStructural(Scenario):
 
