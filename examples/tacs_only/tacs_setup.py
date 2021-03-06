@@ -17,7 +17,7 @@ def add_elements(mesh):
         stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
                                     min_thickness, max_thickness)
         element = None
-        if descript in ["CQUAD", "CQUADR", "CQUAD4"]:
+        if descript in ['CQUAD', 'CQUADR', 'CQUAD4']:
             element = elements.MITCShell(2,stiff,component_num=i)
         mesh.setElement(i, element)
 
