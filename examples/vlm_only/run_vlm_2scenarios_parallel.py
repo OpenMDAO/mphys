@@ -37,10 +37,10 @@ class Top(om.Group):
 
         self.add_subsystem('mp',ParallelCruises())
         for dv in ['mach', 'q_inf', 'vel', 'mu']:
-            self.connect(dv,'mp.cruise.%s' % dv)
+            self.connect(dv, f'mp.cruise.{dv}')
         self.connect('aoa0','mp.cruise.aoa')
         for dv in ['mach', 'q_inf', 'vel', 'mu']:
-            self.connect(dv,'mp.cruise_higher_aoa.%s' % dv)
+            self.connect(dv, f'mp.cruise_higher_aoa.{dv}')
         self.connect('aoa1','mp.cruise_higher_aoa.aoa')
 prob = om.Problem()
 prob.model = Top()

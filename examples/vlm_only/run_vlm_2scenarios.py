@@ -32,12 +32,12 @@ class Top(Multipoint):
         self.mphys_add_scenario('cruise',ScenarioAero(aero_builder=aero_builder))
 
         for dv in ['mach', 'q_inf', 'vel', 'mu']:
-            self.connect(dv,'cruise.%s' % dv)
+            self.connect(dv, f'cruise.{dv}')
         self.connect('aoa0','cruise.aoa')
 
         self.mphys_add_scenario('cruise_higher_aoa',ScenarioAero(aero_builder=aero_builder))
         for dv in ['mach', 'q_inf', 'vel', 'mu']:
-            self.connect(dv,'cruise_higher_aoa.%s' % dv)
+            self.connect(dv, f'cruise_higher_aoa.{dv}')
         self.connect('aoa1','cruise_higher_aoa.aoa')
 
         self.connect('mesh.x_aero0',['cruise.x_aero','cruise_higher_aoa.x_aero'])
@@ -51,4 +51,4 @@ om.n2(prob, show_browser=False, outfile='mphys_vlm_2scenarios.html')
 prob.run_model()
 if MPI.COMM_WORLD.rank == 0:
     for scenario in ['cruise','cruise_higher_aoa']:
-        print('%s: C_L = %f, C_D=%f' % (scenario, prob['%s.C_L'%scenario], prob['%s.C_D'%scenario]))
+        print('%s: C_L = %f, C_D = %f' % (scenario, prob['%s.C_L'%scenario], prob['%s.C_D'%scenario]))

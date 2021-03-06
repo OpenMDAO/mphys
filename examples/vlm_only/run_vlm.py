@@ -32,7 +32,7 @@ class Top(Multipoint):
         self.connect('mesh.x_aero0','cruise.x_aero')
 
         for dv in ['aoa', 'mach', 'q_inf', 'vel', 'mu']:
-            self.connect(dv,'cruise.%s' % dv)
+            self.connect(dv, f'cruise.{dv}')
 
 prob = om.Problem()
 prob.model = Top()

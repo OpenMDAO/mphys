@@ -43,8 +43,8 @@ class Multipoint(om.Group,MultipointBase):
 
         for scenario in scenarios_list:
             for discipline in disciplines_list:
-                src = "%s.x_%s0" % (source, discipline)
-                target = "%s.x_%s0" % (scenario, discipline)
+                src = f'{source}.x_{discipline}0'
+                target = f'{scenario}.x_{discipline}0'
                 self.connect(src,target)
 
     def configure(self):
