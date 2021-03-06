@@ -22,10 +22,10 @@ class Top(Multipoint):
 
         struct_builder = TacsBuilder(tacs_options)
         struct_builder.initialize(self.comm)
-        self.ndv_struct = struct_builder.get_ndv()
+        ndv_struct = struct_builder.get_ndv()
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
-        dvs.add_output('dv_struct',np.array(self.ndv_struct*[0.0031]))
+        dvs.add_output('dv_struct',np.array(ndv_struct*[0.0031]))
 
         self.add_subsystem('mesh',struct_builder.get_mesh_coordinate_subsystem())
         self.mphys_add_scenario('analysis', ScenarioStructural(struct_builder=struct_builder))

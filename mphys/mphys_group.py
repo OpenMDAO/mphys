@@ -1,3 +1,4 @@
+from re import sub
 from openmdao.api import Group
 
 class MphysGroup(Group):
@@ -28,7 +29,7 @@ class MphysGroup(Group):
         self._mphys_promote_by_tag('input','mphys_dv')
 
     def _mphys_promote_mesh_coordinates(self):
-        self._mphys_promote_by_tag('input','mphys_coordinates')
+        self._mphys_promote_by_tag(['input','output'],'mphys_coordinates')
 
     def _mphys_promote_results(self):
         self._mphys_promote_by_tag('output','mphys_result')

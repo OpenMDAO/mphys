@@ -10,7 +10,13 @@ class VlmMesh(om.IndepVarComp):
     def initialize(self):
         self.options.declare('x_aero0')
     def setup(self):
-        self.add_output('x_aero0', val=self.options['x_aero0'])
+        self.add_output('x_aero0', val=self.options['x_aero0'], tags=['mphys_coordinates'])
+
+class VlmMeshAeroOnly(om.IndepVarComp):
+    def initialize(self):
+        self.options.declare('x_aero0')
+    def setup(self):
+        self.add_output('x_aero', val=self.options['x_aero0'], tags=['mphys_coordinates'])
 
 class VlmGroup(om.Group):
 
@@ -92,3 +98,7 @@ class VlmBuilder(Builder):
 
     def get_ndof(self):
         return self.x_aero0.size // 3
+
+class VlmBuilderAeroOnly(VlmBuilder):
+    def get_mesh_coordinate_subsystem(self):
+        return VlmMeshAeroOnly(x_aero0=self.x_aero0)

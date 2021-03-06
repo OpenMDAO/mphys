@@ -28,16 +28,3 @@ class CouplingAeroStructural(CouplingGroup):
         self.mphys_add_subsystem('aero', aero)
         self.mphys_add_subsystem('load_xfer', load_xfer)
         self.mphys_add_subsystem('struct', struct)
-
-    def configure(self):
-        self.connect('disp_xfer.u_aero', 'geo_disp.u_aero')
-        self.connect('geo_disp.x_aero', 'aero.x_aero')
-        self.connect('aero.f_aero', 'load_xfer.f_aero')
-        self.connect('load_xfer.f_struct', 'struct.f_struct')
-        self.connect('struct.u_struct', 'disp_xfer.u_struct')
-
-        # only nonlinear xfers have load_xfer.u_struct
-        if self._mphys_variable_is_in_subsystem_inputs(self.load_xfer, 'u_struct'):
-            self.connect('struct.u_struct', ['load_xfer.u_struct'])
-
-        super().configure()

@@ -1,15 +1,30 @@
 import openmdao.api as om
 
-class Multipoint(om.Group):
+class MultipointBase:
+    def __init__(self):
+        self.mphys_coupling_solvers = []
+
     def mphys_add_scenario(self, name, scenario, coupling_nonlinear_solver=None,
                                                  coupling_linear_solver=None):
-        scenario = self.add_subsystem(name,scenario)
+        solver_tuple = (coupling_nonlinear_solver, coupling_linear_solver)
+        self.mphys_coupling_solvers.append((scenario,solver_tuple))
+        return self.add_subsystem(name,scenario)
 
-        if coupling_nonlinear_solver is not None:
-            scenario.coupling.nonlinear_solver = coupling_nonlinear_solver
+    def configure(self):
+        self._mphys_set_coupling_algorithms_in_scenarios()
 
-        if coupling_linear_solver is not None:
-            scenario.coupling.nonlinear_solver = coupling_linear_solver
+    def _mphys_set_coupling_algorithms_in_scenarios(self):
+        for scenario, solvers in self.mphys_coupling_solvers:
+            if solvers[0] is not None:
+                scenario.nonlinear_solver = solvers[0]
+
+            if solvers[1] is not None:
+                scenario.linear_solver = solvers[1]
+
+class Multipoint(om.Group,MultipointBase):
+    def __init__(self, **kwargs):
+        MultipointBase.__init__(self)
+        om.Group.__init__(self, **kwargs)
 
     def mphys_connect_scenario_coordinate_source(self, source, scenarios, disciplines):
         """
@@ -31,3 +46,8 @@ class Multipoint(om.Group):
                 src = "%s.x_%s0" % (source, discipline)
                 target = "%s.x_%s0" % (scenario, discipline)
                 self.connect(src,target)
+
+class MultipointParallelGroup(om.ParallelGroup, MultipointBase):
+    def __init__(self, **kwargs):
+        MultipointBase.__init__(self)
+        om.ParallelGroup.__init__(self, **kwargs)

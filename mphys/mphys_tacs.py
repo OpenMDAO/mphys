@@ -95,18 +95,6 @@ class TacsSolver(om.ImplicitComponent):
         # partials
         #self.declare_partials('u_struct',['dv_struct','x_struct0','f_struct'])
 
-    def get_ndof(self):
-        return self.solver_dict['ndof']
-
-    def get_nnodes(self):
-        return self.solver_dict['nnodes']
-
-    def get_ndv(self):
-        return self.solver_dict['ndv']
-
-    def get_funcs(self):
-        return self.solver_dict['get_funcs']
-
     def _need_update(self,inputs):
 
         update = False
@@ -424,11 +412,8 @@ class TacsSolverConduction(om.ImplicitComponent):
         self.tacs_assembler.assembleJacobian(alpha,beta,gamma,res,self.mat)
         pc.factor()
 
-
     def solve_nonlinear(self, inputs, outputs):
-        force  = self.force
         ans    = self.ans
-        pc     = self.pc
         gmres  = self.gmres
 
         self._update_internal(inputs)
@@ -439,14 +424,11 @@ class TacsSolverConduction(om.ImplicitComponent):
         for i in range(len(self.mapping)):
             heat_array[self.mapping[i]] = inputs['q_conduct'][i]
 
-
         self.tacs_assembler.setBCs(heat)
-
 
         gmres.solve(heat, ans)
         ans_array = ans.getArray()
         self.tacs_assembler.setVariables(ans)
-
 
         ans_array = ans.getArray()
 
@@ -454,9 +436,6 @@ class TacsSolverConduction(om.ImplicitComponent):
         # i.e. the surface nodes of the structure
         for i in range(len(self.mapping)):
             outputs['T_conduct'][i] = ans_array[self.mapping[i]]
-
-
-
 
 
 class TacsFunctions(om.ExplicitComponent):
@@ -717,7 +696,6 @@ class TacsGroup(om.Group):
         self.options.declare('solver_objects', recordable=False)
         self.options.declare('check_partials')
         self.options.declare('conduction', default=False)
-        self.options.declare('as_coupling')
 
 
     def setup(self):
@@ -751,30 +729,6 @@ class TacsGroup(om.Group):
                 promotes_inputs=['f_struct', 'x_struct0', 'dv_struct'],
                 promotes_outputs=['u_struct']
             )
-        # sum aero, inertial, and fual loads: result is F_summed, which tacs accepts as an input
-        nnodes = int(self.tacs_assembler.createNodeVec().getArray().size/3)
-
-        vec_size_g = np.sum(self.comm.gather(self.tacs_assembler.getNumOwnedNodes()*6))
-        vec_size_g = int(self.comm.bcast(vec_size_g))
-
-        # self.add_subsystem('sum_loads',SumLoads(
-        #     load_size=vec_size_g,
-        #     load_list=['F_inertial','F_fuel','f_struct']),
-        #     promotes_inputs=['f_struct'],
-        #     promotes_outputs=['F_summed']
-        # )
-
-        # self.add_subsystem('solver', TacsSolver(
-        #     struct_solver=self.struct_solver,
-        #     struct_objects=self.struct_objects,
-        #     check_partials=self.check_partials),
-        #     promotes_inputs=['x_struct0', 'dv_struct', 'F_summed'],
-        #     promotes_outputs=['u_struct']
-        # )
-
-    # def configure(self):
-    #     if not self.options['conduction']:
-    #         self.connect('u_struct', 'funcs.u_struct')
 
 
 class TACSFuncsGroup(om.Group):
@@ -809,16 +763,12 @@ class TACSFuncsGroup(om.Group):
 
 class TacsBuilder(Builder):
 
-    def __init__(self, options,check_partials=False, conduction=False):
-        # super(TACS_builder, self).__init__(options)
+    def __init__(self, options, check_partials=False, conduction=False):
         self.options = options
         self.check_partials = check_partials
         self.conduction = conduction
 
-    # api level method for all builders
     def initialize(self, comm):
-        # if self.solver is None:
-
         solver_dict={}
 
         mesh = TACS.MeshLoader(comm)
