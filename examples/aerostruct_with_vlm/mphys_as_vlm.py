@@ -14,14 +14,12 @@ from mphys.mphys_meld import MeldBuilder
 import tacs_setup
 
 class Top(Multipoint):
-
     def setup(self):
-        self.modal_struct = False
-
         # VLM
         mesh_file = 'wing_VLM.dat'
         mach = 0.85,
-        aoa = 2.0
+        aoa0 = 2.0
+        aoa1 = 5.0
         q_inf = 3000.
         vel = 178.
         mu = 3.5E-5
@@ -30,7 +28,7 @@ class Top(Multipoint):
         aero_builder.initialize(self.comm)
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
-        dvs.add_output('aoa', val=aoa, units='deg')
+        dvs.add_output('aoa', val=[aoa0,aoa1], units='deg')
         dvs.add_output('mach', mach)
         dvs.add_output('q_inf', q_inf)
         dvs.add_output('vel', vel)
@@ -57,41 +55,33 @@ class Top(Multipoint):
         xfer_builder = MeldBuilder(aero_builder, struct_builder, isym=isym)
         xfer_builder.initialize(self.comm)
 
-        nonlinear_solver = om.NonlinearBlockGS(maxiter=20, iprint=2, use_aitken=True, rtol = 1E-14, atol=1E-14)
-        linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, use_aitken=True, rtol = 1e-14, atol=1e-14)
+        for iscen, scenario in enumerate(['cruise','maneuver']):
+            nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol = 1E-14, atol=1E-14)
+            linear_solver = om.LinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol = 1e-14, atol=1e-14)
+            self.mphys_add_scenario(scenario,ScenarioAeroStructural(aero_builder=aero_builder,
+                                                                    struct_builder=struct_builder,
+                                                                    xfer_builder=xfer_builder),
+                                            coupling_nonlinear_solver=nonlinear_solver,
+                                            coupling_linear_solver=linear_solver)
 
-        self.mphys_add_scenario('cruise',ScenarioAeroStructural(aero_builder=aero_builder,
-                                                                struct_builder=struct_builder,
-                                                                xfer_builder=xfer_builder),
-                                         coupling_nonlinear_solver=nonlinear_solver,
-                                         coupling_linear_solver=linear_solver)
+            for discipline in ['aero','struct']:
+                self.mphys_connect_scenario_coordinate_source('mesh_%s' % discipline, scenario, discipline)
 
-
-        for discipline in ['aero','struct']:
-            self.mphys_connect_scenario_coordinate_source('mesh_%s' % discipline ,'cruise', discipline)
-
-        for dv in ['aoa','q_inf','vel','mu','mach', 'dv_struct']:
-            self.connect(dv, 'cruise.%s' % dv)
+            for dv in ['q_inf','vel','mu','mach', 'dv_struct']:
+                self.connect(dv, '%s.%s' % (scenario, dv))
+            self.connect('aoa', '%s.aoa' % scenario, src_indices=[iscen])
 
 ################################################################################
 # OpenMDAO setup
 ################################################################################
 prob = om.Problem()
 prob.model = Top()
-model = prob.model
-
-# optional but we can set it here.
-model.nonlinear_solver = om.NonlinearRunOnce()
-model.linear_solver = om.LinearRunOnce()
-
 
 prob.setup()
-
 om.n2(prob, show_browser=False, outfile='mphys_as_vlm.html')
 
 prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
-    print('func_struct =',prob['cruise.func_struct'])
-    print('mass =',prob['cruise.mass'])
     print('C_L =',prob['cruise.C_L'])
+    print('func_struct =',prob['maneuver.func_struct'])
