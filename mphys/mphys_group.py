@@ -8,6 +8,10 @@ class MphysGroup(Group):
         self.mphys_subsystems = []
 
     def mphys_add_subsystem(self,name,subsystem):
+        """
+        Adding an mphys subsystem will add the subsystem and then set the group
+        to automaticallly promote the mphys tagged variables
+        """
         subsystem = self.add_subsystem(name,subsystem)
         self.mphys_subsystems.append(subsystem)
         return subsystem

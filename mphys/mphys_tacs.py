@@ -17,7 +17,7 @@ class TacsMesh(om.IndepVarComp):
         xpts = tacs_assembler.createNodeVec()
         x = xpts.getArray()
         tacs_assembler.getNodes(xpts)
-        self.add_output('x_struct0', val=x, shape=x.size, desc='structural node coordinates')
+        self.add_output('x_struct0', val=x, shape=x.size, desc='structural node coordinates', tags=['mphys_coordinates'])
 
 class TacsSolver(om.ImplicitComponent):
     """
@@ -533,7 +533,6 @@ class TacsFunctions(om.ExplicitComponent):
 
         if 'func_struct' in outputs:
             outputs['func_struct'] = self.tacs_assembler.evalFunctions(self.func_list)
-            print('func_struct',outputs['func_struct'])
 
         if self.f5_writer is not None:
             self.f5_writer(self.tacs_assembler)
