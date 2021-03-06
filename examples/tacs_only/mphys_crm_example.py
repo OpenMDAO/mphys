@@ -41,17 +41,17 @@ prob = om.Problem()
 prob.model = Top()
 model = prob.model
 
-model.add_design_var('dv_struct',lower=0.001,upper=0.075,scaler=1.0/1.0)
-model.add_objective('analysis.mass',scaler=1.0/100000.0)
-model.add_constraint('analysis.func_struct',lower = 0.0, upper = 2.0/3.0,scaler=1000.0/1.0)
+model.add_design_var('dv_struct',lower=0.001,upper=0.075,scaler=1000.0)
+model.add_objective('analysis.mass',scaler=1.0/1000.0)
+model.add_constraint('analysis.func_struct',lower = 0.0, upper = 2.0/3.0,scaler=1.0)
 
-prob.driver = om.ScipyOptimizeDriver(debug_print=['objs','nl_cons'],maxiter=1500)
+prob.driver = om.ScipyOptimizeDriver(debug_print=['objs','nl_cons'],maxiter=150)
 prob.driver.options['optimizer'] = 'SLSQP'
 
 prob.setup()
 om.n2(prob, show_browser=False, outfile='mphys_struct.html')
 prob.run_model()
-# TODO verify that the optimization works
-# prob.run_driver()
-#for i in range(240):
-#    print('final dvs',i,prob['dv_struct'][i])
+
+prob.run_driver()
+for i in range(240):
+    print('final dvs',i,prob['dv_struct'][i])
