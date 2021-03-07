@@ -27,7 +27,7 @@ class Top(om.Group):
         self.aero_options = {
             'mesh_file':'wing_VLM.dat',
             'mach':0.85,
-            'alpha':2*np.pi/180.,
+            'aoa':2*np.pi/180.,
             'q_inf':3000.,
             'vel':178.,
             'mu':3.5E-5,
@@ -146,8 +146,8 @@ class Top(om.Group):
     def configure(self):
 
         # add aero DVs
-        for dv_name in ['alpha','q_inf','vel','mu','mach']:
-            if dv_name == 'alpha':
+        for dv_name in ['aoa','q_inf','vel','mu','mach']:
+            if dv_name == 'aoa':
                 self.dvs.add_output(dv_name, val=self.aero_options[dv_name], units='rad')
             else:
                 self.dvs.add_output(dv_name, val=self.aero_options[dv_name])
