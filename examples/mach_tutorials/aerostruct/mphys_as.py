@@ -169,7 +169,7 @@ class Top(om.Group):
             chordRef=3.25,
             evalFuncs=['lift','drag', 'cl', 'cd']
         )
-        ap0.addDV('alpha',value=aoa,name='alpha')
+        ap0.addDV('alpha',value=aoa,name='aoa')
         ap0.addDV('mach',value=0.8,name='mach')
 
         # here we set the aero problems for every cruise case we have.
