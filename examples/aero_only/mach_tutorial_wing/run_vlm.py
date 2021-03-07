@@ -12,7 +12,7 @@ class Top(Multipoint):
         mesh_file = 'wing_VLM.dat'
 
         mach = 0.85,
-        aoa = 2.0
+        aoa = 0.0
         q_inf = 3000.
         vel = 178.
         mu = 3.5E-5
@@ -38,7 +38,7 @@ prob = om.Problem()
 prob.model = Top()
 prob.setup()
 
-om.n2(prob, show_browser=False, outfile='mphys_vlm.html')
+om.n2(prob, show_browser=False, outfile='vlm_aero.html')
 
 prob.run_model()
 if MPI.COMM_WORLD.rank == 0:
