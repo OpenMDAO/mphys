@@ -108,7 +108,7 @@ class VlmGroup(om.Group):
             N_nodes=N_nodes,
             N_elements=N_elements,
             quad=quad),
-            promotes_inputs=['aoa','mach'])
+            promotes_inputs=['alpha','mach'])
 
         self.add_subsystem('forces', VLM_forces(
             N_nodes=N_nodes,
