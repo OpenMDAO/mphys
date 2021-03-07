@@ -447,6 +447,8 @@ class TacsFunctions(om.ExplicitComponent):
         self.options.declare('struct_objects', recordable=False)
         self.options.declare('check_partials')
 
+        self.options['distributed'] = True
+
         self.ans = None
         self.tacs_assembler = None
 
@@ -579,6 +581,8 @@ class TacsMass(om.ExplicitComponent):
         self.options.declare('struct_objects', recordable=False)
         self.options.declare('check_partials')
 
+        self.options['distributed'] = True
+
         self.ans = None
         self.tacs_assembler = None
 
@@ -638,7 +642,6 @@ class TacsMass(om.ExplicitComponent):
             if 'mass' in d_outputs:
                 func = functions.StructuralMass(self.tacs_assembler)
                 if 'dv_struct' in d_inputs:
-                    size = d_inputs['dv_struct'].size
                     dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
                     self.tacs_assembler.evalDVSens(func, dvsens)
 
@@ -648,7 +651,6 @@ class TacsMass(om.ExplicitComponent):
                     xpt_sens = self.xpt_sens
                     xpt_sens_array = xpt_sens.getArray()
                     self.tacs_assembler.evalXptSens(func, xpt_sens)
-
                     d_inputs['x_struct0'] += np.array(xpt_sens_array,dtype=float) * d_outputs['mass']
 
 
