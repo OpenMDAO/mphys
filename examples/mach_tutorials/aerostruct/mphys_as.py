@@ -1,6 +1,5 @@
-#rst Imports
-from __future__ import print_function, division
 import numpy as np
+import argparse
 from mpi4py import MPI
 
 import openmdao.api as om
@@ -20,9 +19,14 @@ from tacs import elements, constitutive, functions
 comm = MPI.COMM_WORLD
 rank = comm.rank
 
-# flag to use meld (False for RLT)
-use_meld = True
-# use_meld = False
+parser=argparse.ArgumentParser()
+parser.add_argument('--xfer', default='meld', choices=['meld', 'rlt'])
+args = parser.parse_args()
+
+if args.xfer == 'meld':
+    forcesAsTractions = False
+else:
+    forcesAsTractions = True
 
 class Top(om.Group):
 
@@ -67,7 +71,7 @@ class Top(om.Group):
             'nCycles':10000,
 
             # force integration
-            'forcesAsTractions': not use_meld,
+            'forcesAsTractions': forcesAsTractions,
         }
 
         adflow_builder = ADflowBuilder(aero_options)
@@ -116,7 +120,7 @@ class Top(om.Group):
         # Transfer scheme options
         ################################################################################
 
-        if use_meld:
+        if args.xfer == 'meld':
             xfer_options = {
                 'isym': 2,
                 'n': 200,
@@ -155,16 +159,17 @@ class Top(om.Group):
         # any solver can have their own custom approach here, and we don't
         # need to use a common API. AND, if we wanted to define a common API,
         # it can easily be defined on the mp group, or the aero group.
+        aoa = 1.5
         ap0 = AeroProblem(
             name='ap0',
             mach=0.8,
             altitude=10000,
-            alpha=1.5,
+            alpha=aoa,
             areaRef=45.5,
             chordRef=3.25,
             evalFuncs=['lift','drag', 'cl', 'cd']
         )
-        ap0.addDV('alpha',value=1.5,name='alpha')
+        ap0.addDV('alpha',value=aoa,name='aoa')
         ap0.addDV('mach',value=0.8,name='mach')
 
         # here we set the aero problems for every cruise case we have.
@@ -176,11 +181,11 @@ class Top(om.Group):
 
         # define the aero DVs in the IVC
         # s0
-        self.dvs.add_output('alpha0', val=1.5)
+        self.dvs.add_output('aoa0', val=aoa, units='deg')
         self.dvs.add_output('mach0', val=0.8)
 
         # connect to the aero for each scenario
-        self.connect('alpha0', ['mp_group.s0.solver_group.aero.alpha', 'mp_group.s0.aero_funcs.alpha'])
+        self.connect('aoa0', ['mp_group.s0.solver_group.aero.aoa', 'mp_group.s0.aero_funcs.aoa'])
         self.connect('mach0', ['mp_group.s0.solver_group.aero.mach', 'mp_group.s0.aero_funcs.mach'])
 
         # add the structural thickness DVs
@@ -199,7 +204,7 @@ prob = om.Problem()
 prob.model = Top()
 model = prob.model
 prob.setup()
-om.n2(prob, show_browser=False, outfile='mphys_as.html')
+om.n2(prob, show_browser=False, outfile='mphys_as_adflow_tacs_%s.html'%args.xfer)
 prob.run_model()
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:

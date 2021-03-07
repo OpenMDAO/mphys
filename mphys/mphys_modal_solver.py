@@ -49,7 +49,7 @@ class ModalDecomp(om.ExplicitComponent):
         self.add_output('modal_mass', shape=output_shape, desc='modal mass')
         self.add_output('modal_stiffness', shape=output_shape, desc='modal stiffness', tags='solver')
 
-        self.add_output('x_s0', shape = node_size, desc = 'undeformed nodal coordinates')
+        self.add_output('x_struct0', shape = node_size, desc = 'undeformed nodal coordinates')
 
     def compute(self,inputs,outputs):
         if self.comm.rank == 0:
@@ -73,7 +73,7 @@ class ModalDecomp(om.ExplicitComponent):
                                         num_eigs=self.nmodes, eig_tol=1e-12)
             self.freq.solve()
 
-            outputs['x_s0'] = self.xpts.getArray()
+            outputs['x_struct0'] = self.xpts.getArray()
             for imode in range(self.nmodes):
                 eig, err = self.freq.extractEigenvector(imode,self.vec)
                 outputs['modal_mass'][imode] = 1.0
@@ -166,7 +166,7 @@ class ModalForces(om.ExplicitComponent):
             src_indices = np.zeros((0))
             input_shape=0
 
-        self.add_input('f_s',shape=input_shape, src_indices=src_indices,desc = 'nodal force')
+        self.add_input('f_struct',shape=input_shape, src_indices=src_indices,desc = 'nodal force')
 
         self.add_output('mf',shape=self.nmodes, desc = 'modal force')
 
@@ -174,20 +174,20 @@ class ModalForces(om.ExplicitComponent):
         if self.comm.rank == 0:
             outputs['mf'][:] = 0.0
             for imode in range(self.nmodes):
-                outputs['mf'][imode] = np.sum(inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * inputs['f_s'][:])
+                outputs['mf'][imode] = np.sum(inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * inputs['f_struct'][:])
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
         if self.comm.rank == 0:
             if mode=='fwd':
                 if 'mf' in d_outputs:
-                    if 'f_s' in d_inputs:
+                    if 'f_struct' in d_inputs:
                         for imode in range(self.options['nmodes']):
-                            d_outputs['mf'][imode] += np.sum(inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * d_inputs['f_s'][:])
+                            d_outputs['mf'][imode] += np.sum(inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * d_inputs['f_struct'][:])
             if mode=='rev':
                 if 'mf' in d_outputs:
-                    if 'f_s' in d_inputs:
+                    if 'f_struct' in d_inputs:
                         for imode in range(self.options['nmodes']):
-                            d_inputs['f_s'][:] += inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * d_outputs['mf'][imode]
+                            d_inputs['f_struct'][:] += inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * d_outputs['mf'][imode]
 
 class ModalDisplacements(om.ExplicitComponent):
     def initialize(self):
@@ -223,26 +223,26 @@ class ModalDisplacements(om.ExplicitComponent):
         self.add_input('z',shape=input_shape, src_indices=src_indices, desc='modal displacement')
 
         # its important that we set this to zero since this displacement value is used for the first iteration of the aero
-        self.add_output('u_s', shape=self.mode_size, val = np.zeros(self.mode_size), desc = 'nodal displacement')
+        self.add_output('u_struct', shape=self.mode_size, val = np.zeros(self.mode_size), desc = 'nodal displacement')
 
     def compute(self,inputs,outputs):
         if self.comm.rank == 0:
-            outputs['u_s'][:] = 0.0
+            outputs['u_struct'][:] = 0.0
             for imode in range(self.nmodes):
-                outputs['u_s'][:] += inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * inputs['z'][imode]
+                outputs['u_struct'][:] += inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * inputs['z'][imode]
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
         if self.comm.rank == 0:
             if mode=='fwd':
-                if 'u_s' in d_outputs:
+                if 'u_struct' in d_outputs:
                     if 'z' in d_inputs:
                         for imode in range(self.options['nmodes']):
-                            d_outputs['u_s'][:] += inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * d_inputs['z'][imode]
+                            d_outputs['u_struct'][:] += inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * d_inputs['z'][imode]
             if mode=='rev':
-                if 'u_s' in d_outputs:
+                if 'u_struct' in d_outputs:
                     if 'z' in d_inputs:
                         for imode in range(self.options['nmodes']):
-                            d_inputs['z'][imode] += np.sum(inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * d_outputs['u_s'][:])
+                            d_inputs['z'][imode] += np.sum(inputs['mode_shape'][imode*self.mode_size:(imode+1)*self.mode_size] * d_outputs['u_struct'][:])
 
 class ModalGroup(om.Group):
     def initialize(self):
@@ -261,7 +261,7 @@ class ModalGroup(om.Group):
         self.add_subsystem('modal_forces', ModalForces(
             nmodes=nmodes,
             mode_size=mode_size),
-            promotes_inputs=['mode_shape','f_s']
+            promotes_inputs=['mode_shape','f_struct']
         )
         self.add_subsystem('modal_solver', ModalSolver(nmodes=nmodes),
             promotes_inputs=['modal_stiffness'])
@@ -270,21 +270,21 @@ class ModalGroup(om.Group):
             nmodes=nmodes,
             mode_size=mode_size),
             promotes_inputs=['mode_shape'],
-            promotes_outputs=['u_s']
+            promotes_outputs=['u_struct']
         )
 
 #        self.add_subsystem('funcs', TacsFunctions(
 #            struct_solver=self.struct_solver,
 #            struct_objects=self.struct_objects,
 #            check_partials=self.check_partials),
-#            promotes_inputs=['x_s0', 'dv_struct']
+#            promotes_inputs=['x_struct0', 'dv_struct']
 #        )
 #
 #        self.add_subsystem('mass', TacsMass(
 #            struct_solver=self.struct_solver,
 #            struct_objects=self.struct_objects,
 #            check_partials=self.check_partials),
-#            promotes_inputs=['x_s0', 'dv_struct']
+#            promotes_inputs=['x_struct0', 'dv_struct']
 #        )
 
     def configure(self):

@@ -10,7 +10,7 @@ from mphys.mphys_vlm import VlmBuilder
 from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_meld import MeldBuilder
 
-from tacs import elements, constitutive, functions
+from tacs import elements, constitutive, functions, TACS
 
 use_modal = False
 
@@ -20,7 +20,7 @@ class Top(om.Group):
         aero_options = {
             'mesh_file':'debug_VLM.dat',
             'mach':0.85,
-            'alpha':1*np.pi/180.,
+            'aoa':1*np.pi/180.,
             'q_inf':25000.,
             'vel':178.,
             'mu':3.5E-5,
@@ -49,7 +49,7 @@ class Top(om.Group):
 
             return N_nodes, N_elements, xa, quad
 
-        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
+        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_aero0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
         self.aero_options = aero_options
 
         # VLM assembler
@@ -128,8 +128,8 @@ class Top(om.Group):
         s0 = mp.mphys_add_scenario('s0')
 
     def configure(self):
-        self.dvs.add_output('alpha', self.aero_options['alpha'])
-        #self.connect('alpha',['mp_group.s0.aero.alpha'])
+        self.dvs.add_output('aoa', self.aero_options['aoa'], units='rad')
+        #self.connect('aoa',['mp_group.s0.aero.aoa'])
 
         self.dvs.add_output('dv_struct',np.array([0.03]))
         #self.connect('dv_struct',['mp_group.so.struct.dv_struct'])

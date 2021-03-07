@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'omfsi'
+project = 'Mphys'
 copyright = '2020, NASA'
 author = 'NASA'
 

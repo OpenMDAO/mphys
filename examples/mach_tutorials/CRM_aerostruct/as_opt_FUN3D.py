@@ -42,8 +42,8 @@ class Top(om.Group):
             'q_inf': [12930., 28800.],                             # dynamic pressure of each load case, Pa
             'vel': [254., 217.6],                                  # velocity of each load case, m/s
             'mu': [3.5E-5, 1.4E-5],                                # viscocity of each load case,
-            'reynolds_number': [254./3.5E-5, 217.6/1.4E-5],        # Re-per-length of each load case
-            'alpha': [1., 4.]                     ,                # AoA of each load case: this is a DV, so these values set the starting points
+            'reynolds': [254./3.5E-5, 217.6/1.4E-5],        # Re-per-length of each load case
+            'aoa': [1., 4.],                                       # AoA of each load case: this is a DV, so these values set the starting points
         }
 
         self.trim_parameters = {
@@ -351,13 +351,13 @@ class Top(om.Group):
 
             # add flow mp parameters
 
-            for param in ['mach','vel','q_inf','reynolds_number']:
+            for param in ['mach','vel','q_inf','reynolds']:
                 self.mp_parameters.add_output(param+str(i), val = self.aero_parameters[param][i])
 
-            for param in ['mach','reynolds_number']:
+            for param in ['mach','reynolds']:
                 self.connect(param+str(i), 'mp_group.s'+str(i)+'.aero.flow.'+param)
 
-            for param in ['mach','reynolds_number','q_inf']:
+            for param in ['mach','reynolds','q_inf']:
                 self.connect(param+str(i), 'mp_group.s'+str(i)+'.aero.forces.'+param)
 
             for param in ['q_inf']:
@@ -376,8 +376,8 @@ class Top(om.Group):
 
             # add AoA DV
 
-            param = 'alpha'
-            self.trim_dvs.add_output(param+str(i), val = self.aero_parameters[param][i])
+            param = 'aoa'
+            self.trim_dvs.add_output(param+str(i), val = self.aero_parameters[param][i], units='deg')
             self.connect(param+str(i),'mp_group.s'+str(i)+'.aero.flow.'+param)
             self.connect(param+str(i),'mp_group.s'+str(i)+'.aero_funcs.'+param)
 
@@ -420,9 +420,9 @@ class Top(om.Group):
         # connect the inertial/fuel load geometry and dv_struct inputs, and connect the outputs to the load summer
 
         for i in range(0,self.misc_parameters['N_mp']):
-            self.connect('geometry_mapper.x_s0_mesh','mp_group.non_aero_loads.inertial_loads'+str(i)+'.x_s0')
+            self.connect('geometry_mapper.x_struct0_mesh','mp_group.non_aero_loads.inertial_loads'+str(i)+'.x_struct0')
             self.connect('struct_mapper.dv_struct','mp_group.non_aero_loads.inertial_loads'+str(i)+'.dv_struct')
-            self.connect('geometry_mapper.x_s0_mesh','mp_group.non_aero_loads.fuel_loads'+str(i)+'.x_s0')
+            self.connect('geometry_mapper.x_struct0_mesh','mp_group.non_aero_loads.fuel_loads'+str(i)+'.x_struct0')
 
             self.connect('mp_group.non_aero_loads.inertial_loads'+str(i)+'.F_inertial','mp_group.s'+str(i)+'.struct.sum_loads.F_inertial')
             self.connect('mp_group.non_aero_loads.fuel_loads'+str(i)+'.F_fuel','mp_group.s'+str(i)+'.struct.sum_loads.F_fuel')
@@ -430,12 +430,12 @@ class Top(om.Group):
         # connect the geometry mesh outputs
 
         points = self.mp_group.mphys_add_coordinate_input()
-        self.connect('geometry_mapper.x_s0_mesh','mp_group.struct_points')
-        self.connect('geometry_mapper.x_a0_mesh','mp_group.aero_points')
+        self.connect('geometry_mapper.x_struct0_mesh','mp_group.struct_points')
+        self.connect('geometry_mapper.x_aero0_mesh','mp_group.aero_points')
 
         # connect the wing area module
 
-        self.connect('geometry_mapper.x_a0_mesh','wing_area.x')
+        self.connect('geometry_mapper.x_aero0_mesh','wing_area.x')
 
         for i in range(0,self.misc_parameters['N_mp']):
             self.connect('wing_area.area','mp_group.s'+str(i)+'.aero_funcs.ref_area')
@@ -472,7 +472,7 @@ class Top(om.Group):
 
         # connect the spar depth components
 
-        self.connect('mp_group.struct_mesh.x_s0','outputs.spar_depth.x')
+        self.connect('mp_group.struct_mesh.x_struct0','outputs.spar_depth.x')
 
 
 
@@ -520,8 +520,8 @@ prob.check_totals(
         #'outputs.spar_depth.spar_depth',
         ],
         wrt=[
-        #'alpha0',
-        #'alpha1',
+        #'aoa0',
+        #'aoa1',
         'upper_skin_thickness_lumped',
         #'lower_skin_thickness_lumped',
         #'le_spar_thickness_lumped',
@@ -553,8 +553,6 @@ model.mp_group.s1.linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, rtol = 
 
 prob.run_model()
 
-boo
-
 ## add design variables
 
 prob.setup(mode='rev')
@@ -574,7 +572,7 @@ prob.model.add_design_var('wing_twist_delta',      lower=model.opt_parameters['w
 prob.model.add_design_var('fuel_dv',               lower=0.0,                                           upper=1.0,                                           ref=1.0)
 
 for i in range(0,model.misc_parameters['N_mp']):
-    prob.model.add_design_var('alpha'+str(i),         lower=-10,                                           upper=10          ,                                 ref=1.0)
+    prob.model.add_design_var('aoa'+str(i),         lower=-10,                                           upper=10          ,                                 ref=1.0, units='deg')
 
 ## add sizing smoothness constraints
 
@@ -672,4 +670,3 @@ for i, k in enumerate(dvs.keys()):
     f.write(' ' + '\n')
 
 f.close()
-

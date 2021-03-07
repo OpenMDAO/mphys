@@ -13,10 +13,10 @@ class FakeStructMesh(om.ExplicitComponent):
         self.nodes = np.random.rand(12)
 
     def setup(self):
-        self.add_output('x_s',shape=self.nodes.size)
+        self.add_output('x_struct',shape=self.nodes.size)
 
     def compute(self,inputs,outputs):
-        outputs['x_s'] = self.nodes
+        outputs['x_struct'] = self.nodes
 
 class FakeStructDisps(om.ExplicitComponent):
     def initialize(self):
@@ -24,30 +24,30 @@ class FakeStructDisps(om.ExplicitComponent):
         self.nodes = np.arange(12)
 
     def setup(self):
-        self.add_output('u_s',shape=self.nodes.size)
+        self.add_output('u_struct',shape=self.nodes.size)
 
     def compute(self,inputs,outputs):
-        outputs['u_s'] = self.nodes
+        outputs['u_struct'] = self.nodes
 
 class FakeAeroLoads(om.ExplicitComponent):
     def initialize(self):
         self.nodes = np.random.rand(12)
 
     def setup(self):
-        self.add_output('f_a',shape=self.nodes.size)
+        self.add_output('f_aero',shape=self.nodes.size)
 
     def compute(self,inputs,outputs):
-        outputs['f_a'] = self.nodes
+        outputs['f_aero'] = self.nodes
 
 class FakeAeroMesh(om.ExplicitComponent):
     def initialize(self):
         self.nodes = np.random.rand(12)
 
     def setup(self):
-        self.add_output('x_a',shape=self.nodes.size)
+        self.add_output('x_aero',shape=self.nodes.size)
 
     def compute(self,inputs,outputs):
-        outputs['x_a'] = self.nodes
+        outputs['x_aero'] = self.nodes
 
 comm = MPI.COMM_WORLD
 isym = 1
@@ -74,15 +74,15 @@ prob.model.add_subsystem('aero_loads2',FakeAeroLoads())
 disp = prob.model.add_subsystem('disp_xfer2',MeldDispXfer(xfer_object=meld,struct_ndof=struct_ndof,struct_nnodes=struct_nnodes,aero_nnodes=aero_nnodes,check_partials=True))
 load = prob.model.add_subsystem('load_xfer2',MeldLoadXfer(xfer_object=meld,struct_ndof=struct_ndof,struct_nnodes=struct_nnodes,aero_nnodes=aero_nnodes,check_partials=True))
 
-prob.model.connect('aero_mesh.x_a',['disp_xfer.x_a0','load_xfer.x_a0'])
-prob.model.connect('struct_mesh.x_s',['disp_xfer.x_s0','load_xfer.x_s0'])
-prob.model.connect('struct_disps.u_s',['disp_xfer.u_s','load_xfer.u_s'])
-prob.model.connect('aero_loads.f_a',['load_xfer.f_a'])
+prob.model.connect('aero_mesh.x_aero',['disp_xfer.x_aero0','load_xfer.x_aero0'])
+prob.model.connect('struct_mesh.x_struct',['disp_xfer.x_struct0','load_xfer.x_struct0'])
+prob.model.connect('struct_disps.u_struct',['disp_xfer.u_struct','load_xfer.u_struct'])
+prob.model.connect('aero_loads.f_aero',['load_xfer.f_aero'])
 
-prob.model.connect('aero_mesh2.x_a',['disp_xfer2.x_a0','load_xfer2.x_a0'])
-prob.model.connect('struct_mesh2.x_s',['disp_xfer2.x_s0','load_xfer2.x_s0'])
-prob.model.connect('struct_disps2.u_s',['disp_xfer2.u_s','load_xfer2.u_s'])
-prob.model.connect('aero_loads2.f_a',['load_xfer2.f_a'])
+prob.model.connect('aero_mesh2.x_aero',['disp_xfer2.x_aero0','load_xfer2.x_aero0'])
+prob.model.connect('struct_mesh2.x_struct',['disp_xfer2.x_struct0','load_xfer2.x_struct0'])
+prob.model.connect('struct_disps2.u_struct',['disp_xfer2.u_struct','load_xfer2.u_struct'])
+prob.model.connect('aero_loads2.f_aero',['load_xfer2.f_aero'])
 
 
 prob.setup(force_alloc_complex=True)

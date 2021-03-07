@@ -9,34 +9,34 @@ class VlmMesh(om.ExplicitComponent):
 
     def initialize(self):
         self.options.declare('N_nodes')
-        self.options.declare('x_a0')
+        self.options.declare('x_aero0')
 
     def setup(self):
 
         N_nodes = self.options['N_nodes']
-        self.x_a0 = self.options['x_a0']
-        self.add_output('x_a0',np.zeros(N_nodes*3), tags='solver')
+        self.x_a0 = self.options['x_aero0']
+        self.add_output('x_aero0',np.zeros(N_nodes*3), tags='solver')
 
     def mphys_add_coordinate_input(self):
 
         N_nodes = self.options['N_nodes']
-        self.add_input('x_a0_points',np.zeros(N_nodes*3))
-        return 'x_a0_points', self.x_a0
+        self.add_input('x_aero0_points',np.zeros(N_nodes*3))
+        return 'x_aero0_points', self.x_a0
 
     def compute(self,inputs,outputs):
 
-        if 'x_a0_points' in inputs:
-            outputs['x_a0'] = inputs['x_a0_points']
+        if 'x_aero0_points' in inputs:
+            outputs['x_aero0'] = inputs['x_aero0_points']
         else:
-            outputs['x_a0'] = self.x_a0
+            outputs['x_aero0'] = self.x_a0
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
-            if 'x_a0_points' in d_inputs:
-                d_outputs['x_a0'] += d_inputs['x_a0_points']
+            if 'x_aero0_points' in d_inputs:
+                d_outputs['x_aero0'] += d_inputs['x_aero0_points']
         elif mode == 'rev':
-            if 'x_a0_points' in d_inputs:
-                d_inputs['x_a0_points'] += d_outputs['x_a0']
+            if 'x_aero0_points' in d_inputs:
+                d_inputs['x_aero0_points'] += d_outputs['x_aero0']
 
 class GeoDisp(om.ExplicitComponent):
     """
@@ -56,27 +56,27 @@ class GeoDisp(om.ExplicitComponent):
         n1 = np.sum(n_list[:irank])
         n2 = np.sum(n_list[:irank+1])
 
-        self.add_input('x_a0',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
-        self.add_input('u_a', shape=local_size,val=np.zeros(local_size),src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface displacements')
+        self.add_input('x_aero0',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
+        self.add_input('u_aero', shape=local_size,val=np.zeros(local_size),src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface displacements')
 
-        self.add_output('x_a',shape=local_size,desc='deformed aerodynamic surface')
+        self.add_output('x_aero',shape=local_size,desc='deformed aerodynamic surface')
 
     def compute(self,inputs,outputs):
-        outputs['x_a'] = inputs['x_a0'] + inputs['u_a']
+        outputs['x_aero'] = inputs['x_aero0'] + inputs['u_aero']
 
     def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
         if mode == 'fwd':
-            if 'x_a' in d_outputs:
-                if 'x_a0' in d_inputs:
-                    d_outputs['x_a'] += d_inputs['x_a0']
-                if 'u_a' in d_inputs:
-                    d_outputs['x_a'] += d_inputs['u_a']
+            if 'x_aero' in d_outputs:
+                if 'x_aero0' in d_inputs:
+                    d_outputs['x_aero'] += d_inputs['x_aero0']
+                if 'u_aero' in d_inputs:
+                    d_outputs['x_aero'] += d_inputs['u_aero']
         if mode == 'rev':
-            if 'x_a' in d_outputs:
-                if 'x_a0' in d_inputs:
-                    d_inputs['x_a0'] += d_outputs['x_a']
-                if 'u_a' in d_inputs:
-                    d_inputs['u_a']  += d_outputs['x_a']
+            if 'x_aero' in d_outputs:
+                if 'x_aero0' in d_inputs:
+                    d_inputs['x_aero0'] += d_outputs['x_aero']
+                if 'u_aero' in d_inputs:
+                    d_inputs['u_aero']  += d_outputs['x_aero']
 
 class VlmGroup(om.Group):
 
@@ -93,7 +93,7 @@ class VlmGroup(om.Group):
         # this can be done much more cleanly with **options_dict
         N_nodes    = options_dict['N_nodes']
         N_elements = options_dict['N_elements']
-        x_a0       = options_dict['x_a0']
+        x_a0       = options_dict['x_aero0']
         quad       = options_dict['quad']
 
         # by default, we use nodal forces. however, if the user wants to use
@@ -102,24 +102,24 @@ class VlmGroup(om.Group):
         if 'compute_traction' in options_dict:
             compute_traction = options_dict['compute_traction']
 
-        self.add_subsystem('geo_disp', GeoDisp(nnodes=N_nodes), promotes_inputs=['u_a', 'x_a0'])
+        self.add_subsystem('geo_disp', GeoDisp(nnodes=N_nodes), promotes_inputs=['u_aero', 'x_aero0'])
 
         self.add_subsystem('solver', VLM_solver(
             N_nodes=N_nodes,
             N_elements=N_elements,
-            quad=quad), 
-            promotes_inputs=['alpha','mach'])
+            quad=quad),
+            promotes_inputs=['aoa','mach'])
 
         self.add_subsystem('forces', VLM_forces(
             N_nodes=N_nodes,
             N_elements=N_elements,
             quad=quad,
-            compute_traction=compute_traction), 
-            promotes_inputs=['mach','q_inf','vel','mu'],            
-            promotes_outputs=[('fa','f_a'),'CL','CD'])
+            compute_traction=compute_traction),
+            promotes_inputs=['mach','q_inf','vel','mu'],
+            promotes_outputs=[('fa','f_aero'),'CL','CD'])
 
     def configure(self):
-        self.connect('geo_disp.x_a', ['solver.xa', 'forces.xa'])
+        self.connect('geo_disp.x_aero', ['solver.xa', 'forces.xa'])
         self.connect('solver.Cp', 'forces.Cp')
 
 class DummyVlmSolver(object):
@@ -136,7 +136,7 @@ class DummyVlmSolver(object):
     # the methods below here are required for RLT
     def getSurfaceCoordinates(self, group):
         # just return the full coordinates
-        return self.options['x_a0']
+        return self.options['x_aero0']
 
     def getSurfaceConnectivity(self, group):
         # -1 for the conversion between fortran and C
@@ -160,8 +160,8 @@ class VlmBuilder(object):
 
     def get_mesh_element(self):
         N_nodes = self.options['N_nodes']
-        x_a0 = self.options['x_a0']
-        return VlmMesh(N_nodes=N_nodes, x_a0=x_a0)
+        x_aero0 = self.options['x_aero0']
+        return VlmMesh(N_nodes=N_nodes, x_aero0=x_aero0)
 
     def get_nnodes(self):
         return self.options['N_nodes']

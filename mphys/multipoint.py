@@ -100,9 +100,9 @@ class Multipoint(om.Group):
             for scenario in self.scenarios:
                 # first, make the default mesh connections for as_coupling
                 if self.as_coupling:
-                    target_x_s0 =     ['%s.solver_group.disp_xfer.x_s0'%scenario]
-                    target_x_s0.append('%s.solver_group.load_xfer.x_s0'%scenario)
-                    self.connect('struct_mesh.x_s0', target_x_s0)
+                    target_x_s0 =     ['%s.solver_group.disp_xfer.x_struct0'%scenario]
+                    target_x_s0.append('%s.solver_group.load_xfer.x_struct0'%scenario)
+                    self.connect('struct_mesh.x_struct0', target_x_s0)
 
                 # then connect the custom stuff to solver and functionals
                 for k, v in solver_connections.items():
@@ -130,9 +130,9 @@ class Multipoint(om.Group):
             for scenario in self.scenarios:
                 # first, make the default mesh connections for as_coupling
                 if self.as_coupling:
-                    target_x_a0 =     ['%s.solver_group.load_xfer.x_a0'%scenario]
-                    target_x_a0.append('%s.solver_group.disp_xfer.x_a0'%scenario)
-                    self.connect('aero_mesh.x_a0', target_x_a0)
+                    target_x_a0 =     ['%s.solver_group.load_xfer.x_aero0'%scenario]
+                    target_x_a0.append('%s.solver_group.disp_xfer.x_aero0'%scenario)
+                    self.connect('aero_mesh.x_aero0', target_x_a0)
 
                 # then connect the custom stuff to solver and functionals
                 for k, v in solver_connections.items():

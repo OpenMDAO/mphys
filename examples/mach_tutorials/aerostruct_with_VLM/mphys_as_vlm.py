@@ -1,11 +1,11 @@
-#rst Imports
-from __future__ import print_function, division
 import numpy as np
+import argparse
+
 from mpi4py import MPI
 
 import openmdao.api as om
 
-from tacs import elements, constitutive, functions
+from tacs import elements, constitutive, functions, TACS
 
 from mphys.multipoint import Multipoint
 from mphys.mphys_vlm import VlmBuilder
@@ -14,16 +14,20 @@ from mphys.mphys_modal_solver import ModalBuilder
 from mphys.mphys_meld import MeldBuilder
 
 
+parser=argparse.ArgumentParser()
+parser.add_argument('--modal', default=False, action="store_true")
+args = parser.parse_args()
+
 class Top(om.Group):
 
     def setup(self):
-        self.modal_struct = True
+        self.modal_struct = args.modal
 
         # VLM options
-        aero_options = {
+        self.aero_options = {
             'mesh_file':'wing_VLM.dat',
             'mach':0.85,
-            'alpha':2*np.pi/180.,
+            'aoa':2*np.pi/180.,
             'q_inf':3000.,
             'vel':178.,
             'mu':3.5E-5,
@@ -53,10 +57,10 @@ class Top(om.Group):
 
             return N_nodes, N_elements, xa, quad
 
-        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
+        self.aero_options['N_nodes'], self.aero_options['N_elements'], self.aero_options['x_aero0'], self.aero_options['quad'] = read_VLM_mesh(self.aero_options['mesh_file'])
 
         # VLM builder
-        vlm_builder = VlmBuilder(aero_options)
+        vlm_builder = VlmBuilder(self.aero_options)
 
         # TACS setup
 
@@ -99,10 +103,12 @@ class Top(om.Group):
 
 
         # common setup options
-        tacs_setup = {'add_elements': add_elements,
-                    'get_funcs'   : get_funcs,
-                    'mesh_file'   : 'wingbox_Y_Z_flip.bdf',}
-                    # 'f5_writer'   : f5_writer }
+        tacs_setup = {
+            'add_elements': add_elements,
+            'get_funcs'   : get_funcs,
+            'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
+            # 'f5_writer'   : f5_writer,
+        }
 
         if self.modal_struct:
             nmodes = 15
@@ -139,9 +145,13 @@ class Top(om.Group):
 
     def configure(self):
 
-        # add AoA DV
-        self.dvs.add_output('alpha', val=2*np.pi/180.)
-        self.connect('alpha', 'mp_group.s0.solver_group.aero.alpha')
+        # add aero DVs
+        for dv_name in ['aoa','q_inf','vel','mu','mach']:
+            if dv_name == 'aoa':
+                self.dvs.add_output(dv_name, val=self.aero_options[dv_name], units='rad')
+            else:
+                self.dvs.add_output(dv_name, val=self.aero_options[dv_name])
+            self.connect(dv_name, 'mp_group.s0.solver_group.aero.%s' % dv_name)
 
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()
@@ -170,11 +180,17 @@ prob.setup()
 # model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=20, iprint=2, use_aitken=False, rtol = 1E-14, atol=1E-14)
 # model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=20, iprint=2, rtol = 1e-14, atol=1e-14)
 
-om.n2(prob, show_browser=False, outfile='mphys_as_vlm.html')
+if args.modal:
+    n2name = 'mphys_as_vlm_modal_meld.html'
+else:
+    n2name = 'mphys_as_vlm_tacs_meld.html'
+
+om.n2(prob, show_browser=False, outfile=n2name)
 
 prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
     print('cl =',prob['mp_group.s0.solver_group.aero.forces.CL'])
-    print('f_struct =',prob['mp_group.s0.struct_funcs.funcs.f_struct'])
-    print('mass =',prob['mp_group.s0.struct_funcs.mass.mass'])
+    if not args.modal:
+        print('f_struct =',prob['mp_group.s0.struct_funcs.funcs.f_struct'])
+        print('mass =',prob['mp_group.s0.struct_funcs.mass.mass'])
