@@ -110,7 +110,7 @@ class Top(om.Group):
             chordRef=3.25,
             evalFuncs=['cl', 'cd']
         )
-        ap0.addDV('alpha',value=aoa,name='alpha')
+        ap0.addDV('alpha',value=aoa,name='aoa')
 
         ap1 = AeroProblem(
             name='ap1',
@@ -121,7 +121,7 @@ class Top(om.Group):
             chordRef=3.25,
             evalFuncs=['cl', 'cd']
         )
-        ap1.addDV('alpha',value=aoa,name='alpha')
+        ap1.addDV('alpha',value=aoa,name='aoa')
 
         # here we set the aero problems for every cruise case we have.
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,

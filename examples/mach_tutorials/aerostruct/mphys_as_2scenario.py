@@ -63,6 +63,7 @@ class Top(om.Group):
             # Termination Criteria
             'L2Convergence':1e-14,
             'L2ConvergenceCoarse':1e-2,
+            'L2ConvergenceRel': 1e-4,
             'nCycles':10000,
 
             # force integration
@@ -187,7 +188,7 @@ class Top(om.Group):
             chordRef=3.25,
             evalFuncs=['lift','drag', 'cl', 'cd']
         )
-        ap0.addDV('alpha',value=aoa,name='alpha')
+        ap0.addDV('alpha',value=aoa,name='aoa')
         ap0.addDV('mach',value=0.8,name='mach')
 
         # similarly, add the aero problem for the second analysis point
@@ -200,7 +201,7 @@ class Top(om.Group):
             chordRef=3.25,
             evalFuncs=['lift','drag', 'cl', 'cd']
         )
-        ap1.addDV('alpha',value=aoa,name='alpha')
+        ap1.addDV('alpha',value=aoa,name='aoa')
         ap1.addDV('mach',value=0.7,name='mach')
 
         # here we set the aero problems for every cruise case we have.
