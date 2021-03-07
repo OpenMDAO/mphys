@@ -154,16 +154,17 @@ class Top(om.Group):
         # any solver can have their own custom approach here, and we don't
         # need to use a common API. AND, if we wanted to define a common API,
         # it can easily be defined on the mp group, or the aero group.
+        aoa = 1.5
         ap0 = AeroProblem(
             name="ap0",
             mach=0.8,
             altitude=10000,
-            alpha=1.5,
+            alpha=aoa,
             areaRef=45.5,
             chordRef=3.25,
             evalFuncs=["lift", "drag", "cl", "cd"],
         )
-        ap0.addDV("alpha", value=1.5, name="alpha")
+        ap0.addDV("alpha", value=aoa, name="aoa")
         ap0.addDV("mach", value=0.8, name="mach")
 
         # here we set the aero problems for every cruise case we have.
@@ -175,11 +176,11 @@ class Top(om.Group):
 
         # define the aero DVs in the IVC
         # s0
-        self.dvs.add_output("alpha0", val=1.5)
+        self.dvs.add_output("aoa0", val=aoa, units='deg')
         self.dvs.add_output("mach0", val=0.8)
 
         # connect to the aero for each scenario
-        self.connect("alpha0", ["mp_group.s0.solver_group.aero.alpha", "mp_group.s0.aero_funcs.alpha"])
+        self.connect("aoa0", ["mp_group.s0.solver_group.aero.aoa", "mp_group.s0.aero_funcs.aoa"])
         self.connect("mach0", ["mp_group.s0.solver_group.aero.mach", "mp_group.s0.aero_funcs.mach"])
 
         # add the structural thickness DVs
@@ -250,13 +251,13 @@ class TestAeroStructSolve(unittest.TestCase):
         if MPI.COMM_WORLD.rank == 0:
             print("Scenario 0")
 
-            print("xa =", np.mean(self.prob.get_val("mp_group.s0.solver_group.aero.geo_disp.x_a", get_remote=True)))
+            print("xa =", np.mean(self.prob.get_val("mp_group.s0.solver_group.aero.geo_disp.x_aero", get_remote=True)))
             print("cl =", self.prob.get_val("mp_group.s0.aero_funcs.cl", get_remote=True))
             print("cd =", self.prob.get_val("mp_group.s0.aero_funcs.cd", get_remote=True))
             print("cd =", self.prob.get_val("mp_group.s0.struct_funcs.funcs.f_struct", get_remote=True))
 
             assert_near_equal(
-                np.mean(self.prob.get_val("mp_group.s0.solver_group.aero.geo_disp.x_a", get_remote=True)),
+                np.mean(self.prob.get_val("mp_group.s0.solver_group.aero.geo_disp.x_aero", get_remote=True)),
                 self.ref_vals["xa"],
                 1e-6,
             )

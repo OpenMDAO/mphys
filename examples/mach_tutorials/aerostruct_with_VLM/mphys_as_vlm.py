@@ -5,7 +5,7 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from tacs import elements, constitutive, functions
+from tacs import elements, constitutive, functions, TACS
 
 from mphys.multipoint import Multipoint
 from mphys.mphys_vlm import VlmBuilder
@@ -24,8 +24,13 @@ class Top(om.Group):
         self.modal_struct = args.modal
 
         # VLM options
-        aero_options = {
+        self.aero_options = {
             'mesh_file':'wing_VLM.dat',
+            'mach':0.85,
+            'alpha':2*np.pi/180.,
+            'q_inf':3000.,
+            'vel':178.,
+            'mu':3.5E-5,
         }
 
         # VLM mesh read
@@ -52,10 +57,10 @@ class Top(om.Group):
 
             return N_nodes, N_elements, xa, quad
 
-        aero_options['N_nodes'], aero_options['N_elements'], aero_options['x_a0'], aero_options['quad'] = read_VLM_mesh(aero_options['mesh_file'])
+        self.aero_options['N_nodes'], self.aero_options['N_elements'], self.aero_options['x_aero0'], self.aero_options['quad'] = read_VLM_mesh(self.aero_options['mesh_file'])
 
         # VLM builder
-        vlm_builder = VlmBuilder(aero_options)
+        vlm_builder = VlmBuilder(self.aero_options)
 
         # TACS setup
 
@@ -140,18 +145,13 @@ class Top(om.Group):
 
     def configure(self):
 
-        # add AoA DV
-        self.dvs.add_output('alpha', val=2*np.pi/180.)
-        self.dvs.add_output('mach', val=0.85)
-        self.dvs.add_output('q_inf', val=3000.)
-        self.dvs.add_output('vel', val=178.)
-        self.dvs.add_output('mu', val=3.5E-5)
-
-        self.connect('alpha', 'mp_group.s0.solver_group.aero.alpha')
-        self.connect('mach', 'mp_group.s0.solver_group.aero.mach')
-        self.connect('q_inf', 'mp_group.s0.solver_group.aero.q_inf')
-        self.connect('vel', 'mp_group.s0.solver_group.aero.vel')
-        self.connect('mu', 'mp_group.s0.solver_group.aero.mu')
+        # add aero DVs
+        for dv_name in ['alpha','q_inf','vel','mu','mach']:
+            if dv_name == 'alpha':
+                self.dvs.add_output(dv_name, val=self.aero_options[dv_name], units='rad')
+            else:
+                self.dvs.add_output(dv_name, val=self.aero_options[dv_name])
+            self.connect(dv_name, 'mp_group.s0.solver_group.aero.%s' % dv_name)
 
         # add the structural thickness DVs
         ndv_struct = self.mp_group.struct_builder.get_ndv()
@@ -190,7 +190,7 @@ om.n2(prob, show_browser=False, outfile=n2name)
 prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
-    print('cl =',prob['mp_group.s0.solver_group.aero.CL'])
+    print('cl =',prob['mp_group.s0.solver_group.aero.forces.CL'])
     if not args.modal:
         print('f_struct =',prob['mp_group.s0.struct_funcs.funcs.f_struct'])
         print('mass =',prob['mp_group.s0.struct_funcs.mass.mass'])

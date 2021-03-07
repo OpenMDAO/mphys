@@ -15,13 +15,9 @@ This eases technology transfer and collaboration in this area of research.
   :caption: Contents:
   :name: developersguide
 
+  developers/builders.rst
   developers/model_hierarchy.rst
-  developers/assemblers.rst
-  developers/omfsi_conventions.rst
-  developers/parallelism.rst
-  developers/aerodynamic_solvers.rst
-  developers/structural_solvers.rst
-  developers/load_and_displacement_transfers.rst
+  developers/naming_conventions.rst
 
 .. toctree::
   :maxdepth: 1

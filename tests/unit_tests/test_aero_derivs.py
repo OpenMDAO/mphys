@@ -86,7 +86,7 @@ class Top(om.Group):
         CFDSolver = ADFLOW(options=aero_options)
 
         x_a = CFDSolver.getSurfaceCoordinates(groupName="allWalls")
-        dvs.add_output("x_a", val=x_a)
+        dvs.add_output("x_aero", val=x_a)
 
         # create the multiphysics multipoint group.
         mp = self.add_subsystem("mp", Multipoint(aero_builder=aero_builder, struct_builder=None, xfer_builder=None))
@@ -106,17 +106,17 @@ class Top(om.Group):
             chordRef=3.25,
             evalFuncs=["lift", "drag", "cl", "cd"],
         )
-        ap0.addDV("alpha", value=2.0, name="alpha")
+        ap0.addDV("alpha", value=2.0, name="aoa")
         self.mp.s0.solver_group.aero.mphys_set_ap(ap0)
         # self.mp.s0.solver_group.aero_funcs.mphys_set_ap(ap0)
         self.mp.s0.aero_funcs.mphys_set_ap(ap0)
 
-        self.dvs.add_output("alpha", val=alpha0)
-        self.connect("x_a", ["mp.aero_mesh.x_a0_points"])
-        # self.connect("alpha", ["mp.s0.solver_group.aero.alpha", "mp.s0.aero_funcs.alpha"])
+        self.dvs.add_output("aoa", val=alpha0, units='deg')
+        self.connect("x_aero", ["mp.aero_mesh.x_aero0_points"])
+        # self.connect("aoa", ["mp.s0.solver_group.aero.aoa", "mp.s0.aero_funcs.aoa"])
 
         self.mp.aero_mesh.mphys_add_coordinate_input()
-        self.connect("alpha", ["mp.s0.solver_group.aero.alpha", "mp.s0.aero_funcs.alpha"])
+        self.connect("aoa", ["mp.s0.solver_group.aero.aoa", "mp.s0.aero_funcs.aoa"])
 
 
 class TestADFlow(unittest.TestCase):
@@ -126,8 +126,8 @@ class TestADFlow(unittest.TestCase):
         prob.model = Top()
 
         # DVs
-        prob.model.add_design_var("alpha", lower=-5, upper=10, ref=10.0)
-        prob.model.add_design_var("x_a", indices=[3, 14, 20, 9], lower=-5, upper=10, ref=10.0)
+        prob.model.add_design_var("aoa", lower=-5, upper=10, ref=10.0, units='deg')
+        prob.model.add_design_var("x_aero", indices=[3, 14, 20, 9], lower=-5, upper=10, ref=10.0)
 
         prob.model.add_constraint("mp.s0.aero_funcs.cl", ref=1.0, equals=0.5)
         prob.model.add_constraint("mp.s0.aero_funcs.cd", ref=1.0, equals=0.5)
@@ -147,12 +147,12 @@ class TestADFlow(unittest.TestCase):
     def test_derivatives(self):
         self.prob.run_model()
 
-        data = self.prob.check_totals(wrt="alpha", step=1e-8, step_calc="rel")
+        data = self.prob.check_totals(wrt="aoa", step=1e-8, step_calc="rel")
         for var, err in data.items():
             rel_err = err["rel error"]
             assert_near_equal(rel_err.forward, 0.0, 1e-3)
 
-        data = self.prob.check_totals(wrt="x_a", step=1e-8)
+        data = self.prob.check_totals(wrt="x_aero", step=1e-8)
         for var, err in data.items():
             rel_err = err["rel error"]
             assert_near_equal(rel_err.forward, 0.0, 5e-3)

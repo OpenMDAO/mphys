@@ -1,7 +1,7 @@
 import numpy as np
 import openmdao.api as om
 
-from mphys.mphys_base_classes import solver_builder
+from mphys.base_classes import SolverBuilder
 
 from iris_wrapper import Iris
 from parfait.distance_calculator import DistanceCalculator
@@ -24,7 +24,7 @@ class Fun3dMesh(om.ExplicitComponent):
         x,y,z = meshdef.get_boundary_node_coordinates(boundary_tag_list, owned_only = True)
         self.x_a0 = self._flatten_vectors(x,y,z)
         coord_size = self.x_a0.size
-        self.add_output('x_a0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
+        self.add_output('x_aero0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
 
     def _flatten_vectors(self, x, y, z):
         matrix = np.concatenate((x.reshape((-1,1)),y.reshape((-1,1)),z.reshape((-1,1))),axis=1)
@@ -38,23 +38,23 @@ class Fun3dMesh(om.ExplicitComponent):
         n1 = np.sum(n_list[:irank])
         n2 = np.sum(n_list[:irank+1])
 
-        self.add_input('x_a0_points',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
+        self.add_input('x_aero0_points',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
 
-        return 'x_a0_points', self.x_a0
+        return 'x_aero0_points', self.x_a0
 
     def compute(self,inputs,outputs):
-        if 'x_a0_points' in inputs:
-            outputs['x_a0'] = inputs['x_a0_points']
+        if 'x_aero0_points' in inputs:
+            outputs['x_aero0'] = inputs['x_aero0_points']
         else:
-            outputs['x_a0'] = self.x_a0
+            outputs['x_aero0'] = self.x_a0
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
-            if 'x_a0_points' in d_inputs:
-                d_outputs['x_a0'] += d_inputs['x_a0_points']
+            if 'x_aero0_points' in d_inputs:
+                d_outputs['x_aero0'] += d_inputs['x_aero0_points']
         elif mode == 'rev':
-            if 'x_a0_points' in d_inputs:
-                d_inputs['x_a0_points'] += d_outputs['x_a0']
+            if 'x_aero0_points' in d_inputs:
+                d_inputs['x_aero0_points'] += d_outputs['x_aero0']
 
 class Fun3dFsiSolverGroup(om.Group):
     def initialize(self):
@@ -70,26 +70,25 @@ class Fun3dFsiSolverGroup(om.Group):
         forces_comp = self.options['forces_comp']
 
         self.add_subsystem('geo_disp', geodisp_comp,
-                                       promotes_inputs=['u_a', 'x_a0'],
-                                       promotes_outputs=['x_a'])
+                                       promotes_inputs=['u_aero', 'x_aero0'],
+                                       promotes_outputs=['x_aero'])
         self.add_subsystem('meshdef', meshdef_comp)
         self.add_subsystem('flow', flow_comp)
         self.add_subsystem('forces', forces_comp,
-                                     promotes_outputs=['f_a'])
+                                     promotes_outputs=['f_aero'])
 
     def configure(self):
-        self.connect('x_a','meshdef.x_a')
+        self.connect('x_aero','meshdef.x_aero')
         self.connect('meshdef.u_g',['flow.u_g','forces.u_g'])
         self.connect('flow.q','forces.q')
 
-class Fun3dSfeBuilder(solver_builder):
+class Fun3dSfeBuilder(SolverBuilder):
     def __init__(self, meshfile, boundary_tag_list):
         self.meshfile = meshfile
         self.boundary_tag_list = boundary_tag_list
         self.is_initialized = False
 
     def init_solver(self, comm):
-
         if not self.is_initialized:
             self.dist_calc = DistanceCalculator.from_meshfile(self.meshfile,comm)
             distance = self.dist_calc.compute(self.boundary_tag_list)
@@ -126,15 +125,15 @@ class Fun3dSfeBuilder(solver_builder):
 
     def get_scenario_connections(self):
         mydict = {
-            'f_a': 'f_a',
-            'x_a': 'x_a'
+            'f_aero': 'f_aero',
+            'x_aero': 'x_aero'
         }
         return mydict
 
     def get_mesh_connections(self):
         mydict = {
             'solver':{
-                'x_a0'  : 'x_a0',
+                'x_aero0'  : 'x_aero0',
             },
             'funcs':{},
         }
