@@ -13,11 +13,6 @@ class GeoDisp(om.ExplicitComponent):
     def setup(self):
         nnodes = self.options['number_of_surface_nodes']
         local_size = nnodes * 3
-        n_list = self.comm.allgather(local_size)
-        irank  = self.comm.rank
-
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
 
         self.add_input('x_aero0', shape_by_conn=True,
                                   desc='aerodynamic surface with geom changes')
