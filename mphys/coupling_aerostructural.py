@@ -10,14 +10,14 @@ class CouplingAeroStructural(CouplingGroup):
     def initialize(self):
         self.options.declare('aero_builder', recordable=False)
         self.options.declare('struct_builder', recordable=False)
-        self.options.declare('xfer_builder', recordable=False)
+        self.options.declare('ldxfer_builder', recordable=False)
 
     def setup(self):
         aero_builder = self.options['aero_builder']
         struct_builder = self.options['struct_builder']
-        xfer_builder = self.options['xfer_builder']
+        ldxfer_builder = self.options['ldxfer_builder']
 
-        disp_xfer, load_xfer = xfer_builder.get_coupling_group_subsystem()
+        disp_xfer, load_xfer = ldxfer_builder.get_coupling_group_subsystem()
         aero = aero_builder.get_coupling_group_subsystem()
         struct = struct_builder.get_coupling_group_subsystem()
 

@@ -50,7 +50,7 @@ class Multipoint(om.Group,MultipointBase):
     def configure(self):
         return MultipointBase.configure(self)
 
-class MultipointParallelGroup(om.ParallelGroup, MultipointBase):
+class MultipointParallel(om.ParallelGroup, MultipointBase):
     def __init__(self, **kwargs):
         MultipointBase.__init__(self)
         om.ParallelGroup.__init__(self, **kwargs)

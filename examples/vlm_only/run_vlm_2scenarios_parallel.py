@@ -1,22 +1,22 @@
 from mpi4py import MPI
 import openmdao.api as om
 
-from mphys import MultipointParallelGroup
+from mphys import MultipointParallel
 from mphys.mphys_vlm import VlmBuilderAeroOnly
 from mphys.scenario_aero import ScenarioAero
 
 
-class ParallelCruises(MultipointParallelGroup):
+class ParallelCruises(MultipointParallel):
     def setup(self):
         # VLM options
         mesh_file = 'wing_VLM.dat'
 
         aero_builder = VlmBuilderAeroOnly(mesh_file)
         self.mphys_add_scenario('cruise',ScenarioAero(aero_builder=aero_builder,
-                                                      in_MultipointParallelGroup=True))
+                                                      in_MultipointParallel=True))
 
         self.mphys_add_scenario('cruise_higher_aoa',ScenarioAero(aero_builder=aero_builder,
-                                                                 in_MultipointParallelGroup=True))
+                                                                 in_MultipointParallel=True))
 
 class Top(om.Group):
     def setup(self):

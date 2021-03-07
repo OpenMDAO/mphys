@@ -52,17 +52,16 @@ class Top(Multipoint):
 
         # MELD setup
         isym = 1
-        xfer_builder = MeldBuilder(aero_builder, struct_builder, isym=isym)
-        xfer_builder.initialize(self.comm)
+        ldxfer_builder = MeldBuilder(aero_builder, struct_builder, isym=isym)
+        ldxfer_builder.initialize(self.comm)
 
         for iscen, scenario in enumerate(['cruise','maneuver']):
             nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol = 1E-14, atol=1E-14)
             linear_solver = om.LinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol = 1e-14, atol=1e-14)
             self.mphys_add_scenario(scenario,ScenarioAeroStructural(aero_builder=aero_builder,
                                                                     struct_builder=struct_builder,
-                                                                    xfer_builder=xfer_builder),
-                                            coupling_nonlinear_solver=nonlinear_solver,
-                                            coupling_linear_solver=linear_solver)
+                                                                    ldxfer_builder=ldxfer_builder),
+                                             nonlinear_solver, linear_solver)
 
             for discipline in ['aero','struct']:
                 self.mphys_connect_scenario_coordinate_source('mesh_%s' % discipline, scenario, discipline)

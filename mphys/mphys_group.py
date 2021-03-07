@@ -29,7 +29,7 @@ class MphysGroup(Group):
     def _mphys_promote_coupling_variables(self):
         self._mphys_promote_by_tag(['input','output'],'mphys_coupling')
 
-    def _mphys_promote_design_variables(self):
+    def _mphys_promote_inputs(self):
         self._mphys_promote_by_tag('input','mphys_input')
 
     def _mphys_promote_mesh_coordinates(self):
@@ -40,6 +40,6 @@ class MphysGroup(Group):
 
     def configure(self):
         self._mphys_promote_coupling_variables()
-        self._mphys_promote_design_variables()
+        self._mphys_promote_inputs()
         self._mphys_promote_mesh_coordinates()
         self._mphys_promote_results()
