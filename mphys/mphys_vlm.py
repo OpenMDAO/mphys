@@ -58,26 +58,8 @@ class VlmBuilder(Builder):
         self.meshfile = meshfile
         self.compute_tractions = compute_tractions
 
-    def read_mesh(self, meshfile):
-        with  open(meshfile,'r') as f:
-            contents = f.read().split()
-
-        a = [i for i in contents if 'NODES' in i][0]
-        num_nodes = int(a[a.find("=")+1:a.find(",")])
-        a = [i for i in contents if 'ELEMENTS' in i][0]
-        num_elements = int(a[a.find("=")+1:a.find(",")])
-
-        a = np.array(contents[16:16+num_nodes*3],'float')
-        x = a[0:num_nodes*3:3]
-        y = a[1:num_nodes*3:3]
-        z = a[2:num_nodes*3:3]
-        a = np.array(contents[16+num_nodes*3:None],'int')
-
-        self.connectivity = np.reshape(a,[num_elements,4])
-        self.x_aero0 = np.c_[x,y,z].flatten(order='C')
-
     def initialize(self, comm):
-        self.read_mesh(self.meshfile)
+        self._read_mesh(self.meshfile)
         self.solver = DummyVlmSolver(self.x_aero0, self.connectivity)
 
     def get_mesh_coordinate_subsystem(self):
@@ -97,6 +79,24 @@ class VlmBuilder(Builder):
 
     def get_ndof(self):
         return self.x_aero0.size // 3
+
+    def _read_mesh(self, meshfile):
+        with  open(meshfile,'r') as f:
+            contents = f.read().split()
+
+        a = [i for i in contents if 'NODES' in i][0]
+        num_nodes = int(a[a.find("=")+1:a.find(",")])
+        a = [i for i in contents if 'ELEMENTS' in i][0]
+        num_elements = int(a[a.find("=")+1:a.find(",")])
+
+        a = np.array(contents[16:16+num_nodes*3],'float')
+        x = a[0:num_nodes*3:3]
+        y = a[1:num_nodes*3:3]
+        z = a[2:num_nodes*3:3]
+        a = np.array(contents[16+num_nodes*3:None],'int')
+
+        self.connectivity = np.reshape(a,[num_elements,4])
+        self.x_aero0 = np.c_[x,y,z].flatten(order='C')
 
 class VlmBuilderAeroOnly(VlmBuilder):
     def get_mesh_coordinate_subsystem(self):
