@@ -42,14 +42,14 @@ prob.model = Top()
 model = prob.model
 
 model.add_design_var('dv_struct',lower=0.001,upper=0.075,scaler=1000.0)
-model.add_objective('analysis.mass',scaler=1.0/1000.0)
-model.add_constraint('analysis.func_struct',lower = 0.0, upper = 2.0/3.0,scaler=1.0)
+model.add_objective('analysis.mass', index=0, scaler=1.0/1000.0)
+model.add_constraint('analysis.func_struct', indices=[0], lower = 0.0, upper = 2.0/3.0,scaler=1.0)
 
-prob.driver = om.ScipyOptimizeDriver(debug_print=['objs','nl_cons'],maxiter=150)
+prob.driver = om.ScipyOptimizeDriver(debug_print=['objs','nl_cons'],maxiter=1)
 prob.driver.options['optimizer'] = 'SLSQP'
 
 prob.setup()
-om.n2(prob, show_browser=False, outfile='mphys_struct.html')
+om.n2(prob, show_browser=False, outfile='tacs_struct.html')
 prob.run_model()
 
 prob.run_driver()
