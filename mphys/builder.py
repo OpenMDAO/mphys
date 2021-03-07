@@ -30,30 +30,30 @@ class Builder:
 
     def get_coupling_group_subsystem(self):
         """
-        The element that this builder will add to the CouplingGroup
+        The subsystem that this builder will add to the CouplingGroup
 
         Returns
         -------
-        solver_element : ~openmdao.api.Component or ~openmdao.api.Group
-            The openmdao element that handles all the computations for
-            this solver. Transfer schemes can return multiple elements
+        solver_subsystem : ~openmdao.api.Component or ~openmdao.api.Group
+            The openmdao subsystem that handles all the computations for
+            this solver. Transfer schemes can return multiple subsystems
         """
         return None
 
     def get_scenario_subsystems(self):
         """
-        Method that returns the openmdao element to be added to each scenario
+        Method that returns the openmdao subsystem to be added to each scenario
 
         Returns
         -------
-        pre_coupling_element : openmdao.api.Component or ~openmdao.api.Group
-            The openmdao element that handles all the added computations for
+        pre_coupling_subsystem : openmdao.api.Component or ~openmdao.api.Group
+            The openmdao subsystem that handles all the added computations for
             that should be run in each scenario. These may represent functional that
             are run after a coupled analysis is converged.
         """
-        pre_coupling_element = None
-        post_coupling_element = None
-        return pre_coupling_element, post_coupling_element
+        pre_coupling_subsystem = None
+        post_coupling_subsystem = None
+        return pre_coupling_subsystem, post_coupling_subsystem
 
     def get_number_of_nodes(self):
         """

@@ -3,12 +3,12 @@ import openmdao.api as om
 
 class IntegratedSurfaceForces(om.ExplicitComponent):
     def setup(self):
-        self.add_input('aoa',desc = 'angle of attack', units='rad',tags=['mphys_dv'])
-        self.add_input('yaw',desc = 'yaw angle',units='rad',tags=['mphys_dv'])
-        self.add_input('ref_area', val = 1.0,tags=['mphys_dv'])
-        self.add_input('moment_center',shape=3,tags=['mphys_dv'])
-        self.add_input('ref_length', val = 1.0,tags=['mphys_dv'])
-        self.add_input('q_inf', val = 1.0,tags=['mphys_dv'])
+        self.add_input('aoa',desc = 'angle of attack', units='rad',tags=['mphys_input'])
+        self.add_input('yaw',desc = 'yaw angle',units='rad',tags=['mphys_input'])
+        self.add_input('ref_area', val = 1.0,tags=['mphys_input'])
+        self.add_input('moment_center',shape=3,tags=['mphys_input'])
+        self.add_input('ref_length', val = 1.0,tags=['mphys_input'])
+        self.add_input('q_inf', val = 1.0,tags=['mphys_input'])
 
         self.add_input('x_aero', shape_by_conn=True, desc = 'surface coordinates', tags=['mphys_coupling'])
         self.add_input('f_aero', shape_by_conn=True, desc = 'dimensional forces at nodes', tags=['mphys_coupling'])
