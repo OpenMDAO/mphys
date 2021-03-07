@@ -1,15 +1,32 @@
 from .scenario import Scenario
 
-class ScenarioStructural(Scenario):
+class ScenarioStructuralV1(Scenario):
 
     def initialize(self):
         self.options.declare('struct_builder', recordable=False)
-        self.options.declare('in_MultipointParallelGroup', default=False)
 
     def setup(self):
         struct_builder = self.options['struct_builder']
 
-        if self.options['in_MultipointParallelGroup']:
+        self.mphys_add_pre_coupling_subsystem('struct', struct_builder)
+        self.mphys_add_subsystem('coupling',struct_builder.get_coupling_group_subsystem())
+        self.mphys_add_post_coupling_subsystem('struct', struct_builder)
+
+
+
+
+
+# a class that works for both Multipoint and MultipointParallel
+class ScenarioStructural(Scenario):
+
+    def initialize(self):
+        self.options.declare('struct_builder', recordable=False)
+        self.options.declare('in_MultipointParallel', default=False)
+
+    def setup(self):
+        struct_builder = self.options['struct_builder']
+
+        if self.options['in_MultipointParallel']:
             struct_builder.initialize(self.comm)
             self.mphys_add_subsystem('mesh',struct_builder.get_mesh_coordinate_subsystem())
 
@@ -18,7 +35,11 @@ class ScenarioStructural(Scenario):
         self.mphys_add_post_coupling_subsystem('struct', struct_builder)
 
 
-# UNTESTED: to show in_MultipointParallelGroup option isn't necessary and add geometry
+
+
+
+
+# UNTESTED: to show in_MultipointParallel option isn't necessary and add geometry
 class ScenarioStructuralParallelGeometry(Scenario):
 
     def initialize(self):
