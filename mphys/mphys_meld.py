@@ -302,7 +302,7 @@ class MeldLoadXfer(om.ExplicitComponent):
                     d_inputs['x_struct0'] -= np.array(prod,dtype=float)
 
 class MeldBuilder(Builder):
-    def __init__(self, aero_builder: Builder, struct_builder,
+    def __init__(self, aero_builder, struct_builder,
                        isym=-1, n=200, beta = 0.5, check_partials=False):
         self.aero_builder = aero_builder
         self.struct_builder = struct_builder
