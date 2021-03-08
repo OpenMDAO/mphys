@@ -67,8 +67,8 @@ class Top(Multipoint):
                 self.mphys_connect_scenario_coordinate_source('mesh_%s' % discipline, scenario, discipline)
 
             for dv in ['q_inf','vel','mu','mach', 'dv_struct']:
-                self.connect(dv, '%s.%s' % (scenario, dv))
-            self.connect('aoa', '%s.aoa' % scenario, src_indices=[iscen])
+                self.connect(dv, f'{scenario}.{dv}')
+            self.connect('aoa', f'{scenario}.aoa', src_indices=[iscen])
 
 ################################################################################
 # OpenMDAO setup
