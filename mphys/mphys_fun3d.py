@@ -55,7 +55,6 @@ class Fun3dSfeBuilder(Builder):
         iris = Iris(comm)
         prob = SimpleProblem(iris)
         prob.project_rootname = self.project_rootname
-        print('problem:', prob.project_rootname)
         self.mesh = create_preprocessor(prob.problem, iris)
         self.sfe = SfeSolver(prob.problem, self.mesh, iris)
         self.meshdef = MeshDeformer(prob.problem, self.mesh, iris)
@@ -86,7 +85,3 @@ class Fun3dSfeBuilder(Builder):
 
     def get_ndof(self):
         return 3
-
-prob = {}
-
-print('KS =',prob['mp_group.s0.struct_funcs.funcs.func_struct'])
