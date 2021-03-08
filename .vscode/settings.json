@@ -2,6 +2,8 @@
     "restructuredtext.confPath": "${workspaceFolder}/docs/source",
     "python.formatting.provider": "autopep8",
     "python.formatting.autopep8Args": [
-        "--max-line-length", "100", "--experimental"
+        "--max-line-length",
+        "100",
+        "--experimental"
     ]
 }
