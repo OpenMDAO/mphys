@@ -51,15 +51,9 @@ prob.setup()
 om.n2(prob, show_browser=False, outfile='vlm_aero_2cruises_parallel.html')
 
 prob.run_model()
-#if MPI.COMM_WORLD.rank == 0:
-#    for scenario in ['cruise','cruise_higher_aoa']:
-#        print('%s: C_L = %f, C_D=%f' % (scenario, prob.get_val(['mp.%s.C_L'%scenario],get_remote=True),
-#                                                  prob.get_val(['mp.%s.C_D'%scenario],get_remote=True)))
-if MPI.COMM_WORLD.rank == 0:
-    scenario = 'cruise'
-    print('%s: C_L = %f, C_D = %f' % (scenario, prob['mp.%s.C_L'%scenario],
-                                                prob['mp.%s.C_D'%scenario]))
-else:
-    scenario = 'cruise_higher_aoa'
-    print('%s: C_L = %f, C_D = %f' % (scenario, prob['mp.%s.C_L'%scenario],
-                                                prob['mp.%s.C_D'%scenario]))
+
+for scenario in ['cruise','cruise_higher_aoa']:
+    cl = prob.get_val(f'mp.{scenario}.C_L',get_remote=True)
+    cd = prob.get_val(f'mp.{scenario}.C_D',get_remote=True)
+    if MPI.COMM_WORLD.rank == 0:
+        print(f'{scenario}: C_L = {cl}, C_D={cd}')
