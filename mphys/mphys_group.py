@@ -1,4 +1,3 @@
-from re import sub
 from openmdao.api import Group
 
 

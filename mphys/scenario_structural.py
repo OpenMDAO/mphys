@@ -9,6 +9,8 @@ class ScenarioStructuralV1(Scenario):
         struct_builder = self.options['struct_builder']
 
         self.mphys_add_pre_coupling_subsystem('struct', struct_builder)
+
+        # the "coupling" group for struct_only would just have the struct subsystem so add it directly here.
         self.mphys_add_subsystem('coupling',struct_builder.get_coupling_group_subsystem())
         self.mphys_add_post_coupling_subsystem('struct', struct_builder)
 
@@ -44,7 +46,7 @@ class ScenarioStructuralParallelGeometry(Scenario):
 
     def initialize(self):
         self.options.declare('struct_builder', recordable=False)
-        self.options.declare('geometry_builder',recordable=False)
+        self.options.declare('geometry_builder', recordable=False)
 
     def setup(self):
         struct_builder = self.options['struct_builder']
