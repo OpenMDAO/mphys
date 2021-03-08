@@ -89,11 +89,12 @@ class VlmBuilder(Builder):
         a = [i for i in contents if 'ELEMENTS' in i][0]
         num_elements = int(a[a.find("=")+1:a.find(",")])
 
-        a = np.array(contents[16:16+num_nodes*3],'float')
+        start = len(contents)-num_nodes*3-num_elements*4
+        a = np.array(contents[start:start+num_nodes*3],'float')
         x = a[0:num_nodes*3:3]
         y = a[1:num_nodes*3:3]
         z = a[2:num_nodes*3:3]
-        a = np.array(contents[16+num_nodes*3:None],'int')
+        a = np.array(contents[start+num_nodes*3:None],'int')
 
         self.connectivity = np.reshape(a,[num_elements,4])
         self.x_aero0 = np.c_[x,y,z].flatten(order='C')
