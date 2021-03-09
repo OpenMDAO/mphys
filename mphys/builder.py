@@ -40,20 +40,25 @@ class Builder:
         """
         return None
 
-    def get_scenario_subsystems(self):
+    def get_pre_coupling_subsystem(self):
         """
-        Method that returns the openmdao subsystem to be added to each scenario
+        Method that returns the openmdao subsystem to be added to each scenario before the coupling group
 
         Returns
         -------
         pre_coupling_subsystem : openmdao.api.Component or ~openmdao.api.Group
-            The openmdao subsystem that handles all the added computations for
-            that should be run in each scenario. These may represent functional that
-            are run after a coupled analysis is converged.
         """
-        pre_coupling_subsystem = None
-        post_coupling_subsystem = None
-        return pre_coupling_subsystem, post_coupling_subsystem
+        return None
+
+    def get_post_coupling_subsystem(self):
+        """
+        Method that returns the openmdao subsystem to be added to each scenario after the coupling group
+
+        Returns
+        -------
+        post_coupling_subsystem : openmdao.api.Component or ~openmdao.api.Group
+        """
+        return None
 
     def get_number_of_nodes(self):
         """

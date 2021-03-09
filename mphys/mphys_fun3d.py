@@ -77,8 +77,8 @@ class Fun3dSfeBuilder(Builder):
                                    flow_comp = sfe_om,
                                    forces_comp = forces_om,
                                    number_of_surface_nodes = self.number_of_nodes)
-    def get_scenario_subsystems(self):
-        return None, IntegratedSurfaceForces()
+    def get_post_coupling_subsystem(self):
+        return IntegratedSurfaceForces()
 
     def get_number_of_nodes(self):
         return self.number_of_nodes
