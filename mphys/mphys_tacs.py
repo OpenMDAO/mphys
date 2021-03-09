@@ -84,7 +84,7 @@ class TacsSolver(om.ImplicitComponent):
         self.ndof = int(state_size/(node_size/3))
 
         # inputs
-        self.add_input('dv_struct', shape_by_conn=True, desc='tacs design variables', tags=['mphys_input'])
+        self.add_input('dv_struct', shape=ndv, desc='tacs design variables', tags=['mphys_input'])
         self.add_input('x_struct0', shape_by_conn=True, desc='structural node coordinates',tags=['mphys_coordinates'])
         self.add_input('f_struct',  shape_by_conn=True, desc='structural load vector', tags=['mphys_coupling'])
 
