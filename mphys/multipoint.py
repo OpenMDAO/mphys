@@ -16,10 +16,10 @@ class MultipointBase:
     def _mphys_set_coupling_algorithms_in_scenarios(self):
         for scenario, solvers in self.mphys_coupling_solvers:
             if solvers[0] is not None:
-                scenario.nonlinear_solver = solvers[0]
+                scenario.coupling.nonlinear_solver = solvers[0]
 
             if solvers[1] is not None:
-                scenario.linear_solver = solvers[1]
+                scenario.coupling.linear_solver = solvers[1]
 
 class Multipoint(om.Group,MultipointBase):
     def __init__(self, **kwargs):

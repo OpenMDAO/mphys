@@ -37,13 +37,6 @@ class ScenarioAeroStructural(Scenario):
         self.mphys_add_post_coupling_subsystem('struct', struct_builder)
         self.mphys_add_post_coupling_subsystem('ldxfer', ldxfer_builder)
 
-        self.nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2,
-                                                    atol=1e-8, rtol=1e-8,
-                                                    use_aitken=True)
-        self.linear_solver = om.LinearBlockGS(maxiter=25, iprint=2,
-                                              atol=1e-8, rtol=1e-8,
-                                              use_aitken=True)
-
     def _mphys_initialize_builders(self, aero_builder, struct_builder,
                                    ldxfer_builder, geometry_builder):
         aero_builder.initialize(self.comm)

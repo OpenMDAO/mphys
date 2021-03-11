@@ -1,3 +1,4 @@
+import openmdao.api as om
 from .coupling_group import CouplingGroup
 from .geo_disp import GeoDisp
 
@@ -28,3 +29,10 @@ class CouplingAeroStructural(CouplingGroup):
         self.mphys_add_subsystem('aero', aero)
         self.mphys_add_subsystem('load_xfer', load_xfer)
         self.mphys_add_subsystem('struct', struct)
+
+        self.nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2,
+                                                    atol=1e-8, rtol=1e-8,
+                                                    use_aitken=True)
+        self.linear_solver = om.LinearBlockGS(maxiter=25, iprint=2,
+                                              atol=1e-8, rtol=1e-8,
+                                              use_aitken=True)
