@@ -71,9 +71,6 @@ class VlmBuilder(Builder):
                         number_of_nodes=number_of_nodes,
                         compute_tractions=self.compute_tractions)
 
-    def get_scenario_subsystems(self):
-        return None, None
-
     def get_number_of_nodes(self):
         return self.x_aero0.size // 3
 

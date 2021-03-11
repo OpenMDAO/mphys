@@ -821,8 +821,8 @@ class TacsBuilder(Builder):
     def get_mesh_coordinate_subsystem(self):
         return TacsMesh(tacs_assembler=self.tacs_assembler)
 
-    def get_scenario_subsystems(self):
-        return None, TACSFuncsGroup(
+    def get_post_coupling_subsystem(self):
+        return TACSFuncsGroup(
             tacs_assembler=self.tacs_assembler,
             solver_objects=self.solver_objects,
             check_partials=self.check_partials
