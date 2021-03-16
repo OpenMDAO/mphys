@@ -17,7 +17,7 @@ class Top(Multipoint):
     def setup(self):
         # VLM
         mesh_file = 'wing_VLM.dat'
-        mach = 0.85,
+        mach = 0.85
         aoa0 = 2.0
         aoa1 = 5.0
         q_inf = 3000.
