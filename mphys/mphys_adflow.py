@@ -1183,7 +1183,7 @@ class ADflowBuilder(object):
     # api level method for all builders
     def init_solver(self, comm):
         self.solver = ADFLOW(options=self.options, comm=comm)
-        mesh = USMesh(options=self.options, comm=comm)
+        mesh = USMesh(options={'gridFile':self.options['gridFile']}, comm=comm)
         self.solver.setMesh(mesh)
 
     # api level method for all builders

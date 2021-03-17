@@ -13,8 +13,8 @@ class TacsMesh(om.ExplicitComponent):
     """
     def initialize(self):
         # self.options.declare('get_tacs', default = None, desc='function to get tacs')
-        self.options.declare('struct_solver', default = None, desc='the tacs object itself')
-        self.options.declare('surface_nodes', default = None, desc='surface nodes')
+        self.options.declare('struct_solver', recordable=False, default=None, desc='the tacs object itself')
+        self.options.declare('surface_nodes', default=None, desc='surface nodes')
         self.options['distributed'] = True
 
     def setup(self):
@@ -73,8 +73,8 @@ class TacsSolver(om.ImplicitComponent):
     """
     def initialize(self):
 
-        self.options.declare('struct_solver')
-        self.options.declare('struct_objects')
+        self.options.declare('struct_solver', recordable=False)
+        self.options.declare('struct_objects', recordable=False)
         self.options.declare('check_partials')
 
         self.options['distributed'] = True
@@ -388,8 +388,8 @@ class TacsSolver_Conduction(om.ImplicitComponent):
     """
     def initialize(self):
 
-        self.options.declare('struct_solver')
-        self.options.declare('struct_objects')
+        self.options.declare('struct_solver', recordable=False)
+        self.options.declare('struct_objects', recordable=False)
         self.options.declare('check_partials')
 
         self.options['distributed'] = True
@@ -542,8 +542,8 @@ class TacsFunctions(om.ExplicitComponent):
     Component to compute TACS functions
     """
     def initialize(self):
-        self.options.declare('struct_solver')
-        self.options.declare('struct_objects')
+        self.options.declare('struct_solver', recordable=False)
+        self.options.declare('struct_objects', recordable=False)
         self.options.declare('check_partials')
 
         self.ans = None
@@ -686,8 +686,8 @@ class TacsMass(om.ExplicitComponent):
     Component to compute TACS mass
     """
     def initialize(self):
-        self.options.declare('struct_solver')
-        self.options.declare('struct_objects')
+        self.options.declare('struct_solver', recordable=False)
+        self.options.declare('struct_objects', recordable=False)
         self.options.declare('check_partials')
 
         self.ans = None
