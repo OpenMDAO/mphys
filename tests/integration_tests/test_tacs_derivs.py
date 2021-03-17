@@ -12,8 +12,6 @@ import os
 # === External Python modules ===
 import numpy as np
 
-# from mpi4py import MPI
-
 # === Extension modules ===
 import openmdao.api as om
 from openmdao.utils.assert_utils import assert_near_equal
@@ -21,7 +19,7 @@ from openmdao.utils.assert_utils import assert_near_equal
 from mphys.multipoint import Multipoint
 from mphys.scenario_structural import ScenarioStructural
 
-from tacs import elements, constitutive, functions, TACS
+from tacs import elements, constitutive, functions
 from mphys.mphys_tacs import TacsBuilder
 
 
@@ -83,11 +81,6 @@ class Top(Multipoint):
         ndv_struct = struct_builder.get_ndv()
         f_size = struct_builder.get_ndof() * struct_builder.get_number_of_nodes()
 
-        ################################################################################
-        # MPHYS setup
-        ################################################################################
-
-        # ivc for DVs
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         dvs.add_output('dv_struct', np.array(ndv_struct * [0.01]))
         dvs.add_output('f_struct', np.ones(f_size))
@@ -101,21 +94,8 @@ class Top(Multipoint):
 
 class TestTACs(unittest.TestCase):
     def setUp(self):
-
-        ################################################################################
-        # OpenMDAO setup
-        ################################################################################
         prob = om.Problem()
         prob.model = Top()
-
-        # DVs
-        #prob.model.add_design_var('dv_struct', indices=[0], lower=-5, upper=10, ref=10.0)
-        #prob.model.add_design_var('f_struct', indices=[0, 12, 34, 40], lower=-5, upper=10, ref=10.0)
-        #prob.model.add_design_var('mesh.x_struct0', indices=[0, 2, 5, 10], lower=-5, upper=10, ref=10.0)
-
-        # objectives and nonlinear constraints
-        #prob.model.add_objective('analysis.mass', ref=100.0)
-        #prob.model.add_constraint('analysis.func_struct', ref=1.0, upper=1.0)
 
         prob.setup(mode='rev', force_alloc_complex=True)
         self.prob = prob
@@ -126,11 +106,9 @@ class TestTACs(unittest.TestCase):
     def test_derivatives(self):
         self.prob.run_model()
         print('----------------starting check totals--------------')
-        data = self.prob.check_totals(of=['analysis.func_struct','analysis.mass'],
+        data = self.prob.check_totals(of=['analysis.func_struct', 'analysis.mass'],
                                       wrt='mesh.x_struct0', method='cs',
                                       step=1e-30, step_calc='rel')
-        #data = self.prob.check_totals(wrt='mesh.x_struct0', method='cs',
-        #                              step=1e-30, step_calc='rel')
         for var, err in data.items():
             rel_err = err['rel error']
             assert_near_equal(rel_err.forward, 0.0, 1e-8)
@@ -141,11 +119,9 @@ class TestTACs(unittest.TestCase):
             rel_err = err['rel error']
             assert_near_equal(rel_err.forward, 0.0, 2e-8)
 
-        data = self.prob.check_totals(of=['analysis.func_struct','analysis.mass'],
+        data = self.prob.check_totals(of=['analysis.func_struct', 'analysis.mass'],
                                       wrt='dv_struct', method='cs',
                                       step=1e-30, step_calc='rel')
-        #data = self.prob.check_totals(wrt='dv_struct', method='cs',
-        #                              step=1e-30, step_calc='rel')
         for var, err in data.items():
             rel_err = err['rel error']
             assert_near_equal(rel_err.forward, 0.0, 5e-8)
