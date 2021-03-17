@@ -113,7 +113,7 @@ class TestXferClasses(unittest.TestCase):
 
         prob.setup(force_alloc_complex=True)
         self.prob = prob
-        om.n2(prob, show_browser=False, outfile='test.html')
+        #om.n2(prob, show_browser=False, outfile='test.html')
 
     def test_run_model(self):
         self.prob.run_model()
