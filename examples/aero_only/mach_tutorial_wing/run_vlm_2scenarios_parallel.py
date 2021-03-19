@@ -3,7 +3,7 @@ import openmdao.api as om
 
 from mphys import MultipointParallel
 from mphys.mphys_vlm import VlmBuilderAeroOnly
-from mphys.scenario_aero import ScenarioAero
+from mphys.scenario_aerodynamic import ScenarioAerodynamic
 
 class ParallelCruises(MultipointParallel):
     def setup(self):
@@ -11,10 +11,10 @@ class ParallelCruises(MultipointParallel):
         mesh_file = 'wing_VLM.dat'
 
         aero_builder = VlmBuilderAeroOnly(mesh_file)
-        self.mphys_add_scenario('cruise',ScenarioAero(aero_builder=aero_builder,
+        self.mphys_add_scenario('cruise',ScenarioAerodynamic(aero_builder=aero_builder,
                                                       in_MultipointParallel=True))
 
-        self.mphys_add_scenario('cruise_higher_aoa',ScenarioAero(aero_builder=aero_builder,
+        self.mphys_add_scenario('cruise_higher_aoa',ScenarioAerodynamic(aero_builder=aero_builder,
                                                                  in_MultipointParallel=True))
 
 class Top(om.Group):

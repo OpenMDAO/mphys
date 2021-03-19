@@ -3,7 +3,7 @@ import openmdao.api as om
 
 from mphys import Multipoint
 from mphys.mphys_vlm import VlmBuilder
-from mphys.scenario_aero import ScenarioAero
+from mphys.scenario_aerodynamic import ScenarioAerodynamic
 
 class Top(Multipoint):
     def setup(self):
@@ -31,8 +31,8 @@ class Top(Multipoint):
         aero_builder.initialize(self.comm)
 
         self.add_subsystem('mesh',aero_builder.get_mesh_coordinate_subsystem())
-        self.mphys_add_scenario('cruise',ScenarioAero(aero_builder=aero_builder))
-        self.mphys_add_scenario('cruise_higher_aoa',ScenarioAero(aero_builder=aero_builder))
+        self.mphys_add_scenario('cruise',ScenarioAerodynamic(aero_builder=aero_builder))
+        self.mphys_add_scenario('cruise_higher_aoa',ScenarioAerodynamic(aero_builder=aero_builder))
 
         for dv in ['q_inf', 'vel', 'mu']:
             self.connect(dv, f'cruise.{dv}')

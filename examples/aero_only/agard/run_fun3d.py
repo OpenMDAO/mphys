@@ -4,7 +4,7 @@ import openmdao.api as om
 
 from mphys import Multipoint
 from mphys.mphys_fun3d import Fun3dSfeBuilder
-from mphys.scenario_aero import ScenarioAero
+from mphys.scenario_aerodynamic import ScenarioAerodynamic
 
 
 class Top(Multipoint):
@@ -30,7 +30,7 @@ class Top(Multipoint):
         aero_builder.initialize(self.comm)
 
         self.add_subsystem('mesh',aero_builder.get_mesh_coordinate_subsystem())
-        self.mphys_add_scenario('cruise',ScenarioAero(aero_builder=aero_builder))
+        self.mphys_add_scenario('cruise',ScenarioAerodynamic(aero_builder=aero_builder))
         self.connect('mesh.x_aero0','cruise.x_aero')
 
         for dv in ['aoa', 'yaw', 'mach', 'q_inf','reynolds']:
