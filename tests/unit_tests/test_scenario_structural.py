@@ -6,7 +6,7 @@ from mpi4py import MPI
 
 from mphys import Builder
 from mphys.scenario_structural import ScenarioStructural
-from common_methods import test_run_model, test_no_autoivcs
+from common_methods import CommonMethods
 
 num_nodes = 3
 
@@ -62,8 +62,23 @@ class StructBuilder(Builder):
         return PostCouplingComp()
 
 
+class Geometry(om.ExplicitComponent):
+    def setup(self):
+        self.add_input('x_struct_in', shape_by_conn=True)
+        self.add_output('x_struct0', shape=3*num_nodes, tags=['mphys_coordinates'])
+
+    def compute(self, inputs, outputs):
+        outputs['x_struct0'] = inputs['x_struct_in']
+
+
+class GeometryBuilder(Builder):
+    def get_mesh_coordinate_subsystem(self):
+        return Geometry()
+
+
 class TestScenarioStructural(unittest.TestCase):
     def setUp(self):
+        self.common = CommonMethods()
         self.prob = om.Problem()
         builder = StructBuilder()
         builder.initialize(MPI.COMM_WORLD)
@@ -79,14 +94,28 @@ class TestScenarioStructural(unittest.TestCase):
         self.assertIsInstance(self.prob.model.scenario.struct_post, PostCouplingComp)
 
     def test_run_model(self):
-        test_run_model(self)
+        self.common.test_run_model(self)
 
     def test_no_autoivcs(self):
-        test_no_autoivcs(self)
+        self.common.test_no_autoivcs(self)
+
+    def test_subsystem_order(self):
+        systems = self.prob.model.scenario._subsystems_allprocs
+        for name, subsystem in systems.items():
+            if name == 'struct_pre':
+                self.assertEqual(subsystem.index, 0)
+            elif name == 'coupling':
+                self.assertEqual(subsystem.index, 1)
+            elif name == 'struct_post':
+                self.assertEqual(subsystem.index, 2)
+            else:
+                print('Unknown component', name)
+                self.assertTrue(False)
 
 
 class TestScenarioStructuralParallel(unittest.TestCase):
     def setUp(self):
+        self.common = CommonMethods()
         self.prob = om.Problem()
         builder = StructBuilder()
         self.prob.model = ScenarioStructural(struct_builder=builder, in_MultipointParallel=True)
@@ -100,10 +129,67 @@ class TestScenarioStructuralParallel(unittest.TestCase):
         self.assertIsInstance(self.prob.model.struct_post, PostCouplingComp)
 
     def test_run_model(self):
-        test_run_model(self)
+        self.common.test_run_model(self)
 
     def test_no_autoivcs(self):
-        test_no_autoivcs(self)
+        self.common.test_no_autoivcs(self)
+
+    def test_subsystem_order(self):
+        systems = self.prob.model._subsystems_allprocs
+        for name, subsystem in systems.items():
+            if name == 'mesh':
+                self.assertEqual(subsystem.index, 0)
+            elif name == 'struct_pre':
+                self.assertEqual(subsystem.index, 1)
+            elif name == 'coupling':
+                self.assertEqual(subsystem.index, 2)
+            elif name == 'struct_post':
+                self.assertEqual(subsystem.index, 3)
+            else:
+                print('Unknown component', name)
+                self.assertTrue(False)
+
+
+class TestScenarioStructuralParallelWithGeometry(unittest.TestCase):
+    def setUp(self):
+        self.common = CommonMethods()
+        self.prob = om.Problem()
+        builder = StructBuilder()
+        geom_builder = GeometryBuilder()
+        self.prob.model = ScenarioStructural(struct_builder=builder, geometry_builder=geom_builder,
+                                             in_MultipointParallel=True)
+        self.prob.setup()
+        om.n2(self.prob, outfile='n2/test_scenario_structural_parallel_geometry.html', show_browser=False)
+
+    def test_mphys_components_were_added(self):
+        self.assertIsInstance(self.prob.model.mesh, MeshComp)
+        self.assertIsInstance(self.prob.model.geometry, Geometry)
+        self.assertIsInstance(self.prob.model.struct_pre, PreCouplingComp)
+        self.assertIsInstance(self.prob.model.coupling, CouplingComp)
+        self.assertIsInstance(self.prob.model.struct_post, PostCouplingComp)
+
+    def test_run_model(self):
+        self.common.test_run_model(self)
+
+    def test_no_autoivcs(self):
+        self.common.test_no_autoivcs(self)
+
+    def test_subsystem_order(self):
+        systems = self.prob.model._subsystems_allprocs
+        for name, subsystem in systems.items():
+            if name == 'mesh':
+                self.assertEqual(subsystem.index, 0)
+            elif name == 'geometry':
+                self.assertEqual(subsystem.index, 1)
+            elif name == 'struct_pre':
+                self.assertEqual(subsystem.index, 2)
+            elif name == 'coupling':
+                self.assertEqual(subsystem.index, 3)
+            elif name == 'struct_post':
+                self.assertEqual(subsystem.index, 4)
+            else:
+                print('Unknown component', name)
+                self.assertTrue(False)
 
 
 if __name__ == '__main__':
