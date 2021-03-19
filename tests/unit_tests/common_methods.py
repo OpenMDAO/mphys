@@ -6,8 +6,9 @@ Have a single implementation of tests that many unit tests will run
 
 class CommonMethods:
 
-    def test_run_model(self, obj):
-        om.n2(obj.prob, outfile=f'n2/{obj.__class__.__name__}.html', show_browser=False)
+    def test_run_model(self, obj, write_n2=True):
+        if write_n2:
+            om.n2(obj.prob, outfile=f'n2/{obj.__class__.__name__}.html', show_browser=False)
         obj.prob.run_model()
 
     def test_no_autoivcs(self, obj):
