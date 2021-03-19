@@ -100,17 +100,8 @@ class TestScenarioStructural(unittest.TestCase):
         self.common.test_no_autoivcs(self)
 
     def test_subsystem_order(self):
-        systems = self.prob.model.scenario._subsystems_allprocs
-        for name, subsystem in systems.items():
-            if name == 'struct_pre':
-                self.assertEqual(subsystem.index, 0)
-            elif name == 'coupling':
-                self.assertEqual(subsystem.index, 1)
-            elif name == 'struct_post':
-                self.assertEqual(subsystem.index, 2)
-            else:
-                print('Unknown component', name)
-                self.assertTrue(False)
+        expected_order = ['struct_pre','coupling','struct_post']
+        self.common.test_subsystem_order(self, self.prob.model.scenario, expected_order)
 
 
 class TestScenarioStructuralParallel(unittest.TestCase):
@@ -135,19 +126,8 @@ class TestScenarioStructuralParallel(unittest.TestCase):
         self.common.test_no_autoivcs(self)
 
     def test_subsystem_order(self):
-        systems = self.prob.model._subsystems_allprocs
-        for name, subsystem in systems.items():
-            if name == 'mesh':
-                self.assertEqual(subsystem.index, 0)
-            elif name == 'struct_pre':
-                self.assertEqual(subsystem.index, 1)
-            elif name == 'coupling':
-                self.assertEqual(subsystem.index, 2)
-            elif name == 'struct_post':
-                self.assertEqual(subsystem.index, 3)
-            else:
-                print('Unknown component', name)
-                self.assertTrue(False)
+        expected_order = ['mesh', 'struct_pre','coupling','struct_post']
+        self.common.test_subsystem_order(self, self.prob.model, expected_order)
 
 
 class TestScenarioStructuralParallelWithGeometry(unittest.TestCase):
@@ -175,21 +155,8 @@ class TestScenarioStructuralParallelWithGeometry(unittest.TestCase):
         self.common.test_no_autoivcs(self)
 
     def test_subsystem_order(self):
-        systems = self.prob.model._subsystems_allprocs
-        for name, subsystem in systems.items():
-            if name == 'mesh':
-                self.assertEqual(subsystem.index, 0)
-            elif name == 'geometry':
-                self.assertEqual(subsystem.index, 1)
-            elif name == 'struct_pre':
-                self.assertEqual(subsystem.index, 2)
-            elif name == 'coupling':
-                self.assertEqual(subsystem.index, 3)
-            elif name == 'struct_post':
-                self.assertEqual(subsystem.index, 4)
-            else:
-                print('Unknown component', name)
-                self.assertTrue(False)
+        expected_order = ['mesh', 'geometry', 'struct_pre','coupling','struct_post']
+        self.common.test_subsystem_order(self, self.prob.model, expected_order)
 
 
 if __name__ == '__main__':
