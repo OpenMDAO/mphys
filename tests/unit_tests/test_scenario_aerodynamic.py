@@ -90,7 +90,7 @@ class TestScenarioAerodynamic(unittest.TestCase):
         self.prob.model.add_subsystem('scenario', ScenarioAerodynamic(aero_builder=builder))
         self.prob.model.connect('mesh.x_aero0', 'scenario.x_aero')
         self.prob.setup()
-        om.n2(self.prob, outfile='n2/test_scenario_aerodynamic.html', show_browser=False)
+        om.n2(self.prob, outfile=f'n2/{self.__class__.__name__}.html', show_browser=False)
 
     def test_mphys_components_were_added(self):
         self.assertIsInstance(self.prob.model.scenario.aero_pre, PreCouplingComp)
@@ -116,7 +116,7 @@ class TestScenarioAerodynamicParallel(unittest.TestCase):
         self.prob.model.add_subsystem('scenario', ScenarioAerodynamic(aero_builder=builder,
                                                                       in_MultipointParallel=True))
         self.prob.setup()
-        om.n2(self.prob, outfile='n2/test_scenario_aerodynamic_parallel.html', show_browser=False)
+        om.n2(self.prob, outfile=f'n2/{self.__class__.__name__}.html', show_browser=False)
 
     def test_mphys_components_were_added(self):
         self.assertIsInstance(self.prob.model.scenario.mesh, MeshComp)
@@ -145,7 +145,7 @@ class TestScenarioAerodynamicParallelWithGeometry(unittest.TestCase):
                                                                       geometry_builder=geom_builder,
                                                                       in_MultipointParallel=True))
         self.prob.setup()
-        om.n2(self.prob, outfile='n2/test_scenario_aerodynamic_parallel_geometry.html', show_browser=False)
+        om.n2(self.prob, outfile=f'n2/{self.__class__.__name__}.html', show_browser=False)
 
     def test_mphys_components_were_added(self):
         self.assertIsInstance(self.prob.model.scenario.mesh, MeshComp)

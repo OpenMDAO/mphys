@@ -86,7 +86,7 @@ class TestScenarioStructural(unittest.TestCase):
         self.prob.model.add_subsystem('scenario', ScenarioStructural(struct_builder=builder))
         self.prob.model.connect('mesh.x_struct0', 'scenario.x_struct0')
         self.prob.setup()
-        om.n2(self.prob, outfile='n2/test_scenario_structural.html', show_browser=False)
+        om.n2(self.prob, outfile=f'n2/{self.__class__.__name__}.html', show_browser=False)
 
     def test_mphys_components_were_added(self):
         self.assertIsInstance(self.prob.model.scenario.struct_pre, PreCouplingComp)
@@ -111,7 +111,7 @@ class TestScenarioStructuralParallel(unittest.TestCase):
         builder = StructBuilder()
         self.prob.model = ScenarioStructural(struct_builder=builder, in_MultipointParallel=True)
         self.prob.setup()
-        om.n2(self.prob, outfile='n2/test_scenario_structural_parallel.html', show_browser=False)
+        om.n2(self.prob, outfile=f'n2/{self.__class__.__name__}.html', show_browser=False)
 
     def test_mphys_components_were_added(self):
         self.assertIsInstance(self.prob.model.mesh, MeshComp)
@@ -139,7 +139,7 @@ class TestScenarioStructuralParallelWithGeometry(unittest.TestCase):
         self.prob.model = ScenarioStructural(struct_builder=builder, geometry_builder=geom_builder,
                                              in_MultipointParallel=True)
         self.prob.setup()
-        om.n2(self.prob, outfile='n2/test_scenario_structural_parallel_geometry.html', show_browser=False)
+        om.n2(self.prob, outfile=f'n2/{self.__class__.__name__}.html', show_browser=False)
 
     def test_mphys_components_were_added(self):
         self.assertIsInstance(self.prob.model.mesh, MeshComp)
