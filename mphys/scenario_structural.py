@@ -1,29 +1,18 @@
 from .scenario import Scenario
 
-class ScenarioStructuralV1(Scenario):
-
-    def initialize(self):
-        self.options.declare('struct_builder', recordable=False)
-
-    def setup(self):
-        struct_builder = self.options['struct_builder']
-
-        self.mphys_add_pre_coupling_subsystem('struct', struct_builder)
-
-        # the "coupling" group for struct_only would just have the struct subsystem so add it directly here.
-        self.mphys_add_subsystem('coupling',struct_builder.get_coupling_group_subsystem())
-        self.mphys_add_post_coupling_subsystem('struct', struct_builder)
-
-
-
-
-
-# a class that works for both Multipoint and MultipointParallel
 class ScenarioStructural(Scenario):
-
     def initialize(self):
-        self.options.declare('struct_builder', recordable=False)
-        self.options.declare('in_MultipointParallel', default=False)
+        """
+        A class to perform a single discipline structural case
+        for structural solvers which can compute their own set of loads.
+        The Scenario will add the structural builder's precoupling subsystem,
+        the coupling subsystem, and the postcoupling subsystem.
+        """
+        self.options.declare('struct_builder', recordable=False,
+                             desc='The Mphys builder for the structural solver')
+        self.options.declare('in_MultipointParallel', default=False, types=bool,
+                             desc='Set to `True` if adding this scenario inside a MultipointParallel Group. ' \
+                                  'Adds the mesh subsystem and initializes the solver to the scenario')
 
     def setup(self):
         struct_builder = self.options['struct_builder']
@@ -35,10 +24,6 @@ class ScenarioStructural(Scenario):
         self.mphys_add_pre_coupling_subsystem('struct', struct_builder)
         self.mphys_add_subsystem('coupling',struct_builder.get_coupling_group_subsystem())
         self.mphys_add_post_coupling_subsystem('struct', struct_builder)
-
-
-
-
 
 
 # UNTESTED: to show in_MultipointParallel option isn't necessary and add geometry

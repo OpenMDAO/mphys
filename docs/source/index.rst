@@ -1,31 +1,46 @@
 %%%%%%%%%%%%%%%%%%%%%%%
-Documentation for OMFSI
+Documentation for Mphys
 %%%%%%%%%%%%%%%%%%%%%%%
 
-OMFSI is a set of standards and naming conventions for high-fidelity multiphysics problems with OpenMDAO.
-The standardization strives for modularity of multiphysics problems with large parallel physics codes.
-The roots of OMFSI are in aerostructural optimization, but these practices can be extends to other physics as well.
+Mphys is a package that standardizes high-fidelity multiphysics problems in OpenMDAO.
+Mphys eases the problem set up, provides straightforward extension to new disciplines, and has a library of OpenMDAO groups for multidisciplinary problems addressed by its standard.
 
-While OMFSI does provide these conventions, it is not absolutely necessary to follow these guidelines in order to solve fluid-structure interaction problems with OpenMDAO given its very general coupling capability.
-However, by following a standard set of variable names and model development conventions, the usage of OpenMDAO for fluid-structure interaction analysis will be modular across groups.
+While Mphys does provide these conventions, it is not absolutely necessary to follow these guidelines in order to solve these types of problems with OpenMDAO given its very general coupling capability.
+However, by following the Mphys conventions, the usage of OpenMDAO for multiphysics analysis will be modular across developer groups.
 This eases technology transfer and collaboration in this area of research.
+The standardization strives for modularity of multiphysics problems with large parallel physics codes.
+
+Mphys Basics
+************
+
+These are descriptions of how Mphys works and how it interfaces with solvers and OpenMDAO.
 
 .. toctree::
   :maxdepth: 1
-  :caption: Contents:
-  :name: developersguide
+  :caption: Mphys Basics
 
-  developers/builders.rst
-  developers/model_hierarchy.rst
-  developers/naming_conventions.rst
+  basics/builders.rst
+  basics/model_hierarchy.rst
+  basics/naming_conventions.rst
+
+Mphys Scenario Library
+**********************
+
+These are descriptions of the groups in the Mphys library of multiphysics problems.
+They describe physics problem being solved, the standards set by Mphys, requirements of the Builders, and the options available for each group.
 
 .. toctree::
   :maxdepth: 1
-  :name: examples
+  :caption: Multiphysics Scenarios
 
-  examples/fsi_cfd_fem.rst
-  examples/fsi_vlm_fem.rst
-  examples/fsi_cfd_modal.rst
+  scenarios/aerostructural.rst
+
+.. toctree::
+  :maxdepth: 1
+  :caption: Single Discipline Scenarios
+
+  scenarios/structural.rst
+  scenarios/aerodynamic.rst
 
 Indices and tables
 ==================

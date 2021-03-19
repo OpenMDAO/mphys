@@ -28,7 +28,7 @@ This table provides the required names for coupling variables associated with a 
 +----------------------+-------------------+-------------------------------------------------------------------------------+
 | :code:`x_struct`     | Structural        |  Structural coordinates                                                       |
 +----------------------+-------------------+-------------------------------------------------------------------------------+
-| :code:`u_struct`     | Structural        |  Structural displacements                                                     |
+| :code:`u_struct`     | Structural        |  Structural state vector (displacements)                                      |
 +----------------------+-------------------+-------------------------------------------------------------------------------+
 | :code:`f_struct`     | Structural        |  Structural forces                                                            |
 +----------------------+-------------------+-------------------------------------------------------------------------------+
