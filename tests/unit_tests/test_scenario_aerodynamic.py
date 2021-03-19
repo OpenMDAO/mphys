@@ -113,9 +113,8 @@ class TestScenarioAerodynamicParallel(unittest.TestCase):
         self.common = CommonMethods()
         self.prob = om.Problem()
         builder = AeroBuilder()
-        self.prob.model.add_subsystem(
-            'scenario', ScenarioAerodynamic(
-                aero_builder=builder, in_MultipointParallel=True))
+        self.prob.model.add_subsystem('scenario', ScenarioAerodynamic(aero_builder=builder,
+                                                                      in_MultipointParallel=True))
         self.prob.setup()
         om.n2(self.prob, outfile='n2/test_scenario_aerodynamic_parallel.html', show_browser=False)
 
@@ -164,6 +163,13 @@ class TestScenarioAerodynamicParallelWithGeometry(unittest.TestCase):
     def test_subsystem_order(self):
         expected_order = ['mesh', 'geometry', 'aero_pre', 'coupling', 'aero_post']
         self.common.test_subsystem_order(self, self.prob.model.scenario, expected_order)
+
+    def test_coordinates_connected_from_geometry(self):
+        scenario = self.prob.model.scenario
+        systems = ['aero_pre', 'coupling', 'aero_post']
+        for sys in systems:
+            self.assertEqual(scenario._conn_global_abs_in2out[f'scenario.{sys}.x_aero'],
+                             'scenario.geometry.x_aero0')
 
 
 if __name__ == '__main__':

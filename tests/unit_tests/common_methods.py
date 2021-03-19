@@ -9,6 +9,9 @@ class CommonMethods:
         obj.prob.run_model()
 
     def test_no_autoivcs(self, obj):
+        """
+        Makes sure everything is connected since we're using a lot of promotions
+        """
         for output in obj.prob.model._conn_global_abs_in2out.values():
             obj.assertFalse('auto_ivc' in output)
 
