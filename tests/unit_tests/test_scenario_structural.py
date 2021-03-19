@@ -68,15 +68,15 @@ class TestScenarioStructural(unittest.TestCase):
         builder = StructBuilder()
         builder.initialize(MPI.COMM_WORLD)
         self.prob.model.add_subsystem('mesh', builder.get_mesh_coordinate_subsystem())
-        self.prob.model.add_subsystem('scen', ScenarioStructural(struct_builder=builder))
+        self.prob.model.add_subsystem('scenario', ScenarioStructural(struct_builder=builder))
         self.prob.model.connect('mesh.x_struct0', 'scen.x_struct0')
         self.prob.setup()
         om.n2(self.prob, outfile='n2/test_scenario_structural.html', show_browser=False)
 
     def test_mphys_components_were_added(self):
-        self.assertIsInstance(self.prob.model.scen.struct_pre, PreCouplingComp)
-        self.assertIsInstance(self.prob.model.scen.coupling, CouplingComp)
-        self.assertIsInstance(self.prob.model.scen.struct_post, PostCouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.struct_pre, PreCouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.coupling, CouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.struct_post, PostCouplingComp)
 
     def test_run_model(self):
         test_run_model(self)
