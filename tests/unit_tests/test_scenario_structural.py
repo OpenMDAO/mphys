@@ -69,7 +69,7 @@ class TestScenarioStructural(unittest.TestCase):
         builder.initialize(MPI.COMM_WORLD)
         self.prob.model.add_subsystem('mesh', builder.get_mesh_coordinate_subsystem())
         self.prob.model.add_subsystem('scenario', ScenarioStructural(struct_builder=builder))
-        self.prob.model.connect('mesh.x_struct0', 'scen.x_struct0')
+        self.prob.model.connect('mesh.x_struct0', 'scenario.x_struct0')
         self.prob.setup()
         om.n2(self.prob, outfile='n2/test_scenario_structural.html', show_browser=False)
 
