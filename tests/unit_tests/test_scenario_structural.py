@@ -38,6 +38,7 @@ class CouplingComp(om.ExplicitComponent):
 class PostCouplingComp(om.IndepVarComp):
     def setup(self):
         self.add_input('x_struct0', shape_by_conn=True, tags=['mphys_coordinates'])
+        self.add_input('u_struct', shape_by_conn=True, tags=['mphys_coupling'])
         self.add_input('f_struct', shape_by_conn=True, tags=['mphys_coupling'])
         self.add_output('func_struct', val=1.0, tags=['mphys_result'])
 

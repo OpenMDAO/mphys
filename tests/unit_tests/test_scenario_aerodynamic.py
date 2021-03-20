@@ -19,31 +19,31 @@ class MeshComp(om.IndepVarComp):
 class PreCouplingComp(om.IndepVarComp):
     def setup(self):
         self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_output('aoa', tags=['mphys_coupling'])
+        self.add_output('prestate_aero', tags=['mphys_coupling'])
 
     def compute(self, inputs, outputs):
-        outputs['aoa'] = np.sum(inputs['x_aero'])
+        outputs['prestate_aero'] = np.sum(inputs['x_aero'])
 
 
 class CouplingComp(om.ExplicitComponent):
     def setup(self):
         self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_input('aoa', tags=['mphys_coupling'])
+        self.add_input('prestate_aero', tags=['mphys_coupling'])
         self.add_output('f_aero', shape=num_nodes*3, tags=['mphys_coupling'])
 
     def compute(self, inputs, outputs):
-        outputs['f_aero'] = inputs['x_aero'] + inputs['aoa']
+        outputs['f_aero'] = inputs['x_aero'] + inputs['prestate_aero']
 
 
 class PostCouplingComp(om.IndepVarComp):
     def setup(self):
-        self.add_input('aoa', tags=['mphys_coupling'])
+        self.add_input('prestate_aero', tags=['mphys_coupling'])
         self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
         self.add_input('f_aero', shape_by_conn=True, tags=['mphys_coupling'])
         self.add_output('func_aero', val=1.0, tags=['mphys_result'])
 
     def compute(self, inputs, outputs):
-        outputs['func_aero'] = np.sum(inputs['f_aero'] + inputs['aoa'] + inputs['x_aero'])
+        outputs['func_aero'] = np.sum(inputs['f_aero'] + inputs['prestate_aero'] + inputs['x_aero'])
 
 
 class AeroBuilder(Builder):
