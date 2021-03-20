@@ -18,6 +18,7 @@ pip install -e .
 The test are written to use the testflo framework because it allows us to run tests with multiple cores.
 To run the tests you will need.
 
+### Integration Tests
 These python packages
 ```
 adflow
