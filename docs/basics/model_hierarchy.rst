@@ -47,4 +47,41 @@ If a particular multiphysics problem is not covered by the Mphys library, new sc
 Multipoint Groups
 =================
 
-TODO: describe Multipoint and MultipointParallel and how to build models with them.
+There are two versions of the multipoint group:
+
+1. ``Multipoint`` is derived from the standard OpenMDAO ``Group``
+2. ``MultipointParallel`` is derived for the OpenMDAO ``ParallelGroup``.
+
+For both versions have a convenience function,  :func:`~mphys.multipoint.MultipointBase.mphys_add_scenario`, is provided to aid in populating
+the lower levels of the model hierarchy.
+
+----------
+Multipoint
+----------
+The ``Multipoint`` group will sequentially evaluate the scenario groups.
+The ``Multipoint`` group can be the top group of the OpenMDAO model or a subsystem.
+
+In the ``setup`` method of the Multipoint group, the following steps must be done:
+
+1. Instantiate the builders
+2. Call :func:`~mphys.builder.Builder.initialize` for each builder with the Multipoint's comm (``self.comm``)
+3. Add the mesh components and/or other mesh coordinate source like geometry.
+4. Add the scenarios
+5. Connect the mesh coordinates to the scenarios
+
+Additionally, the Multipoint group can hold the design variables or other inputs and subsystems to be evaluated after the scenarios.
+These extra subsystem can then be connected to the scenarios by the user.
+
+------------------
+MultipointParallel
+------------------
+If given a number of MPI ranks greater than or equal to the number of scenarios, the ``MultipointParallel`` group will simultaneously evaluate the scenario groups.
+Unlike the sequential Multipoint group, the MPI communicators are different for each scenario in MultipointParallel, so the scenarios will call the builder's initialize method.
+
+In the ``setup`` method of the ``MultipointParallel`` group, the following steps must be done:
+
+1. Instantiate the builders
+2. Add the scenarios using the :code:`in_MultipointParallel=True` option
+
+Because this is a ParallelGroup, other subsystems that hold the inputs outside the scenario and subsystems to be evaluated after the scenarios cannot be added directly to the MultipointParallel group.
+These extra subsystem should be added to a higher level of the model and then connected to the scenarios by the user.
