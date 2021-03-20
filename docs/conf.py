@@ -52,6 +52,7 @@ extensions = [
     'embed_shell_cmd',
     'embed_bibtex',
     'embed_n2',
+    'embed_pregen_n2',
     'tags'
 ]
 
@@ -120,3 +121,5 @@ htmlhelp_basename = 'OpenMDAOdoc'
 html_sidebars = {
    '**': ['localtoc.html', 'globaltoc.html', 'searchbox.html']
 }
+
+html_extra_path = ['_n2html']

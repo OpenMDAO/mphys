@@ -15,3 +15,24 @@ Options
   mphys.scenario_structural
   ScenarioStructural
   options
+
+
+N2:Basic
+========
+
+.. embed-pregen-n2::
+  ../tests/unit_tests/n2/TestScenarioStructural.html
+
+
+N2: in_MultipointParallel
+=========================
+
+.. embed-pregen-n2::
+  ../tests/unit_tests/n2/TestScenarioStructuralParallel.html
+
+
+N2: in_MultipointParallel with geometry_builder
+===============================================
+
+.. embed-pregen-n2::
+  ../tests/unit_tests/n2/TestScenarioStructuralParallelWithGeometry.html
