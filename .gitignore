@@ -14,6 +14,7 @@
 
 mphys.egg-info/*
 docs/build/doctrees
+docs/_build
 *__pycache__
 build/
 dist/
