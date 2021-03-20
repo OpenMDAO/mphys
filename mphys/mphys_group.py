@@ -10,13 +10,16 @@ class MphysGroup(Group):
     def mphys_add_subsystem(self, name, subsystem):
         """
         Adding an mphys subsystem will add the subsystem and then set the group
-        to automaticallly promote the mphys tagged variables
+        to automatically promote the mphys tagged variables
         """
         subsystem = self.add_subsystem(name, subsystem)
         self.mphys_subsystems.append(subsystem)
         return subsystem
 
     def configure(self):
+        """
+        Promote the mphys-tagged variables of subsystems by :func:`~MphysGroup.mphys_add_subsystem`
+        """
         self._mphys_promote_coupling_variables()
         self._mphys_promote_inputs()
         self._mphys_promote_mesh_coordinates()

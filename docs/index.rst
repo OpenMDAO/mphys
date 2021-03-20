@@ -24,6 +24,9 @@ These are descriptions of how Mphys works and how it interfaces with solvers and
   basics/builders.rst
   basics/naming_conventions.rst
 
+.. _scenario_library:
+
+**********************
 Mphys Scenario Library
 **********************
 

@@ -19,13 +19,22 @@ class Builder:
 
         Parameters
         ----------
-        comm : ~mpi4py.MPI.Comm
+        comm : :class:`~mpi4py.MPI.Comm`
             The communicator object created for this xfer object instance.
 
         """
         pass
 
     def get_mesh_coordinate_subsystem(self):
+        """
+        The subsystem that contains the subsystem that will return the mesh
+        coordinates
+
+        Returns
+        -------
+        mesh : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group`
+            The openmdao subsystem that has an output of coordinates.
+        """
         return None
 
     def get_coupling_group_subsystem(self):
@@ -34,7 +43,7 @@ class Builder:
 
         Returns
         -------
-        solver_subsystem : ~openmdao.api.Component or ~openmdao.api.Group
+        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group`
             The openmdao subsystem that handles all the computations for
             this solver. Transfer schemes can return multiple subsystems
         """
@@ -46,7 +55,7 @@ class Builder:
 
         Returns
         -------
-        pre_coupling_subsystem : openmdao.api.Component or ~openmdao.api.Group
+        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group`
         """
         return None
 
@@ -56,7 +65,7 @@ class Builder:
 
         Returns
         -------
-        post_coupling_subsystem : openmdao.api.Component or ~openmdao.api.Group
+        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group`
         """
         return None
 

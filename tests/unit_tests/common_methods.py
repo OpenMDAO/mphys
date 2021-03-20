@@ -1,4 +1,5 @@
 from typing import List
+import os
 import openmdao.api as om
 """
 Have a single implementation of tests that many unit tests will run
@@ -8,8 +9,8 @@ class CommonMethods:
 
     def test_run_model(self, obj, write_n2=True):
         if write_n2:
-            om.n2(obj.prob, outfile=f'n2/{obj.__class__.__name__}.html',
-                  show_browser=False, embeddable=True)
+            outfile = f'{os.path.dirname(os.path.abspath(__file__))}/n2/{obj.__class__.__name__}.html'
+            om.n2(obj.prob, outfile=outfile, show_browser=False, embeddable=True)
         obj.prob.run_model()
 
     def test_no_autoivcs(self, obj):
