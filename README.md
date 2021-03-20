@@ -12,6 +12,9 @@ or for a development version
 pip install -e .
 ```
 
+## Building the Docs
+The documentation includes N2 diagrams from the unit tests. Before building the docs, go into `tests/unit_tests` and run `python -m unittest`.
+Then go into the `docs` directory and run `make html`.
 
 
 ## Tests
