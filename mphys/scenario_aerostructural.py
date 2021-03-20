@@ -57,10 +57,13 @@ class ScenarioAeroStructural(Scenario):
 
     def _mphys_add_mesh_and_geometry_subsystems(self, aero_builder, struct_builder,
                                                 geometry_builder):
-        self.mphys_add_subsystem('mesh_aero', aero_builder.get_mesh_coordinate_subsystem())
-        self.mphys_add_subsystem('mesh_struct', struct_builder.get_mesh_coordinate_subsystem())
 
-        if geometry_builder is not None:
+        if geometry_builder is None:
+            self.mphys_add_subsystem('aero_mesh', aero_builder.get_mesh_coordinate_subsystem())
+            self.mphys_add_subsystem('struct_mesh', struct_builder.get_mesh_coordinate_subsystem())
+        else:
+            self.add_subsystem('aero_mesh', aero_builder.get_mesh_coordinate_subsystem())
+            self.add_subsystem('struct_mesh', struct_builder.get_mesh_coordinate_subsystem())
             self.mphys_add_subsystem('geometry', geometry_builder.get_mesh_coordinate_subsystem())
-            self.connect('mesh_aero.x_aero0', 'geometry.x_aero_in')
-            self.connect('mesh_struct.x_struct0', 'geometry.x_struct_in')
+            self.connect('aero_mesh.x_aero0', 'geometry.x_aero_in')
+            self.connect('struct_mesh.x_struct0', 'geometry.x_struct_in')

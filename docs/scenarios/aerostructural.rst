@@ -14,11 +14,11 @@ the load and displacement Builder's :meth:`Builder.get_coupling_group_subsystem`
 
 Structural Solver Builder
 -------------------------
-The structural solver builder must implement the `get_ndof` method in order for the displacement transfer to know if it needs to slice the displacements from the full state vector.
+The structural solver builder must implement the ``get_ndof`` method in order for the displacement transfer to know if it needs to slice the displacements from the full state vector.
 
 Default Solvers
 ===============
-The default solvers are NonlinearBlockGS and LinearBlockGS with `use_aitken=True`.
+The default solvers are NonlinearBlockGS and LinearBlockGS with ``use_aitken=True``.
 
 Options
 =======
@@ -30,10 +30,17 @@ Options
 N2: Basic
 =========
 
+.. embed-pregen-n2::
+  ../tests/unit_tests/n2/TestScenarioAeroStructural.html
 
 N2: in_MultipointParallel
 =========================
 
+.. embed-pregen-n2::
+  ../tests/unit_tests/n2/TestScenarioAeroStructuralParallel.html
 
 N2: in_MultipointParallel with geometry_builder
 ===============================================
+
+.. embed-pregen-n2::
+  ../tests/unit_tests/n2/TestScenarioAeroStructuralParallelWithGeometry.html
