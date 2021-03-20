@@ -10,7 +10,7 @@ class Builder:
         solver, transfer scheme, etc. should not be instantiated in the
         constructor.
         """
-        self.solver = None
+        pass
 
     def initialize(self, comm):
         """
@@ -32,7 +32,7 @@ class Builder:
 
         Returns
         -------
-        mesh : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group`
+        mesh : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group` or None
             The openmdao subsystem that has an output of coordinates.
         """
         return None
@@ -43,7 +43,7 @@ class Builder:
 
         Returns
         -------
-        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group`
+        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group` or None
             The openmdao subsystem that handles all the computations for
             this solver. Transfer schemes can return multiple subsystems
         """
@@ -55,7 +55,7 @@ class Builder:
 
         Returns
         -------
-        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group`
+        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group` or None
         """
         return None
 
@@ -65,7 +65,7 @@ class Builder:
 
         Returns
         -------
-        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group`
+        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group` or None
         """
         return None
 
@@ -80,7 +80,7 @@ class Builder:
         number_of_nodes : int
             number of nodes in the computational domain
         """
-        return None
+        return -1
 
     def get_ndof(self):
         """
@@ -91,4 +91,4 @@ class Builder:
         ndof : int
             number of degrees of freedom of each node in the domain
         """
-        return None
+        return -1
