@@ -6,11 +6,21 @@ from .coupling_aerostructural import CouplingAeroStructural
 class ScenarioAeroStructural(Scenario):
 
     def initialize(self):
-        self.options.declare('aero_builder', recordable=False)
-        self.options.declare('struct_builder', recordable=False)
-        self.options.declare('ldxfer_builder', recordable=False)
-        self.options.declare('geometry_builder', default=None, recordable=False)
-        self.options.declare('in_MultipointParallel', default=False)
+        """
+        A class to perform a single discipline aerodynamic case.
+        The Scenario will add the aerodynamic builder's precoupling subsystem,
+        the coupling subsystem, and the postcoupling subsystem.
+        """
+        self.options.declare('aero_builder', recordable=False,
+                              desc='The Mphys builder for the aerodynamic solver')
+        self.options.declare('struct_builder', recordable=False,
+                              desc='The Mphys builder for the structural solver')
+        self.options.declare('ldxfer_builder', recordable=False,
+                              desc='The Mphys builder for the load and displacement transfer')
+        self.options.declare('in_MultipointParallel', default=False,
+                             desc='Set to `True` if adding this scenario inside a MultipointParallel Group.')
+        self.options.declare('geometry_builder', default=None, recordable=False,
+                             desc='The optional Mphys builder for the geometry')
 
     def setup(self):
         aero_builder = self.options['aero_builder']
@@ -47,14 +57,10 @@ class ScenarioAeroStructural(Scenario):
 
     def _mphys_add_mesh_and_geometry_subsystems(self, aero_builder, struct_builder,
                                                 geometry_builder):
-        if geometry_builder is None:
-            self.mphys_add_subsystem('mesh_aero', aero_builder.get_mesh_coordinate_subsystem())
-            self.mphys_add_subsystem('mesh_struct', struct_builder.get_mesh_coordinate_subsystem())
+        self.mphys_add_subsystem('mesh_aero', aero_builder.get_mesh_coordinate_subsystem())
+        self.mphys_add_subsystem('mesh_struct', struct_builder.get_mesh_coordinate_subsystem())
 
-        else:
-            self.add_subsystem('mesh_aero', aero_builder.get_mesh_coordinate_subsystem())
-            self.add_subsystem('mesh_struct', struct_builder.get_mesh_coordinate_subsystem())
+        if geometry_builder is not None:
             self.mphys_add_subsystem('geometry', geometry_builder.get_mesh_coordinate_subsystem())
-
             self.connect('mesh_aero.x_aero0', 'geometry.x_aero_in')
             self.connect('mesh_struct.x_struct0', 'geometry.x_struct_in')

@@ -1,16 +1,12 @@
-******************
-Mphys Conventions
-******************
+***************************
+Variable Naming Conventions
+***************************
 
 While it is possible to set up the same OpenMDAO multiphysics problem with different sets of variable names, it is preferable for codes solving the same physics to use the same variable names to be more easily interchangeable.
 
 ====================
 Variable Conventions
 ====================
-The current variable naming convention is based on `FUNtoFEM <https://arc.aiaa.org/doi/10.2514/6.2018-0100>`_, but with some modifications.
-
-- All vectors are in the global reference.
-
 This table provides the required names for coupling variables associated with a particular physics in Mphys.
 
 +----------------------+-------------------+-------------------------------------------------------------------------------+
@@ -52,8 +48,3 @@ To make swapping solvers easier, it is also helpful to share noncoupling variabl
 +----------------------+-------------------+---------------------------------------------------------------------------------+
 | :code:`q_inf`        | Aerodynamic       |  Aerodynamic dynamic pressure                                                   |
 +----------------------+-------------------+---------------------------------------------------------------------------------+
-
-===============
-Reference Frame
-===============
-All vectors are in the global reference frame.

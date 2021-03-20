@@ -19,8 +19,9 @@ These are descriptions of how Mphys works and how it interfaces with solvers and
   :maxdepth: 1
   :caption: Mphys Basics
 
-  basics/builders.rst
   basics/model_hierarchy.rst
+  basics/tagged_promotion.rst
+  basics/builders.rst
   basics/naming_conventions.rst
 
 Mphys Scenario Library

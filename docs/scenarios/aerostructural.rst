@@ -2,10 +2,7 @@
 Aerostructural Scenario
 %%%%%%%%%%%%%%%%%%%%%%%
 
-The :class:`ScenarioStructural<mphys.scenario_structural.ScenarioStructural>` is for static fluid structure interaction problems.
-
-N2 Diagram
-==========
+The :class:`ScenarioAeroStructural<mphys.scenario_aerostructural.ScenarioAeroStructural>` is for static fluid structure interaction problems.
 
 Builder Requirements
 ====================
@@ -21,11 +18,22 @@ The structural solver builder must implement the `get_ndof` method in order for 
 
 Default Solvers
 ===============
-The default solvers are NonlinearRunOnce and LinearRunOnce that execute the pre coupling, coupling, and post coupling subsystems in order.
+The default solvers are NonlinearBlockGS and LinearBlockGS with `use_aitken=True`.
 
 Options
 =======
 .. embed-options::
-  mphys.scenario_structural
-  ScenarioStructural
+  mphys.scenario_aerostructural
+  ScenarioAeroStructural
   options
+
+N2: Basic
+=========
+
+
+N2: in_MultipointParallel
+=========================
+
+
+N2: in_MultipointParallel with geometry_builder
+===============================================

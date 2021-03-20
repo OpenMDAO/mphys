@@ -8,13 +8,12 @@ class ScenarioStructural(Scenario):
         The Scenario will add the structural builder's precoupling subsystem,
         the coupling subsystem, and the postcoupling subsystem.
         """
-        self.options.declare('geometry_builder', default=None, recordable=False,
-                             desc='The optional Mphys builder for the geometry')
         self.options.declare('struct_builder', recordable=False,
                              desc='The Mphys builder for the structural solver')
         self.options.declare('in_MultipointParallel', default=False, types=bool,
-                             desc='Set to `True` if adding this scenario inside a MultipointParallel Group. ' \
-                                  'Adds the mesh subsystem and initializes the solver to the scenario')
+                             desc='Set to `True` if adding this scenario inside a MultipointParallel Group.')
+        self.options.declare('geometry_builder', default=None, recordable=False,
+                             desc='The optional Mphys builder for the geometry')
 
     def setup(self):
         struct_builder = self.options['struct_builder']
