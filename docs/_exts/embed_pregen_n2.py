@@ -65,8 +65,6 @@ class EmbedN2Directive(Directive):
         html_base_name = os.path.basename(model_html)
         html_name = os.path.join(target_dir, html_base_name)
         html_rel_name = os.path.join(rel_dir, html_base_name)
-        print('OS', os.getcwd())
-        print('TEST', model_html, html_name, html_rel_name)
         os.system(f'cp {model_html} {html_name}')
         if show_toolbar:
             html_rel_name += '#toolbar'
