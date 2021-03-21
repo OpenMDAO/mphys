@@ -85,7 +85,7 @@ class Top(om.Group):
 
         CFDSolver = ADFLOW(options=aero_options)
 
-        x_a = CFDSolver.getSurfaceCoordinates(groupName="allWalls")
+        x_a = CFDSolver.getSurfaceCoordinates(groupName="allWalls").flatten()
         dvs.add_output("x_aero", val=x_a)
 
         # create the multiphysics multipoint group.
@@ -106,12 +106,12 @@ class Top(om.Group):
             chordRef=3.25,
             evalFuncs=["lift", "drag", "cl", "cd"],
         )
-        ap0.addDV("alpha", value=2.0, name="aoa")
+        ap0.addDV("alpha", value=2.0, name="aoa", units="deg")
         self.mp.s0.solver_group.aero.mphys_set_ap(ap0)
         # self.mp.s0.solver_group.aero_funcs.mphys_set_ap(ap0)
         self.mp.s0.aero_funcs.mphys_set_ap(ap0)
 
-        self.dvs.add_output("aoa", val=alpha0, units='deg')
+        self.dvs.add_output("aoa", val=alpha0, units="deg")
         self.connect("x_aero", ["mp.aero_mesh.x_aero0_points"])
         # self.connect("aoa", ["mp.s0.solver_group.aero.aoa", "mp.s0.aero_funcs.aoa"])
 

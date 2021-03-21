@@ -251,7 +251,6 @@ class ADflowSolver(ImplicitComponent):
 
         # state inputs and outputs
         local_state_size = solver.getStateSize()
-        local_coord_size = solver.mesh.getSolverGrid().size
 
         self.add_input('x_g', shape_by_conn=True)
         self.add_output('q', shape=local_state_size)
