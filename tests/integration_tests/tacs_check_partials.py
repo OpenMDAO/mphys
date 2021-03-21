@@ -45,10 +45,10 @@ class Top(om.Group):
 
         tacs_options = {'add_elements': add_elements,
                         'get_funcs'   : get_funcs,
-                        'mesh_file'   : 'debug.bdf',
-                        'forcer_func' : forcer}
+                        'mesh_file'   : '../input_files/debug.bdf',
+                        'load_function' : forcer}
 
-        tacs_builder = TacsBuilder(tacs_options)
+        tacs_builder = TacsBuilder(tacs_options, check_partials=True)
 
         ################################################################################
         # MPHY setup
@@ -75,6 +75,6 @@ class Top(om.Group):
 prob = om.Problem()
 prob.model = Top()
 
-prob.setup(force_alloc_complex=True)
+prob.setup(mode='rev',force_alloc_complex=True)
 prob.run_model()
 prob.check_partials(method='cs',compact_print=True)

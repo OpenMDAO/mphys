@@ -64,10 +64,10 @@ class Top(Group):
             f5.writeToFile('ucrm.f5')
 
         tacs_setup = {'add_elements': add_elements,
-                    'mesh_file'   : 'CRM_box_2nd.bdf',
-                    'get_funcs'   : get_funcs,
-                    'load_function': forcer_function,
-                    'f5_writer'   : f5_writer}
+                      'mesh_file'   : 'CRM_box_2nd.bdf',
+                      'get_funcs'   : get_funcs,
+                      'load_function': forcer_function,
+                      'f5_writer'   : f5_writer}
 
         # assembler = TacsOmfsiAssembler(tacs_setup,add_forcer=True)
         tacs_builder = TacsBuilder(tacs_setup)
@@ -100,7 +100,7 @@ model = prob.model
 
 model.add_design_var('dv_struct',lower=0.001,upper=0.075,scaler=1.0/1.0)
 model.add_objective('mp_group.s0.struct_funcs.mass.mass',scaler=1.0/100000.0)
-model.add_constraint('mp_group.s0.struct_funcs.funcs.f_struct',lower = 0.0, upper = 2.0/3.0,scaler=1000.0/1.0)
+model.add_constraint('mp_group.s0.struct_funcs.funcs.func_struct',lower = 0.0, upper = 2.0/3.0,scaler=1000.0/1.0)
 
 prob.driver = ScipyOptimizeDriver(debug_print=['objs','nl_cons'],maxiter=1500)
 prob.driver.options['optimizer'] = 'SLSQP'

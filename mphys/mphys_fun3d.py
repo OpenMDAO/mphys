@@ -31,14 +31,7 @@ class Fun3dMesh(om.ExplicitComponent):
         return matrix.flatten(order="C")
 
     def mphys_add_coordinate_input(self):
-        local_size = self.x_a0.size
-        n_list = self.comm.allgather(local_size)
-        irank  = self.comm.rank
-
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
-
-        self.add_input('x_aero0_points',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
+        self.add_input('x_aero0_points',shape_by_conn=True, desc='aerodynamic surface with geom changes')
 
         return 'x_aero0_points', self.x_a0
 

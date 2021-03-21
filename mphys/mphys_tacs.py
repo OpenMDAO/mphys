@@ -34,14 +34,7 @@ class TacsMesh(om.ExplicitComponent):
         # self.add_output('x_struct0_surface', shape= self.surface_nodes.size, desc='structural node coordinates')
 
     def mphys_add_coordinate_input(self):
-        local_size  = self.xpts.getArray().size
-        n_list = self.comm.allgather(local_size)
-        irank  = self.comm.rank
-
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
-
-        self.add_input('x_struct0_points', shape=local_size, src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
+        self.add_input('x_struct0_points', shape_by_conn=True, desc='structural node coordinates')
 
         # return the promoted name and coordinates
         return 'x_struct0_points', self.xpts.getArray()
@@ -126,13 +119,10 @@ class TacsSolver(om.ImplicitComponent):
         node_size  = self.xpt_sens.getArray().size
         self.ndof = int(state_size/(node_size/3))
 
-        state_indices = self._create_global_index_list_for_rank(state_size)
-        node_indices = self._create_global_index_list_for_rank(node_size)
-
         # inputs
-        self.add_input('dv_struct', shape=ndv,                                   desc='tacs design variables')
-        self.add_input('x_struct0', shape=node_size , src_indices=node_indices,  desc='structural node coordinates')
-        self.add_input('f_struct',  shape=state_size, src_indices=state_indices, desc='structural load vector')
+        self.add_input('dv_struct', shape_by_conn=True, desc='tacs design variables')
+        self.add_input('x_struct0', shape_by_conn=True, desc='structural node coordinates')
+        self.add_input('f_struct',  shape_by_conn=True, desc='structural load vector')
 
         # outputs
         # its important that we set this to zero since this displacement value is used for the first iteration of the aero
@@ -140,13 +130,6 @@ class TacsSolver(om.ImplicitComponent):
 
         # partials
         #self.declare_partials('u_struct',['dv_struct','x_struct0','f_struct'])
-
-    def _create_global_index_list_for_rank(self,local_size):
-        size_on_each_rank = self.comm.allgather(local_size)
-        start = np.sum(size_on_each_rank[:self.comm.rank])
-        end   = np.sum(size_on_each_rank[:self.comm.rank+1])
-        indices = np.arange(start, end, dtype=int)
-        return indices
 
     def get_ndof(self):
         return self.solver_dict['ndof']
@@ -438,30 +421,15 @@ class TacsSolver_Conduction(om.ImplicitComponent):
 
         self.mapping = self.solver_dict['mapping']
 
-        node_size  = self.xpt_sens.getArray().size
         # self.ndof = int(state_size/(node_size/3))
-
-        s_list = self.comm.allgather(surface_nodes.size//3)
-        n_list = self.comm.allgather(node_size)
-        irank  = self.comm.rank
-
-        s1 = np.sum(s_list[:irank])
-        s2 = np.sum(s_list[:irank+1])
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
-
 
 
         # inputs
         # self.add_input('dv_struct', shape=ndv                                                 , desc='tacs design variables')
-        print('conduction x_struct0', node_size)
-        self.add_input('x_struct0',      shape=node_size , src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
-
-        print('conduction heat_xfer', surface_nodes.size/3)
-        self.add_input('q_conduct',       shape=surface_nodes.size//3, src_indices=np.arange(s1, s2, dtype=int), desc='structural load vector')
+        self.add_input('x_struct0',      shape_by_conn=True, desc='structural node coordinates')
+        self.add_input('q_conduct',       shape_by_conn=True, desc='structural load vector')
 
         # outputs
-        print('conduction temp_cond', surface_nodes.size/3)
         self.add_output('T_conduct',      shape=surface_nodes.size//3, val = np.ones(surface_nodes.size//3)*300,desc='temperature vector')
 
         # partials
@@ -573,25 +541,14 @@ class TacsFunctions(om.ExplicitComponent):
         self.func_list = func_list
 
         self.ans = tacs_assembler.createVec()
-        state_size = self.ans.getArray().size
 
         self.xpt_sens = tacs_assembler.createNodeVec()
-        node_size = self.xpt_sens.getArray().size
-
-        s_list = self.comm.allgather(state_size)
-        n_list = self.comm.allgather(node_size)
-        irank  = self.comm.rank
-
-        s1 = np.sum(s_list[:irank])
-        s2 = np.sum(s_list[:irank+1])
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
 
         # OpenMDAO part of setup
         # TODO move the dv_struct to an external call where we add the DVs
-        self.add_input('dv_struct', shape=ndv,        src_indices=np.arange(ndv),                 desc='tacs design variables')
-        self.add_input('x_struct0', shape=node_size,  src_indices=np.arange(n1, n2, dtype=int),   desc='structural node coordinates')
-        self.add_input('u_struct',  shape=state_size, src_indices=np.arange(s1, s2, dtype=int),   desc='structural state vector')
+        self.add_input('dv_struct', shape_by_conn=True, desc='tacs design variables')
+        self.add_input('x_struct0', shape_by_conn=True, desc='structural node coordinates')
+        self.add_input('u_struct',  shape_by_conn=True, desc='structural state vector')
 
         # Remove the mass function from the func list if it is there
         # since it is not dependent on the structural state
@@ -602,7 +559,7 @@ class TacsFunctions(om.ExplicitComponent):
 
         self.func_list = func_no_mass
         if len(self.func_list) > 0:
-            self.add_output('f_struct', shape=len(self.func_list), desc='structural function values')
+            self.add_output('func_struct', shape=len(self.func_list), desc='structural function values')
 
             # declare the partials
             #self.declare_partials('f_struct',['dv_struct','x_struct0','u_struct'])
@@ -640,9 +597,9 @@ class TacsFunctions(om.ExplicitComponent):
         if self.check_partials:
             self._update_internal(inputs)
 
-        if 'f_struct' in outputs:
-            outputs['f_struct'] = self.tacs_assembler.evalFunctions(self.func_list)
-            print('f_struct',outputs['f_struct'])
+        if 'func_struct' in outputs:
+            outputs['func_struct'] = self.tacs_assembler.evalFunctions(self.func_list)
+            print('func_struct',outputs['func_struct'])
 
         if self.f5_writer is not None:
             self.f5_writer(self.tacs_assembler)
@@ -657,28 +614,28 @@ class TacsFunctions(om.ExplicitComponent):
             if self.check_partials:
                 self._update_internal(inputs)
 
-            if 'f_struct' in d_outputs:
+            if 'func_struct' in d_outputs:
                 for ifunc, func in enumerate(self.func_list):
                     self.tacs_assembler.evalFunctions([func])
                     if 'dv_struct' in d_inputs:
                         dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
                         self.tacs_assembler.evalDVSens(func, dvsens)
 
-                        d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_outputs['f_struct'][ifunc]
+                        d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_outputs['func_struct'][ifunc]
 
                     if 'x_struct0' in d_inputs:
                         xpt_sens = self.xpt_sens
                         xpt_sens_array = xpt_sens.getArray()
                         self.tacs_assembler.evalXptSens(func, xpt_sens)
 
-                        d_inputs['x_struct0'][:] += np.array(xpt_sens_array,dtype=float) * d_outputs['f_struct'][ifunc]
+                        d_inputs['x_struct0'][:] += np.array(xpt_sens_array,dtype=float) * d_outputs['func_struct'][ifunc]
 
                     if 'u_struct' in d_inputs:
                         prod = self.tacs_assembler.createVec()
                         self.tacs_assembler.evalSVSens(func,prod)
                         prod_array = prod.getArray()
 
-                        d_inputs['u_struct'][:] += np.array(prod_array,dtype=float) * d_outputs['f_struct'][ifunc]
+                        d_inputs['u_struct'][:] += np.array(prod_array,dtype=float) * d_outputs['func_struct'][ifunc]
 
 class TacsMass(om.ExplicitComponent):
     """
@@ -702,7 +659,7 @@ class TacsMass(om.ExplicitComponent):
         self.struct_objects = self.options['struct_objects']
         self.check_partials = self.options['check_partials']
 
-        self.set_check_partial_options(wrt='*',directional=True)
+        #self.set_check_partial_options(wrt='*',directional=True)
 
         tacs_assembler = self.tacs_assembler
 
@@ -711,17 +668,10 @@ class TacsMass(om.ExplicitComponent):
         ndv  = self.struct_objects[3]['ndv']
 
         self.xpt_sens = tacs_assembler.createNodeVec()
-        node_size = self.xpt_sens.getArray().size
-
-        n_list = self.comm.allgather(node_size)
-        irank  = self.comm.rank
-
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
 
         # OpenMDAO part of setup
-        self.add_input('dv_struct', shape=ndv,                                                    desc='tacs design variables')
-        self.add_input('x_struct0',      shape=node_size,  src_indices=np.arange(n1, n2, dtype=int),   desc='structural node coordinates')
+        self.add_input('dv_struct', shape=ndv,          desc='tacs design variables')
+        self.add_input('x_struct0', shape_by_conn=True, desc='structural node coordinates')
 
         self.add_output('mass', 0.0, desc = 'structural mass')
         #self.declare_partials('mass',['dv_struct','x_struct0'])
@@ -796,15 +746,9 @@ class PrescribedLoad(om.ExplicitComponent):
         state_size = tmp.getArray().size
         self.ndof = int(state_size / ( node_size / 3 ))
 
-        irank = self.comm.rank
-
-        n_list = self.comm.allgather(node_size)
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
-
         # OpenMDAO setup
-        self.add_input('x_struct0', shape=node_size, src_indices=np.arange(n1, n2, dtype=int), desc='structural node coordinates')
-        self.add_output('f_struct', shape=state_size, desc='structural load')
+        self.add_input('x_struct0', shape_by_conn=True, desc='structural node coordinates')
+        self.add_output('f_struct', shape=state_size,   desc='structural load')
 
         #self.declare_partials('f_struct','x_struct0')
 

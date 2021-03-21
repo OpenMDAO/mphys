@@ -148,7 +148,7 @@ if MPI.COMM_WORLD.rank == 0:
     print("Scenario 0")
     print('Lift =',prob['mp_group.s0.aero_funcs.Lift'])
     print('CD =',prob['mp_group.s0.aero_funcs.C_D'])
-    print('KS =',prob['mp_group.s0.struct_funcs.funcs.f_struct'])
+    print('KS =',prob['mp_group.s0.struct_funcs.funcs.func_struct'])
 output = prob.check_totals(of=['mp_group.s0.aero_funcs.Lift'], wrt=['thickness_lumped'],)
 if MPI.COMM_WORLD.rank == 0:
     print('check_totals output',output)

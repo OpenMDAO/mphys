@@ -85,7 +85,7 @@ class Top(om.Group):
         struct_options = {
             'add_elements': add_elements,
             'get_funcs': get_funcs,
-            'mesh_file': os.path.join(baseDir, '../input_files/wingbox.bdf'),
+            'mesh_file': os.path.join(baseDir, '../input_files/debug.bdf'),
             # 'f5_writer'   : f5_writer,
         }
 
@@ -138,13 +138,13 @@ class TestTACs(unittest.TestCase):
 
         # objectives and nonlinear constraints
         prob.model.add_objective('mp.s0.struct_funcs.mass', ref=100.0)
-        prob.model.add_constraint('mp.s0.struct_funcs.funcs.f_struct', ref=1.0, upper=1.0)
+        prob.model.add_constraint('mp.s0.struct_funcs.funcs.func_struct', ref=1.0, upper=1.0)
 
-        prob.model.add_design_var('dv_struct', indices=[0, 3, 5], lower=-5, upper=10, ref=10.0)
-        prob.model.add_design_var('f_struct', indices=[0, 12, 34, 100], lower=-5, upper=10, ref=10.0)
+        prob.model.add_design_var('dv_struct', indices=[0], lower=-5, upper=10, ref=10.0)
+        prob.model.add_design_var('f_struct', indices=[0, 12, 34, 40], lower=-5, upper=10, ref=10.0)
         prob.model.add_design_var('xpts', indices=[0, 2, 5, 10], lower=-5, upper=10, ref=10.0)
 
-        prob.setup(mode='rev')
+        prob.setup(mode='rev',force_alloc_complex=True)
         # om.n2(
         #     prob,
         #     show_browser=False,
@@ -159,23 +159,22 @@ class TestTACs(unittest.TestCase):
     def test_derivatives(self):
         self.prob.run_model()
         print('----------------strating check totals--------------')
-        # data = self.prob.check_totals(step=1e-7, form='forward')
-        data = self.prob.check_totals(wrt='xpts', step=1e-7, step_calc='rel')  # out_stream=None
+        data = self.prob.check_totals(wrt='xpts', method='cs', step=1e-30, step_calc='rel')  # out_stream=None
 
         for var, err in data.items():
 
             rel_err = err['rel error']  # ,  'rel error']
-            assert_near_equal(rel_err.forward, 0.0, 1e-2)
-        data = self.prob.check_totals(of=['mp.s0.struct_funcs.funcs.f_struct'], wrt='f_struct', step=3e-5, step_calc='rel')  # out_stream=None
+            assert_near_equal(rel_err.forward, 0.0, 1e-8)
+        data = self.prob.check_totals(of=['mp.s0.struct_funcs.funcs.func_struct'], wrt='f_struct', method='cs', step=1e-30, step_calc='rel')  # out_stream=None
         for var, err in data.items():
 
             rel_err = err['rel error']  # ,  'rel error']
-            assert_near_equal(rel_err.forward, 0.0, 1e-2)
-        data = self.prob.check_totals(wrt='dv_struct', step=5e-6, step_calc='rel')  # out_stream=None
+            assert_near_equal(rel_err.forward, 0.0, 1e-8)
+        data = self.prob.check_totals(wrt='dv_struct', method='cs', step=1e-30, step_calc='rel')  # out_stream=None
         for var, err in data.items():
 
             rel_err = err['rel error']  # ,  'rel error']
-            assert_near_equal(rel_err.forward, 0.0, 1e-2)
+            assert_near_equal(rel_err.forward, 0.0, 5e-8)
 
 
 if __name__ == '__main__':

@@ -17,7 +17,7 @@ class Top(om.Group):
     def setup(self):
         # VLM options
         aero_options = {
-            'mesh_file':'debug_VLM.dat',
+            'mesh_file':'../input_files/debug_VLM.dat',
             'mach':0.85,
             'aoa':1*np.pi/180.,
             'q_inf':25000.,
@@ -96,7 +96,7 @@ class Top(om.Group):
         # common setup options
         tacs_setup = {'add_elements': add_elements,
                       'get_funcs'   : get_funcs,
-                      'mesh_file'   : 'debug.bdf',
+                      'mesh_file'   : '../input_files/debug.bdf',
                       'f5_writer'   : f5_writer }
 
         # TACS assembler
@@ -105,7 +105,7 @@ class Top(om.Group):
             tacs_setup['nmodes'] = 15
             #struct_assembler = ModalStructAssembler(tacs_setup)
         else:
-            struct_builder = TacsBuilder(tacs_setup,check_partials=True)
+            struct_builder = TacsBuilder(tacs_setup, check_partials=True)
 
         # MELD setup
 
@@ -127,23 +127,28 @@ class Top(om.Group):
         s0 = mp.mphys_add_scenario('s0')
 
     def configure(self):
-        self.dvs.add_output('aoa', self.aero_options['aoa'], units='rad')
-        self.connect('aoa',['mp_group.s0.solver_group.aero.aoa'])
+        for dv_name in ['aoa','q_inf','vel','mu','mach']:
+            if dv_name == 'aoa':
+                self.dvs.add_output(dv_name, val=self.aero_options[dv_name], units='rad')
+            else:
+                self.dvs.add_output(dv_name, val=self.aero_options[dv_name])
+            self.connect(dv_name, 'mp_group.s0.solver_group.aero.%s' % dv_name)
 
         self.dvs.add_output('dv_struct',np.array([0.03]))
-        self.connect('dv_struct',['mp_group.s0.solver_group.struct.dv_struct, mp_group.s0.struct_funcs.dv_struct'])
+        self.connect('dv_struct',['mp_group.s0.solver_group.struct.dv_struct',
+                                  'mp_group.s0.struct_funcs.dv_struct' ])
 
 # OpenMDAO setup
 
 prob = om.Problem()
 prob.model = Top()
 
-prob.setup(force_alloc_complex=True)
+prob.setup(force_alloc_complex=True, mode='rev')
 
 prob.model.mp_group.s0.nonlinear_solver = om.NonlinearBlockGS(maxiter=100, iprint=2, use_aitken=True, atol=1E-9)
 prob.model.mp_group.s0.linear_solver = om.LinearBlockGS(maxiter=10, iprint=2)
 
-prob.setup(force_alloc_complex=True, mode='rev')
+om.n2(prob, show_browser=False, outfile='check_totals.html')
 
 prob.run_model()
-prob.check_totals(of=['mp_group.s0.struct.funcs.f_struct'], wrt=['aoa'], method='cs')
+prob.check_totals(of=['mp_group.s0.struct_funcs.funcs.func_struct'], wrt=['aoa'], method='cs')

@@ -208,7 +208,7 @@ class Top(om.Group):
             "ref_vals": {
                 "xa": 5.443441765975671,
                 "cl": 0.33844664,
-                "f_struct": 0.24355979,
+                "func_struct": 0.24355979,
                 "cd": 0.02988495,
             },
         },
@@ -216,7 +216,7 @@ class Top(om.Group):
             "name": "rlt",
             "xfer_builder_class": RltBuilder,
             "xfer_options": {"transfergaussorder": 2},
-            "ref_vals": {"xa": 5.504999831790868, "f_struct": 0.31363742, "cl": 0.3047756, "cd": 0.0280476},
+            "ref_vals": {"xa": 5.504999831790868, "func_struct": 0.31363742, "cl": 0.3047756, "cd": 0.0280476},
         },
     ]
 )
@@ -254,7 +254,7 @@ class TestAeroStructSolve(unittest.TestCase):
             print("xa =", np.mean(self.prob.get_val("mp_group.s0.solver_group.aero.geo_disp.x_aero", get_remote=True)))
             print("cl =", self.prob.get_val("mp_group.s0.aero_funcs.cl", get_remote=True))
             print("cd =", self.prob.get_val("mp_group.s0.aero_funcs.cd", get_remote=True))
-            print("cd =", self.prob.get_val("mp_group.s0.struct_funcs.funcs.f_struct", get_remote=True))
+            print("cd =", self.prob.get_val("mp_group.s0.struct_funcs.funcs.func_struct", get_remote=True))
 
             assert_near_equal(
                 np.mean(self.prob.get_val("mp_group.s0.solver_group.aero.geo_disp.x_aero", get_remote=True)),
@@ -268,7 +268,7 @@ class TestAeroStructSolve(unittest.TestCase):
                 np.mean(self.prob.get_val("mp_group.s0.aero_funcs.cd", get_remote=True)), self.ref_vals["cd"], 1e-6
             )
             assert_near_equal(
-                np.mean(self.prob.get_val("mp_group.s0.struct_funcs.funcs.f_struct", get_remote=True)),
-                self.ref_vals["f_struct"],
+                np.mean(self.prob.get_val("mp_group.s0.struct_funcs.funcs.func_struct", get_remote=True)),
+                self.ref_vals["func_struct"],
                 1e-6,
             )

@@ -47,7 +47,6 @@ class RltDispXfer(om.ExplicitComponent):
         self.nn_s = nn_s
         self.ndof_a = ndof_a
         self.nn_a = nn_a
-        total_dof_struct = self.nn_s * self.ndof_s
         total_dof_aero = self.nn_a * self.ndof_a
 
         if self.isStruct:
@@ -60,30 +59,12 @@ class RltDispXfer(om.ExplicitComponent):
         else:
             self.ustruct = None
 
-        # Get the source indices for each of the distributed inputs.
-        irank = self.comm.rank
-
-        ax_list = self.comm.allgather(total_dof_aero)
-        ax1 = np.sum(ax_list[:irank])
-        ax2 = np.sum(ax_list[:irank+1])
-
-        sx_list = self.comm.allgather(nn_s * 3)
-        sx1 = np.sum(sx_list[:irank])
-        sx2 = np.sum(sx_list[:irank+1])
-
-        su_list = self.comm.allgather(total_dof_struct)
-        su1 = np.sum(su_list[:irank])
-        su2 = np.sum(su_list[:irank+1])
-
         # Inputs
-        self.add_input('x_aero0', shape=total_dof_aero,
-                       src_indices=np.arange(ax1, ax2, dtype=int),
+        self.add_input('x_aero0', shape_by_conn=True,
                        desc='Initial aerodynamic surface node coordinates')
-        self.add_input('x_struct0', shape = nn_s * 3,
-                       src_indices = np.arange(sx1, sx2, dtype=int),
+        self.add_input('x_struct0', shape_by_conn=True,
                        desc='initial structural node coordinates')
-        self.add_input('u_struct', shape=total_dof_struct,
-                       src_indices=np.arange(su1, su2, dtype=int),
+        self.add_input('u_struct', shape_by_conn=True,
                        desc='Structural node displacements')
 
         # Outputs
@@ -206,7 +187,6 @@ class RltLoadXfer(om.ExplicitComponent):
         self.nn_s = nn_s
         self.nn_a = nn_a
         total_dof_struct = self.nn_s * self.ndof_s
-        total_dof_aero = self.nn_a * self.ndof_a
 
         if self.isStruct:
             # RLT depends on TACS vector types.
@@ -218,34 +198,14 @@ class RltLoadXfer(om.ExplicitComponent):
         else:
             self.fstruct = None
 
-        # Get the source indices for each of the distributed inputs.
-        irank = self.comm.rank
-
-        ax_list = self.comm.allgather(total_dof_aero)
-        ax1 = np.sum(ax_list[:irank])
-        ax2 = np.sum(ax_list[:irank+1])
-
-        sx_list = self.comm.allgather(nn_s * 3)
-        sx1 = np.sum(sx_list[:irank])
-        sx2 = np.sum(sx_list[:irank+1])
-
-        su_list = self.comm.allgather(total_dof_struct)
-        su1 = np.sum(su_list[:irank])
-        su2 = np.sum(su_list[:irank+1])
-
         # Inputs
-        self.add_input('x_aero0', shape=total_dof_aero,
-                       src_indices=np.arange(ax1, ax2, dtype=int),
+        self.add_input('x_aero0', shape_by_conn=True,
                        desc='Initial aerodynamic surface node coordinates')
-        self.add_input('x_struct0', shape = nn_s * 3,
-                       src_indices = np.arange(sx1, sx2, dtype=int),
+        self.add_input('x_struct0', shape_by_conn=True,
                        desc='initial structural node coordinates')
-        self.add_input('u_struct', shape=total_dof_struct,
-                       src_indices=np.arange(su1, su2, dtype=int),
+        self.add_input('u_struct', shape_by_conn=True,
                        desc='Structural node displacements')
-
-        self.add_input('f_aero',  shape=total_dof_aero,
-                       src_indices=np.arange(ax1, ax2, dtype=int),
+        self.add_input('f_aero', shape_by_conn=True,
                        desc='Aerodynamic force vector')
 
         # Outputs

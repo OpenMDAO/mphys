@@ -186,7 +186,7 @@ prob.model.add_design_var('lo_stringer', lower=0.003, upper=0.020, ref=0.005)
 
 prob.model.add_objective('mp_group.s0.struct_funcs.mass',ref=1000.0)
 prob.model.add_constraint('mp_group.s0.solver_group.aero.CL',ref=1.0,equals=0.5)
-prob.model.add_constraint('mp_group.s0.struct_funcs.funcs.f_struct',ref=1.0, upper = 2.0/3.0)
+prob.model.add_constraint('mp_group.s0.struct_funcs.funcs.func_struct',ref=1.0, upper = 2.0/3.0)
 
 prob.model.add_constraint('le_spar_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
 prob.model.add_constraint('te_spar_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
@@ -228,5 +228,5 @@ for i, case_id in enumerate(driver_cases):
     case = cr.get_case(case_id)
     matrix[i,1] = case.get_objectives()['mp_group.s0.struct_funcs.mass'][0]
     matrix[i,2] = case.get_constraints()['mp_group.s0.solver_group.aero.forces.CL'][0]
-    matrix[i,3] = case.get_constraints()['mp_group.s0.struct_funcs.f_struct'][0]
+    matrix[i,3] = case.get_constraints()['mp_group.s0.struct_funcs.funcs.f_struct'][0]
 np.savetxt('history.dat',matrix)
