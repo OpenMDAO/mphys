@@ -9,6 +9,7 @@ from adflow import ADFLOW
 from idwarp import USMesh
 
 from openmdao.api import Group, ImplicitComponent, ExplicitComponent, AnalysisError
+from mphys.builder import Builder
 
 from adflow.om_utils import get_dvs_and_cons
 
@@ -28,7 +29,7 @@ class ADflowMesh(ExplicitComponent):
         self.x_a0 = self.aero_solver.getSurfaceCoordinates(includeZipper=False).flatten(order='C')
 
         coord_size = self.x_a0.size
-        self.add_output('x_aero0', shape=coord_size, desc='initial aerodynamic surface node coordinates')
+        self.add_output('x_aero0', shape=coord_size, desc='initial aerodynamic surface node coordinates', tags=['mphys_coordinates'])
 
 
     def mphys_add_coordinate_input(self):
@@ -180,8 +181,8 @@ class ADflowWarper(ExplicitComponent):
         # state inputs and outputs
         local_volume_coord_size = solver.mesh.getSolverGrid().size
 
-        self.add_input('x_aero', shape_by_conn=True)
-        self.add_output('x_g', shape=local_volume_coord_size)
+        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
+        self.add_output('x_g', shape=local_volume_coord_size, tags=['mphys_coupling'])
 
         #self.declare_partials(of='x_g', wrt='x_aero')
 
@@ -252,8 +253,8 @@ class ADflowSolver(ImplicitComponent):
         # state inputs and outputs
         local_state_size = solver.getStateSize()
 
-        self.add_input('x_g', shape_by_conn=True)
-        self.add_output('q', shape=local_state_size)
+        self.add_input('x_g', shape_by_conn=True, tags=['mphys_coupling'])
+        self.add_output('q', shape=local_state_size, tags=['mphys_coupling'])
 
         #self.declare_partials(of='q', wrt='*')
 
@@ -285,7 +286,7 @@ class ADflowSolver(ImplicitComponent):
         for (args, kwargs) in self.ap_vars:
             name = args[0]
             size = args[1]
-            self.add_input(name, shape=size, val=kwargs['value'], units=kwargs['units'])
+            self.add_input(name, shape=size, val=kwargs['value'], units=kwargs['units'], tags=['mphys_input'])
             if self.comm.rank == 0:
                 print('%s (%s)'%(name, kwargs['units']))
 
@@ -480,11 +481,11 @@ class ADflowForces(ExplicitComponent):
         self.solver = self.options['aero_solver']
         solver = self.solver
 
-        self.add_input('x_g', shape_by_conn=True)
-        self.add_input('q', shape_by_conn=True)
+        self.add_input('x_g', shape_by_conn=True, tags=['mphys_coupling'])
+        self.add_input('q', shape_by_conn=True, tags=['mphys_coupling'])
 
         local_surface_coord_size = solver.mesh.getSurfaceCoordinates().size
-        self.add_output('f_aero', shape=local_surface_coord_size)
+        self.add_output('f_aero', shape=local_surface_coord_size, tags=['mphys_coupling'])
 
         # self.declare_partials(of='f_aero', wrt='*')
 
@@ -510,7 +511,7 @@ class ADflowForces(ExplicitComponent):
         for (args, kwargs) in self.ap_vars:
             name = args[0]
             size = args[1]
-            self.add_input(name, shape=size, units=kwargs['units'])
+            self.add_input(name, shape=size, units=kwargs['units'], tags=['mphys_input'])
             # if self.comm.rank == 0:
             #     print('%s (%s)'%(name, kwargs['units']))
 
@@ -593,10 +594,10 @@ class AdflowHeatTransfer(ExplicitComponent):
 
         local_nodes, _ = solver._getSurfaceSize(solver.allIsothermalWallsGroup)
 
-        self.add_input('x_g', shape_by_conn=True)
-        self.add_input('q', shape_by_conn=True)
+        self.add_input('x_g', shape_by_conn=True, tags=['mphys_coupling'])
+        self.add_input('q', shape_by_conn=True, tags=['mphys_coupling'])
 
-        self.add_output('q_convect', val=np.ones(local_nodes)*-499, shape=local_nodes, units='W/m**2')
+        self.add_output('q_convect', val=np.ones(local_nodes)*-499, shape=local_nodes, units='W/m**2', tags=['mphys_coupling'])
 
         #self.declare_partials(of='f_aero', wrt='*')
 
@@ -620,7 +621,7 @@ class AdflowHeatTransfer(ExplicitComponent):
         for (args, kwargs) in self.ap_vars:
             name = args[0]
             size = args[1]
-            self.add_input(name, shape=size, units=kwargs['units'])
+            self.add_input(name, shape=size, units=kwargs['units'], tags=['mphys_input'])
             if self.comm.rank == 0:
                 print(name)
 
@@ -748,10 +749,10 @@ class ADflowFunctions(ExplicitComponent):
         #self.set_check_partial_options(wrt='*',directional=True)
         self.solution_counter = 0
 
-        self.add_input('x_g', shape_by_conn=True)
-        self.add_input('q', shape_by_conn=True)
+        self.add_input('x_g', shape_by_conn=True, tags=['mphys_coupling'])
+        self.add_input('q', shape_by_conn=True, tags=['mphys_coupling'])
 
-            #self.declare_partials(of=f_name, wrt='*')
+        #self.declare_partials(of=f_name, wrt='*')
 
 
     def _set_ap(self, inputs):
@@ -776,7 +777,7 @@ class ADflowFunctions(ExplicitComponent):
         for (args, kwargs) in self.ap_vars:
             name = args[0]
             size = args[1]
-            self.add_input(name, shape=size, units=kwargs['units'])
+            self.add_input(name, shape=size, units=kwargs['units'], tags=['mphys_input'])
             # if self.comm.rank == 0:
                 # print('%s with units %s'%(name, kwargs['units']))
 
@@ -798,7 +799,7 @@ class ADflowFunctions(ExplicitComponent):
                 if self.comm.rank == 0:
                     print("%s (%s)"%(f_name, units))
 
-                self.add_output(f_name, shape=1, units=units)
+                self.add_output(f_name, shape=1, units=units, tags=['mphys_result'])
 
     def mphys_add_prop_funcs(self, prop_funcs):
         # save this list
@@ -823,7 +824,7 @@ class ADflowFunctions(ExplicitComponent):
             if self.comm.rank == 0:
                 print("%s (%s)"%(f_name, units))
 
-            self.add_output(f_name, shape=1, units=units)
+            self.add_output(f_name, shape=1, units=units, tags=['mphys_result'])
 
     def _set_states(self, inputs):
         self.solver.setStates(inputs['q'])
@@ -992,6 +993,7 @@ class ADflowGroup(Group):
                 ADflowWarper(
                     aero_solver=self.aero_solver,
                 ),
+                promotes_inputs=['x_aero'],
                 promotes_outputs=['x_g'],
             )
 
@@ -1001,6 +1003,7 @@ class ADflowGroup(Group):
                 restart_failed_analysis=self.restart_failed_analysis,
             ),
             promotes_inputs=['x_g'],
+            promotes_outputs=['q'],
         )
 
         if self.as_coupling:
@@ -1028,30 +1031,28 @@ class ADflowGroup(Group):
         if balance_group is not None:
             self.add_subsystem('balance', balance_group)
 
-    def configure(self):
+    # def configure(self):
 
-        if self.as_coupling:
-            self.connect('geo_disp.x_aero', 'deformer.x_aero')
-            # self.connect('deformer.x_g', 'force.x_g') # the deformer x_g is promoted else where
-            self.connect('solver.q', 'force.q')
-        else:
-            if self.use_warper:
-                self.promotes('deformer', inputs=[('x_aero', 'x_aero0')])
+        # if self.as_coupling:
+        #     self.connect('geo_disp.x_aero', 'deformer.x_aero')
+        #     # self.connect('deformer.x_g', 'force.x_g') # the deformer x_g is promoted else where
+        #     self.connect('solver.q', 'force.q')
+        # # else:
+        #     # if self.use_warper:
+        #     #     self.promotes('deformer', inputs=[('x_aero', 'x_aero0')])
 
-        if self.heat_transfer:
-            self.promotes('deformer', inputs=[('x_aero', 'x_aero0')])
-            self.connect('deformer.x_g', 'heat_xfer.x_g')
+        # if self.heat_transfer:
+        #     self.promotes('deformer', inputs=[('x_aero', 'x_aero0')])
+        #     self.connect('deformer.x_g', 'heat_xfer.x_g')
 
-            self.connect('solver.q', 'heat_xfer.q')
+        #     self.connect('solver.q', 'heat_xfer.q')
 
-            self.promotes('heat_xfer', outputs=[('q_convect')])
+        #     self.promotes('heat_xfer', outputs=[('q_convect')])
 
 
 
-        if self.prop_coupling:
-            self.connect('solver.q', 'prop.q')
-
-        # TODO if we have a balance, automatically figure out the broyden stuff here
+        # if self.prop_coupling:
+        #     self.connect('solver.q', 'prop.q')
 
     def mphys_set_ap(self, ap):
         # set the ap, add inputs and outputs, promote?
@@ -1112,7 +1113,7 @@ class ADflowMeshGroup(Group):
         # just pass through the call
         return self.surface_mesh.mphys_get_triangulated_surface()
 
-class ADflowBuilder(object):
+class ADflowBuilder(Builder):
 
     def __init__(
         self,
@@ -1167,7 +1168,7 @@ class ADflowBuilder(object):
             self.promotes('heat_xfer', inputs=[name])
 
     # api level method for all builders
-    def init_solver(self, comm):
+    def initialize(self, comm):
         self.solver = ADFLOW(options=self.options, comm=comm)
         mesh = USMesh(options=self.mesh_options, comm=comm)
         self.solver.setMesh(mesh)
@@ -1177,7 +1178,7 @@ class ADflowBuilder(object):
         return self.solver
 
     # api level method for all builders
-    def get_element(self, **kwargs):
+    def get_coupling_group_subsystem(self, **kwargs):
         use_warper = self.warp_in_solver
         adflow_group = ADflowGroup(
             solver=self.solver,
@@ -1189,7 +1190,7 @@ class ADflowBuilder(object):
         )
         return adflow_group
 
-    def get_mesh_element(self):
+    def get_mesh_coordinate_subsystem(self):
         use_warper = not self.warp_in_solver
         # if we do warper in the mesh element, we will do a group thing
         if use_warper:
@@ -1197,47 +1198,8 @@ class ADflowBuilder(object):
         else:
             return ADflowMesh(aero_solver=self.solver)
 
-    def get_scenario_element(self):
+    def get_post_coupling_subsystem(self):
         return ADflowFunctions(aero_solver=self.solver)
-
-    def get_scenario_connections(self):
-        # this is the stuff we want to be connected
-        # between the solver and the functionals.
-        # these variables FROM the solver are connected
-        # TO the funcs element. So the solver has output
-        # and funcs has input. key is the output,
-        # variable is the input in the returned dict.
-        if self.warp_in_solver:
-            mydict = {
-                'x_g': 'x_g',
-                'solver.q': 'q',
-            }
-        else:
-            mydict = {
-                'solver.q': 'q',
-            }
-
-        return mydict
-
-    def get_mesh_connections(self):
-        if self.warp_in_solver:
-            mydict = {
-                'solver':{
-                    'x_aero0'  : 'x_aero0',
-                },
-                'funcs':{},
-            }
-        else:
-            mydict = {
-                'solver':{
-                    'x_g'  : 'x_g',
-                },
-                'funcs':{
-                    'x_g'  : 'x_g',
-                },
-            }
-
-        return mydict
 
     def get_nnodes(self, groupName=None):
         return int(self.solver.getSurfaceCoordinates(groupName=groupName).size /3)
