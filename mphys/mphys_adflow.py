@@ -271,6 +271,7 @@ class ADflowSolver(ImplicitComponent):
         # Set the warped mesh
         #solver.mesh.setSolverGrid(inputs['adflow_vol_coords'])
         # ^ This call does not exist. Assume the mesh hasn't changed since the last call to the warping comp for now
+        # TODO we must fix this. we need to put in the modified volume coordinates
 
         # flow residuals
         residuals['adflow_states'] = solver.getResidual(ap)
@@ -493,6 +494,7 @@ class ADflowForces(ExplicitComponent):
         # Set the warped mesh
         #solver.mesh.setSolverGrid(inputs['adflow_vol_coords'])
         # ^ This call does not exist. Assume the mesh hasn't changed since the last call to the warping comp for now
+        # TODO we must fix this. we need to put in the modified volume coordinates
         self._set_states(inputs)
 
         outputs['f_aero'] = solver.getForces().flatten(order='C')
@@ -603,6 +605,7 @@ class AdflowHeatTransfer(ExplicitComponent):
         # Set the warped mesh
         #solver.mesh.setSolverGrid(inputs['adflow_vol_coords'])
         # ^ This call does not exist. Assume the mesh hasn't changed since the last call to the warping comp for now
+        # TODO we must fix this. we need to put in the modified volume coordinates
 
         #
         # self._set_states(inputs)
@@ -928,17 +931,17 @@ class ADflowGroup(Group):
 
     def initialize(self):
         self.options.declare('solver', recordable=False)
-        self.options.declare('as_coupling', default=False)
+        self.options.declare('struct_coupling', default=False)
         self.options.declare('prop_coupling', default=False)
         self.options.declare('heat_transfer', default=False)
         self.options.declare('use_warper', default=True)
-        self.options.declare('balance_group', default=None, recordable=False)
         self.options.declare('restart_failed_analysis', default=False)
+        self.options.declare('balance_group', default=None, recordable=False)
 
     def setup(self):
 
         self.aero_solver = self.options['solver']
-        self.as_coupling = self.options['as_coupling']
+        self.struct_coupling = self.options['struct_coupling']
         self.prop_coupling = self.options['prop_coupling']
         self.restart_failed_analysis = self.options['restart_failed_analysis']
 
@@ -966,7 +969,7 @@ class ADflowGroup(Group):
             promotes_outputs=['adflow_states'],
         )
 
-        if self.as_coupling:
+        if self.struct_coupling:
             self.add_subsystem('force', ADflowForces(
                 aero_solver=self.aero_solver),
                 promotes_inputs=['adflow_vol_coords'],
@@ -991,34 +994,11 @@ class ADflowGroup(Group):
         if balance_group is not None:
             self.add_subsystem('balance', balance_group)
 
-    # def configure(self):
-
-        # if self.as_coupling:
-        #     self.connect('geo_disp.x_aero', 'deformer.x_aero')
-        #     # self.connect('deformer.adflow_vol_coords', 'force.adflow_vol_coords') # the deformer adflow_vol_coords is promoted else where
-        #     self.connect('solver.adflow_states', 'force.adflow_states')
-        # # else:
-        #     # if self.use_warper:
-        #     #     self.promotes('deformer', inputs=[('x_aero', 'x_aero0')])
-
-        # if self.heat_transfer:
-        #     self.promotes('deformer', inputs=[('x_aero', 'x_aero0')])
-        #     self.connect('deformer.adflow_vol_coords', 'heat_xfer.adflow_vol_coords')
-
-        #     self.connect('solver.adflow_states', 'heat_xfer.adflow_states')
-
-        #     self.promotes('heat_xfer', outputs=[('q_convect')])
-
-
-
-        # if self.prop_coupling:
-        #     self.connect('solver.adflow_states', 'prop.adflow_states')
-
     def mphys_set_ap(self, ap):
         # set the ap, add inputs and outputs, promote?
         self.solver.set_ap(ap)
         # self.funcs.set_ap(ap)
-        if self.as_coupling:
+        if self.struct_coupling:
             self.force.set_ap(ap)
         if self.prop_coupling:
             self.prop.mphys_set_ap(ap)
@@ -1034,7 +1014,7 @@ class ADflowGroup(Group):
             size = args[1]
             self.promotes('solver', inputs=[name])
             # self.promotes('funcs', inputs=[name])
-            if self.as_coupling:
+            if self.struct_coupling:
                 self.promotes('force', inputs=[name])
             if self.prop_coupling:
                 self.promotes('prop', inputs=[name])
@@ -1077,19 +1057,17 @@ class ADflowBuilder(Builder):
 
     def __init__(
         self,
-        options,
-        mesh_options=None,
-        warp_in_solver=True,
+        options,  # adflow options
+        mesh_options=None,  # idwarp options
+        scenario='aerodynamic',  # scenario type to configure the groups
+        restart_failed_analysis=False,  # retry after failed analysis
         balance_group=None,
-        prop_coupling=False,
-        heat_transfer=False,
-        restart_failed_analysis=False,
     ):
 
         # options dictionary for ADflow
         self.options = options
 
-        # MACH tools now require separate option dictionaries for solver and mesh
+        # MACH tools require separate option dictionaries for solver and mesh
         # if user did not provide a separate mesh_options dictionary, we just use
         # the grid file option from the aero options.
         if mesh_options is None:
@@ -1104,19 +1082,39 @@ class ADflowBuilder(Builder):
         else:
             self.mesh_options = mesh_options
 
+
+        # defaults:
+
         # flag to determine if the mesh warping component is added
         # in the nonlinear solver loop (e.g. for aerostructural)
         # or as a preprocessing step like the surface mesh coordinates
         # (e.g. for aeropropulsive). This will avoid doing extra work
         # for mesh deformation when the volume mesh does not change
         # during nonlinear iterations
-        self.warp_in_solver = warp_in_solver
-
-        # flag to enable propulsion coupling variables
-        self.prop_coupling = prop_coupling
-
+        self.warp_in_solver = False
+        # flag for aerostructural coupling variables
+        self.struct_coupling = False
+         # flag to enable propulsion coupling variables
+        self.prop_coupling = False
         # flag to enable heat transfer coupling variables
-        self.heat_transfer = heat_transfer
+        # TODO AY-JA: Can you rename heat_transfer to thermal_coupling to be consistent with other flags?
+        self.heat_transfer = False
+
+        # depending on the scenario we are building for, we adjust a few internal parameters:
+        if scenario == 'aerodynamic':
+            # default
+            pass
+
+        elif scenario == 'aerostructural':
+            # volume mesh warping needs to be inside the coupling loop for aerostructural
+            self.warp_in_solver = True
+            self.struct_coupling = True
+
+        elif scenario == 'aeropropulsive':
+            self.prop_coupling = True
+
+        elif scenario == 'aerothermal':
+            self.heat_transfer = True
 
         # flag to determine if we want to restart a failed solution from free stream
         self.restart_failed_analysis = restart_failed_analysis
@@ -1124,8 +1122,9 @@ class ADflowBuilder(Builder):
         # balance group for propulsion
         self.balance_group = balance_group
 
-        if self.heat_transfer:
-            self.promotes('heat_xfer', inputs=[name])
+        # TODO AY-JA: Check if we still need this
+        # if self.heat_transfer:
+        #     self.promotes('heat_xfer', inputs=[name])
 
     # api level method for all builders
     def initialize(self, comm):
@@ -1138,25 +1137,39 @@ class ADflowBuilder(Builder):
         return self.solver
 
     # api level method for all builders
-    def get_coupling_group_subsystem(self, **kwargs):
-        use_warper = self.warp_in_solver
+    def get_coupling_group_subsystem(self):
         adflow_group = ADflowGroup(
             solver=self.solver,
-            use_warper=use_warper,
-            balance_group=self.balance_group,
+            use_warper=self.warp_in_solver,
+            struct_coupling=self.struct_coupling,
             prop_coupling=self.prop_coupling,
             restart_failed_analysis=self.restart_failed_analysis,
-            **kwargs
+            balance_group=self.balance_group,
         )
         return adflow_group
 
     def get_mesh_coordinate_subsystem(self):
-        use_warper = not self.warp_in_solver
-        # if we do warper in the mesh element, we will do a group thing
-        if use_warper:
-            return ADflowMeshGroup(aero_solver=self.solver)
+
+        # TODO modify this so that we can move the volume mesh warping to the top level
+        # we need this to do mesh warping only once for all serial points.
+        # for now, volume warping is duplicated on all scenarios, which is not efficient
+
+        # use_warper = not self.warp_in_solver
+        # # if we do warper in the mesh element, we will do a group thing
+        # if use_warper:
+        #     return ADflowMeshGroup(aero_solver=self.solver)
+        # else:
+
+        # just return the component that outputs the surface mesh.
+        return ADflowMesh(aero_solver=self.solver)
+
+    def get_pre_coupling_subsystem(self):
+        if self.warp_in_solver:
+            # if we warp in the solver, then we wont have any pre-coupling systems
+            return None
         else:
-            return ADflowMesh(aero_solver=self.solver)
+            # we warp as a pre-processing step
+            return ADflowWarper(aero_solver=self.solver)
 
     def get_post_coupling_subsystem(self):
         return ADflowFunctions(aero_solver=self.solver)

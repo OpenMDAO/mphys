@@ -40,7 +40,7 @@ class Top(Multipoint):
             "nCycles": 1000,
         }
 
-        adflow_builder = ADflowBuilder(aero_options)
+        adflow_builder = ADflowBuilder(aero_options, scenario="aerodynamic")
         adflow_builder.initialize(self.comm)
 
         ################################################################################
@@ -48,15 +48,12 @@ class Top(Multipoint):
         ################################################################################
 
         # ivc to keep the top level DVs
-        dvs = self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
+        self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
 
-        # create the multiphysics multipoint group.
+        # create the mesh and cruise scenario because we only have one analysis point
         self.add_subsystem("mesh", adflow_builder.get_mesh_coordinate_subsystem())
         self.mphys_add_scenario("cruise", ScenarioAerodynamic(aero_builder=adflow_builder))
         self.connect("mesh.x_aero0", "cruise.x_aero")
-
-        # this is the method that needs to be called for every point in this mp_group
-        # mp.mphys_add_scenario('s0')
 
     def configure(self):
         aoa = 1.5
