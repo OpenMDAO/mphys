@@ -122,41 +122,6 @@ class ADflowMesh(ExplicitComponent):
             if 'x_aero0_points' in d_inputs:
                 d_inputs['x_aero0_points'] += d_outputs['x_aero0']
 
-class GeoDisp(ExplicitComponent):
-    """
-    This component adds the aerodynamic
-    displacements to the geometry-changed aerodynamic surface
-    """
-    def initialize(self):
-        self.options['distributed'] = True
-        self.options.declare('nnodes')
-
-    def setup(self):
-        aero_nnodes = self.options['nnodes']
-        local_size = aero_nnodes * 3
-
-        self.add_input('x_aero0',shape_by_conn=True, desc='aerodynamic surface with geom changes')
-        self.add_input('u_aero', shape_by_conn=True, desc='aerodynamic surface displacements')
-
-        self.add_output('x_aero',shape=local_size,desc='deformed aerodynamic surface')
-
-    def compute(self,inputs,outputs):
-        outputs['x_aero'] = inputs['x_aero0'] + inputs['u_aero']
-
-    def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
-        if mode == 'fwd':
-            if 'x_aero' in d_outputs:
-                if 'x_aero0' in d_inputs:
-                    d_outputs['x_aero'] += d_inputs['x_aero0']
-                if 'u_aero' in d_inputs:
-                    d_outputs['x_aero'] += d_inputs['u_aero']
-        if mode == 'rev':
-            if 'x_aero' in d_outputs:
-                if 'x_aero0' in d_inputs:
-                    d_inputs['x_aero0'] += d_outputs['x_aero']
-                if 'u_aero' in d_inputs:
-                    d_inputs['u_aero']  += d_outputs['x_aero']
-
 class ADflowWarper(ExplicitComponent):
     """
     OpenMDAO component that wraps the warping.
@@ -982,11 +947,6 @@ class ADflowGroup(Group):
         balance_group = self.options['balance_group']
         self.heat_transfer = self.options['heat_transfer']
 
-        if self.as_coupling:
-            self.add_subsystem('geo_disp', GeoDisp(
-                nnodes=int(self.aero_solver.getSurfaceCoordinates().size /3)),
-                promotes_inputs=['u_aero', 'x_aero0']
-            )
         if self.use_warper:
             # if we dont have geo_disp, we also need to promote the x_a as x_a0 from the deformer component
             self.add_subsystem('deformer',
