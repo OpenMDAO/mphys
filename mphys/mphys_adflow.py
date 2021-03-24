@@ -38,6 +38,9 @@ class ADflowMesh(ExplicitComponent):
         # return the promoted name and coordinates
         return 'x_aero0_points', self.x_a0
 
+    def mphys_get_surface_mesh(self):
+        return self.x_a0
+
     def mphys_get_triangulated_surface(self, groupName=None):
         # this is a list of lists of 3 points
         # p0, v1, v2
@@ -717,8 +720,24 @@ class ADflowFunctions(ExplicitComponent):
         #self.set_check_partial_options(wrt='*',directional=True)
         self.solution_counter = 0
 
-        self.add_input('adflow_vol_coords', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_input('adflow_states', shape_by_conn=True, tags=['mphys_coupling'])
+        solver = self.solver
+        local_state_size = solver.getStateSize()
+        local_coord_size = solver.mesh.getSolverGrid().size
+        s_list = self.comm.allgather(local_state_size)
+        n_list = self.comm.allgather(local_coord_size)
+        irank  = self.comm.rank
+
+        s1 = np.sum(s_list[:irank])
+        s2 = np.sum(s_list[:irank+1])
+        n1 = np.sum(n_list[:irank])
+        n2 = np.sum(n_list[:irank+1])
+
+        self.add_input('adflow_vol_coords', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size, tags=['mphys_coupling'])
+        self.add_input('adflow_states', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size, tags=['mphys_coupling'])
+
+        # TODO shape by conn does not work for these
+        # self.add_input('adflow_vol_coords', shape_by_conn=True, tags=['mphys_coupling'])
+        # self.add_input('adflow_states', shape_by_conn=True, tags=['mphys_coupling'])
 
         #self.declare_partials(of=f_name, wrt='*')
 
