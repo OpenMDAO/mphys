@@ -748,8 +748,25 @@ class ADflowFunctions(ExplicitComponent):
         #self.set_check_partial_options(wrt='*',directional=True)
         self.solution_counter = 0
 
-        self.add_input('x_g', shape_by_conn=True)
-        self.add_input('q', shape_by_conn=True)
+        # add the inputs for volume coordinates and states
+        # TODO at openmdao 3.8.0, shape by conn from parallel to serial components dont work as we want them here. so we explicitly set src_indices until the default behavior is modified.
+        # self.add_input('x_g', shape_by_conn=True)
+        # self.add_input('q', shape_by_conn=True)
+
+        # explicitly set src_indices to copy local data on each proc.
+        local_state_size = self.solver.getStateSize()
+        local_coord_size = self.solver.mesh.getSolverGrid().size
+        s_list = self.comm.allgather(local_state_size)
+        n_list = self.comm.allgather(local_coord_size)
+        irank  = self.comm.rank
+
+        s1 = np.sum(s_list[:irank])
+        s2 = np.sum(s_list[:irank+1])
+        n1 = np.sum(n_list[:irank])
+        n2 = np.sum(n_list[:irank+1])
+
+        self.add_input('x_g', src_indices=np.arange(n1,n2,dtype=int), shape=local_coord_size)
+        self.add_input('q', src_indices=np.arange(s1,s2,dtype=int), shape=local_state_size)
 
             #self.declare_partials(of=f_name, wrt='*')
 
