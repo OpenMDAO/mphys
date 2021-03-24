@@ -23,7 +23,7 @@ class ParallelCruises(MultipointParallel):
         ################################################################################
         aero_options = {
             # I/O Parameters
-            'gridFile':'wing_vol_coarse.cgns',
+            "gridFile": "wing_vol_coarse.cgns",
             # 'gridFile':'wing_vol.cgns',
             "outputDirectory": ".",
             "monitorvariables": ["resrho", "resturb", "cl", "cd"],
@@ -62,12 +62,12 @@ class ParallelCruises(MultipointParallel):
         adflow_builder.initialize(self.comm)
 
         self.mphys_add_scenario(
-            'cruise0',
+            "cruise0",
             ScenarioAerodynamic(aero_builder=adflow_builder, in_MultipointParallel=True),
         )
 
         self.mphys_add_scenario(
-            'cruise1',
+            "cruise1",
             ScenarioAerodynamic(aero_builder=adflow_builder, in_MultipointParallel=True),
         )
 
@@ -83,7 +83,7 @@ class Top(om.Group):
         self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
 
         # add the parallel multipoint group
-        self.add_subsystem('mp', ParallelCruises())
+        self.add_subsystem("mp", ParallelCruises())
 
         # add an exec comp to average two drags
         self.add_subsystem("drag", om.ExecComp("cd_out=(cd0+cd1)/2"))
