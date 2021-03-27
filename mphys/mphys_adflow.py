@@ -149,7 +149,7 @@ class ADflowWarper(ExplicitComponent):
         # state inputs and outputs
         local_volume_coord_size = solver.mesh.getSolverGrid().size
 
-        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
+        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coupling'])
         self.add_output('adflow_vol_coords', shape=local_volume_coord_size, tags=['mphys_coupling'])
 
         #self.declare_partials(of='adflow_vol_coords', wrt='x_aero')
@@ -991,7 +991,7 @@ class ADflowGroup(Group):
         if self.struct_coupling:
             self.add_subsystem('force', ADflowForces(
                 aero_solver=self.aero_solver),
-                promotes_inputs=['adflow_vol_coords'],
+                promotes_inputs=['adflow_vol_coords', "adflow_states"],
                 promotes_outputs=['f_aero'],
             )
         if self.prop_coupling:
@@ -1120,19 +1120,19 @@ class ADflowBuilder(Builder):
         self.heat_transfer = False
 
         # depending on the scenario we are building for, we adjust a few internal parameters:
-        if scenario == 'aerodynamic':
+        if scenario.lower() == 'aerodynamic':
             # default
             pass
 
-        elif scenario == 'aerostructural':
+        elif scenario.lower() == 'aerostructural':
             # volume mesh warping needs to be inside the coupling loop for aerostructural
             self.warp_in_solver = True
             self.struct_coupling = True
 
-        elif scenario == 'aeropropulsive':
+        elif scenario.lower() == 'aeropropulsive':
             self.prop_coupling = True
 
-        elif scenario == 'aerothermal':
+        elif scenario.lower() == 'aerothermal':
             self.heat_transfer = True
 
         # flag to determine if we want to restart a failed solution from free stream
@@ -1193,5 +1193,9 @@ class ADflowBuilder(Builder):
     def get_post_coupling_subsystem(self):
         return ADflowFunctions(aero_solver=self.solver)
 
+    # TODO the get_nnodes is deprecated. will remove
     def get_nnodes(self, groupName=None):
+        return int(self.solver.getSurfaceCoordinates(groupName=groupName).size /3)
+
+    def get_number_of_nodes(self, groupName=None):
         return int(self.solver.getSurfaceCoordinates(groupName=groupName).size /3)
