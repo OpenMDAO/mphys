@@ -43,7 +43,7 @@ class Top(Multipoint):
             "isoSurface": {"shock": 1},  # ,'vx':-0.0001},
             "writeTecplotSurfaceSolution": False,
             "writevolumesolution": False,
-            'writesurfacesolution':False,
+            "writesurfacesolution": False,
             "liftindex": 3,
             # Physics Parameters
             "equationType": "RANS",
@@ -71,7 +71,7 @@ class Top(Multipoint):
             "L2ConvergenceRel": 1e-14,
             "nCycles": 10000,
             "adjointl2convergencerel": 1e-14,
-            "adjointl2convergence": 1e-14
+            "adjointl2convergence": 1e-14,
         }
 
         adflow_builder = ADflowBuilder(aero_options, scenario="aerodynamic")
@@ -125,7 +125,7 @@ class TestADFlow(unittest.TestCase):
         prob.model = Top()
 
         # DVs
-        prob.model.add_design_var("aoa", lower=-5, upper=10, ref=10.0, units='deg')
+        prob.model.add_design_var("aoa", lower=-5, upper=10, ref=10.0, units="deg")
         prob.model.add_design_var("x_aero", indices=[3, 14, 20, 9], lower=-5, upper=10, ref=10.0)
 
         prob.model.add_constraint("cruise.aero_post.cl", ref=1.0, equals=0.5)
@@ -155,7 +155,6 @@ class TestADFlow(unittest.TestCase):
         for var, err in data.items():
             rel_err = err["rel error"]
             assert_near_equal(rel_err.forward, 0.0, 5e-3)
-
 
 
 if __name__ == "__main__":
