@@ -76,7 +76,7 @@ class Top(om.Group):
             "isoSurface": {"shock": 1},  # ,'vx':-0.0001},
             "writeTecplotSurfaceSolution": False,
             "writevolumesolution": False,
-            'writesurfacesolution':False,
+            "writesurfacesolution": False,
             "liftindex": 3,
             # Physics Parameters
             "equationType": "RANS",
@@ -110,8 +110,8 @@ class Top(om.Group):
 
         aero_builder = ADflowBuilder(aero_options)
 
-        aero_builder.init_solver(self.comm)
-        aero_mesh = aero_builder.get_mesh_element()
+        aero_builder.initialize(self.comm)
+        aero_mesh = aero_builder.get_mesh_coordinate_subsystem()
 
         aero_mesh.aero_solver = aero_builder.get_solver()
 
