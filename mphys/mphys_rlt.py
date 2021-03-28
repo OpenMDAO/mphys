@@ -3,6 +3,7 @@ from mpi4py import MPI
 
 import openmdao.api as om
 from rlt import SimpleLDTransfer
+from mphys import Builder
 
 transfer_dtype = 'd'
 # hard-coded ndof for aerodynamic solver
@@ -60,17 +61,17 @@ class RltDispXfer(om.ExplicitComponent):
             self.ustruct = None
 
         # Inputs
-        self.add_input('x_aero0', shape_by_conn=True,
-                       desc='Initial aerodynamic surface node coordinates')
         self.add_input('x_struct0', shape_by_conn=True,
-                       desc='initial structural node coordinates')
+                       desc='initial structural node coordinates', tags=['mphys_coordinates'])
+        self.add_input('x_aero0', shape_by_conn=True,
+                       desc='Initial aerodynamic surface node coordinates', tags=['mphys_coordinates'])
         self.add_input('u_struct', shape_by_conn=True,
-                       desc='Structural node displacements')
+                       desc='Structural node displacements', tags=['mphys_coupling'])
 
         # Outputs
         self.add_output('u_aero', shape=total_dof_aero,
                         val=np.zeros(total_dof_aero),
-                        desc='Aerodynamic surface displacements')
+                        desc='Aerodynamic surface displacements', tags=['mphys_coupling'])
 
         # TODO disable for now for the modal solver stuff.
         # Partials
@@ -199,18 +200,18 @@ class RltLoadXfer(om.ExplicitComponent):
             self.fstruct = None
 
         # Inputs
-        self.add_input('x_aero0', shape_by_conn=True,
-                       desc='Initial aerodynamic surface node coordinates')
         self.add_input('x_struct0', shape_by_conn=True,
-                       desc='initial structural node coordinates')
+                       desc='initial structural node coordinates', tags=['mphys_coordinates'])
+        self.add_input('x_aero0', shape_by_conn=True,
+                       desc='Initial aerodynamic surface node coordinates', tags=['mphys_coordinates'])
         self.add_input('u_struct', shape_by_conn=True,
-                       desc='Structural node displacements')
+                       desc='Structural node displacements', tags=['mphys_coupling'])
         self.add_input('f_aero', shape_by_conn=True,
-                       desc='Aerodynamic force vector')
+                       desc='Aerodynamic force vector', tags=['mphys_coupling'])
 
         # Outputs
         self.add_output('f_struct', shape=total_dof_struct,
-                        desc='structural force vector')
+                        desc='structural force vector', tags=['mphys_coupling'])
 
         # TODO disable for now for the modal solver stuff.
         # Partials
@@ -279,17 +280,16 @@ class RltLoadXfer(om.ExplicitComponent):
                     self.transfer.setAeroSurfaceNodesSens(x_a0d)
                     d_inputs['x_aero0'] -= x_a0d
 
-class RltBuilder(object):
+class RltBuilder(Builder):
 
     def __init__(self, options, aero_builder, struct_builder, check_partials=False):
-        self.options=options
+        self.options = options
         self.aero_builder = aero_builder
         self.struct_builder = struct_builder
 
         self.check_partials = check_partials
 
-    # api level method for all builders
-    def init_xfer_object(self, comm):
+    def initialize(self, comm):
 
         aero_solver   = self.aero_builder.get_solver()
         struct_solver = self.struct_builder.get_solver()
@@ -319,15 +319,10 @@ class RltBuilder(object):
         # TODO also do the necessary calls to the struct and aero builders to fully initialize MELD
         # for now, just save the counts
         self.struct_ndof = self.struct_builder.get_ndof()
-        self.struct_nnodes = self.struct_builder.get_nnodes()
-        self.aero_nnodes = self.aero_builder.get_nnodes()
+        self.struct_nnodes = self.struct_builder.get_number_of_nodes()
+        self.aero_nnodes = self.aero_builder.get_number_of_nodes()
 
-    # api level method for all builders
-    def get_xfer_object(self):
-        return self.xfer_object
-
-    # api level method for all builders
-    def get_element(self):
+    def get_coupling_group_subsystem(self):
 
         disp_xfer = RltDispXfer(
             xfer_object=self.xfer_object,

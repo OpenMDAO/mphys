@@ -836,3 +836,7 @@ class TacsBuilder(Builder):
 
     def get_ndv(self):
         return self.solver_dict['ndv']
+
+    def get_solver(self):
+        # this method is only used by the RLT transfer scheme
+        return self.tacs_assembler

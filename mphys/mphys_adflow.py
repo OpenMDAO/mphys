@@ -1151,8 +1151,8 @@ class ADflowBuilder(Builder):
         mesh = USMesh(options=self.mesh_options, comm=comm)
         self.solver.setMesh(mesh)
 
-    # api level method for all builders
     def get_solver(self):
+        # this method is only used by the RLT transfer scheme
         return self.solver
 
     # api level method for all builders
