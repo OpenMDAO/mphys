@@ -23,7 +23,7 @@ class Top(Multipoint):
         ################################################################################
         aero_options = {
             # I/O Parameters
-            'gridFile':'wing_vol.cgns',
+            "gridFile": "wing_vol.cgns",
             "outputDirectory": ".",
             "monitorvariables": ["resrho", "resturb", "cl", "cd"],
             "writeTecplotSurfaceSolution": False,
