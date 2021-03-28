@@ -21,9 +21,11 @@ from parameterized import parameterized, parameterized_class
 
 # === Extension modules ===
 import openmdao.api as om
+from openmdao.utils.assert_utils import assert_near_equal
+
 
 from mphys.multipoint import Multipoint
-from openmdao.utils.assert_utils import assert_near_equal
+from mphys.scenario_aerostructural import ScenarioAeroStructural
 
 # these imports will be from the respective codes' repos rather than mphys
 from mphys.mphys_adflow import ADflowBuilder
@@ -39,15 +41,11 @@ from tacs import elements, constitutive, functions
 comm = MPI.COMM_WORLD
 rank = comm.rank
 
-# flag to use meld (False for RLT)
-# use_meld = True
-use_meld = False
-
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
 
 
-class Top(om.Group):
+class Top(Multipoint):
     def setup(self):
 
         ################################################################################
@@ -87,7 +85,9 @@ class Top(om.Group):
             "forcesAsTractions": self.forcesAsTractions,
         }
 
-        adflow_builder = ADflowBuilder(aero_options)
+        aero_builder = ADflowBuilder(aero_options, scenario="aerostructural")
+        aero_builder.initialize(self.comm)
+        self.add_subsystem("mesh_aero", aero_builder.get_mesh_coordinate_subsystem())
 
         ################################################################################
         # TACS options
@@ -126,12 +126,19 @@ class Top(om.Group):
             "get_funcs": get_funcs,
         }
 
-        tacs_builder = TacsBuilder(tacs_options)
+        struct_builder = TacsBuilder(tacs_options)
+        struct_builder.initialize(self.comm)
+
+        self.add_subsystem("mesh_struct", struct_builder.get_mesh_coordinate_subsystem())
 
         ################################################################################
         # Transfer scheme options
         ################################################################################
-        xfer_builder = self.xfer_builder_class(self.xfer_options, adflow_builder, tacs_builder, check_partials=True)
+        if self.xfer_builder_class == MeldBuilder:
+            xfer_builder = self.xfer_builder_class(aero_builder, struct_builder, isym=1, check_partials=True)
+        else:
+            xfer_builder = self.xfer_builder_class(self.xfer_options, aero_builder, struct_builder, check_partials=True)
+        xfer_builder.initialize(self.comm)
 
         ################################################################################
         # MPHYS setup
@@ -140,13 +147,24 @@ class Top(om.Group):
         # ivc to keep the top level DVs
         dvs = self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
 
-        # create the multiphysics multipoint group.
-        mp = self.add_subsystem(
-            "mp_group", Multipoint(aero_builder=adflow_builder, struct_builder=tacs_builder, xfer_builder=xfer_builder)
+        nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14)
+        linear_solver = om.LinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14)
+        self.mphys_add_scenario(
+            "cruise",
+            ScenarioAeroStructural(
+                aero_builder=aero_builder, struct_builder=struct_builder, ldxfer_builder=xfer_builder
+            ),
+            nonlinear_solver,
+            linear_solver,
         )
 
-        # this is the method that needs to be called for every point in this mp_group
-        mp.mphys_add_scenario("s0")
+        for discipline in ["aero", "struct"]:
+            self.mphys_connect_scenario_coordinate_source("mesh_%s" % discipline, "cruise", discipline)
+
+        # add the structural thickness DVs
+        ndv_struct = struct_builder.get_ndv()
+        dvs.add_output("dv_struct", np.array(ndv_struct * [0.01]))
+        self.connect("dv_struct", "cruise.dv_struct")
 
     def configure(self):
         # create the aero problems for both analysis point.
@@ -171,32 +189,17 @@ class Top(om.Group):
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
-        self.mp_group.s0.solver_group.aero.mphys_set_ap(ap0)
-        self.mp_group.s0.aero_funcs.mphys_set_ap(ap0)
+        self.cruise.coupling.aero.mphys_set_ap(ap0)
+        self.cruise.aero_post.mphys_set_ap(ap0)
 
         # define the aero DVs in the IVC
         # s0
-        self.dvs.add_output("aoa0", val=aoa, units='deg')
+        self.dvs.add_output("aoa0", val=aoa, units="deg")
         self.dvs.add_output("mach0", val=0.8)
 
         # connect to the aero for each scenario
-        self.connect("aoa0", ["mp_group.s0.solver_group.aero.aoa", "mp_group.s0.aero_funcs.aoa"])
-        self.connect("mach0", ["mp_group.s0.solver_group.aero.mach", "mp_group.s0.aero_funcs.mach"])
-
-        # add the structural thickness DVs
-        ndv_struct = self.mp_group.struct_builder.get_ndv()
-        self.dvs.add_output("dv_struct", np.array(ndv_struct * [0.01]))
-        self.connect(
-            "dv_struct",
-            [
-                "mp_group.s0.solver_group.struct.dv_struct",
-                "mp_group.s0.struct_funcs.dv_struct",
-            ],
-        )
-
-        # we can also add additional design variables, constraints and set the objective function here.
-        # every solver is already initialized, so we can perform solver-specific calls
-        # that are not in default MPHYS API.
+        self.connect("aoa0", ["cruise.coupling.aero.aoa", "cruise.aero_post.aoa"])
+        self.connect("mach0", ["cruise.coupling.aero.mach", "cruise.aero_post.mach"])
 
 
 @parameterized_class(
@@ -251,24 +254,24 @@ class TestAeroStructSolve(unittest.TestCase):
         if MPI.COMM_WORLD.rank == 0:
             print("Scenario 0")
 
-            print("xa =", np.mean(self.prob.get_val("mp_group.s0.solver_group.aero.geo_disp.x_aero", get_remote=True)))
-            print("cl =", self.prob.get_val("mp_group.s0.aero_funcs.cl", get_remote=True))
-            print("cd =", self.prob.get_val("mp_group.s0.aero_funcs.cd", get_remote=True))
-            print("cd =", self.prob.get_val("mp_group.s0.struct_funcs.funcs.func_struct", get_remote=True))
+            print("xa =", np.mean(self.prob.get_val("cruise.coupling.geo_disp.x_aero", get_remote=True)))
+            print("cl =", self.prob.get_val("cruise.aero_post.cl", get_remote=True))
+            print("cd =", self.prob.get_val("cruise.aero_post.cd", get_remote=True))
+            print("f_struct =", self.prob.get_val("cruise.func_struct", get_remote=True))
 
             assert_near_equal(
-                np.mean(self.prob.get_val("mp_group.s0.solver_group.aero.geo_disp.x_aero", get_remote=True)),
+                np.mean(self.prob.get_val("cruise.coupling.geo_disp.x_aero", get_remote=True)),
                 self.ref_vals["xa"],
                 1e-6,
             )
             assert_near_equal(
-                np.mean(self.prob.get_val("mp_group.s0.aero_funcs.cl", get_remote=True)), self.ref_vals["cl"], 1e-6
+                np.mean(self.prob.get_val("cruise.aero_post.cl", get_remote=True)), self.ref_vals["cl"], 1e-6
             )
             assert_near_equal(
-                np.mean(self.prob.get_val("mp_group.s0.aero_funcs.cd", get_remote=True)), self.ref_vals["cd"], 1e-6
+                np.mean(self.prob.get_val("cruise.aero_post.cd", get_remote=True)), self.ref_vals["cd"], 1e-6
             )
             assert_near_equal(
-                np.mean(self.prob.get_val("mp_group.s0.struct_funcs.funcs.func_struct", get_remote=True)),
+                np.mean(self.prob.get_val("cruise.func_struct", get_remote=True)),
                 self.ref_vals["func_struct"],
                 1e-6,
             )
