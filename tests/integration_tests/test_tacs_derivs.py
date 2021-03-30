@@ -83,7 +83,12 @@ class Top(Multipoint):
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         dvs.add_output('dv_struct', np.array(ndv_struct * [0.01]))
-        dvs.add_output('f_struct', np.ones(f_size))
+
+        class Forces(om.IndepVarComp):
+            def initialize(self):
+                self.options['distributed'] = True
+        forces = self.add_subsystem('forces', Forces(), promotes=['*'])
+        forces.add_output('f_struct', np.ones(f_size))
 
         self.add_subsystem('mesh', struct_builder.get_mesh_coordinate_subsystem())
         self.mphys_add_scenario('analysis', ScenarioStructural(struct_builder=struct_builder))
@@ -93,6 +98,7 @@ class Top(Multipoint):
 
 
 class TestTACs(unittest.TestCase):
+    N_PROCS=2
     def setUp(self):
         prob = om.Problem()
         prob.model = Top()
