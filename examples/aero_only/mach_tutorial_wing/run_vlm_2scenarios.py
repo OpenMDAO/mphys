@@ -16,7 +16,7 @@ class Top(Multipoint):
         aoa1 = 1.0
         q_inf = 3000.
         vel = 178.
-        mu = 3.5E-5
+        nu = 3.5E-5
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         dvs.add_output('aoa0', val=aoa0, units='deg')
@@ -25,7 +25,7 @@ class Top(Multipoint):
         dvs.add_output('mach1', mach1)
         dvs.add_output('q_inf', q_inf)
         dvs.add_output('vel', vel)
-        dvs.add_output('mu', mu)
+        dvs.add_output('nu', nu)
 
         aero_builder = VlmBuilder(mesh_file)
         aero_builder.initialize(self.comm)
@@ -34,7 +34,7 @@ class Top(Multipoint):
         self.mphys_add_scenario('cruise',ScenarioAerodynamic(aero_builder=aero_builder))
         self.mphys_add_scenario('cruise_higher_aoa',ScenarioAerodynamic(aero_builder=aero_builder))
 
-        for dv in ['q_inf', 'vel', 'mu']:
+        for dv in ['q_inf', 'vel', 'nu']:
             self.connect(dv, f'cruise.{dv}')
             self.connect(dv, f'cruise_higher_aoa.{dv}')
         for dv in ['aoa', 'mach']:

@@ -62,9 +62,9 @@ class Top(Multipoint):
         aoa = 1.0
         q_inf = 25000.
         vel = 178.
-        mu = 3.5E-5
+        nu = 3.5E-5
 
-        aero_builder = VlmBuilder(mesh_file)
+        aero_builder = VlmBuilder(mesh_file, complex_step=True)
         aero_builder.initialize(self.comm)
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
@@ -72,7 +72,7 @@ class Top(Multipoint):
         dvs.add_output('mach', mach)
         dvs.add_output('q_inf', q_inf)
         dvs.add_output('vel', vel)
-        dvs.add_output('mu', mu)
+        dvs.add_output('nu', nu)
 
         self.add_subsystem('mesh_aero', aero_builder.get_mesh_coordinate_subsystem())
 
@@ -115,7 +115,7 @@ class Top(Multipoint):
             self.mphys_connect_scenario_coordinate_source(
                 'mesh_%s' % discipline, 'cruise', discipline)
 
-        for dv in ['aoa', 'q_inf', 'vel', 'mu', 'mach', 'dv_struct']:
+        for dv in ['aoa', 'q_inf', 'vel', 'nu', 'mach', 'dv_struct']:
             self.connect(dv, f'cruise.{dv}')
 
 # OpenMDAO setup

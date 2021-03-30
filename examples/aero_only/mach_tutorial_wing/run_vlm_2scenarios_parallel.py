@@ -2,7 +2,7 @@ from mpi4py import MPI
 import openmdao.api as om
 
 from mphys import MultipointParallel
-from mphys.mphys_vlm import VlmBuilderAeroOnly
+from mphys.mphys_vlm import VlmBuilder
 from mphys.scenario_aerodynamic import ScenarioAerodynamic
 
 class ParallelCruises(MultipointParallel):
@@ -10,7 +10,7 @@ class ParallelCruises(MultipointParallel):
         # VLM options
         mesh_file = 'wing_VLM.dat'
 
-        aero_builder = VlmBuilderAeroOnly(mesh_file)
+        aero_builder = VlmBuilder(mesh_file)
         self.mphys_add_scenario('cruise',ScenarioAerodynamic(aero_builder=aero_builder,
                                                       in_MultipointParallel=True))
 
@@ -25,7 +25,7 @@ class Top(om.Group):
         aoa1 = 1.0
         q_inf = 3000.
         vel = 178.
-        mu = 3.5E-5
+        nu = 3.5E-5
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         dvs.add_output('aoa0', val=aoa0, units='deg')
@@ -34,10 +34,10 @@ class Top(om.Group):
         dvs.add_output('mach1', mach1)
         dvs.add_output('q_inf', q_inf)
         dvs.add_output('vel', vel)
-        dvs.add_output('mu', mu)
+        dvs.add_output('nu', nu)
 
         self.add_subsystem('mp',ParallelCruises())
-        for dv in ['q_inf', 'vel', 'mu']:
+        for dv in ['q_inf', 'vel', 'nu']:
             self.connect(dv, f'mp.cruise.{dv}')
             self.connect(dv, f'mp.cruise_higher_aoa.{dv}')
         for dv in ['mach', 'aoa']:

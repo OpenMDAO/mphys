@@ -48,14 +48,14 @@ class Top(om.Group):
         aoa1 = 5.0
         q_inf = 3000.
         vel = 178.
-        mu = 3.5E-5
+        nu = 3.5E-5
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         dvs.add_output('aoa', val=[aoa0,aoa1], units='deg')
         dvs.add_output('mach', mach)
         dvs.add_output('q_inf', q_inf)
         dvs.add_output('vel', vel)
-        dvs.add_output('mu', mu)
+        dvs.add_output('nu', nu)
 
         # TACS
         ndv_struct = 810
@@ -64,7 +64,7 @@ class Top(om.Group):
         self.add_subsystem('multipoint',AerostructParallel())
 
         for iscen, scenario in enumerate(['cruise','maneuver']):
-            for dv in ['q_inf','vel','mu','mach', 'dv_struct']:
+            for dv in ['q_inf','vel','nu','mach', 'dv_struct']:
                 self.connect(dv, f'multipoint.{scenario}.{dv}')
             self.connect('aoa', f'multipoint.{scenario}.aoa', src_indices=[iscen])
 
