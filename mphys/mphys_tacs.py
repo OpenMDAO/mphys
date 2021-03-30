@@ -292,8 +292,6 @@ class TacsSolver(om.ImplicitComponent):
                     adj_res_product  = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
                     self.tacs_assembler.evalAdjointResProduct(psi, adj_res_product)
 
-                    # TACS has already done a parallel sum (mpi allreduce) so
-                    # only add the product on one rank
                     d_inputs['dv_struct'] +=  np.array(adj_res_product,dtype=float)
 
     def _design_vector_changed(self,x):
