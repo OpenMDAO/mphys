@@ -294,8 +294,7 @@ class TacsSolver(om.ImplicitComponent):
 
                     # TACS has already done a parallel sum (mpi allreduce) so
                     # only add the product on one rank
-                    if self.comm.rank == 0:
-                        d_inputs['dv_struct'] +=  np.array(adj_res_product,dtype=float)
+                    d_inputs['dv_struct'] +=  np.array(adj_res_product,dtype=float)
 
     def _design_vector_changed(self,x):
         if self.x_save is None:
@@ -546,8 +545,7 @@ class TacsFunctions(om.ExplicitComponent):
             else:
                 raise ValueError('TACS forward mode requested but not implemented')
         if mode == 'rev':
-            if self.check_partials:
-                self._update_internal(inputs)
+            self._update_internal(inputs)
 
             if 'func_struct' in d_outputs:
                 for ifunc, func in enumerate(self.func_list):
@@ -555,7 +553,6 @@ class TacsFunctions(om.ExplicitComponent):
                     if 'dv_struct' in d_inputs:
                         dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
                         self.tacs_assembler.evalDVSens(func, dvsens)
-
                         d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_outputs['func_struct'][ifunc]
 
                     if 'x_struct0' in d_inputs:
