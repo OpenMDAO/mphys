@@ -67,6 +67,10 @@ def get_funcs(tacs):
     ms = functions.StructuralMass(tacs)
     return [ks, ms]
 
+class Forces(om.IndepVarComp):
+    def initialize(self):
+        self.options['distributed'] = True
+
 
 class Top(Multipoint):
     def setup(self):
@@ -84,9 +88,6 @@ class Top(Multipoint):
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         dvs.add_output('dv_struct', np.array(ndv_struct * [0.01]))
 
-        class Forces(om.IndepVarComp):
-            def initialize(self):
-                self.options['distributed'] = True
         forces = self.add_subsystem('forces', Forces(), promotes=['*'])
         forces.add_output('f_struct', np.ones(f_size))
 
@@ -98,7 +99,7 @@ class Top(Multipoint):
 
 
 class TestTACs(unittest.TestCase):
-    N_PROCS=2
+    N_PROCS=1
     def setUp(self):
         prob = om.Problem()
         prob.model = Top()
