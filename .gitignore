@@ -14,9 +14,12 @@
 
 mphys.egg-info/*
 docs/build/doctrees
+docs/_build
 *__pycache__
 build/
 dist/
 
 # input files
 tests/input_files/*.xyz
+
+.ropeproject
