@@ -1,167 +1,260 @@
-from __future__ import division, print_function
 import numpy as np
 
 import openmdao.api as om
+from mphys import Builder
 
-from vlm_solver import VLM_solver, VLM_forces
+from vlm_solver import Vlm
 
-class VlmMesh(om.ExplicitComponent):
-
+class VlmMesh(om.IndepVarComp):
     def initialize(self):
-        self.options.declare('N_nodes')
         self.options.declare('x_aero0')
-
     def setup(self):
+        self.add_output('x_aero0', val=self.options['x_aero0'], tags=['mphys_coordinates'])
 
-        N_nodes = self.options['N_nodes']
-        self.x_a0 = self.options['x_aero0']
-        self.add_output('x_aero0',np.zeros(N_nodes*3))
-
-    def mphys_add_coordinate_input(self):
-
-        N_nodes = self.options['N_nodes']
-        self.add_input('x_aero0_points',np.zeros(N_nodes*3))
-        return 'x_aero0_points', self.x_a0
-
-    def compute(self,inputs,outputs):
-
-        if 'x_aero0_points' in inputs:
-            outputs['x_aero0'] = inputs['x_aero0_points']
-        else:
-            outputs['x_aero0'] = self.x_a0
-
-    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
-        if mode == 'fwd':
-            if 'x_aero0_points' in d_inputs:
-                d_outputs['x_aero0'] += d_inputs['x_aero0_points']
-        elif mode == 'rev':
-            if 'x_aero0_points' in d_inputs:
-                d_inputs['x_aero0_points'] += d_outputs['x_aero0']
-
-class GeoDisp(om.ExplicitComponent):
-    """
-    This component adds the aerodynamic
-    displacements to the geometry-changed aerodynamic surface
-    """
+class VlmSolver(om.ImplicitComponent):
     def initialize(self):
-        self.options['distributed'] = True
-        self.options.declare('nnodes')
+        self.options.declare('solver', recordable=False)
+        self.options.declare('complex_step', default=False)
 
     def setup(self):
-        aero_nnodes = self.options['nnodes']
-        local_size = aero_nnodes * 3
-        n_list = self.comm.allgather(local_size)
-        irank  = self.comm.rank
+        self.vlm = self.options['solver']
 
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
+        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coupling'])
+        self.add_input('aoa',0., units = 'rad', tags=['mphys_input'])
+        self.add_input('mach',0., tags=['mphys_input'])
 
-        self.add_input('x_aero0',shape=local_size,src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface with geom changes')
-        self.add_input('u_aero', shape=local_size,val=np.zeros(local_size),src_indices=np.arange(n1,n2,dtype=int),desc='aerodynamic surface displacements')
+        self.add_output('Cp',np.zeros(int(self.vlm.N_elements/2)))
 
-        self.add_output('x_aero',shape=local_size,desc='deformed aerodynamic surface')
+        self.declare_partials('Cp','aoa')
+        self.declare_partials('Cp','x_aero')
+        self.declare_partials('Cp','Cp')
+
+        self.set_check_partial_options(wrt='*',directional=True,method='cs')
+
+    def solve_nonlinear(self,inputs,outputs):
+
+        ## update VLM object
+
+        self.vlm.set_mesh_coordinates(inputs['x_aero'])
+        self.vlm.aoa = inputs['aoa']
+        self.vlm.mach = inputs['mach']
+
+        ## solve
+
+        self.vlm.complex_step = self.options['complex_step']
+        self.vlm.compute_AIC()
+        self.AIC = self.vlm.AIC
+        self.vlm.solve_system()
+        self.vlm.complex_step = False
+
+        outputs['Cp'] = self.vlm.Cp
+
+    def apply_nonlinear(self,inputs,outputs,residuals):
+
+        ## update VLM object
+
+        self.vlm.set_mesh_coordinates(inputs['x_aero'])
+        self.vlm.aoa = inputs['aoa']
+        self.vlm.mach = inputs['mach']
+
+        ## compute residual
+
+        self.vlm.complex_step = self.options['complex_step']
+        self.vlm.compute_AIC()
+        self.vlm.complex_step = False
+
+        residuals['Cp'] = np.dot(self.vlm.AIC,outputs['Cp']) - self.vlm.w
+
+    def linearize(self,inputs,outputs,partials):
+
+        ## update VLM object
+
+        self.vlm.set_mesh_coordinates(inputs['x_aero'])
+        self.vlm.aoa = inputs['aoa']
+        self.vlm.mach = inputs['mach']
+        self.vlm.Cp = outputs['Cp']
+
+        ## compute derivatives
+
+        self.vlm.compute_residual_derivatives()
+
+        partials['Cp','aoa'] = np.ones(len(self.vlm.w))
+        partials['Cp','x_aero'] = self.vlm.R_xa
+        partials['Cp','Cp'] = self.AIC
+
+    def solve_linear(self,d_outputs,d_residuals,mode):
+        if mode == 'rev':
+            d_residuals['Cp'] = np.linalg.solve(self.AIC.transpose(), d_outputs['Cp'])
+
+
+class VlmForces(om.ExplicitComponent):
+    def initialize(self):
+        self.options.declare('solver', recordable=False)
+        self.options.declare('complex_step', default=False)
+
+    def setup(self):
+        self.vlm = self.options['solver']
+
+        self.add_input('q_inf', 0., tags=['mphys_input'])
+        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coupling'])
+        self.add_input('Cp',np.zeros(int(self.vlm.N_elements/2)))
+
+        self.add_output('f_aero', np.zeros(self.vlm.N_nodes*3), tags=['mphys_coupling'])
+
+        self.declare_partials('f_aero','x_aero')
+        self.declare_partials('f_aero','Cp')
+
+        self.set_check_partial_options(wrt='*',directional=True,method='cs')
 
     def compute(self,inputs,outputs):
-        outputs['x_aero'] = inputs['x_aero0'] + inputs['u_aero']
 
-    def compute_jacvec_product(self,inputs,d_inputs,d_outputs,mode):
-        if mode == 'fwd':
-            if 'x_aero' in d_outputs:
-                if 'x_aero0' in d_inputs:
-                    d_outputs['x_aero'] += d_inputs['x_aero0']
-                if 'u_aero' in d_inputs:
-                    d_outputs['x_aero'] += d_inputs['u_aero']
-        if mode == 'rev':
-            if 'x_aero' in d_outputs:
-                if 'x_aero0' in d_inputs:
-                    d_inputs['x_aero0'] += d_outputs['x_aero']
-                if 'u_aero' in d_inputs:
-                    d_inputs['u_aero']  += d_outputs['x_aero']
+        ## update VLM object
+
+        self.vlm.set_mesh_coordinates(inputs['x_aero'])
+        self.vlm.q_inf = inputs['q_inf']
+        self.vlm.Cp = inputs['Cp']
+
+        ## compute forces
+
+        self.vlm.complex_step = self.options['complex_step']
+        self.vlm.compute_forces()
+        self.vlm.complex_step = False
+
+        outputs['f_aero'] = self.vlm.fa
+
+    def compute_partials(self,inputs,partials):
+
+        ## update VLM object
+
+        self.vlm.set_mesh_coordinates(inputs['x_aero'])
+        self.vlm.q_inf = inputs['q_inf']
+        self.vlm.Cp = inputs['Cp']
+
+        ## compute derivatives
+        self.vlm.compute_shape_derivatives = True
+        self.vlm.compute_forces()
+        self.vlm.compute_shape_derivatives = False
+
+        partials['f_aero','x_aero'] = self.vlm.fa_xa
+        partials['f_aero','Cp'] = self.vlm.fa_Cp
+
+
+## EC which computes the aero coefficients
+
+class VlmCoefficients(om.ExplicitComponent):
+    def initialize(self):
+        self.options.declare('solver', recordable=False)
+        self.options.declare('complex_step', default=False)
+
+    def setup(self):
+        self.vlm = self.options['solver']
+
+        self.add_input('mach', 0., tags=['mphys_input'])
+        self.add_input('vel', 0., tags=['mphys_input'])
+        self.add_input('nu', 0., tags=['mphys_input'])
+        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coupling'])
+        self.add_input('Cp',np.zeros(int(self.vlm.N_elements/2)))
+
+        self.add_output('C_L', tags=['mphys_result'])
+        self.add_output('C_D', tags=['mphys_result'])
+
+        self.declare_partials('C_L','x_aero')
+        self.declare_partials('C_D','x_aero')
+        self.declare_partials('C_L','Cp')
+        self.declare_partials('C_D','Cp')
+
+        self.set_check_partial_options(wrt='*',directional=True,method='cs')
+
+    def compute(self,inputs,outputs):
+
+        ## update VLM object
+
+        self.vlm.set_mesh_coordinates(inputs['x_aero'])
+        self.vlm.mach = inputs['mach']
+        self.vlm.vel = inputs['vel']
+        self.vlm.nu = inputs['nu']
+        self.vlm.Cp = inputs['Cp']
+
+        ## compute coefficients
+
+        self.vlm.complex_step = self.options['complex_step']
+        self.vlm.compute_coefficients()
+        self.vlm.print_results()
+        self.vlm.write_solution_file("VLM_output.dat")
+        self.vlm.complex_step = False
+
+        outputs['C_L'] = self.vlm.CL
+        outputs['C_D'] = self.vlm.CD
+
+    def compute_partials(self,inputs,partials):
+
+        ## update VLM object
+
+        self.vlm.set_mesh_coordinates(inputs['x_aero'])
+        self.vlm.mach = inputs['mach']
+        self.vlm.vel = inputs['vel']
+        self.vlm.nu = inputs['nu']
+        self.vlm.Cp = inputs['Cp']
+
+        ## compute derivatives
+
+        self.vlm.compute_shape_derivatives = True
+        self.vlm.compute_coefficients()
+        self.vlm.compute_shape_derivatives = False
+
+        partials['C_L','x_aero'] = self.vlm.CL_xa
+        partials['C_D','x_aero'] = self.vlm.CD_xa
+        partials['C_L','Cp'] = self.vlm.CL_Cp
+        partials['C_D','Cp'] = self.vlm.CD_Cp
+
 
 class VlmGroup(om.Group):
-
     def initialize(self):
-        self.options.declare('options_dict')
-        # Flag to enable AS coupling items
-        # TODO we do not use this now and assume we have as_coupling = True always.
-        # this needs to be updated to run aero-only vlm
-        self.options.declare('as_coupling')
+        self.options.declare('solver')
+        self.options.declare('complex_step', default=False)
 
     def setup(self):
+        self.solver = self.options['solver']
+        complex_step = self.options['complex_step']
 
-        options_dict = self.options['options_dict']
-        # this can be done much more cleanly with **options_dict
-        N_nodes    = options_dict['N_nodes']
-        N_elements = options_dict['N_elements']
-        x_a0       = options_dict['x_aero0']
-        quad       = options_dict['quad']
+        self.add_subsystem('aero_solver', VlmSolver(
+            solver=self.solver, complex_step = complex_step),
+            promotes_inputs=['aoa','mach','x_aero'],
+            promotes_outputs=['Cp']
+            )
 
-        # by default, we use nodal forces. however, if the user wants to use
-        # tractions, they can specify it in the options_dict
-        compute_traction = False
-        if 'compute_traction' in options_dict:
-            compute_traction = options_dict['compute_traction']
+        self.add_subsystem('aero_forces', VlmForces(
+            solver=self.solver, complex_step=complex_step),
+            promotes_inputs=['q_inf','Cp','x_aero'],
+            promotes_outputs=['f_aero']
+            )
 
-        self.add_subsystem('geo_disp', GeoDisp(nnodes=N_nodes), promotes_inputs=['u_aero', 'x_aero0'])
+        self.add_subsystem('aero_coefficients', VlmCoefficients(
+            solver=self.solver, complex_step=complex_step),
+            promotes_inputs=['mach','vel','nu','Cp','x_aero'],
+            promotes_outputs=['C_L','C_D']
+            )
 
-        self.add_subsystem('solver', VLM_solver(
-            N_nodes=N_nodes,
-            N_elements=N_elements,
-            quad=quad),
-            promotes_inputs=['aoa','mach'])
 
-        self.add_subsystem('forces', VLM_forces(
-            N_nodes=N_nodes,
-            N_elements=N_elements,
-            quad=quad,
-            compute_traction=compute_traction),
-            promotes_inputs=['mach','q_inf','vel','mu'],
-            promotes_outputs=[('fa','f_aero'),'CL','CD'])
+class VlmBuilder(Builder):
+    def __init__(self, meshfile, compute_traction=False, complex_step=False):
+        self.meshfile = meshfile
+        self.compute_traction = compute_traction
+        self.complex_step = complex_step
 
-    def configure(self):
-        self.connect('geo_disp.x_aero', ['solver.xa', 'forces.xa'])
-        self.connect('solver.Cp', 'forces.Cp')
+    def initialize(self, comm):
+        self.solver = Vlm(compute_traction=self.compute_traction)
+        self.solver.read_mesh(self.meshfile)
+        self.x_aero0 = self.solver.xa
 
-class DummyVlmSolver(object):
-    '''
-    a dummy object that can be used to hold the
-    memory associated with a single VLM solver so that
-    multiple OpenMDAO components share the same memory.
-    '''
-    def __init__(self, options, comm):
-        self.options = options
-        self.comm = comm
-        self.allWallsGroup = 'allWalls'
+    def get_mesh_coordinate_subsystem(self):
+        return VlmMesh(x_aero0=self.x_aero0)
 
-    # the methods below here are required for RLT
-    def getSurfaceCoordinates(self, group):
-        # just return the full coordinates
-        return self.options['x_aero0']
+    def get_coupling_group_subsystem(self):
+        return VlmGroup(solver=self.solver, complex_step=self.complex_step)
 
-    def getSurfaceConnectivity(self, group):
-        # -1 for the conversion between fortran and C
-        conn = self.options['quad'].copy() -1
-        faceSizes = 4*np.ones(len(conn), 'intc')
-        return conn.astype('intc'), faceSizes
+    def get_number_of_nodes(self):
+        return self.x_aero0.size // 3
 
-class VlmBuilder(object):
-
-    def __init__(self, options):
-        self.options = options
-
-    def init_solver(self, comm):
-        self.solver = DummyVlmSolver(options=self.options, comm=comm)
-
-    def get_solver(self):
-        return self.solver
-
-    def get_element(self, **kwargs):
-        return VlmGroup(options_dict=self.options, **kwargs)
-
-    def get_mesh_element(self):
-        N_nodes = self.options['N_nodes']
-        x_aero0 = self.options['x_aero0']
-        return VlmMesh(N_nodes=N_nodes, x_aero0=x_aero0)
-
-    def get_nnodes(self):
-        return self.options['N_nodes']
+    def get_ndof(self):
+        return self.x_aero0.size // 3

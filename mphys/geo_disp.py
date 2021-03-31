@@ -1,4 +1,3 @@
-import numpy as np
 import openmdao.api as om
 
 class GeoDisp(om.ExplicitComponent):
@@ -8,26 +7,22 @@ class GeoDisp(om.ExplicitComponent):
     """
     def initialize(self):
         self.options['distributed'] = True
-        self.options.declare('number_of_surface_nodes')
+        self.options.declare('number_of_nodes')
 
     def setup(self):
-        nnodes = self.options['number_of_surface_nodes']
+        nnodes = self.options['number_of_nodes']
         local_size = nnodes * 3
-        n_list = self.comm.allgather(local_size)
-        irank  = self.comm.rank
 
-        n1 = np.sum(n_list[:irank])
-        n2 = np.sum(n_list[:irank+1])
+        self.add_input('x_aero0', shape_by_conn=True,
+                                  desc='aerodynamic surface with geom changes',
+                                  tags=['mphys_coordinates'])
+        self.add_input('u_aero',  shape_by_conn=True,
+                                  desc='aerodynamic surface displacements',
+                                  tags=['mphys_coupling'])
 
-        self.add_input('x_aero0', shape=local_size,
-                               src_indices=np.arange(n1,n2,dtype=int),
-                               desc='aerodynamic surface with geom changes')
-        self.add_input('u_aero',  shape=local_size,
-                               val=np.zeros(local_size),
-                               src_indices=np.arange(n1,n2,dtype=int),
-                               desc='aerodynamic surface displacements')
-
-        self.add_output('x_aero', shape=local_size, desc='deformed aerodynamic surface')
+        self.add_output('x_aero', shape=local_size,
+                                  desc='deformed aerodynamic surface',
+                                  tags=['mphys_coupling'])
 
     def compute(self,inputs,outputs):
         outputs['x_aero'] = inputs['x_aero0'] + inputs['u_aero']

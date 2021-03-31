@@ -79,7 +79,7 @@ class Top(om.Group):
             'span_extend_bounds': [-.01, .01],#[-10., 10.],                     # plus-minus bounds on span-extension delta, m
             'allowable_airfoil_thickness_fraction': 0.5,           # fraction of baseline airfoil thickness allowable for plus-minus bounds, at each span station
             'wing_twist_bounds': np.array([-10., 10.])*np.pi/180., # plus-minus bounds on wing twist at each span station, rad
-            'f_struct_bound': 2.0/3.0,                             # upper allowable bound on f_struct
+            'func_struct_bound': 2.0/3.0,                             # upper allowable bound on func_struct
             'spar_depth_bound': 0.19,                              # lower allowable bound on spar depth, m
         }
 
@@ -495,7 +495,7 @@ model.linear_solver = om.LinearRunOnce()
 #
 #prob.check_totals(
 #        of=[
-#        'mp_group.s1.struct.funcs.f_struct',
+#        'mp_group.s1.struct.funcs.func_struct',
 #        'outputs.wing_area.area',
 #        'outputs.trim0.load_factor',
 #        'outputs.trim1.load_factor',
@@ -566,11 +566,11 @@ prob.model.add_constraint('struct_smoothness.lower_skin_smoothness.diff', ref=mo
 prob.model.add_constraint('struct_smoothness.le_spar_smoothness.diff',    ref=model.opt_parameters['delta_thickness'], upper=0.0, linear=True)
 prob.model.add_constraint('struct_smoothness.te_spar_smoothness.diff',    ref=model.opt_parameters['delta_thickness'], upper=0.0, linear=True)
 
-## add f_struct constraints, for every scenario except cruise
+## add func_struct constraints, for every scenario except cruise
 
 for i in range(0,model.misc_parameters['N_mp']):
     if i != model.misc_parameters['cruise_case_ID']:
-        prob.model.add_constraint('mp_group.s'+str(i)+'.struct.funcs.f_struct', ref=1.0, upper=model.opt_parameters['f_struct_bound'])
+        prob.model.add_constraint('mp_group.s'+str(i)+'.struct.funcs.func_struct', ref=1.0, upper=model.opt_parameters['func_struct_bound'])
 
 ## add trim constraints
 
