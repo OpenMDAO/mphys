@@ -1,10 +1,4 @@
-from __future__ import print_function
-
-import re
-import numpy as np
-
 import  openmdao.api as om
-
 
 # Number of components by type
 struct_comps = {'ribs':18,
@@ -59,7 +53,7 @@ class StructDvMapper(om.ExplicitComponent):
                 var_map.append(('lo_stringer',(stringer,seg)))
 
             else:
-                print("UNKNOWN COMPONENT")
+                print('UNKNOWN COMPONENT')
         self.comps  = struct_comps
         self.var_map = var_map
 
@@ -178,11 +172,36 @@ class SmoothnessEvaluatorGrid(om.ExplicitComponent):
                             d_inputs['thickness'][i]  -= d_outputs['diff'][j+1]
                             j += 2
 
+class StructDistributor(om.ExplicitComponent):
+    def setup(self):
+        self.add_input('struct_dv')
+
+        self.add_output('ribs', shape=18)
+        self.add_output('le_spar', shape=18)
+        self.add_output('te_spar', shape=18)
+        self.add_output('up_skin', shape=162)
+        self.add_output('lo_skin', shape=162)
+        self.add_output('up_stringer', shape=(8,18))
+        self.add_output('lo_stringer', shape=(8,18))
+
+        self.declare_partials(of=['*'], wrt=['struct_dv'], method='fd')
+
+    def compute(self, inputs, outputs):
+        outputs['ribs'][:] = inputs['struct_dv']
+        outputs['le_spar'][:] = inputs['struct_dv']
+        outputs['te_spar'][:] = inputs['struct_dv']
+        outputs['up_skin'][:] = inputs['struct_dv']
+        outputs['lo_skin'][:] = inputs['struct_dv']
+        outputs['up_stringer'][:,:] = inputs['struct_dv']
+        outputs['lo_stringer'][:,:] = inputs['struct_dv']
+
+
 if __name__ == "__main__":
     from openmdao.api import Problem
     prob = Problem()
-    prob.model.add_subsystem('StructDvDistributor',StructDvDistributor())
+    prob.model.add_subsystem('StructDistributor',StructDistributor())
+    prob.model.add_subsystem('StructDvDistributor',StructDvMapper())
     prob.model.add_subsystem('smoothness_grid',SmoothnessEvaluatorGrid(rows=3,columns=4))
 
     prob.setup(force_alloc_complex=True)
-    prob.check_partials(method='cs',compact_print=False)
+    prob.check_partials(method='cs',compact_print=True)

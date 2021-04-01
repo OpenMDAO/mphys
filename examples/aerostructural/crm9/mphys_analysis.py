@@ -19,7 +19,7 @@ from structural_patches_component import LumpPatches
 comm = MPI.COMM_WORLD
 rank = comm.rank
 
-use_fun3d = True
+use_fun3d = False
 
 class Top(Multipoint):
     def setup(self):
@@ -29,7 +29,7 @@ class Top(Multipoint):
         mach = 0.2
         q_inf = 10.0
         vel = 217.6
-        mu = 1.4E-5
+        nu = 1.4E-5
 
         if use_fun3d:
             # FUN3D options
@@ -53,8 +53,8 @@ class Top(Multipoint):
             dvs.add_output('mach', mach)
             dvs.add_output('q_inf', q_inf)
             dvs.add_output('vel', vel)
-            dvs.add_output('mu', mu)
-            aero_dvs = ['aoa','mach','q_inf','vel','mu']
+            dvs.add_output('nu', nu)
+            aero_dvs = ['aoa','mach','q_inf','vel','nu']
 
         # TACS options
         tacs_options = {

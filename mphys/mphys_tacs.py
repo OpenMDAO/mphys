@@ -152,7 +152,6 @@ class TacsSolver(om.ImplicitComponent):
     def apply_nonlinear(self, inputs, outputs, residuals):
         tacs_assembler = self.tacs_assembler
         res  = self.res
-        ans  = self.ans
 
         self._update_internal(inputs,outputs)
 
@@ -171,7 +170,6 @@ class TacsSolver(om.ImplicitComponent):
         residuals['u_struct'][:] = res_array[:]
 
     def solve_nonlinear(self, inputs, outputs):
-
         tacs_assembler   = self.tacs_assembler
         force  = self.force
         ans    = self.ans
@@ -231,9 +229,7 @@ class TacsSolver(om.ImplicitComponent):
     def apply_linear(self,inputs,outputs,d_inputs,d_outputs,d_residuals,mode):
         self._update_internal(inputs,outputs)
         if mode == 'fwd':
-            if self.check_partials:
-                pass
-            else:
+            if not self.check_partials:
                 raise ValueError('TACS forward mode requested but not implemented')
 
         if mode == 'rev':
@@ -292,10 +288,7 @@ class TacsSolver(om.ImplicitComponent):
                     adj_res_product  = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
                     self.tacs_assembler.evalAdjointResProduct(psi, adj_res_product)
 
-                    # TACS has already done a parallel sum (mpi allreduce) so
-                    # only add the product on one rank
-                    if self.comm.rank == 0:
-                        d_inputs['dv_struct'] +=  np.array(adj_res_product,dtype=float)
+                    d_inputs['dv_struct'] +=  np.array(adj_res_product,dtype=float)
 
     def _design_vector_changed(self,x):
         if self.x_save is None:
@@ -482,7 +475,7 @@ class TacsFunctions(om.ExplicitComponent):
 
         # OpenMDAO part of setup
         # TODO move the dv_struct to an external call where we add the DVs
-        self.add_input('dv_struct', shape_by_conn=True, desc='tacs design variables', tags=['mphys_input'])
+        self.add_input('dv_struct', shape = ndv,        desc='tacs design variables', tags=['mphys_input'])
         self.add_input('x_struct0', shape_by_conn=True, desc='structural node coordinates',tags=['mphys_coordinates'])
         self.add_input('u_struct',  shape_by_conn=True, desc='structural state vector', tags=['mphys_coupling'])
 
@@ -541,36 +534,40 @@ class TacsFunctions(om.ExplicitComponent):
 
     def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
-            if self.check_partials:
-                pass
-            else:
+            if not self.check_partials:
                 raise ValueError('TACS forward mode requested but not implemented')
         if mode == 'rev':
-            if self.check_partials:
-                self._update_internal(inputs)
+            self._update_internal(inputs)
 
-            if 'func_struct' in d_outputs:
+            #if 'func_struct' in d_outputs:
+            # Next few lines temporary until func_struct can be declared a serial output
+            if True:
+                if 'func_struct' in d_outputs:
+                    proc_contribution = d_outputs['func_struct'][:]
+                else:
+                    proc_contribution = np.zeros(len(self.func_list))
+                d_func = self.comm.allreduce(proc_contribution) / self.comm.size
+
                 for ifunc, func in enumerate(self.func_list):
                     self.tacs_assembler.evalFunctions([func])
                     if 'dv_struct' in d_inputs:
                         dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
                         self.tacs_assembler.evalDVSens(func, dvsens)
-
-                        d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_outputs['func_struct'][ifunc]
+                        d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_func[ifunc]
 
                     if 'x_struct0' in d_inputs:
                         xpt_sens = self.xpt_sens
                         xpt_sens_array = xpt_sens.getArray()
                         self.tacs_assembler.evalXptSens(func, xpt_sens)
 
-                        d_inputs['x_struct0'][:] += np.array(xpt_sens_array,dtype=float) * d_outputs['func_struct'][ifunc]
+                        d_inputs['x_struct0'][:] += np.array(xpt_sens_array,dtype=float) * d_func[ifunc]
 
                     if 'u_struct' in d_inputs:
                         prod = self.tacs_assembler.createVec()
                         self.tacs_assembler.evalSVSens(func,prod)
                         prod_array = prod.getArray()
 
-                        d_inputs['u_struct'][:] += np.array(prod_array,dtype=float) * d_outputs['func_struct'][ifunc]
+                        d_inputs['u_struct'][:] += np.array(prod_array,dtype=float) * d_func[ifunc]
 
 class TacsMass(om.ExplicitComponent):
     """
@@ -632,13 +629,10 @@ class TacsMass(om.ExplicitComponent):
 
     def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
-            if self.check_partials:
-                pass
-            else:
+            if not self.check_partials:
                 raise ValueError('TACS forward mode requested but not implemented')
         if mode == 'rev':
-            if self.check_partials:
-                self._update_internal(inputs)
+            self._update_internal(inputs)
             if 'mass' in d_outputs:
                 func = functions.StructuralMass(self.tacs_assembler)
                 if 'dv_struct' in d_inputs:
@@ -758,9 +752,6 @@ class TACSFuncsGroup(om.Group):
             promotes_inputs=['x_struct0', 'dv_struct'],
             promotes_outputs=['mass'],
         )
-
-    def configure(self):
-        pass
 
 class TacsBuilder(Builder):
 
