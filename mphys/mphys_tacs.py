@@ -280,7 +280,6 @@ class TacsSolver(om.ImplicitComponent):
             res = self.res
             res_array = res.getArray()
             res_array[:] = d_outputs['u_s']
-
             # Tacs doesn't actually transpose the matrix here so keep track of
             # RHS entries that TACS zeros out for BCs that openmdao is not
             # aware of.
@@ -534,6 +533,9 @@ class TacsSolver_Conduction(om.ImplicitComponent):
             outputs['temp_cond'][i] = ans_array[self.mapping[i]]
 
 
+        if 'f5_writer' in self.struct_objects[3].keys():
+            f5_writer = self.struct_objects[3]['f5_writer']
+            f5_writer(self.tacs)
 
 
 
@@ -548,7 +550,7 @@ class TacsFunctions(om.ExplicitComponent):
 
         self.ans = None
         self.tacs_assembler = None
-
+        
         self.check_partials = False
 
     def setup(self):
@@ -638,12 +640,13 @@ class TacsFunctions(om.ExplicitComponent):
         self.tacs_assembler.setVariables(ans)
 
     def compute(self,inputs,outputs):
-        if self.check_partials:
-            self._update_internal(inputs)
+        # if self.check_partials:
+        self._update_internal(inputs)
 
         if 'f_struct' in outputs:
             outputs['f_struct'] = self.tacs_assembler.evalFunctions(self.func_list)
-            print('f_struct',outputs['f_struct'])
+            if self.comm.rank ==0:
+                print('f_struct',outputs['f_struct'])
 
         if self.f5_writer is not None:
             self.f5_writer(self.tacs_assembler)
@@ -655,8 +658,7 @@ class TacsFunctions(om.ExplicitComponent):
             else:
                 raise ValueError('TACS forward mode requested but not implemented')
         if mode == 'rev':
-            if self.check_partials:
-                self._update_internal(inputs)
+            self._update_internal(inputs)
 
             if 'f_struct' in d_outputs:
                 for ifunc, func in enumerate(self.func_list):
@@ -664,7 +666,6 @@ class TacsFunctions(om.ExplicitComponent):
                     if 'dv_struct' in d_inputs:
                         dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
                         self.tacs_assembler.evalDVSens(func, dvsens)
-
                         d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_outputs['f_struct'][ifunc]
 
                     if 'x_s0' in d_inputs:
@@ -672,14 +673,13 @@ class TacsFunctions(om.ExplicitComponent):
                         xpt_sens_array = xpt_sens.getArray()
                         self.tacs_assembler.evalXptSens(func, xpt_sens)
 
-                        d_inputs['x_s0'][:] += np.array(xpt_sens_array,dtype=float) * d_outputs['f_struct'][ifunc]
+                        d_inputs['x_s0'][:] += np.array(xpt_sens_array,dtype=float) * d_outputs['f_struct'][ifunc]*self.comm.size
 
                     if 'u_s' in d_inputs:
                         prod = self.tacs_assembler.createVec()
                         self.tacs_assembler.evalSVSens(func,prod)
                         prod_array = prod.getArray()
-
-                        d_inputs['u_s'][:] += np.array(prod_array,dtype=float) * d_outputs['f_struct'][ifunc]
+                        d_inputs['u_s'][:] += np.array(prod_array,dtype=float) * d_outputs['f_struct'][ifunc]*self.comm.size
 
 class TacsMass(om.ExplicitComponent):
     """
