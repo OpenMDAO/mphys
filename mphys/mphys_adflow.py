@@ -1007,7 +1007,7 @@ class ADflowGroup(Group):
                     ap_funcs=False,
                     write_solution=False,
                 ),
-                promotes_inputs=["adflow_vol_coords"],
+                promotes_inputs=["adflow_vol_coords", "adflow_states"],
             )
 
         if self.heat_transfer:

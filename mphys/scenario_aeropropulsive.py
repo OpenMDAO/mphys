@@ -1,0 +1,92 @@
+import openmdao.api as om
+from .scenario import Scenario
+from .coupling_group import CouplingGroup
+
+
+class ScenarioAeropropulsive(Scenario):
+    def initialize(self):
+        """
+        A class to perform an aeropropulsive case.
+        The Scenario will add the aerodynamic and propulsion builders' precoupling subsystem,
+        the coupling subsystem, and the postcoupling subsystem.
+        """
+        self.options.declare("aero_builder", recordable=False, desc="The Mphys builder for the aerodynamic solver")
+        self.options.declare("prop_builder", recordable=False, desc="The Mphys builder for the propulsion model")
+        self.options.declare(
+            "in_MultipointParallel",
+            default=False,
+            desc="Set to `True` if adding this scenario inside a MultipointParallel Group.",
+        )
+        self.options.declare(
+            "geometry_builder", default=None, recordable=False, desc="The optional Mphys builder for the geometry"
+        )
+
+    def setup(self):
+        aero_builder = self.options["aero_builder"]
+        prop_builder = self.options["prop_builder"]
+        geometry_builder = self.options["geometry_builder"]
+
+        if self.options["in_MultipointParallel"]:
+            self._mphys_initialize_builders(aero_builder, prop_builder, geometry_builder)
+            self._mphys_add_mesh_and_geometry_subsystems(aero_builder, prop_builder, geometry_builder)
+
+        self.mphys_add_pre_coupling_subsystem("aero", aero_builder)
+        self.mphys_add_pre_coupling_subsystem("prop", prop_builder)
+
+        coupling_group = CouplingAeropropulsive(aero_builder=aero_builder, prop_builder=prop_builder)
+        self.mphys_add_subsystem("coupling", coupling_group)
+
+        self.mphys_add_post_coupling_subsystem("aero", aero_builder)
+        self.mphys_add_post_coupling_subsystem("prop", prop_builder)
+
+    def _mphys_initialize_builders(self, aero_builder, prop_builder, geometry_builder):
+        aero_builder.initialize(self.comm)
+        prop_builder.initialize(self.comm)
+        if geometry_builder is not None:
+            geometry_builder.initialize(self.comm)
+
+    def _mphys_add_mesh_and_geometry_subsystems(self, aero_builder, prop_builder, geometry_builder):
+
+        if geometry_builder is None:
+            self.mphys_add_subsystem("aero_mesh", aero_builder.get_mesh_coordinate_subsystem())
+            # self.mphys_add_subsystem("prop_mesh", prop_builder.get_mesh_coordinate_subsystem())
+        else:
+            self.add_subsystem("aero_mesh", aero_builder.get_mesh_coordinate_subsystem())
+            # the propulsion model does not need a mesh with pycycle
+            # self.add_subsystem("prop_mesh", prop_builder.get_mesh_coordinate_subsystem())
+            self.mphys_add_subsystem("geometry", geometry_builder.get_mesh_coordinate_subsystem())
+            self.connect("aero_mesh.x_aero0", "geometry.x_aero_in")
+            # the propulsion model does not need a mesh with pycycle
+            # self.connect("prop_mesh.x_prop0", "geometry.x_prop_in")
+
+    def mphys_make_aeroprop_conn(self, aero2prop_conn, prop2aero_conn):
+        # TODO automate this with mphys_result or mphys_coupling tags
+
+        # make the connections
+        for k, v in aero2prop_conn.items():
+            self.connect("coupling.aero.%s" % k, "coupling.prop.%s" % v)
+        for k, v in prop2aero_conn.items():
+            self.connect("coupling.prop.%s" % k, "coupling.aero.%s" % v)
+
+
+class CouplingAeropropulsive(CouplingGroup):
+    """
+    The standard aeropropulsive coupling problem.
+    """
+
+    def initialize(self):
+        self.options.declare("aero_builder", recordable=False)
+        self.options.declare("prop_builder", recordable=False)
+
+    def setup(self):
+        aero_builder = self.options["aero_builder"]
+        prop_builder = self.options["prop_builder"]
+
+        aero = aero_builder.get_coupling_group_subsystem()
+        prop = prop_builder.get_coupling_group_subsystem()
+
+        self.mphys_add_subsystem("aero", aero)
+        self.mphys_add_subsystem("prop", prop)
+
+        self.nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, atol=1e-8, rtol=1e-8)
+        self.linear_solver = om.LinearBlockGS(maxiter=25, iprint=2, atol=1e-8, rtol=1e-8)
