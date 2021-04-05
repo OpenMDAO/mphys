@@ -13,6 +13,9 @@ class ScenarioAeropropulsive(Scenario):
         self.options.declare("aero_builder", recordable=False, desc="The Mphys builder for the aerodynamic solver")
         self.options.declare("prop_builder", recordable=False, desc="The Mphys builder for the propulsion model")
         self.options.declare(
+            "balance_builder", recordable=False, desc="The Mphys builder for the balance group", default=None
+        )
+        self.options.declare(
             "in_MultipointParallel",
             default=False,
             desc="Set to `True` if adding this scenario inside a MultipointParallel Group.",
@@ -24,6 +27,7 @@ class ScenarioAeropropulsive(Scenario):
     def setup(self):
         aero_builder = self.options["aero_builder"]
         prop_builder = self.options["prop_builder"]
+        balance_builder = self.options["balance_builder"]
         geometry_builder = self.options["geometry_builder"]
 
         if self.options["in_MultipointParallel"]:
@@ -33,7 +37,9 @@ class ScenarioAeropropulsive(Scenario):
         self.mphys_add_pre_coupling_subsystem("aero", aero_builder)
         self.mphys_add_pre_coupling_subsystem("prop", prop_builder)
 
-        coupling_group = CouplingAeropropulsive(aero_builder=aero_builder, prop_builder=prop_builder)
+        coupling_group = CouplingAeropropulsive(
+            aero_builder=aero_builder, prop_builder=prop_builder, balance_builder=balance_builder
+        )
         self.mphys_add_subsystem("coupling", coupling_group)
 
         self.mphys_add_post_coupling_subsystem("aero", aero_builder)
@@ -77,16 +83,22 @@ class CouplingAeropropulsive(CouplingGroup):
     def initialize(self):
         self.options.declare("aero_builder", recordable=False)
         self.options.declare("prop_builder", recordable=False)
+        self.options.declare("balance_builder", recordable=False, default=None)
 
     def setup(self):
         aero_builder = self.options["aero_builder"]
         prop_builder = self.options["prop_builder"]
+        balance_builder = self.options["balance_builder"]
 
         aero = aero_builder.get_coupling_group_subsystem()
         prop = prop_builder.get_coupling_group_subsystem()
 
         self.mphys_add_subsystem("aero", aero)
         self.mphys_add_subsystem("prop", prop)
+
+        if balance_builder is not None:
+            balance = balance_builder.get_coupling_group_subsystem()
+            self.mphys_add_subsystem("balance", balance)
 
         self.nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, atol=1e-8, rtol=1e-8)
         self.linear_solver = om.LinearBlockGS(maxiter=25, iprint=2, atol=1e-8, rtol=1e-8)
