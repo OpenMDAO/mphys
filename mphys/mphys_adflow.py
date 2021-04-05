@@ -710,7 +710,7 @@ class ADflowFunctions(ExplicitComponent):
         # NOT INTENDED FOR USERS!!! FOR TESTING ONLY
         self._do_solve = True
 
-        self.prop_funcs = None
+        self.extra_funcs = None
 
     def setup(self):
 
@@ -794,17 +794,19 @@ class ADflowFunctions(ExplicitComponent):
 
                 self.add_output(f_name, shape=1, units=units, tags=["mphys_result"])
 
-    def mphys_add_prop_funcs(self, prop_funcs):
+    # def mphys_add_prop_funcs(self, prop_funcs):
         # save this list
-        self.prop_funcs = prop_funcs
+        # self.extra_funcs = prop_funcs
 
         # if self.comm.rank == 0:
         #     print("adding adflow funcs as propulsion output:", prop_funcs)
 
         # call the add_funcs function
-        self.mphys_add_funcs(prop_funcs)
+        # self.mphys_add_funcs(prop_funcs)
 
     def mphys_add_funcs(self, funcs):
+
+        self.extra_funcs = funcs
 
         # loop over the functions here and create the output
         for f_name in funcs:
@@ -873,10 +875,10 @@ class ADflowFunctions(ExplicitComponent):
                 if f_name in funcs:
                     outputs[name.lower()] = funcs[f_name]
 
-        if self.prop_funcs is not None:
+        if self.extra_funcs is not None:
             # also do the prop
-            solver.evalFunctions(self.ap, funcs, evalFuncs=self.prop_funcs)
-            for name in self.prop_funcs:
+            solver.evalFunctions(self.ap, funcs, evalFuncs=self.extra_funcs)
+            for name in self.extra_funcs:
                 f_name = self._get_func_name(name)
                 if f_name in funcs:
                     outputs[name.lower()] = funcs[f_name]
@@ -925,8 +927,8 @@ class ADflowFunctions(ExplicitComponent):
                         # print(self.comm.rank, func_name, funcsBar[func_name])
 
             # also do the same for prop functions
-            if self.prop_funcs is not None:
-                for name in self.prop_funcs:
+            if self.extra_funcs is not None:
+                for name in self.extra_funcs:
                     func_name = name.lower()
                     if func_name in d_outputs and d_outputs[func_name] != 0.0:
                         funcsBar[func_name] = d_outputs[func_name][0]
@@ -1051,7 +1053,7 @@ class ADflowGroup(Group):
         # this is the main routine to enable outputs from the propulsion element
 
         # call the method of the prop element
-        self.prop.mphys_add_prop_funcs(prop_funcs)
+        self.prop.mphys_add_funcs(prop_funcs)
 
         # promote these variables to the aero group level
         self.promotes("prop", outputs=prop_funcs)
