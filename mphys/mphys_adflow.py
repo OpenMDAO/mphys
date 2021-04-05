@@ -798,12 +798,16 @@ class ADflowFunctions(ExplicitComponent):
         # save this list
         self.prop_funcs = prop_funcs
 
+        # if self.comm.rank == 0:
+        #     print("adding adflow funcs as propulsion output:", prop_funcs)
+
+        # call the add_funcs function
+        self.mphys_add_funcs(prop_funcs)
+
+    def mphys_add_funcs(self, funcs):
+
         # loop over the functions here and create the output
-
-        if self.comm.rank == 0:
-            print("adding adflow funcs as propulsion output:")
-
-        for f_name in prop_funcs:
+        for f_name in funcs:
             # get the function type. this is the first word before the first underscore
             f_type = f_name.split("_")[0]
 
@@ -814,8 +818,8 @@ class ADflowFunctions(ExplicitComponent):
                 units = None
 
             # print the function name and units
-            if self.comm.rank == 0:
-                print("%s (%s)" % (f_name, units))
+            # if self.comm.rank == 0:
+                # print("%s (%s)" % (f_name, units))
 
             self.add_output(f_name, shape=1, units=units, tags=["mphys_result"])
 
