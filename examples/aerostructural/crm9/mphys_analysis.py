@@ -19,28 +19,27 @@ from structural_patches_component import LumpPatches
 comm = MPI.COMM_WORLD
 rank = comm.rank
 
-use_fun3d = False
+use_fun3d = True
 
 class Top(Multipoint):
     def setup(self):
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
 
         aoa = 0.0
-        mach = 0.2
-        q_inf = 10.0
+        mach = 0.85
+        q_inf = 120.0
         vel = 217.6
         nu = 1.4E-5
 
         if use_fun3d:
             # FUN3D options
-            project_rootname = 'crm_invis_tet'
             boundary_tag_list = [3]
-            aero_builder = Fun3dSfeBuilder(project_rootname, boundary_tag_list)
+            aero_builder = Fun3dSfeBuilder(boundary_tag_list, input_file='input.cfg')
             aero_builder.initialize(self.comm)
 
             dvs.add_output('aoa', val=aoa, units='deg')
             dvs.add_output('mach', val=mach)
-            dvs.add_output('reynolds', val=0.0)
+            dvs.add_output('reynolds', val=600000.0)
             dvs.add_output('q_inf', val=q_inf)
             dvs.add_output('yaw', val=0.0, units='deg')
             aero_dvs = ['aoa','mach','reynolds','q_inf','yaw']
@@ -79,7 +78,7 @@ class Top(Multipoint):
         self.add_subsystem('mesh_aero',aero_builder.get_mesh_coordinate_subsystem())
         self.add_subsystem('mesh_struct',struct_builder.get_mesh_coordinate_subsystem())
 
-        nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol = 1e-8, atol=1e-8, aitken_max_factor=1.5, aitken_initial_factor=.1)
+        nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol = 1e-8, atol=1e-8)
         linear_solver = om.LinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol = 1e-8, atol=1e-8)
         self.mphys_add_scenario('cruise',ScenarioAeroStructural(aero_builder=aero_builder,
                                                                 struct_builder=struct_builder,

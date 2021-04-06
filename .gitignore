@@ -1,7 +1,7 @@
 .DS_Store
 *pyc
 *out
-*cgns
+*log
 *plt
 *dat
 *swp
@@ -11,6 +11,13 @@
 *tar.gz
 *vtk
 *.su2
+sfe_restart.cfg
+flow.*
+*sql
+
+*cgns
+*ugrid
+*mapbc
 
 mphys.egg-info/*
 docs/build/doctrees
