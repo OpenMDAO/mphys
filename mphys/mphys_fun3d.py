@@ -4,8 +4,9 @@ from mphys.builder import Builder
 from libmeshdef.openmdao import MeshDeformationOpenMdao
 from libmeshdef.mesh_deformer import MeshDeformer
 
-from simple_problem.wrapper import SimpleProblem
+from problem_setup_parser import ProblemSetupParser
 from parfait.preprocessor import create_preprocessor
+from parfait.distance_solver import DistanceSolver
 from sfe.om_component import SfeSolverOpenMdao, SfeForcesOpenMdao
 from sfe.solver import SfeSolver
 from mphys.integrated_forces import IntegratedSurfaceForces
@@ -47,21 +48,23 @@ class Fun3dFsiSolverGroup(om.Group):
         self.connect('flow.q','forces.q')
 
 class Fun3dSfeBuilder(Builder):
-    def __init__(self, project_rootname, boundary_tag_list):
-        self.project_rootname = project_rootname
+    def __init__(self, boundary_tag_list, input_file='input.cfg'):
         self.boundary_tag_list = boundary_tag_list
+        self.input_file = input_file
 
     def initialize(self, comm):
         iris = Iris(comm)
-        prob = SimpleProblem(iris)
-        prob.project_rootname = self.project_rootname
+        prob = ProblemSetupParser(iris, self.input_file)
+
         self.mesh = create_preprocessor(prob.problem, iris)
         self.sfe = SfeSolver(prob.problem, self.mesh, iris)
         self.meshdef = MeshDeformer(prob.problem, self.mesh, iris)
         self.number_of_nodes = self.meshdef.get_boundary_node_global_ids(self.boundary_tag_list, owned_only=True).size
 
-        #self.sfe.set_node_wall_distance(distance, owned_only = False)
-        #self.meshdef.set_node_wall_distance(distance, owned_only = False)
+        dist_solver = DistanceSolver(prob.problem, self.mesh, iris)
+        distance = dist_solver.get_wall_distance()
+        self.sfe.set_node_wall_distance(distance, owned_only = False)
+        self.meshdef.set_node_wall_distance(distance, owned_only = False)
 
     def get_mesh_coordinate_subsystem(self):
         return Fun3dMesh(meshdef_solver = self.meshdef,
