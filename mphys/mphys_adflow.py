@@ -200,6 +200,7 @@ class ADflowSolver(ImplicitComponent):
         # self.options.declare('use_OM_KSP', default=False, types=bool,
         #    desc="uses OpenMDAO's PestcKSP linear solver with ADflow's preconditioner to solve the adjoint.")
         self.options.declare("restart_failed_analysis", default=False)
+        self.options.declare("err_on_convergence_fail", default=False)
 
         self.options["distributed"] = True
 
@@ -212,6 +213,7 @@ class ADflowSolver(ImplicitComponent):
         # self.set_check_partial_options(wrt='*',directional=True)
 
         self.restart_failed_analysis = self.options["restart_failed_analysis"]
+        self.err_on_convergence_fail = self.options["err_on_convergence_fail"]
         self.solver = self.options["aero_solver"]
         solver = self.solver
 
@@ -306,44 +308,13 @@ class ADflowSolver(ImplicitComponent):
 
                 raise AnalysisError("ADFLOW Solver Fatal Fail")
 
-            if ap.solveFailed and self.restart_failed_analysis:  # the mesh was fine, but it didn't converge
-                # if the previous iteration was already a clean restart, dont try again
-                if self.cleanRestart:
-                    if self.comm.rank == 0:
-                        print("###############################################################")
-                        print("# This was a clean restart. Will not try another one.")
-                        print("###############################################################")
-
-                    # write the solution so that we can diagnose
-                    solver.writeSolution(baseName="analysis_fail", number=self.solution_counter)
-                    self.solution_counter += 1
-
-                    if self.analysis_error_on_failure:
-                        solver.resetFlow(ap)
-                        self.cleanRestart = True
-                        raise AnalysisError("ADFLOW Solver Fatal Fail")
-
-                # the previous iteration restarted from another solution, so we can try again
-                # with a re-set flowfield for the initial guess.
-                else:
-                    if self.comm.rank == 0:
-                        print("###############################################################")
-                        print("# Solve Failed, attempting a clean restart!")
-                        print("###############################################################")
-
-                    # write the solution so that we can diagnose
-                    solver.writeSolution(baseName="analysis_fail", number=self.solution_counter)
-                    self.solution_counter += 1
-
-                    ap.solveFailed = False
-                    ap.fatalFail = False
-                    solver.resetFlow(ap)
-                    solver(ap, writeSolution=False)
-
-                    if ap.solveFailed or ap.fatalFail:  # we tried, but there was no saving it
+            if ap.solveFailed:
+                if self.restart_failed_analysis:  # the mesh was fine, but it didn't converge
+                    # if the previous iteration was already a clean restart, dont try again
+                    if self.cleanRestart:
                         if self.comm.rank == 0:
                             print("###############################################################")
-                            print("# Clean Restart failed. There is no saving this one!")
+                            print("# This was a clean restart. Will not try another one.")
                             print("###############################################################")
 
                         # write the solution so that we can diagnose
@@ -351,15 +322,59 @@ class ADflowSolver(ImplicitComponent):
                         self.solution_counter += 1
 
                         if self.analysis_error_on_failure:
-                            # re-set the flow for the next iteration:
                             solver.resetFlow(ap)
-                            # set the reset flow flag
                             self.cleanRestart = True
                             raise AnalysisError("ADFLOW Solver Fatal Fail")
 
-                    # see comment for the same flag below
+                    # the previous iteration restarted from another solution, so we can try again
+                    # with a re-set flowfield for the initial guess.
                     else:
-                        self.cleanRestart = False
+                        if self.comm.rank == 0:
+                            print("###############################################################")
+                            print("# Solve Failed, attempting a clean restart!")
+                            print("###############################################################")
+
+                        # write the solution so that we can diagnose
+                        solver.writeSolution(baseName="analysis_fail", number=self.solution_counter)
+                        self.solution_counter += 1
+
+                        ap.solveFailed = False
+                        ap.fatalFail = False
+                        solver.resetFlow(ap)
+                        solver(ap, writeSolution=False)
+
+                        if ap.solveFailed or ap.fatalFail:  # we tried, but there was no saving it
+                            if self.comm.rank == 0:
+                                print("###############################################################")
+                                print("# Clean Restart failed. There is no saving this one!")
+                                print("###############################################################")
+
+                            # write the solution so that we can diagnose
+                            solver.writeSolution(baseName="analysis_fail", number=self.solution_counter)
+                            self.solution_counter += 1
+
+                            if self.analysis_error_on_failure:
+                                # re-set the flow for the next iteration:
+                                solver.resetFlow(ap)
+                                # set the reset flow flag
+                                self.cleanRestart = True
+                                raise AnalysisError("ADFLOW Solver Fatal Fail")
+
+                        # see comment for the same flag below
+                        else:
+                            self.cleanRestart = False
+
+                elif self.err_on_convergence_fail:
+                    # the solve failed but we dont want to re-try. We also want to raise an analysis error
+                    if self.comm.rank == 0:
+                        print("###############################################################")
+                        print("# Solve Failed, not attempting a clean restart")
+                        print("###############################################################")
+                    raise AnalysisError("ADFLOW Solver Fatal Fail")
+
+                else:
+                    # the solve failed, but we dont want to restart or raise an error, we will just let this one pass
+                    pass
 
             # solve did not fail, therefore we will re-use this converged flowfield for the next iteration.
             # change the flag so that if the next iteration fails with current initial guess, it can retry
@@ -795,14 +810,14 @@ class ADflowFunctions(ExplicitComponent):
                 self.add_output(f_name, shape=1, units=units, tags=["mphys_result"])
 
     # def mphys_add_prop_funcs(self, prop_funcs):
-        # save this list
-        # self.extra_funcs = prop_funcs
+    #     save this list
+    #     self.extra_funcs = prop_funcs
 
-        # if self.comm.rank == 0:
-        #     print("adding adflow funcs as propulsion output:", prop_funcs)
+    #     if self.comm.rank == 0:
+    #         print("adding adflow funcs as propulsion output:", prop_funcs)
 
-        # call the add_funcs function
-        # self.mphys_add_funcs(prop_funcs)
+    #     call the add_funcs function
+    #     self.mphys_add_funcs(prop_funcs)
 
     def mphys_add_funcs(self, funcs):
 
@@ -821,7 +836,7 @@ class ADflowFunctions(ExplicitComponent):
 
             # print the function name and units
             # if self.comm.rank == 0:
-                # print("%s (%s)" % (f_name, units))
+            #     print("%s (%s)" % (f_name, units))
 
             self.add_output(f_name, shape=1, units=units, tags=["mphys_result"])
 
@@ -963,6 +978,7 @@ class ADflowGroup(Group):
         self.options.declare("heat_transfer", default=False)
         self.options.declare("use_warper", default=True)
         self.options.declare("restart_failed_analysis", default=False)
+        self.options.declare("err_on_convergence_fail", default=False)
         self.options.declare("balance_group", default=None, recordable=False)
 
     def setup(self):
@@ -971,6 +987,7 @@ class ADflowGroup(Group):
         self.struct_coupling = self.options["struct_coupling"]
         self.prop_coupling = self.options["prop_coupling"]
         self.restart_failed_analysis = self.options["restart_failed_analysis"]
+        self.err_on_convergence_fail = self.options["err_on_convergence_fail"]
 
         self.use_warper = self.options["use_warper"]
 
@@ -993,6 +1010,7 @@ class ADflowGroup(Group):
             ADflowSolver(
                 aero_solver=self.aero_solver,
                 restart_failed_analysis=self.restart_failed_analysis,
+                err_on_convergence_fail=self.err_on_convergence_fail,
             ),
             promotes_inputs=["adflow_vol_coords"],
             promotes_outputs=["adflow_states"],
@@ -1090,6 +1108,7 @@ class ADflowBuilder(Builder):
         mesh_options=None,  # idwarp options
         scenario="aerodynamic",  # scenario type to configure the groups
         restart_failed_analysis=False,  # retry after failed analysis
+        err_on_convergence_fail=False,  # raise an analysis error if the solver stalls
         balance_group=None,
     ):
 
@@ -1147,6 +1166,9 @@ class ADflowBuilder(Builder):
         # flag to determine if we want to restart a failed solution from free stream
         self.restart_failed_analysis = restart_failed_analysis
 
+        # flag for raising an error on convergence stall
+        self.err_on_convergence_fail = err_on_convergence_fail
+
         # balance group for propulsion
         self.balance_group = balance_group
 
@@ -1172,6 +1194,7 @@ class ADflowBuilder(Builder):
             struct_coupling=self.struct_coupling,
             prop_coupling=self.prop_coupling,
             restart_failed_analysis=self.restart_failed_analysis,
+            err_on_convergence_fail=self.err_on_convergence_fail,
             balance_group=self.balance_group,
         )
         return adflow_group
