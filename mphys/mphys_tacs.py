@@ -360,8 +360,8 @@ class TacsSolver(om.ImplicitComponent):
 
                     # TACS has already done a parallel sum (mpi allreduce) so
                     # only add the product on one rank
-                    if self.comm.rank == 0:
-                        d_inputs['dv_struct'] +=  np.array(adj_res_product,dtype=float)
+                    # if self.comm.rank == 0:
+                    d_inputs['dv_struct'] +=  np.array(adj_res_product,dtype=float)
 
     def _design_vector_changed(self,x):
         if self.x_save is None:
@@ -673,13 +673,13 @@ class TacsFunctions(om.ExplicitComponent):
                         xpt_sens_array = xpt_sens.getArray()
                         self.tacs_assembler.evalXptSens(func, xpt_sens)
 
-                        d_inputs['x_s0'][:] += np.array(xpt_sens_array,dtype=float) * d_outputs['f_struct'][ifunc]*self.comm.size
+                        d_inputs['x_s0'][:] += np.array(xpt_sens_array,dtype=float) * d_outputs['f_struct'][ifunc]
 
                     if 'u_s' in d_inputs:
                         prod = self.tacs_assembler.createVec()
                         self.tacs_assembler.evalSVSens(func,prod)
                         prod_array = prod.getArray()
-                        d_inputs['u_s'][:] += np.array(prod_array,dtype=float) * d_outputs['f_struct'][ifunc]*self.comm.size
+                        d_inputs['u_s'][:] += np.array(prod_array,dtype=float) * d_outputs['f_struct'][ifunc]
 
 class TacsMass(om.ExplicitComponent):
     """
