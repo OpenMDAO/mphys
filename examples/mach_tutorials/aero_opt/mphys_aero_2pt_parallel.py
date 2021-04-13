@@ -2,7 +2,7 @@ import numpy as np
 from mpi4py import MPI
 
 import openmdao.api as om
-from mphys.multipoint import Multipoint
+from mphys.multipoint import MultipointParallel
 from mphys.mphys_adflow import ADflowBuilder
 from baseclasses import AeroProblem
 from mphys.scenario_aerodynamic import ScenarioAerodynamic
@@ -15,7 +15,7 @@ parser.add_argument("--task", default="run")
 args = parser.parse_args()
 
 
-class Top(Multipoint):
+class ParallelCruises(MultipointParallel):
     def setup(self):
 
         ################################################################################
@@ -23,6 +23,7 @@ class Top(Multipoint):
         ################################################################################
         aero_options = {
             # I/O Parameters
+            # "gridFile": "wing_vol_coarse.cgns",
             "gridFile": "wing_vol.cgns",
             "outputDirectory": ".",
             "monitorvariables": ["resrho", "resturb", "cl", "cd"],
@@ -60,23 +61,32 @@ class Top(Multipoint):
         adflow_builder = ADflowBuilder(aero_options, scenario="aerodynamic")
         adflow_builder.initialize(self.comm)
 
+        self.mphys_add_scenario(
+            "cruise0",
+            ScenarioAerodynamic(aero_builder=adflow_builder, in_MultipointParallel=True),
+        )
+
+        self.mphys_add_scenario(
+            "cruise1",
+            ScenarioAerodynamic(aero_builder=adflow_builder, in_MultipointParallel=True),
+        )
+
+
+class Top(om.Group):
+    def setup(self):
+
         ################################################################################
-        # MPHYS setup
+        # mphys setup
         ################################################################################
 
         # ivc to keep the top level DVs
         self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
 
-        # create the mesh component
-        self.add_subsystem("mesh", adflow_builder.get_mesh_coordinate_subsystem())
+        # add the parallel multipoint group
+        self.add_subsystem("mp", ParallelCruises())
 
-        # add the geometry component, we dont need a builder because we do it here.
-        self.add_subsystem("geometry", OM_DVGEOCOMP(ffd_file="ffd.xyz"))
-
-        self.mphys_add_scenario("cruise", ScenarioAerodynamic(aero_builder=adflow_builder))
-
-        self.connect("mesh.x_aero0", "geometry.x_aero_in")
-        self.connect("geometry.x_aero0", "cruise.x_aero")
+        # add an exec comp to average two drags
+        self.add_subsystem("drag", om.ExecComp("cd_out=(cd0+cd1)/2"))
 
     def configure(self):
         # create the aero problems for both analysis point.
@@ -90,70 +100,75 @@ class Top(Multipoint):
         )
         ap0.addDV("alpha", value=aoa, name="aoa", units="deg")
 
+        ap1 = AeroProblem(
+            name="ap1", mach=0.7, altitude=10000, alpha=1.5, areaRef=45.5, chordRef=3.25, evalFuncs=["cl", "cd"]
+        )
+        ap1.addDV("alpha", value=aoa, name="aoa", units="deg")
+
         # here we set the aero problems for every cruise case we have.
         # this can also be called set_flow_conditions, we don't need to create and pass an AP,
         # just flow conditions is probably a better general API
         # this call automatically adds the DVs for the respective scenario
-        self.cruise.coupling.mphys_set_ap(ap0)
-        self.cruise.aero_post.mphys_set_ap(ap0)
+        try:
+            self.mp.cruise0.coupling.mphys_set_ap(ap0)
+            self.mp.cruise0.aero_post.mphys_set_ap(ap0)
+        except AttributeError:
+            pass
+
+        try:
+            self.mp.cruise1.coupling.mphys_set_ap(ap1)
+            self.mp.cruise1.aero_post.mphys_set_ap(ap1)
+        except AttributeError:
+            pass
 
         # create geometric DV setup
-        points = self.mesh.mphys_get_surface_mesh()
+        # points = self.mesh.mphys_get_surface_mesh()
 
         # add pointset
-        self.geometry.nom_add_discipline_coords("aero", points)
+        # self.geometry.nom_add_discipline_coords("aero", points)
 
         # add these points to the geometry object
         # self.geo.nom_add_point_dict(points)
         # create constraint DV setup
-        tri_points = self.mesh.mphys_get_triangulated_surface()
-        self.geometry.nom_setConstraintSurface(tri_points)
+        # tri_points = self.mesh.mphys_get_triangulated_surface()
+        # self.geometry.nom_setConstraintSurface(tri_points)
 
         # geometry setup
 
         # Create reference axis
-        nRefAxPts = self.geometry.nom_addRefAxis(name="wing", xFraction=0.25, alignIndex="k")
-        nTwist = nRefAxPts - 1
+        # nRefAxPts = self.geometry.nom_addRefAxis(name="wing", xFraction=0.25, alignIndex="k")
+        # nTwist = nRefAxPts - 1
 
         # Set up global design variables
-        def twist(val, geo):
-            for i in range(1, nRefAxPts):
-                geo.rot_z["wing"].coef[i] = val[i - 1]
+        # def twist(val, geo):
+        #     for i in range(1, nRefAxPts):
+        #         geo.rot_z["wing"].coef[i] = val[i - 1]
 
-        self.geometry.nom_addGeoDVGlobal(dvName="twist", value=np.array([0] * nTwist), func=twist)
-        nLocal = self.geometry.nom_addGeoDVLocal(dvName="thickness")
+        # self.geometry.nom_addGeoDVGlobal(dvName="twist", value=np.array([0] * nTwist), func=twist)
 
-        leList = [[0.01, 0, 0.001], [7.51, 0, 13.99]]
-        teList = [[4.99, 0, 0.001], [8.99, 0, 13.99]]
-        self.geometry.nom_addThicknessConstraints2D("thickcon", leList, teList, nSpan=10, nChord=10)
-        self.geometry.nom_addVolumeConstraint("volcon", leList, teList, nSpan=20, nChord=20)
-        nLECon = self.geometry.nom_add_LETEConstraint(
-            "lecon",
-            0,
-            "iLow",
-        )
-        nTECon = self.geometry.nom_add_LETEConstraint("tecon", 0, "iHigh")
         # add dvs to ivc and connect
-        self.dvs.add_output("aoa", val=aoa, units="deg")
-        self.dvs.add_output("local", val=np.array([0] * nLocal))
-        self.dvs.add_output("twist", val=np.array([0] * nTwist))
+        self.dvs.add_output("aoa0", val=aoa, units="deg")
+        self.dvs.add_output("aoa1", val=aoa, units="deg")
+        # self.dvs.add_output("twist", val=np.array([0] * nTwist))
 
-        self.connect("aoa", ["cruise.coupling.aoa", "cruise.aero_post.aoa"])
-        self.connect("local", "geometry.thickness")
-        self.connect("twist", "geometry.twist")
+        # TODO this is working but not the correct way to do it. the sensitivities are also wrong now.
+        self.connect("aoa0", ["mp.cruise0.coupling.aoa", "mp.cruise0.aero_post.aoa"], src_indices=[0])
+        self.connect("aoa1", ["mp.cruise1.coupling.aoa", "mp.cruise1.aero_post.aoa"], src_indices=[0])
+        # self.connect("twist", "geometry.twist")
 
         # define the design variables
-        self.add_design_var("aoa", lower=0.0, upper=10.0, scaler=0.1, units="deg")
-        self.add_design_var("local", lower=-0.5, upper=0.5, scaler=0.01)
-        self.add_design_var("twist", lower=-10.0, upper=10.0, scaler=0.01)
+        self.add_design_var("aoa0", lower=0.0, upper=10.0, scaler=0.1, units="deg")
+        self.add_design_var("aoa1", lower=0.0, upper=10.0, scaler=0.1, units="deg")
+        # self.add_design_var("twist", lower=-10.0, upper=10.0, scaler=0.01)
 
         # add constraints and the objective
-        self.add_constraint("cruise.aero_post.cl", equals=0.5, scaler=10.0)
-        self.add_constraint("geometry.thickcon", lower=1.0, scaler=1.0)
-        self.add_constraint("geometry.volcon", lower=1.0, scaler=1.0)
-        self.add_constraint("geometry.tecon", equals=0.0, scaler=1.0, linear=True)
-        self.add_constraint("geometry.lecon", equals=0.0, scaler=1.0, linear=True)
-        self.add_objective("cruise.aero_post.cd", scaler=100.0)
+        self.add_constraint("mp.cruise0.aero_post.cl", equals=0.5, scaler=10.0)
+        self.add_constraint("mp.cruise1.aero_post.cl", equals=0.5, scaler=10.0)
+
+        # connect the two drags to drag average
+        self.connect("mp.cruise0.aero_post.cd", "drag.cd0")
+        self.connect("mp.cruise1.aero_post.cd", "drag.cd1")
+        self.add_objective("drag.cd_out", scaler=100.0)
 
 
 ################################################################################
@@ -166,7 +181,7 @@ prob.driver = om.pyOptSparseDriver()
 prob.driver.options["optimizer"] = "SNOPT"
 prob.driver.opt_settings = {
     "Major feasibility tolerance": 1e-4,  # 1e-4,
-    "Major optimality tolerance": 1e-3,  # 1e-8,
+    "Major optimality tolerance": 1e-4,  # 1e-8,
     "Verify level": 0,
     "Major iterations limit": 200,
     "Minor iterations limit": 1000000,
@@ -188,21 +203,30 @@ prob.driver.opt_settings = {
 # prob.driver.options['debug_print'] = ['totals', 'desvars']
 
 prob.setup(mode="rev")
-om.n2(prob, show_browser=False, outfile="mphys_aero.html")
+om.n2(prob, show_browser=False, outfile="mphys_aero_2pt_parallel.html")
 
 if args.task == "run":
     prob.run_model()
-    # prob.model.list_outputs(print_arrays=True)
-    # prob.check_partials(compact_print=True, includes='*geometry*')
-    # prob.check_totals(compact_print=True)
 elif args.task == "opt":
     prob.run_driver()
 
-prob.model.list_inputs(units=True)
-prob.model.list_outputs(units=True)
+# TODO list i/o did not work for parallel multipoint
+# prob.model.list_inputs(units=True)
+# prob.model.list_outputs(units=True)
 
 # prob.model.list_outputs()
+
+cl0 = prob.get_val("mp.cruise0.aero_post.cl", get_remote=True)
+cd0 = prob.get_val("mp.cruise0.aero_post.cd", get_remote=True)
+
+cl1 = prob.get_val("mp.cruise1.aero_post.cl", get_remote=True)
+cd1 = prob.get_val("mp.cruise1.aero_post.cd", get_remote=True)
+
 if MPI.COMM_WORLD.rank == 0:
-    print("Scenario 0")
-    print("cl =", prob["cruise.aero_post.cl"])
-    print("cd =", prob["cruise.aero_post.cd"])
+    print("Cruise 0")
+    print("cl =", cl0)
+    print("cd =", cd1)
+
+    print("Cruise 1")
+    print("cl =", cl1)
+    print("cd =", cd1)
