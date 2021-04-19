@@ -72,6 +72,12 @@ In the ``setup`` method of the Multipoint group, the following steps must be don
 Additionally, the Multipoint group can hold the design variables or other inputs and subsystems to be evaluated after the scenarios.
 These extra subsystem can then be connected to the scenarios by the user.
 
+.. automodule:: mphys.multipoint
+
+.. autoclass:: Multipoint
+    :members:
+    :exclude-members: configure
+
 ------------------
 MultipointParallel
 ------------------
@@ -85,3 +91,7 @@ In the ``setup`` method of the ``MultipointParallel`` group, the following steps
 
 Because this is a ParallelGroup, other subsystems that hold the inputs outside the scenario and subsystems to be evaluated after the scenarios cannot be added directly to the MultipointParallel group.
 These extra subsystem should be added to a higher level of the model and then connected to the scenarios by the user.
+
+.. autoclass:: MultipointParallel
+    :members:
+    :exclude-members: configure
