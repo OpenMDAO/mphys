@@ -1,0 +1,96 @@
+name: Run unit tests and build docs
+
+on:
+  # Triggers the workflow on push or pull request events but only for the main branch
+  # Remove push when finally merging.
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+  # Allows you to run this workflow manually from the Actions tab.
+  workflow_dispatch:
+
+jobs:
+  # This job is called test_docs.
+  test_docs:
+    # Run on Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # TEMPORARY WHILE GITHUB FIXES THIS https://github.com/actions/virtual-environments/issues/3185
+      - name: Add the current IP address, long hostname and short hostname record to /etc/hosts file
+        run: |
+          echo -e "$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)\t$(hostname -f) $(hostname -s)" | sudo tee -a /etc/hosts
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it.
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install OpenMDAO Stack
+        run: |
+          echo "=============================================================";
+          echo "Run #${GITHUB_RUN_NUMBER}";
+          echo "Run ID: ${GITHUB_RUN_ID}";
+          echo "Testing: ${GITHUB_REPOSITORY}";
+          echo "Triggered by: ${GITHUB_EVENT_NAME}";
+          echo "Initiated by: ${GITHUB_ACTOR}";
+          echo "=============================================================";
+          echo "=============================================================";
+          echo "Create conda environment";
+          echo "=============================================================";
+          source $CONDA/etc/profile.d/conda.sh;
+          echo $CONDA/bin >> $GITHUB_PATH;
+          conda create -n OpenMDAO python=3.8 numpy=1.18 scipy=1.4 -q -y;
+          conda activate OpenMDAO;
+          echo "=============================================================";
+          echo "Install PETSc";
+          echo "=============================================================";
+          conda install -c anaconda mpi4py -q -y;
+          conda install -c conda-forge petsc=3.12 petsc4py -q -y;
+          echo "=============================================================";
+          echo "Install pyoptsparse";
+          echo "=============================================================";
+          git clone -q https://github.com/OpenMDAO/build_pyoptsparse;
+          cd build_pyoptsparse;
+          chmod 755 ./build_pyoptsparse.sh;
+          ./build_pyoptsparse.sh -b "v2.1.5";
+          cd ..;
+          export LD_LIBRARY_PATH=$HOME/ipopt/lib;
+          echo "=============================================================";
+          echo "Install OpenMDAO";
+          echo "=============================================================";
+          cd ..;
+          git clone -q https://github.com/OpenMDAO/OpenMDAO;
+          cd OpenMDAO;
+          pip install .[all];
+          pip install testflo;
+          cd ../mphys;
+          pip install -e .
+          echo "=============================================================";
+          echo "List installed packages/versions";
+          echo "=============================================================";
+          conda list;
+          echo "=============================================================";
+          echo "Run the tests.";
+          echo "=============================================================";
+          cd tests/unit_tests
+          testflo -n 1
+          echo "=============================================================";
+          echo "Build the docs.";
+          echo "=============================================================";
+          cd ../../docs
+          make html
+          cd _build/html
+          zip -r ./mphys.zip .
+          echo "=============================================================";
+          echo "Operations Completed.";
+          echo "=============================================================";
+      - name: 'Upload Docs'
+        uses: actions/upload-artifact@v2
+        with:
+          name: mphys
+          path: docs/_build/html/mphys.zip
+          retention-days: 7
