@@ -2,6 +2,9 @@ from openmdao.api import Group
 
 
 class MphysGroup(Group):
+    """
+    A OpenMDAO class for automated promotion of Mphys variables
+    """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
