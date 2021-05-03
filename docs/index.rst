@@ -46,6 +46,19 @@ They describe physics problem being solved, the standards set by Mphys, requirem
   scenarios/structural.rst
   scenarios/aerodynamic.rst
 
+**********************
+Mphys Developers Guide
+**********************
+
+These pages provide more details of how Mphys works and how to add to the Mphys scenario library.
+
+.. toctree::
+  :maxdepth: 1
+  :caption: Developers Guide
+
+  developers/mphys_group.rst
+  developers/new_multiphysics_problems.rst
+
 Indices and tables
 ==================
 
