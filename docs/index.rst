@@ -50,6 +50,8 @@ They describe physics problem being solved, the standards set by Mphys, requirem
 Mphys Developers Guide
 **********************
 
+These pages provide more details of how Mphys works and how to add to the Mphys scenario library.
+
 .. toctree::
   :maxdepth: 1
   :caption: Developers Guide
