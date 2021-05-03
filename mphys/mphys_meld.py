@@ -15,8 +15,6 @@ class MeldDispXfer(om.ExplicitComponent):
         self.options.declare('aero_nnodes')
         self.options.declare('check_partials')
 
-        self.options['distributed'] = True
-
         self.meld = None
         self.initialized_meld = False
 
@@ -37,17 +35,21 @@ class MeldDispXfer(om.ExplicitComponent):
 
         # inputs
         self.add_input('x_struct0', shape_by_conn=True,
+                                    distributed=True,
                                     desc='initial structural node coordinates',
                                     tags=['mphys_coordinates'])
         self.add_input('x_aero0',   shape_by_conn=True,
+                                    distributed=True,
                                     desc='initial aero surface node coordinates',
                                     tags=['mphys_coordinates'])
         self.add_input('u_struct',  shape_by_conn=True,
+                                    distributed=True,
                                     desc='structural node displacements',
                                     tags=['mphys_coupling'])
 
         # outputs
         self.add_output('u_aero', shape = self.aero_nnodes*3,
+                                  distributed=True,
                                   val=np.zeros(self.aero_nnodes*3),
                                   desc='aerodynamic surface displacements',
                                   tags=['mphys_coupling'])
@@ -148,8 +150,6 @@ class MeldLoadXfer(om.ExplicitComponent):
         self.options.declare('aero_nnodes')
         self.options.declare('check_partials')
 
-        self.options['distributed'] = True
-
         self.meld = None
         self.initialized_meld = False
 
@@ -174,20 +174,25 @@ class MeldLoadXfer(om.ExplicitComponent):
 
         # inputs
         self.add_input('x_struct0', shape_by_conn=True,
+                                    distributed=True,
                                     desc='initial structural node coordinates',
                                     tags=['mphys_coordinates'])
         self.add_input('x_aero0', shape_by_conn=True,
+                                  distributed=True,
                                   desc='initial aero surface node coordinates',
                                   tags=['mphys_coordinates'])
         self.add_input('u_struct', shape_by_conn=True,
+                                   distributed=True,
                                    desc='structural node displacements',
                                    tags=['mphys_coupling'])
         self.add_input('f_aero', shape_by_conn=True,
+                                 distributed=True,
                                  desc='aerodynamic force vector',
                                  tags=['mphys_coupling'])
 
         # outputs
         self.add_output('f_struct', shape = struct_nnodes*struct_ndof,
+                                    distributed=True,
                                     desc='structural force vector',
                                     tags=['mphys_coupling'])
 
