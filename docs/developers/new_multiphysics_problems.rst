@@ -10,6 +10,13 @@ Extending the Scenario Library
 Coupling Groups
 ===============
 
+In ``initialize``, the coupling group needs to have the required builders declared as options.
+In the setup phase, :func:`~mphys.builder.Builder.get_coupling_group_subsystem` is used to get subsystems from the builders,
+and ``self.mphys_add_subsystem`` is used to add them.
+Other components like balance components can be added directly.
+Setting a default linear and nonlinear solver suitable for this type of problem is also helpful in ``setup``.
+In most cases using a configure phase is not necessary for the scenario, but if you do implement a ``configure``
+method, you must call ``super().configure()`` to do the tagged promotion of variables from the scenario's subsystems.
 
 .. automodule:: mphys.coupling_group
 
@@ -22,13 +29,15 @@ Coupling Groups
 Scenarios
 =========
 Your custom Scenario should at least implement the ``initialize`` and ``setup`` methods.
+As with the ``CouplingGroup``, you must call the ``configure`` method of the parent class if you implement a
+``configure`` method in the Scenario.
 
 ----------
 Initialize
 ----------
 The Scenario's ``initialize`` method should declare the necessary builders as options.
-An ``in_MultipointParallel`` option should also be included if that mode is implemented.
-Otherwise, the developer free to
+An ``in_MultipointParallel`` option should also be included if that mode of operation will be implemented.
+Otherwise the developer is free to add options specific to the scenario type.
 
 -----
 Setup

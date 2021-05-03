@@ -24,6 +24,6 @@ rather than subclassing MphysGroup directly.
 Manual Connection of Variables
 ==============================
 
-In some instances, the use of automated promotion will not work.
+In some instances, the use of automated promotion is not appropriate.
 Because the MphysGroup inherits from the standard OpenMDAO group,
 subsystems can be added with the standard ``add_subsystem`` method and connected manually.
