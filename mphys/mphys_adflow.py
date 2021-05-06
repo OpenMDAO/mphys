@@ -388,16 +388,35 @@ class ADflowSolver(ImplicitComponent):
         outputs["adflow_states"] = solver.getStates()
 
     def linearize(self, inputs, outputs, residuals):
-
-        self.solver._setupAdjoint()
+        solver = self.solver
+        ap = self.ap
 
         self._set_ap(inputs)
         self._set_states(outputs)
+
+        # check if we changed APs, then we have to do a bunch of updates
+        if ap != solver.curAP:
+            # AP is changed, so we have to update the AP and
+            # run a residual to make sure all intermediate vairables are up to date
+            # we assume the AP has the last converged state information,
+            # which is automatically set in the getResidual call
+            solver.getResidual(ap)
 
     def apply_linear(self, inputs, outputs, d_inputs, d_outputs, d_residuals, mode):
 
         solver = self.solver
         ap = self.ap
+
+        self._set_ap(inputs)
+        self._set_states(outputs)
+
+        # check if we changed APs, then we have to do a bunch of updates
+        if ap != solver.curAP:
+            # AP is changed, so we have to update the AP and
+            # run a residual to make sure all intermediate vairables are up to date
+            # we assume the AP has the last converged state information,
+            # which is automatically set in the getResidual call
+            solver.getResidual(ap)
 
         if mode == "fwd":
             if "adflow_states" in d_residuals:
@@ -439,6 +458,24 @@ class ADflowSolver(ImplicitComponent):
     def solve_linear(self, d_outputs, d_residuals, mode):
         solver = self.solver
         ap = self.ap
+
+        # check if we changed APs, then we have to do a bunch of updates
+        if ap != solver.curAP:
+            # AP is changed, so we have to update the AP and
+            # run a residual to make sure all intermediate vairables are up to date
+            # we assume the AP has the last converged state information,
+            # which is automatically set in the getResidual call
+            solver.getResidual(ap)
+
+        # the adjoint might not be set up regardless if we changed APs
+        # this is because the first call with any AP will not have this set up, so we have to check
+        # if we changed APs, then we also freed adjoint memory,
+        # and then again we would need to setup adjoint again
+        # finally, we generally want to avoid extra calls here
+        # because this routine can be call multiple times back to back in a LBGS solver.
+        if not solver.adjointSetup:
+            solver._setupAdjoint()
+
         if self.comm.rank == 0:
             print("Solving linear in mphys_adflow", flush=True)
         if mode == "fwd":
@@ -521,6 +558,16 @@ class ADflowForces(ExplicitComponent):
 
         solver = self.solver
         ap = self.ap
+
+        self._set_ap(inputs)
+
+        # check if we changed APs, then we have to do a bunch of updates
+        if ap != solver.curAP:
+            # AP is changed, so we have to update the AP and
+            # run a residual to make sure all intermediate vairables are up to date
+            # we assume the AP has the last converged state information,
+            # which is automatically set in the getResidual call
+            solver.getResidual(ap)
 
         if mode == "fwd":
             if "f_aero" in d_outputs:
@@ -637,6 +684,16 @@ class AdflowHeatTransfer(ExplicitComponent):
 
         solver = self.solver
         ap = self.options["ap"]
+
+        self._set_ap(inputs)
+
+        # check if we changed APs, then we have to do a bunch of updates
+        if ap != solver.curAP:
+            # AP is changed, so we have to update the AP and
+            # run a residual to make sure all intermediate vairables are up to date
+            # we assume the AP has the last converged state information,
+            # which is automatically set in the getResidual call
+            solver.getResidual(ap)
 
         if mode == "fwd":
             if "q_convect" in d_outputs:
@@ -894,6 +951,15 @@ class ADflowFunctions(ExplicitComponent):
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         solver = self.solver
         ap = self.ap
+        self._set_ap(inputs)
+
+        # check if we changed APs, then we have to do a bunch of updates
+        if ap != solver.curAP:
+            # AP is changed, so we have to update the AP and
+            # run a residual to make sure all intermediate vairables are up to date
+            # we assume the AP has the last converged state information,
+            # which is automatically set in the getResidual call
+            solver.getResidual(ap)
 
         if mode == "fwd":
             xDvDot = {}
