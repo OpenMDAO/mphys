@@ -234,7 +234,7 @@ class ADflowSolver(ImplicitComponent):
 
         # self.declare_partials(of='adflow_states', wrt='*')
 
-    def _set_ap(self, inputs):
+    def _set_ap(self, inputs, print_dict=True):
         tmp = {}
         for (args, kwargs) in self.ap_vars:
             name = args[0]
@@ -246,7 +246,7 @@ class ADflowSolver(ImplicitComponent):
         #     pp(tmp)
 
         self.ap.setDesignVars(tmp)
-        if self.comm.rank == 0:
+        if self.comm.rank == 0 and print_dict:
             pp(tmp)
 
     def set_ap(self, ap):
@@ -275,7 +275,7 @@ class ADflowSolver(ImplicitComponent):
         solver = self.solver
 
         self._set_states(outputs)
-        self._set_ap(inputs)
+        self._set_ap(inputs, print_dict=False)
 
         ap = self.ap
 
@@ -391,7 +391,7 @@ class ADflowSolver(ImplicitComponent):
         solver = self.solver
         ap = self.ap
 
-        self._set_ap(inputs)
+        self._set_ap(inputs, print_dict=False)
         self._set_states(outputs)
 
         # check if we changed APs, then we have to do a bunch of updates
@@ -407,7 +407,7 @@ class ADflowSolver(ImplicitComponent):
         solver = self.solver
         ap = self.ap
 
-        self._set_ap(inputs)
+        self._set_ap(inputs, print_dict=False)
         self._set_states(outputs)
 
         # check if we changed APs, then we have to do a bunch of updates
@@ -510,14 +510,14 @@ class ADflowForces(ExplicitComponent):
 
         # self.declare_partials(of='f_aero', wrt='*')
 
-    def _set_ap(self, inputs):
+    def _set_ap(self, inputs, print_dict=True):
         tmp = {}
         for (args, kwargs) in self.ap_vars:
             name = args[0]
             tmp[name] = inputs[name]
 
         self.ap.setDesignVars(tmp)
-        if self.comm.rank == 0:
+        if self.comm.rank == 0 and print_dict:
             pp(tmp)
 
     def set_ap(self, ap):
@@ -559,7 +559,7 @@ class ADflowForces(ExplicitComponent):
         solver = self.solver
         ap = self.ap
 
-        self._set_ap(inputs)
+        self._set_ap(inputs, print_dict=False)
 
         # check if we changed APs, then we have to do a bunch of updates
         if ap != solver.curAP:
@@ -813,7 +813,7 @@ class ADflowFunctions(ExplicitComponent):
 
         # self.declare_partials(of=f_name, wrt='*')
 
-    def _set_ap(self, inputs):
+    def _set_ap(self, inputs, print_dict=True):
         tmp = {}
         for (args, kwargs) in self.ap_vars:
             name = args[0]
@@ -821,7 +821,7 @@ class ADflowFunctions(ExplicitComponent):
 
         self.ap.setDesignVars(tmp)
         # self.options['solver'].setAeroProblem(self.options['ap'])
-        if self.comm.rank == 0:
+        if self.comm.rank == 0 and print_dict:
             pp(tmp)
 
     def mphys_set_ap(self, ap):
@@ -951,7 +951,7 @@ class ADflowFunctions(ExplicitComponent):
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         solver = self.solver
         ap = self.ap
-        self._set_ap(inputs)
+        self._set_ap(inputs, print_dict=False)
 
         # check if we changed APs, then we have to do a bunch of updates
         if ap != solver.curAP:
