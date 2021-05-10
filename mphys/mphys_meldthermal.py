@@ -3,7 +3,7 @@ import openmdao.api as om
 from funtofem import TransferScheme
 from builder_class import Builder
 
-""" builder and components to wrap meld thermal to transfert temperature and 
+""" builder and components to wrap meld thermal to transfert temperature and
 heat transfer rate between the convective and conductive analysis."""
 
 
@@ -15,12 +15,10 @@ class MELDThermal_temp_xfer(om.ExplicitComponent):
         self.options.declare('xfer_object')
         self.options.declare('cond_ndof')
         self.options.declare('cond_nnodes')
-        
+
         self.options.declare('conv_nnodes')
         self.options.declare('check_partials')
         self.options.declare('mapping')
-
-        self.options['distributed'] = True
 
         self.meldThermal = None
         self.initialized_meld = False
@@ -37,71 +35,45 @@ class MELDThermal_temp_xfer(om.ExplicitComponent):
         self.cond_nnodes = self.options['cond_nnodes']
         self.conv_nnodes   = self.options['conv_nnodes']
         self.check_partials= self.options['check_partials']
-        cond_ndof = self.cond_ndof
-        cond_nnodes = self.cond_nnodes
         conv_nnodes = self.conv_nnodes
 
-        irank = self.comm.rank
-
-
-
-        ax_list = self.comm.allgather(conv_nnodes*3)
-        ax1 = np.sum(ax_list[:irank])
-        ax2 = np.sum(ax_list[:irank+1])
-
-        sx_list = self.comm.allgather(cond_nnodes*3)
-        sx1 = np.sum(sx_list[:irank])
-        sx2 = np.sum(sx_list[:irank+1])
-
-
-        cond_temp_list = self.comm.allgather(self.cond_nnodes*cond_ndof)
-        cond_temp_n1 = np.sum(cond_temp_list[:irank])
-        cond_temp_n2 = np.sum(cond_temp_list[:irank+1])
-
-        print('cond_ndof', cond_ndof)
         # inputs
-        print('x_s0',sx1, sx2,   cond_nnodes*3)
+        self.add_input('x_struct0', distributed=True, shape_by_conn=True, desc='initial structural node coordinates')
+        self.add_input('x_aero0', distributed=True, shape_by_conn=True, desc='initial aerodynamic surface node coordinates')
+        self.add_input('T_conduct', distributed=True, shape_by_conn=True, desc='conductive node displacements')
 
+        # outputs
+        print('T_convect', conv_nnodes)
 
-        self.add_input('x_s0', shape = cond_nnodes*3,           src_indices = np.arange(sx1, sx2, dtype=int), desc='initial structural node coordinates')
-        print('x_a0',ax1, ax2,   conv_nnodes*3)
-        self.add_input('x_a0', shape = conv_nnodes*3,             src_indices = np.arange(ax1, ax2, dtype=int), desc='initial aerodynamic surface node coordinates')
-
-
-        print('temp_cond',cond_temp_n1, cond_temp_n2,  self.cond_nnodes*cond_ndof)
-
-        self.add_input('temp_cond',  shape = self.cond_nnodes*cond_ndof, src_indices = np.arange(cond_temp_n1, cond_temp_n2, dtype=int),
-                                     desc='conductive node displacements')
-
-        # outputs        
-        print('temp_conv', conv_nnodes)
-
-        self.add_output('temp_conv', shape = conv_nnodes, val=np.ones(conv_nnodes)*301, desc='conv surface temperatures')
+        self.add_output('T_convect', shape = conv_nnodes,
+                                     distributed=True,
+                                     val=np.ones(conv_nnodes)*301,
+                                     desc='conv surface temperatures')
 
 
     def compute(self, inputs, outputs):
 
-        x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
-        x_a0 = np.array(inputs['x_a0'],dtype=TransferScheme.dtype)
+        x_s0 = np.array(inputs['x_struct0'],dtype=TransferScheme.dtype)
+        x_a0 = np.array(inputs['x_aero0'],dtype=TransferScheme.dtype)
         mapping = self.options['mapping']
 
         # x_surface =  np.zeros((len(mapping), 3))
-        
+
         # for i in range(len(mapping)):
         #     idx = mapping[i]*3
         #     x_surface[i] = x_s0[idx:idx+3]
-        
-        
+
+
         self.meldThermal.setStructNodes(x_s0)
         self.meldThermal.setAeroNodes(x_a0)
 
         # heat_xfer_cond0 = np.array(inputs['heat_xfer_cond0'],dtype=TransferScheme.dtype)
         # heat_xfer_conv0 = np.array(inputs['heat_xfer_conv0'],dtype=TransferScheme.dtype)
-        temp_conv  = np.array(outputs['temp_conv'],dtype=TransferScheme.dtype)
+        temp_conv  = np.array(outputs['T_convect'],dtype=TransferScheme.dtype)
 
-        temp_cond  = np.array(inputs['temp_cond'],dtype=TransferScheme.dtype)
+        temp_cond  = np.array(inputs['T_conduct'],dtype=TransferScheme.dtype)
         # for i in range(3):
-        #     temp_cond[i::3] = inputs['temp_cond'][i::self.cond_ndof]
+        #     temp_cond[i::3] = inputs['T_conduct'][i::self.cond_ndof]
 
 
         if not self.initialized_meld:
@@ -110,7 +82,7 @@ class MELDThermal_temp_xfer(om.ExplicitComponent):
 
         self.meldThermal.transferTemp(temp_cond,temp_conv)
 
-        outputs['temp_conv'] = temp_conv
+        outputs['T_convect'] = temp_conv
 
 class MELDThermal_heat_xfer_rate_xfer(om.ExplicitComponent):
     """
@@ -120,12 +92,10 @@ class MELDThermal_heat_xfer_rate_xfer(om.ExplicitComponent):
         self.options.declare('xfer_object')
         self.options.declare('cond_ndof')
         self.options.declare('cond_nnodes')
-        
+
         self.options.declare('conv_nnodes')
         self.options.declare('check_partials')
         self.options.declare('mapping')
-
-        self.options['distributed'] = True
 
         self.meldThermal = None
         self.initialized_meld = False
@@ -144,76 +114,40 @@ class MELDThermal_heat_xfer_rate_xfer(om.ExplicitComponent):
         self.conv_nnodes   = self.options['conv_nnodes']
         self.check_partials= self.options['check_partials']
 
-        cond_ndof = self.cond_ndof
-        cond_nnodes = self.cond_nnodes
-        conv_nnodes = self.conv_nnodes
-
-        irank = self.comm.rank
-
-
-
-        ax_list = self.comm.allgather(conv_nnodes*3)
-        ax1 = np.sum(ax_list[:irank])
-        ax2 = np.sum(ax_list[:irank+1])
-
-        sx_list = self.comm.allgather(cond_nnodes*3)
-        sx1 = np.sum(sx_list[:irank])
-        sx2 = np.sum(sx_list[:irank+1])
-
-        conv_node_list = self.comm.allgather(conv_nnodes)
-        conv_heat_n1 = np.sum(conv_node_list[:irank])
-        conv_heat_n2 = np.sum(conv_node_list[:irank+1])
-
-
-        stemp_list = self.comm.allgather(cond_nnodes*cond_ndof)
-        su1 = np.sum(stemp_list[:irank])
-        cond_temp_n2 = np.sum(stemp_list[:irank+1])
-
-
         # inputs
+        self.add_input('x_struct0', distributed=True, shape_by_conn=True, desc='initial structural node coordinates')
+        self.add_input('x_aero0', distributed=True, shape_by_conn=True, desc='initial aerodynamic surface node coordinates')
+        self.add_input('q_convect', distributed=True, shape_by_conn=True, desc='initial conv heat transfer rate')
 
-        # inputs
-        print('x_s0',sx1, sx2,   cond_nnodes*3)
-        self.add_input('x_s0', shape = cond_nnodes*3, src_indices = np.arange(sx1, sx2, dtype=int), desc='initial structural node coordinates')
-
-        print('x_a0',ax1, ax2,   conv_nnodes*3)
-
-        self.add_input('x_a0', shape = conv_nnodes*3, src_indices = np.arange(ax1, ax2, dtype=int), desc='initial aerodynamic surface node coordinates')
-
-
-        print('heat_xfer_conv',conv_heat_n1, conv_heat_n2,  conv_nnodes)
-
-        self.add_input('heat_xfer_conv', shape = conv_nnodes, src_indices = np.arange(conv_heat_n1, conv_heat_n2, dtype=int), desc='initial conv heat transfer rate')
-
-        print('heat_xfer_cond', self.cond_nnodes)
+        print('q_conduct', self.cond_nnodes)
 
         # outputs
-        self.add_output('heat_xfer_cond', shape = self.cond_nnodes, desc='heat transfer rate on the conduction mesh at the interface')
+        self.add_output('q_conduct', distributed=True, shape = self.cond_nnodes, desc='heat transfer rate on the conduction mesh at the interface')
 
-      
+
     def compute(self, inputs, outputs):
- 
-        heat_xfer_conv =  np.array(inputs['heat_xfer_conv'],dtype=TransferScheme.dtype)
+
+        heat_xfer_conv =  np.array(inputs['q_convect'],dtype=TransferScheme.dtype)
         heat_xfer_cond = np.zeros(self.cond_nnodes,dtype=TransferScheme.dtype)
 
         # if self.check_partials:
-        #     x_s0 = np.array(inputs['x_s0'],dtype=TransferScheme.dtype)
-        #     x_a0 = np.array(inputs['x_a0'],dtype=TransferScheme.dtype)
+        #     x_s0 = np.array(inputs['x_struct0'],dtype=TransferScheme.dtype)
+        #     x_a0 = np.array(inputs['x_aero0'],dtype=TransferScheme.dtype)
         #     self.meldThermal.setStructNodes(x_s0)
         #     self.meldThermal.setAeroNodes(x_a0)
 
         #     #TODO meld needs a set state rather requiring transferDisps to update the internal state
-            
-        #     temp_conv = np.zeros(inputs['heat_xfer_conv'].size,dtype=TransferScheme.dtype)
+
+        #     temp_conv = np.zeros(inputs['q_convect'].size,dtype=TransferScheme.dtype)
         #     temp_cond  = np.zeros(self.cond_surface_nnodes,dtype=TransferScheme.dtype)
         #     for i in range(3):
-        #         temp_cond[i::3] = inputs['temp_cond'][i::self.cond_ndof]
-            
-            
+        #         temp_cond[i::3] = inputs['T_conduct'][i::self.cond_ndof]
+
+
         #     self.meldThermal.transferTemp(temp_cond,temp_conv)
 
         self.meldThermal.transferFlux(heat_xfer_conv,heat_xfer_cond)
-        outputs['heat_xfer_cond'] = heat_xfer_cond
+        outputs['q_conduct'] = heat_xfer_cond
 
 class MELDThermal_builder(Builder):
 
@@ -261,8 +195,8 @@ class MELDThermal_builder(Builder):
             conv_nnodes=self.conv_nnodes,
             check_partials=self.check_partials
         )
-        
-        
+
+
 
         heat_xfer_xfer = MELDThermal_heat_xfer_rate_xfer(
             xfer_object=self.xfer_object,
@@ -271,7 +205,7 @@ class MELDThermal_builder(Builder):
             conv_nnodes=self.conv_nnodes,
             check_partials=self.check_partials
         )
-        
+
         return temp_xfer, heat_xfer_xfer
 
 
@@ -280,7 +214,7 @@ class MELDThermal_builder(Builder):
 
     def get_object(self):
         return self.xfer_object()
-    
+
     def get_component(self):
 
 
@@ -293,7 +227,7 @@ class MELDThermal_builder(Builder):
             mapping = self.mapping
 
         )
-        
+
         yield '_temps', temp_xfer
 
         heat_xfer_xfer = MELDThermal_heat_xfer_rate_xfer(
@@ -304,8 +238,5 @@ class MELDThermal_builder(Builder):
             check_partials=self.check_partials,
             mapping = self.mapping
         )
-        
+
         yield  '_heat_rate', heat_xfer_xfer
-
-
-    
