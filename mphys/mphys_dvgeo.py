@@ -43,8 +43,9 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         # the inputs have been added but the points have not been added to dvgeo
         if not self.omPtSetList and [k for k in inputs.keys()]:
             for var in inputs:
-                var_out = var[:-3] + '0'
-                self.nom_addPointSet(inputs[var], var_out)
+                if 'x_' == var[:2]:
+                    var_out = var[:-3] + '0'
+                    self.nom_addPointSet(inputs[var], var_out)
 
         # ouputs are the coordinates of the pointsets we have
         for ptName in self.DVGeo.points:
@@ -165,7 +166,7 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         # only do the computations when we have more than zero entries in d_inputs in the reverse mode
         ni = len(list(d_inputs.keys()))
-
+        
         if mode == "rev" and ni > 0:
 
             # this flag will be set to True after every compute call.
