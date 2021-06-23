@@ -169,14 +169,6 @@ class ModalDisplacements(om.ExplicitComponent):
         self.nmodes    = self.options['nmodes']
         self.mode_size = self.options['mode_size']
 
-        # adjust the indices for procs
-        if self.comm.rank == 0:
-            src_indices = np.arange(0, self.nmodes*self.mode_size, dtype=int)
-            input_shape = self.nmodes*self.mode_size
-        else:
-            src_indices = np.zeros(0)
-            input_shape=0
-
         self.add_input('mode_shape', shape_by_conn=True, distributed=True, desc='structural mode shapes', tags=['mphys_coupling'])
         self.add_input('z', shape_by_conn=True, desc='modal displacement')
 
@@ -280,6 +272,8 @@ class ModalBuilder(Builder):
 
         self.ndv  = comm.bcast(ndv,  root=0)
         self.ndof = comm.bcast(ndof, root=0)
+        if 'f5_writer' in self.options.keys():
+            solver_objects[3]['f5_writer'] = self.options['f5_writer']
         solver_objects[3]['ndv'] = self.ndv
         solver_objects[3]['get_funcs'] = self.options['get_funcs']
 
@@ -301,8 +295,7 @@ class ModalBuilder(Builder):
         return TACSFuncsGroup(
             tacs_assembler=self.tacs_assembler,
             solver_objects=self.solver_objects,
-            check_partials=self.check_partials
-        )
+            check_partials=True) # always want the function component to load the state in
 
     def get_ndof(self):
         return self.ndof
