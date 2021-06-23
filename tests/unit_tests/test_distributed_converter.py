@@ -8,8 +8,9 @@ from mphys import DistributedConverter, DistributedVariableDescription
 from common_methods import CommonMethods
 from openmdao.utils.assert_utils import assert_near_equal
 
+
 class TestDistributedConverter(unittest.TestCase):
-    N_PROCS = 1 #TODO should be 2 or more but there is a bug in OM currently
+    N_PROCS = 1  #TODO should be 2 or more but there is a bug in OM currently
 
     def setUp(self):
         self.common = CommonMethods()
@@ -52,18 +53,17 @@ class TestDistributedConverter(unittest.TestCase):
 
     def test_check_partials(self):
         partials = self.prob.check_partials(compact_print=True, method='cs')
-        tol= 1e-9
-        for in_var in ['in1','in2']:
-            rel_error = partials['converter'][(f'{in_var}_serial',in_var)]['rel error']
-            assert_near_equal(rel_error.reverse, 0.0, tolerance = tol)
-            assert_near_equal(rel_error.forward, 0.0, tolerance = tol)
-            assert_near_equal(rel_error.forward_reverse, 0.0, tolerance = tol)
-        for out_var in ['out1','out2']:
-            rel_error = partials['converter'][(out_var,f'{out_var}_serial')]['rel error']
-            assert_near_equal(rel_error.reverse, 0.0, tolerance = tol)
-            assert_near_equal(rel_error.forward, 0.0, tolerance = tol)
-            assert_near_equal(rel_error.forward_reverse, 0.0, tolerance = tol)
-
+        tol = 1e-9
+        for in_var in ['in1', 'in2']:
+            rel_error = partials['converter'][(f'{in_var}_serial', in_var)]['rel error']
+            assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
+            assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
+            assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
+        for out_var in ['out1', 'out2']:
+            rel_error = partials['converter'][(out_var, f'{out_var}_serial')]['rel error']
+            assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
+            assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
+            assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
 
 
 if __name__ == '__main__':
