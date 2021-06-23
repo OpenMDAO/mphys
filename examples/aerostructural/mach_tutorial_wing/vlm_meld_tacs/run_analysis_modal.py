@@ -70,7 +70,7 @@ class Top(Multipoint):
 
             for modal_var in ['mode_shape', 'modal_stiffness']:
                 self.connect(f'mesh_struct.{modal_var}',f'{scenario}.{modal_var}')
-            for dv in ['q_inf','vel','nu','mach']:
+            for dv in ['q_inf','vel','nu','mach', 'dv_struct']:
                 self.connect(dv, f'{scenario}.{dv}')
             self.connect('aoa', f'{scenario}.aoa', src_indices=[iscen])
 
@@ -81,7 +81,7 @@ prob = om.Problem()
 prob.model = Top()
 
 prob.setup()
-om.n2(prob, show_browser=False, outfile='mphys_as_vlm.html')
+om.n2(prob, show_browser=False, outfile='mphys_as_vlm_modal.html')
 
 prob.run_model()
 
