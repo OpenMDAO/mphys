@@ -287,6 +287,7 @@ class VlmBuilder(Builder):
         self.solver.read_mesh(self.meshfile)
         self.x_aero0 = self.solver.xa
         self.n_aero = self.x_aero0.size // 3
+        self.comm = comm
 
     def get_mesh_coordinate_subsystem(self):
         return VlmMeshGroup(x_aero0=self.x_aero0)
@@ -295,7 +296,7 @@ class VlmBuilder(Builder):
         return VlmSolverGroup(solver=self.solver, n_aero= self.n_aero, complex_step=self.complex_step)
 
     def get_number_of_nodes(self):
-        return self.n_aero
+        return self.n_aero if self.comm.Get_rank() == 0 else 0
 
     def get_ndof(self):
         return 3
