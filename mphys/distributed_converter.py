@@ -18,11 +18,22 @@ class DistributedConverter(om.ExplicitComponent):
     An ExplicitComponent to convert from distributed to serial and serial to distributed variables.
     Mphys requires the coupling inputs and outputs to be distributed variables, so this
     class is provided to help with those conversions.
+    For each mphys variable, a {variable}_serial version is created for the nonparallel solver to connect to and the
+    distributed version will have the full vector on the root processor and zero length on the other processors.
+    Given a list of distributed inputs in the options, the component will add variables to the inputs as distributed and
+    produce {variable}_serial as outputs.
+    Given a list of distributed outputs in the options, the component will add variables to the outputs as distributed and
+    add {variable}_serial as inputs.
+
     """
 
     def initialize(self):
-        self.options.declare('distributed_inputs', default=[])
-        self.options.declare('distributed_outputs', default=[])
+        self.options.declare(
+            'distributed_inputs', default=[],
+            desc='List of DistributedVariableDescription objects that will be converted from distributed to serial')
+        self.options.declare(
+            'distributed_outputs', default=[],
+            desc='List of DistributedVariableDescription objects that will be converted from serial to distributed')
 
     def setup(self):
         for input in self.options['distributed_inputs']:
