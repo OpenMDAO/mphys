@@ -18,7 +18,6 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         self.options.declare("ffd_file", default=None)
         self.options.declare("vsp_file", default=None)
         self.options.declare("vsp_options", default=None)
-        self.options["distributed"] = True
 
     def setup(self):
 
@@ -60,14 +59,14 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
 
         if points is None:
             # no pointset info is provided, just do a generic i/o. We will add these points during the first compute
-            self.add_input("x_%s_in" % discipline, shape_by_conn=True)
-            self.add_output("x_%s0" % discipline, copy_shape="x_%s_in" % discipline)
+            self.add_input("x_%s_in" % discipline, distributed=True, shape_by_conn=True)
+            self.add_output("x_%s0" % discipline, distributed=True, copy_shape="x_%s_in" % discipline)
 
         else:
             # we are provided with points. we can do the full initialization now
             self.nom_addPointSet(points, "x_%s0" % discipline, add_output=False)
-            self.add_input("x_%s_in" % discipline, val=points.flatten())
-            self.add_output("x_%s0" % discipline, val=points.flatten())
+            self.add_input("x_%s_in" % discipline, distributed=True, val=points.flatten())
+            self.add_output("x_%s0" % discipline, distributed=True, val=points.flatten())
 
     def nom_addPointSet(self, points, ptName, add_output=True, **kwargs):
         # add the points to the dvgeo object
@@ -76,7 +75,7 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
 
         if add_output:
             # add an output to the om component
-            self.add_output(ptName, val=points.flatten())
+            self.add_output(ptName, distributed=True, val=points.flatten())
 
     def nom_add_point_dict(self, point_dict):
         # add every pointset in the dict, and set the ptset name as the key
@@ -85,14 +84,14 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
 
     def nom_addGeoDVGlobal(self, dvName, value, func):
         # define the input
-        self.add_input(dvName, shape=len(value))
+        self.add_input(dvName, distributed=False, shape=len(value))
 
         # call the dvgeo object and add this dv
         self.DVGeo.addGeoDVGlobal(dvName, value, func)
 
     def nom_addGeoDVLocal(self, dvName, axis="y"):
         nVal = self.DVGeo.addGeoDVLocal(dvName, axis=axis)
-        self.add_input(dvName, shape=nVal)
+        self.add_input(dvName, distributed=False, shape=nVal)
         return nVal
 
     def nom_addVSPVariable(self, component, group, parm, **kwargs):
@@ -107,31 +106,31 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         val = self.DVGeo.DVs[dvName].value.copy()
 
         # add the input with the correct value, VSP DVs always have a size of 1
-        self.add_input(dvName, shape=1, val=val)
+        self.add_input(dvName, distributed=False, shape=1, val=val)
 
     def nom_addThicknessConstraints2D(self, name, leList, teList, nSpan=10, nChord=10):
         self.DVCon.addThicknessConstraints2D(leList, teList, nSpan, nChord, lower=1.0, name=name)
         comm = self.comm
         if comm.rank == 0:
-            self.add_output(name, val=np.ones((nSpan * nChord,)), shape=nSpan * nChord)
+            self.add_output(name, distributed=True, val=np.ones((nSpan * nChord,)), shape=nSpan * nChord)
         else:
-            self.add_output(name, shape=(0,))
+            self.add_output(name, distributed=True, shape=(0,))
 
     def nom_addThicknessConstraints1D(self, name, ptList, nCon, axis):
         self.DVCon.addThicknessConstraints1D(ptList, nCon, axis, name=name)
         comm = self.comm
         if comm.rank == 0:
-            self.add_output(name, val=np.ones(nCon), shape=nCon)
+            self.add_output(name, distributed=True, val=np.ones(nCon), shape=nCon)
         else:
-            self.add_output(name, shape=(0))
+            self.add_output(name, distributed=True, shape=(0))
 
     def nom_addVolumeConstraint(self, name, leList, teList, nSpan=10, nChord=10):
         self.DVCon.addVolumeConstraint(leList, teList, nSpan=nSpan, nChord=nChord, name=name)
         comm = self.comm
         if comm.rank == 0:
-            self.add_output(name, val=1.0)
+            self.add_output(name, distributed=True, val=1.0)
         else:
-            self.add_output(name, shape=0)
+            self.add_output(name, distributed=True, shape=0)
 
     def nom_add_LETEConstraint(self, name, volID, faceID):
         self.DVCon.addLeTeConstraints(volID, faceID, name=name)
@@ -140,9 +139,9 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         nCon = len(conobj.indSetA)
         comm = self.comm
         if comm.rank == 0:
-            self.add_output(name, val=np.zeros((nCon,)), shape=nCon)
+            self.add_output(name, distributed=True, val=np.zeros((nCon,)), shape=nCon)
         else:
-            self.add_output(name, shape=0)
+            self.add_output(name, distributed=True, shape=0)
         return nCon
 
     def nom_addRefAxis(self, **kwargs):

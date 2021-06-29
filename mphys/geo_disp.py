@@ -6,7 +6,6 @@ class GeoDisp(om.ExplicitComponent):
     displacements to the geometry-changed aerodynamic surface
     """
     def initialize(self):
-        self.options['distributed'] = True
         self.options.declare('number_of_nodes')
 
     def setup(self):
@@ -14,13 +13,16 @@ class GeoDisp(om.ExplicitComponent):
         local_size = nnodes * 3
 
         self.add_input('x_aero0', shape_by_conn=True,
+                                  distributed=True,
                                   desc='aerodynamic surface with geom changes',
                                   tags=['mphys_coordinates'])
         self.add_input('u_aero',  shape_by_conn=True,
+                                  distributed=True,
                                   desc='aerodynamic surface displacements',
                                   tags=['mphys_coupling'])
 
         self.add_output('x_aero', shape=local_size,
+                                  distributed=True,
                                   desc='deformed aerodynamic surface',
                                   tags=['mphys_coupling'])
 

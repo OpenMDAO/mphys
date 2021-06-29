@@ -10,14 +10,13 @@ from mphys.scenario_aerodynamic import ScenarioAerodynamic
 class Top(Multipoint):
     def setup(self):
         # FUN3D options
-        project_rootname = 'agard_debug'
         boundary_tags = [3]
 
         mach = 0.5,
-        aoa = 0.0
+        aoa = 1.0
         yaw = 0.0
         q_inf = 3000.
-        reynolds = 1.0
+        reynolds = 0.0
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         dvs.add_output('aoa', val=aoa, units='deg')
@@ -26,7 +25,7 @@ class Top(Multipoint):
         dvs.add_output('q_inf', q_inf)
         dvs.add_output('reynolds', reynolds)
 
-        aero_builder = Fun3dSfeBuilder(project_rootname, boundary_tags)
+        aero_builder = Fun3dSfeBuilder(boundary_tags)
         aero_builder.initialize(self.comm)
 
         self.add_subsystem('mesh',aero_builder.get_mesh_coordinate_subsystem())
@@ -38,10 +37,12 @@ class Top(Multipoint):
 
 prob = om.Problem()
 prob.model = Top()
-prob.setup()
+prob.setup(mode='rev')
 
 om.n2(prob, show_browser=False, outfile='mphys_fun3d.html')
 
 prob.run_model()
 if MPI.COMM_WORLD.rank == 0:
-    print('C_L, C_D =',prob['cruise.C_L'], prob['cruise.C_D'])
+    print('C_L, C_D =',prob['cruise.C_L'], prob['cruise.C_D'], prob['cruise.C_X'],prob['cruise.C_Z'])
+
+prob.check_totals(of='cruise.C_L',wrt='aoa')

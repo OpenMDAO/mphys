@@ -25,8 +25,6 @@ class RltDispXfer(om.ExplicitComponent):
         # Flag used to prevent warning for fwd derivative d(u_a)/d(x_a0)
         self.options.declare("check_partials", default=False)
 
-        self.options["distributed"] = True
-
     def setup(self):
 
         # get the inputs
@@ -62,19 +60,31 @@ class RltDispXfer(om.ExplicitComponent):
 
         # Inputs
         self.add_input(
-            "x_struct0", shape_by_conn=True, desc="initial structural node coordinates", tags=["mphys_coordinates"]
+            "x_struct0",
+            distributed=True,
+            shape_by_conn=True,
+            desc="initial structural node coordinates",
+            tags=["mphys_coordinates"],
         )
         self.add_input(
             "x_aero0",
+            distributed=True,
             shape_by_conn=True,
             desc="Initial aerodynamic surface node coordinates",
             tags=["mphys_coordinates"],
         )
-        self.add_input("u_struct", shape_by_conn=True, desc="Structural node displacements", tags=["mphys_coupling"])
+        self.add_input(
+            "u_struct",
+            distributed=True,
+            shape_by_conn=True,
+            desc="Structural node displacements",
+            tags=["mphys_coupling"],
+        )
 
         # Outputs
         self.add_output(
             "u_aero",
+            distributed=True,
             shape=total_dof_aero,
             val=np.zeros(total_dof_aero),
             desc="Aerodynamic surface displacements",
@@ -162,8 +172,6 @@ class RltLoadXfer(om.ExplicitComponent):
         # Flag used to prevent warning for fwd derivative d(u_a)/d(x_a0)
         self.options.declare("check_partials", default=True)
 
-        self.options["distributed"] = True
-
         # Set everything we need to None before setup
         self.transfer = None
         self.tacs = None
@@ -207,19 +215,38 @@ class RltLoadXfer(om.ExplicitComponent):
 
         # Inputs
         self.add_input(
-            "x_struct0", shape_by_conn=True, desc="initial structural node coordinates", tags=["mphys_coordinates"]
+            "x_struct0",
+            distributed=True,
+            shape_by_conn=True,
+            desc="initial structural node coordinates",
+            tags=["mphys_coordinates"],
         )
         self.add_input(
             "x_aero0",
+            distributed=True,
             shape_by_conn=True,
             desc="Initial aerodynamic surface node coordinates",
             tags=["mphys_coordinates"],
         )
-        self.add_input("u_struct", shape_by_conn=True, desc="Structural node displacements", tags=["mphys_coupling"])
-        self.add_input("f_aero", shape_by_conn=True, desc="Aerodynamic force vector", tags=["mphys_coupling"])
+        self.add_input(
+            "u_struct",
+            distributed=True,
+            shape_by_conn=True,
+            desc="Structural node displacements",
+            tags=["mphys_coupling"],
+        )
+        self.add_input(
+            "f_aero", distributed=True, shape_by_conn=True, desc="Aerodynamic force vector", tags=["mphys_coupling"]
+        )
 
         # Outputs
-        self.add_output("f_struct", shape=total_dof_struct, desc="structural force vector", tags=["mphys_coupling"])
+        self.add_output(
+            "f_struct",
+            distributed=True,
+            shape=total_dof_struct,
+            desc="structural force vector",
+            tags=["mphys_coupling"],
+        )
 
         # TODO disable for now for the modal solver stuff.
         # Partials

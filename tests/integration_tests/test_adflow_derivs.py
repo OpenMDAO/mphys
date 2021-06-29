@@ -84,10 +84,11 @@ class Top(Multipoint):
         # ivc for aero DVs
         self.add_subsystem("dv_aero", om.IndepVarComp(), promotes=["*"])
         # ivc for mesh coordinate dvs. we need a separate distributed component for the shape by conn stuff to work
-        dv_coords = self.add_subsystem("dv_coords", om.IndepVarComp(distributed=False), promotes=["*"])
+        dv_coords = self.add_subsystem("dv_coords", om.IndepVarComp(), promotes=["*"])
 
+        # TODO this only works for a serial run. must be updated for parallel
         x_a = adflow_builder.solver.getSurfaceCoordinates(groupName="allWalls").flatten()
-        dv_coords.add_output("x_aero", val=x_a)
+        dv_coords.add_output("x_aero", val=x_a, distributed=False)
 
         # normally we would have a mesh comp but we just do the parallel ivc for the test.
         self.mphys_add_scenario("cruise", ScenarioAerodynamic(aero_builder=adflow_builder))
