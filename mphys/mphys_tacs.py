@@ -530,37 +530,36 @@ class TacsFunctions(om.ExplicitComponent):
             if not self.check_partials:
                 raise ValueError('TACS forward mode requested but not implemented')
         if mode == 'rev':
+            # always update internal because same tacs object could be used by multiple scenarios
+            # and we need to load this scenario's state back into TACS before doing derivatives
             self._update_internal(inputs)
 
-            #if 'func_struct' in d_outputs:
-            # Next few lines temporary until func_struct can be declared a serial output
-            if True:
-                if 'func_struct' in d_outputs:
-                    proc_contribution = d_outputs['func_struct'][:]
-                else:
-                    proc_contribution = np.zeros(len(self.func_list))
-                d_func = self.comm.allreduce(proc_contribution) / self.comm.size
+            if 'func_struct' in d_outputs:
+                proc_contribution = d_outputs['func_struct'][:]
+            else: # not sure why OM would call this method without func_struct, but here for safety
+                proc_contribution = np.zeros(len(self.func_list))
+            d_func = self.comm.allreduce(proc_contribution) / self.comm.size
 
-                for ifunc, func in enumerate(self.func_list):
-                    self.tacs_assembler.evalFunctions([func])
-                    if 'dv_struct' in d_inputs:
-                        dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
-                        self.tacs_assembler.evalDVSens(func, dvsens)
-                        d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_func[ifunc]
+            for ifunc, func in enumerate(self.func_list):
+                self.tacs_assembler.evalFunctions([func])
+                if 'dv_struct' in d_inputs:
+                    dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
+                    self.tacs_assembler.evalDVSens(func, dvsens)
+                    d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_func[ifunc]
 
-                    if 'x_struct0' in d_inputs:
-                        xpt_sens = self.xpt_sens
-                        xpt_sens_array = xpt_sens.getArray()
-                        self.tacs_assembler.evalXptSens(func, xpt_sens)
+                if 'x_struct0' in d_inputs:
+                    xpt_sens = self.xpt_sens
+                    xpt_sens_array = xpt_sens.getArray()
+                    self.tacs_assembler.evalXptSens(func, xpt_sens)
 
-                        d_inputs['x_struct0'][:] += np.array(xpt_sens_array,dtype=float) * d_func[ifunc]
+                    d_inputs['x_struct0'][:] += np.array(xpt_sens_array,dtype=float) * d_func[ifunc]
 
-                    if 'u_struct' in d_inputs:
-                        prod = self.tacs_assembler.createVec()
-                        self.tacs_assembler.evalSVSens(func,prod)
-                        prod_array = prod.getArray()
+                if 'u_struct' in d_inputs:
+                    prod = self.tacs_assembler.createVec()
+                    self.tacs_assembler.evalSVSens(func,prod)
+                    prod_array = prod.getArray()
 
-                        d_inputs['u_struct'][:] += np.array(prod_array,dtype=float) * d_func[ifunc]
+                    d_inputs['u_struct'][:] += np.array(prod_array,dtype=float) * d_func[ifunc]
 
 class TacsMass(om.ExplicitComponent):
     """
@@ -792,11 +791,10 @@ class TacsBuilder(Builder):
         self.tacs_assembler = tacs_assembler
         self.solver_objects = [mat, pc, gmres, solver_dict]
 
-    def get_coupling_group_subsystem(self, **kwargs):
+    def get_coupling_group_subsystem(self):
         return TacsGroup(tacs_assembler=self.tacs_assembler,
                          solver_objects=self.solver_objects,
-                         check_partials=self.check_partials,
-                         **kwargs)
+                         check_partials=self.check_partials)
 
     def get_mesh_coordinate_subsystem(self):
         return TacsMesh(tacs_assembler=self.tacs_assembler)
