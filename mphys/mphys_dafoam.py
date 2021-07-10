@@ -1,5 +1,5 @@
 import numpy as np
-import sys
+import sys, time
 from mpi4py import MPI
 from openmdao.api import Group, ImplicitComponent, ExplicitComponent, AnalysisError
 from dafoam import PYDAFOAM
@@ -10,6 +10,7 @@ from petsc4py import PETSc
 
 petsc4py.init(sys.argv)
 
+np.set_printoptions(precision=16, suppress=True)
 
 class DAFoamBuilder(Builder):
     def __init__(
@@ -111,6 +112,9 @@ class DAFoamSolver(ImplicitComponent):
 
         self.DASolver.runColoring()
 
+        self.evalFuncs = []
+        self.DASolver.setEvalFuncs(self.evalFuncs)
+
         local_state_size = self.DASolver.getNLocalAdjointStates()
 
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
@@ -128,91 +132,124 @@ class DAFoamSolver(ImplicitComponent):
 
     def solve_nonlinear(self, inputs, outputs):
         DASolver = self.DASolver
+        xDVs = DASolver.DVGeo.getValues()
+        Info("\n")
+        Info("+--------------------------------------------------------------------------+")
+        Info("|                  Evaluating Objective Functions %03d                      |" % DASolver.nSolvePrimals)
+        Info("+--------------------------------------------------------------------------+")
+        Info("Design Variables: ")
+        Info(xDVs)
+
+        DASolver.setOption("runStatus", "solvePrimal")
+        DASolver.updateDAOption()
+
+        a = time.time()
+
         DASolver()
+
+        funcs = {}
+
+        DASolver.evalFunctions(funcs, evalFuncs=self.evalFuncs)
+
+        b = time.time()
+
+        Info("Objective Functions: ")
+        Info(funcs)
+        Info("Flow Runtime: %g" % (b - a))
 
         outputs["dafoam_states"] = DASolver.getStates()
 
     def linearize(self, inputs, outputs, residuals):
-        pass
+        DASolver = self.DASolver
+
+        Info("\n")
+        Info("+--------------------------------------------------------------------------+")
+        Info("|              Evaluating Objective Function Sensitivities %03d             |" % DASolver.nSolveAdjoints)
+        Info("+--------------------------------------------------------------------------+")
+
+        DASolver.renameSolution(DASolver.nSolveAdjoints)
+
+        Info("Running adjoint Solver %03d" % DASolver.nSolveAdjoints)
+
+        DASolver.setOption("runStatus", "solveAdjoint")
+        DASolver.updateDAOption()
+
+        DASolver.nSolveAdjoints += 1
 
     def apply_linear(self, inputs, outputs, d_inputs, d_outputs, d_residuals, mode):
+
+        if mode == "fwd":
+            raise AnalysisError("fwd mode not implemented!")
 
         DASolver = self.DASolver
 
         DASolver.setStates(outputs["dafoam_states"])
 
-        if mode == "fwd":
+        if "dafoam_states" in d_residuals:
+            resBar = d_residuals["dafoam_states"]
+            resBarVec = DASolver.array2Vec(resBar)
 
-            raise AnalysisError("fwd mode not implemented!")
+            if "dafoam_states" in d_outputs:
+                prodVec = DASolver.wVec.duplicate()
+                prodVec.zeroEntries()
+                DASolver.solverAD.calcdRdWTPsiAD(DASolver.xvVec, DASolver.wVec, resBarVec, prodVec)
+                wBar = DASolver.vec2Array(prodVec)
+                d_outputs["dafoam_states"] += wBar
 
-        elif mode == "rev":
-            if "dafoam_states" in d_residuals:
+            if "dafoam_vol_coords" in d_inputs:
+                prodVec = DASolver.xvVec.duplicate()
+                prodVec.zeroEntries()
+                DASolver.solverAD.calcdRdXvTPsiAD(DASolver.xvVec, DASolver.wVec, resBarVec, prodVec)
+                xVBar = DASolver.vec2Array(prodVec)
+                d_inputs["dafoam_vol_coords"] += xVBar
 
-                resBar = d_residuals["dafoam_states"]
-                resBarVec = DASolver.array2Vec(resBar)
-
-                if "dafoam_states" in d_outputs:
+            xDVs = DASolver.DVGeo.getValues()
+            for dvName in xDVs:
+                dvDict = DASolver.getOption("designVar")[dvName]
+                dvType = dvDict["designVarType"]
+                if dvType == "AOA":
                     prodVec = DASolver.wVec.duplicate()
                     prodVec.zeroEntries()
-                    DASolver.solverAD.calcdRdWTPsiAD(DASolver.xvVec, DASolver.wVec, resBarVec, prodVec)
-                    wBar = DASolver.vec2Array(prodVec)
-
-                    d_outputs["dafoam_states"] += wBar
-
-                if "dafoam_vol_coords" in d_inputs:
-                    prodVec = DASolver.xvVec.duplicate()
-                    prodVec.zeroEntries()
-                    DASolver.solverAD.calcdRdXvTPsiAD(DASolver.xvVec, DASolver.wVec, resBarVec, prodVec)
-                    xVBar = DASolver.vec2Array(prodVec)
-
-                    d_inputs["dafoam_vol_coords"] += xVBar
-
-                xDVs = DASolver.DVGeo.getValues()
-                for dvName in xDVs:
-                    dvDict = DASolver.getOption("designVar")[dvName]
-                    dvType = dvDict["designVarType"]
-                    if dvType == "AOA":
-                        prodVec = DASolver.wVec.duplicate()
-                        prodVec.zeroEntries()
-                        DASolver.solverAD.calcdRdAOATPsiAD(
-                            DASolver.xvVec, DASolver.wVec, resBarVec, dvName.encode(), prodVec
-                        )
-                        xDVBar = DASolver.vec2Array(prodVec)
-                        d_inputs[dvName] += xDVBar.flatten()
-                    elif dvType == "FFD":
-                        # we have already handle that in xVBar
-                        pass
-                    else:
-                        raise AnalysisError("dvType not implemented!")
+                    DASolver.solverAD.calcdRdAOATPsiAD(
+                        DASolver.xvVec, DASolver.wVec, resBarVec, dvName.encode(), prodVec
+                    )
+                    xDVBar = DASolver.vec2Array(prodVec)
+                    d_inputs[dvName] += xDVBar.flatten()
+                elif dvType == "FFD":
+                    # we have already handle that in xVBar
+                    pass
+                else:
+                    raise AnalysisError("dvType not implemented!")
 
     def solve_linear(self, d_outputs, d_residuals, mode):
+
+        if mode == "fwd":
+            raise AnalysisError("fwd mode not implemented!")
+
         DASolver = self.DASolver
 
         if DASolver.getOption("adjJacobianOption") != "JacobianFree":
             raise AnalysisError("adjJacobianOption not valid! Only support JacobianFree!")
 
-        Info("Solving linear in mphys_dafoam")
+        DASolver.solverAD.initializedRdWTMatrixFree(DASolver.xvVec, DASolver.wVec)
 
-        if mode == "fwd":
-            raise AnalysisError("fwd mode not implemented!")
-        elif mode == "rev":
-            DASolver.solverAD.initializedRdWTMatrixFree(DASolver.xvVec, DASolver.wVec)
-            if DASolver.dRdWTPC is None:
-                DASolver.dRdWTPC = PETSc.Mat().create(PETSc.COMM_WORLD)
-                DASolver.solver.calcdRdWT(DASolver.xvVec, DASolver.wVec, 1, DASolver.dRdWTPC)
+        if DASolver.dRdWTPC is None:
+            DASolver.dRdWTPC = PETSc.Mat().create(PETSc.COMM_WORLD)
+            DASolver.solver.calcdRdWT(DASolver.xvVec, DASolver.wVec, 1, DASolver.dRdWTPC)
 
-            ksp = PETSc.KSP().create(PETSc.COMM_WORLD)
-            DASolver.solverAD.createMLRKSPMatrixFree(DASolver.dRdWTPC, ksp)
+        ksp = PETSc.KSP().create(PETSc.COMM_WORLD)
+        DASolver.solverAD.createMLRKSPMatrixFree(DASolver.dRdWTPC, ksp)
 
-            psi = DASolver.wVec.duplicate()
-            psi.zeroEntries()
+        psi = DASolver.wVec.duplicate()
+        psi.zeroEntries()
 
-            dFdWArray = d_outputs["dafoam_states"]
-            dFdW = DASolver.array2Vec(dFdWArray)
+        dFdWArray = d_outputs["dafoam_states"]
 
-            DASolver.solverAD.solveLinearEqn(ksp, dFdW, psi)
+        dFdW = DASolver.array2Vec(dFdWArray)
 
-            d_residuals["dafoam_states"] = DASolver.vec2Array(psi)
+        DASolver.solverAD.solveLinearEqn(ksp, dFdW, psi)
+
+        d_residuals["dafoam_states"] = DASolver.vec2Array(psi)
 
         return True, 0, 0
 
@@ -348,7 +385,9 @@ class DAFoamFunctions(ExplicitComponent):
             if "dafoam_vol_coords" in d_inputs:
                 dFdXv = DASolver.xvVec.duplicate()
                 dFdXv.zeroEntries()
-                DASolver.solverAD.calcdFdXvAD(DASolver.xvVec, DASolver.wVec, objFuncName.encode(), "dummy".encode(), dFdXv)
+                DASolver.solverAD.calcdFdXvAD(
+                    DASolver.xvVec, DASolver.wVec, objFuncName.encode(), "dummy".encode(), dFdXv
+                )
                 xVBar = DASolver.vec2Array(dFdXv)
                 d_inputs["dafoam_vol_coords"] += xVBar
 
