@@ -343,6 +343,8 @@ class DAFoamFunctions(ExplicitComponent):
         # a list that contains all function names, e.g., CD, CL
         self.funcs = None
 
+        self.nProcs = MPI.COMM_WORLD.size
+
     def setup(self):
 
         self.DASolver = self.options["solver"]
@@ -416,7 +418,12 @@ class DAFoamFunctions(ExplicitComponent):
             dFdW = DASolver.wVec.duplicate()
             dFdW.zeroEntries()
             DASolver.solverAD.calcdFdWAD(DASolver.xvVec, DASolver.wVec, objFuncName.encode(), dFdW)
-            wBar = DASolver.vec2Array(dFdW)
+            # *************************************************************************************
+            # NOTE: here we need to divide dFdW by the total number of CPU cores because in DAFoam
+            # the dFdW is already MPI.Reduce from all processors, however, it seems that OM requires
+            # dFdW that belongs to each proc. So we need to divide dFdW by self.nProcs and then
+            # assign it to wBar for OM
+            wBar = DASolver.vec2Array(dFdW) / self.nProcs
             d_inputs["dafoam_states"] += wBar
 
         # compute dFdXv
@@ -424,7 +431,12 @@ class DAFoamFunctions(ExplicitComponent):
             dFdXv = DASolver.xvVec.duplicate()
             dFdXv.zeroEntries()
             DASolver.solverAD.calcdFdXvAD(DASolver.xvVec, DASolver.wVec, objFuncName.encode(), "dummy".encode(), dFdXv)
-            xVBar = DASolver.vec2Array(dFdXv)
+            # *************************************************************************************
+            # NOTE: here we need to divide dFdXv by the total number of CPU cores because in DAFoam
+            # the dFdXv is already MPI.Reduce from all processors, however, it seems that OM requires
+            # dFdXv that belongs to each proc. So we need to divide dFdXv by self.nProcs and then
+            # assign it to xVBar for OM
+            xVBar = DASolver.vec2Array(dFdXv) / self.nProcs
             d_inputs["dafoam_vol_coords"] += xVBar
 
         # NOTE: we only support states and vol_coords partials, other variables
