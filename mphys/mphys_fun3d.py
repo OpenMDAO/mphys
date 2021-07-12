@@ -48,16 +48,26 @@ class Fun3dSfeBuilder(Builder):
         self.boundary_tag_list = boundary_tag_list
         self.input_file = input_file
 
+    def _initialize_meshdef(self, prob):
+        return MeshDeformer(prob.problem, self.mesh, self.iris)
+
+    def _initialize_sfe(self, prob):
+        return SfeSolver(prob.problem, self.mesh, self.iris)
+
     def initialize(self, comm):
         self.iris = Iris(comm)
         prob = ProblemSetupParser(self.iris, self.input_file)
+        prob.read_bc_tags_from_mapbc()
 
         self.mesh = create_preprocessor(prob.problem, self.iris)
-        self.sfe = SfeSolver(prob.problem, self.mesh, self.iris)
-        self.meshdef = MeshDeformer(prob.problem, self.mesh, self.iris)
+        self.sfe = self._initialize_sfe(prob)
+        self.meshdef = self._initialize_meshdef(prob)
         self.number_of_nodes = self.meshdef.get_boundary_node_global_ids(
             self.boundary_tag_list, owned_only=True).size
 
+        self._set_wall_distance(prob)
+
+    def _set_wall_distance(self, prob):
         dist_solver = DistanceSolver(prob.problem, self.mesh, self.iris)
         distance = dist_solver.get_wall_distance()
         self.sfe.set_node_wall_distance(distance, owned_only=False)

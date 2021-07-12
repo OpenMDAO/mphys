@@ -1,12 +1,16 @@
 import openmdao.api as om
+import numpy as np
 
 from libmeshdef.openmdao import MeshDeformationOpenMdao
 
 from mphys.mphys_group import MphysGroup
 from .mphys_fun3d import Fun3dSfeBuilder, Fun3dFsiSolverGroup
 from sfe.om_component import SfeSolverOpenMdao, SfeForcesOpenMdao
+from sfe.lfd_solver import SfeLfdSolver
 from sfe.lfd_om_component import LfdOpenMdao
 from pk_flutter_solver.om_component import PkSolverOM
+from libmeshdef.openmdao import MeshDeformer
+from parfait.distance_solver import DistanceSolver
 
 
 class PkFlutterDescription:
@@ -69,6 +73,18 @@ class Fun3dLfdBuilder(Fun3dSfeBuilder):
 
         super().__init__(boundary_tag_list, input_file)
 
+    def _initialize_meshdef(self, prob):
+        return MeshDeformer(prob.problem, self.mesh, self.iris, library_basename='libmeshdef_wrapper_complex')
+
+    def _initialize_sfe(self, prob):
+        return SfeLfdSolver(prob.problem, self.mesh, self.iris)
+
+    def _set_wall_distance(self, prob):
+        dist_solver = DistanceSolver(prob.problem, self.mesh, self.iris)
+        distance = np.complex128(dist_solver.get_wall_distance())
+        self.sfe.set_node_wall_distance(distance, owned_only=False)
+        self.meshdef.set_node_wall_distance(distance, owned_only=False)
+
     def initialize(self, comm):
         super().initialize(comm)
         self.prob = PkFlutterDescription(self.boundary_tag_list, self.nmodes,
@@ -79,7 +95,8 @@ class Fun3dLfdBuilder(Fun3dSfeBuilder):
 
     def get_coupling_group_subsystem(self):
         meshdef_om = MeshDeformationOpenMdao(meshdef_solver=self.meshdef,
-                                             boundary_tag_list=self.boundary_tag_list)
+                                             boundary_tag_list=self.boundary_tag_list,
+                                             complex_mode=True)
         sfe_om = SfeSolverOpenMdao(sfe_solver=self.sfe, complex_mode=True)
         forces_om = SfeForcesOpenMdao(sfe_solver=self.sfe,
                                        boundary_tag_list=self.boundary_tag_list,

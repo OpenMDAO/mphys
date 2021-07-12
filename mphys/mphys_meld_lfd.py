@@ -51,7 +51,7 @@ class ModeTransfer(om.ExplicitComponent):
             meld.transferDisps(struct_mode,aero_mode)
             aero_modes[:,mode] = aero_mode
 
-        outputs['aero_mode_shapes'] = aero_modes.copy()
+        outputs['mode_shapes_aero'] = aero_modes.copy()
 
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
@@ -63,17 +63,12 @@ class ModeTransfer(om.ExplicitComponent):
         meld.setStructNodes(x_s0)
         meld.setAeroNodes(x_a0)
 
-        u_s  = np.zeros(self.nnodes_struct*3,dtype=TransferScheme.dtype)
-        for i in range(3):
-            u_s[i::3] = inputs['u_struct'][i::self.ndof_struct]
-        u_a = np.zeros(self.nnodes_aero*3,dtype=TransferScheme.dtype)
-
         for mode in range(nmodes):
             u_s  = np.zeros(self.nnodes_struct*3,dtype=TransferScheme.dtype)
             for i in range(3):
                 u_s[i::3] = inputs['mode_shapes_struct'][i::self.ndof_struct,mode]
             u_a = np.zeros(self.nnodes_aero*3,dtype=TransferScheme.dtype)
-            self.meld.transferDisps(u_s,u_a)
+            meld.transferDisps(u_s,u_a)
             if mode == 'fwd':
                 if 'mode_shapes_aero' in d_outputs:
                     if 'mode_shapes_struct' in d_inputs:
@@ -81,27 +76,27 @@ class ModeTransfer(om.ExplicitComponent):
                         for i in range(3):
                             d_in[i::3] = d_inputs['mode_shapes_struct'][i::self.struct_ndof,mode]
                         prod = np.zeros(self.aero_nnodes*3,dtype=TransferScheme.dtype)
-                        self.meld.applydDduS(d_in,prod)
+                        meld.applydDduS(d_in,prod)
                         d_outputs['mode_shapes_aero'][:,mode] -= np.array(prod,dtype=float)
             if mode == 'rev':
-                if 'u_aero' in d_outputs:
+                if 'mode_shapes_aero' in d_outputs:
                     du_a = np.array(d_outputs['mode_shapes_aero'][:,mode],dtype=TransferScheme.dtype)
-                    if 'u_struct' in d_inputs:
+                    if 'mode_shapes_struct' in d_inputs:
                         # du_a/du_s^T * psi = - dD/du_s^T psi
                         prod = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
-                        self.meld.applydDduSTrans(du_a,prod)
+                        meld.applydDduSTrans(du_a,prod)
                         for i in range(3):
                             d_inputs['mode_shapes_struct'][i::self.struct_ndof,mode] -= np.array(prod[i::3],dtype=np.float64)
 
                     # du_a/dx_a0^T * psi = - psi^T * dD/dx_a0 in F2F terminology
                     if 'x_aero0' in d_inputs:
                         prod = np.zeros(d_inputs['x_aero0'].size,dtype=TransferScheme.dtype)
-                        self.meld.applydDdxA0(du_a,prod)
+                        meld.applydDdxA0(du_a,prod)
                         d_inputs['x_aero0'] -= np.array(prod,dtype=float)
 
                     if 'x_struct0' in d_inputs:
                         prod = np.zeros(self.struct_nnodes*3,dtype=TransferScheme.dtype)
-                        self.meld.applydDdxS0(du_a,prod)
+                        meld.applydDdxS0(du_a,prod)
                         d_inputs['x_struct0'] -= np.array(prod,dtype=float)
 
 class MeldLfdBuilder(MeldBuilder):
