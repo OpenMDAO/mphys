@@ -96,7 +96,7 @@ class DAFoamGroup(Group):
         self.add_subsystem(
             "solver",
             DAFoamSolver(solver=self.DASolver),
-            promotes_inputs=["dafoam_vol_coords"],
+            promotes_inputs=["dafoam_vol_coords","dafoam_aoa"],
             promotes_outputs=["dafoam_states"],
         )
 
@@ -135,6 +135,7 @@ class DAFoamSolver(ImplicitComponent):
         # setup input and output for the solver
         local_state_size = self.DASolver.getNLocalAdjointStates()
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
+        self.add_input("dafoam_aoa", distributed=True, shape=(1), tags=["mphys_coupling"])
         self.add_output("dafoam_states", distributed=True, shape=local_state_size, tags=["mphys_coupling"])
 
     # calculate the residual
@@ -229,8 +230,15 @@ class DAFoamSolver(ImplicitComponent):
                 xVBar = DASolver.vec2Array(prodVec)
                 d_inputs["dafoam_vol_coords"] += xVBar
 
-            # NOTE: we only support states and vol_coords matrix-vector products, other variables
-            # such as angle of attack, is not implemented yet!
+            if "dafoam_aoa" in d_inputs:
+                prodVec = DASolver.xvVec.duplicate()
+                prodVec.zeroEntries()
+                DASolver.solverAD.calcdRdAOATPsiAD(DASolver.xvVec, DASolver.wVec, resBarVec, "alpha".encode(), prodVec)
+                xVBar = DASolver.vec2Array(prodVec)
+                d_inputs["dafoam_aoa"] += xVBar
+
+        # NOTE: we only support states, vol_coords partials, and angle of attack. 
+        # Other variables such as angle of attack, is not implemented yet!
 
     def solve_linear(self, d_outputs, d_residuals, mode):
         # solve the adjoint equation [dRdW]^T * Psi = dFdW
@@ -352,6 +360,7 @@ class DAFoamFunctions(ExplicitComponent):
         self.solution_counter = 0
 
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
+        self.add_input("dafoam_aoa", distributed=True, shape=(1), tags=["mphys_coupling"])
         self.add_input("dafoam_states", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
 
     # connect the input and output for the function, called from runScript.py
@@ -439,8 +448,22 @@ class DAFoamFunctions(ExplicitComponent):
             xVBar = DASolver.vec2Array(dFdXv) / self.nProcs
             d_inputs["dafoam_vol_coords"] += xVBar
 
-        # NOTE: we only support states and vol_coords partials, other variables
-        # such as angle of attack, is not implemented yet!
+        # compute dFdAOA
+        if "dafoam_aoa" in d_inputs:
+            dFdAOA = DASolver.xvVec.duplicate()
+            dFdAOA.zeroEntries()
+            DASolver.solverAD.calcdFdAOAAD(DASolver.xvVec, DASolver.wVec, objFuncName.encode(), "alpha".encode(), dFdAOA)
+            # TODO: check the following:
+            # *************************************************************************************
+            # NOTE: here we need to divide dFdAOA by the total number of CPU cores because in DAFoam
+            # the dFdAOA is already MPI.Reduce from all processors, however, it seems that OM requires
+            # dFdAOA that belongs to each proc. So we need to divide dFdAOA by self.nProcs and then
+            # assign it to xVBar for OM
+            xVBar = DASolver.vec2Array(dFdAOA) / self.nProcs
+            d_inputs["dafoam_aoa"] += xVBar
+
+        # NOTE: we only support states, vol_coords partials, and angle of attack. 
+        # Other variables such as angle of attack, is not implemented yet!
 
 
 class DAFoamWarper(ExplicitComponent):
