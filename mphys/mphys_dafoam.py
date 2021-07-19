@@ -1,6 +1,7 @@
 import numpy as np
 import sys, time
 from mpi4py import MPI
+from numpy.core.fromnumeric import prod
 from openmdao.api import Group, ImplicitComponent, ExplicitComponent, AnalysisError
 from dafoam import PYDAFOAM
 from idwarp import USMesh
@@ -125,6 +126,9 @@ class DAFoamSolver(ImplicitComponent):
     def setup(self):
         self.DASolver = self.options["solver"]
 
+        # Initialze AOA option
+        self.aoa_func = None
+
         # always run coloring
         self.DASolver.runColoring()
 
@@ -135,7 +139,7 @@ class DAFoamSolver(ImplicitComponent):
         # setup input and output for the solver
         local_state_size = self.DASolver.getNLocalAdjointStates()
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
-        self.add_input("dafoam_aoa", distributed=True, shape=(1), tags=["mphys_coupling"])
+        self.add_input("dafoam_aoa", shape=(1), tags=["mphys_coupling"])
         self.add_output("dafoam_states", distributed=True, shape=local_state_size, tags=["mphys_coupling"])
 
     # calculate the residual
@@ -159,6 +163,13 @@ class DAFoamSolver(ImplicitComponent):
 
         # set the runStatus, this is useful when the actuator term is activated
         DASolver.setOption("runStatus", "solvePrimal")
+
+        # Compute and set angle of attack
+        dafoam_aoa = inputs["dafoam_aoa"]
+        if callable(self.aoa_func):
+            U = self.aoa_func(dafoam_aoa)
+            DASolver.setOption("primalBC", {"U0": {"variable": "U", "patches": ["inout"], "value": U}})
+
         DASolver.updateDAOption()
 
         # solve the flow with the current design variable
@@ -231,11 +242,12 @@ class DAFoamSolver(ImplicitComponent):
                 d_inputs["dafoam_vol_coords"] += xVBar
 
             if "dafoam_aoa" in d_inputs:
-                prodVec = DASolver.xvVec.duplicate()
-                prodVec.zeroEntries()
+                prodVec = PETSc.Vec().create(PETSc.COMM_WORLD)
+                prodVec.setSizes((PETSc.DECIDE, 1), bsize=1)
+                prodVec.setFromOptions()
                 DASolver.solverAD.calcdRdAOATPsiAD(DASolver.xvVec, DASolver.wVec, resBarVec, "alpha".encode(), prodVec)
-                xVBar = DASolver.vec2Array(prodVec)
-                d_inputs["dafoam_aoa"] += xVBar
+                aoaBar = DASolver.vec2Array(prodVec)
+                d_inputs["dafoam_aoa"] += aoaBar
 
         # NOTE: we only support states, vol_coords partials, and angle of attack. 
         # Other variables such as angle of attack, is not implemented yet!
@@ -357,10 +369,13 @@ class DAFoamFunctions(ExplicitComponent):
 
         self.DASolver = self.options["solver"]
 
+        # Initialze AOA option
+        self.aoa_func = None
+
         self.solution_counter = 0
 
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
-        self.add_input("dafoam_aoa", distributed=True, shape=(1), tags=["mphys_coupling"])
+        self.add_input("dafoam_aoa", distributed=False, shape=(1), tags=["mphys_coupling"])
         self.add_input("dafoam_states", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
 
     # connect the input and output for the function, called from runScript.py
@@ -388,6 +403,13 @@ class DAFoamFunctions(ExplicitComponent):
     # get the objective function from DASolver
     def compute(self, inputs, outputs):
         DASolver = self.DASolver
+
+        # Compute and set angle of attack
+        dafoam_aoa = inputs["dafoam_aoa"]
+        if callable(self.aoa_func):
+            U = self.aoa_func(dafoam_aoa)
+            DASolver.setOption("primalBC", {"U0": {"variable": "U", "patches": ["inout"], "value": U}})
+            DASolver.updateDAOption()
 
         funcs = {}
 
@@ -449,18 +471,16 @@ class DAFoamFunctions(ExplicitComponent):
             d_inputs["dafoam_vol_coords"] += xVBar
 
         # compute dFdAOA
-        if "dafoam_aoa" in d_inputs:
-            dFdAOA = DASolver.xvVec.duplicate()
-            dFdAOA.zeroEntries()
-            DASolver.solverAD.calcdFdAOAAD(DASolver.xvVec, DASolver.wVec, objFuncName.encode(), "alpha".encode(), dFdAOA)
-            # TODO: check the following:
-            # *************************************************************************************
-            # NOTE: here we need to divide dFdAOA by the total number of CPU cores because in DAFoam
-            # the dFdAOA is already MPI.Reduce from all processors, however, it seems that OM requires
-            # dFdAOA that belongs to each proc. So we need to divide dFdAOA by self.nProcs and then
-            # assign it to xVBar for OM
-            xVBar = DASolver.vec2Array(dFdAOA) / self.nProcs
-            d_inputs["dafoam_aoa"] += xVBar
+        objFuncDict = DASolver.getOption("objFunc")
+        for objFuncName in objFuncDict:
+            if "dafoam_aoa" in d_inputs:
+                # TODO: Check to make sure this is properly implemented, as in pyDAFoam line 2060
+                dFdAOA = PETSc.Vec().create(PETSc.COMM_WORLD)
+                dFdAOA.setSizes((PETSc.DECIDE, 1), bsize=1)
+                dFdAOA.setFromOptions()
+                DASolver.calcdFdAOAAnalytical(objFuncName, dFdAOA)
+                aoaBar = DASolver.vec2Array(dFdAOA) / self.nProcs
+                d_inputs["dafoam_aoa"] += aoaBar
 
         # NOTE: we only support states, vol_coords partials, and angle of attack. 
         # Other variables such as angle of attack, is not implemented yet!
