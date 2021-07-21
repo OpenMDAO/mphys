@@ -167,8 +167,7 @@ class DAFoamSolver(ImplicitComponent):
         # Compute and set angle of attack
         dafoam_aoa = inputs["dafoam_aoa"]
         if callable(self.aoa_func):
-            U = self.aoa_func(dafoam_aoa)
-            DASolver.setOption("primalBC", {"U0": {"variable": "U", "patches": ["inout"], "value": U}})
+            self.aoa_func(dafoam_aoa, DASolver)
 
         DASolver.updateDAOption()
 
@@ -403,13 +402,6 @@ class DAFoamFunctions(ExplicitComponent):
     # get the objective function from DASolver
     def compute(self, inputs, outputs):
         DASolver = self.DASolver
-
-        # Compute and set angle of attack
-        dafoam_aoa = inputs["dafoam_aoa"]
-        if callable(self.aoa_func):
-            U = self.aoa_func(dafoam_aoa)
-            DASolver.setOption("primalBC", {"U0": {"variable": "U", "patches": ["inout"], "value": U}})
-            DASolver.updateDAOption()
 
         funcs = {}
 
