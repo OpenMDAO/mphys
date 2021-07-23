@@ -469,22 +469,20 @@ class DAFoamFunctions(ExplicitComponent):
             d_inputs["dafoam_vol_coords"] += xVBar
 
         # compute dFdAOA
-        objFuncDict = DASolver.getOption("objFunc")
-        for objFuncName in objFuncDict:
-            if "dafoam_aoa" in d_inputs:
-                # TODO: Check to make sure this is properly implemented, as in pyDAFoam line 2060
-                dFdAOA = PETSc.Vec().create(PETSc.COMM_WORLD)
-                dFdAOA.setSizes((PETSc.DECIDE, 1), bsize=1)
-                dFdAOA.setFromOptions()
-                DASolver.calcdFdAOAAnalytical(objFuncName, dFdAOA)
-                aoaBar = DASolver.vec2Array(dFdAOA)
-                # The aoaBar variable will be length 1 on the root proc, but length 0 an all slave procs.
-                # To avoid a dimension mismatch with MPhys, we check the length of aoaBar on each proc
-                # and return 0.0 if the length on that proc is 0.
-                if len(aoaBar) == 0:
-                    d_inputs["dafoam_aoa"] += 0.0
-                else:
-                    d_inputs["dafoam_aoa"] += aoaBar
+        if "dafoam_aoa" in d_inputs:
+            # TODO: Check to make sure this is properly implemented, as in pyDAFoam line 2060
+            dFdAOA = PETSc.Vec().create(PETSc.COMM_WORLD)
+            dFdAOA.setSizes((PETSc.DECIDE, 1), bsize=1)
+            dFdAOA.setFromOptions()
+            DASolver.calcdFdAOAAnalytical(objFuncName, dFdAOA)
+            aoaBar = DASolver.vec2Array(dFdAOA)
+            # The aoaBar variable will be length 1 on the root proc, but length 0 an all slave procs.
+            # To avoid a dimension mismatch with MPhys, we check the length of aoaBar on each proc
+            # and return 0.0 if the length on that proc is 0.
+            if len(aoaBar) == 0:
+                d_inputs["dafoam_aoa"] += 0.0
+            else:
+                d_inputs["dafoam_aoa"] += aoaBar
 
         # NOTE: we only support states, vol_coords partials, and angle of attack. 
         # Other variables such as angle of attack, is not implemented yet!
