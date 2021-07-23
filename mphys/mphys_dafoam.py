@@ -139,7 +139,7 @@ class DAFoamSolver(ImplicitComponent):
         # setup input and output for the solver
         local_state_size = self.DASolver.getNLocalAdjointStates()
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
-        self.add_input("dafoam_aoa", shape=(1), tags=["mphys_coupling"])
+        self.add_input("dafoam_aoa", shape_by_conn=True, distributed=False, tags=["mphys_coupling"])
         self.add_output("dafoam_states", distributed=True, shape=local_state_size, tags=["mphys_coupling"])
 
     # calculate the residual
@@ -246,7 +246,13 @@ class DAFoamSolver(ImplicitComponent):
                 prodVec.setFromOptions()
                 DASolver.solverAD.calcdRdAOATPsiAD(DASolver.xvVec, DASolver.wVec, resBarVec, "alpha".encode(), prodVec)
                 aoaBar = DASolver.vec2Array(prodVec)
-                d_inputs["dafoam_aoa"] += aoaBar
+                # The aoaBar variable will be length 1 on the root proc, but length 0 an all slave procs.
+                # To avoid a dimension mismatch with MPhys, we check the length of aoaBar on each proc
+                # and return 0.0 if the length on that proc is 0.
+                if len(aoaBar) == 0:
+                    d_inputs["dafoam_aoa"] += 0.0
+                else:
+                    d_inputs["dafoam_aoa"] += aoaBar
 
         # NOTE: we only support states, vol_coords partials, and angle of attack. 
         # Other variables such as angle of attack, is not implemented yet!
@@ -374,7 +380,7 @@ class DAFoamFunctions(ExplicitComponent):
         self.solution_counter = 0
 
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
-        self.add_input("dafoam_aoa", distributed=False, shape=(1), tags=["mphys_coupling"])
+        self.add_input("dafoam_aoa", shape_by_conn=True, distributed=False, tags=["mphys_coupling"])
         self.add_input("dafoam_states", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
 
     # connect the input and output for the function, called from runScript.py
@@ -471,8 +477,14 @@ class DAFoamFunctions(ExplicitComponent):
                 dFdAOA.setSizes((PETSc.DECIDE, 1), bsize=1)
                 dFdAOA.setFromOptions()
                 DASolver.calcdFdAOAAnalytical(objFuncName, dFdAOA)
-                aoaBar = DASolver.vec2Array(dFdAOA) / self.nProcs
-                d_inputs["dafoam_aoa"] += aoaBar
+                aoaBar = DASolver.vec2Array(dFdAOA)
+                # The aoaBar variable will be length 1 on the root proc, but length 0 an all slave procs.
+                # To avoid a dimension mismatch with MPhys, we check the length of aoaBar on each proc
+                # and return 0.0 if the length on that proc is 0.
+                if len(aoaBar) == 0:
+                    d_inputs["dafoam_aoa"] += 0.0
+                else:
+                    d_inputs["dafoam_aoa"] += aoaBar
 
         # NOTE: we only support states, vol_coords partials, and angle of attack. 
         # Other variables such as angle of attack, is not implemented yet!
