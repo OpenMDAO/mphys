@@ -252,7 +252,7 @@ class DAFoamSolver(ImplicitComponent):
                 if len(aoaBar) == 0:
                     d_inputs["dafoam_aoa"] += 0.0
                 else:
-                    d_inputs["dafoam_aoa"] += aoaBar
+                    d_inputs["dafoam_aoa"] += aoaBar * MPI.COMM_WORLD.size
 
         # NOTE: we only support states, vol_coords partials, and angle of attack. 
         # Other variables such as angle of attack, is not implemented yet!
