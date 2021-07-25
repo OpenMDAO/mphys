@@ -11,8 +11,6 @@ from petsc4py import PETSc
 
 petsc4py.init(sys.argv)
 
-np.set_printoptions(precision=16, suppress=True)
-
 
 class DAFoamBuilder(Builder):
     """
@@ -156,13 +154,10 @@ class DAFoamSolver(ImplicitComponent):
     # solve the flow
     def solve_nonlinear(self, inputs, outputs):
         DASolver = self.DASolver
-        xDVs = DASolver.DVGeo.getValues()
         Info("\n")
         Info("+--------------------------------------------------------------------------+")
         Info("|                  Evaluating Objective Functions %03d                      |" % DASolver.nSolvePrimals)
         Info("+--------------------------------------------------------------------------+")
-        Info("Design Variables: ")
-        Info(xDVs)
 
         # set the runStatus, this is useful when the actuator term is activated
         DASolver.setOption("runStatus", "solvePrimal")
