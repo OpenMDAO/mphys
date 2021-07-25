@@ -97,7 +97,7 @@ class DAFoamGroup(Group):
         self.add_subsystem(
             "solver",
             DAFoamSolver(solver=self.DASolver),
-            promotes_inputs=["dafoam_vol_coords","dafoam_aoa"],
+            promotes_inputs=["dafoam_vol_coords", "dafoam_aoa"],
             promotes_outputs=["dafoam_states"],
         )
 
@@ -128,6 +128,9 @@ class DAFoamSolver(ImplicitComponent):
 
         # Initialze AOA option
         self.aoa_func = None
+
+        # the default name for angle of attack design variable
+        self.alphaName = "alpha"
 
         # always run coloring
         self.DASolver.runColoring()
@@ -244,7 +247,9 @@ class DAFoamSolver(ImplicitComponent):
                 prodVec = PETSc.Vec().create(PETSc.COMM_WORLD)
                 prodVec.setSizes((PETSc.DECIDE, 1), bsize=1)
                 prodVec.setFromOptions()
-                DASolver.solverAD.calcdRdAOATPsiAD(DASolver.xvVec, DASolver.wVec, resBarVec, "alpha".encode(), prodVec)
+                DASolver.solverAD.calcdRdAOATPsiAD(
+                    DASolver.xvVec, DASolver.wVec, resBarVec, self.alphaName.encode(), prodVec
+                )
                 aoaBar = DASolver.vec2Array(prodVec)
                 # The aoaBar variable will be length 1 on the root proc, but length 0 an all slave procs.
                 # To avoid a dimension mismatch with MPhys, we check the length of aoaBar on each proc
@@ -252,10 +257,12 @@ class DAFoamSolver(ImplicitComponent):
                 if len(aoaBar) == 0:
                     d_inputs["dafoam_aoa"] += 0.0
                 else:
+                    # NOTE: we need to manually multiple the AD seed by the number of cores in parallel
+                    # this is due to the different treatment of OM and DAFoam
                     d_inputs["dafoam_aoa"] += aoaBar * MPI.COMM_WORLD.size
 
-        # NOTE: we only support states, vol_coords partials, and angle of attack. 
-        # Other variables such as angle of attack, is not implemented yet!
+        # NOTE: we only support states, vol_coords partials, and angle of attack.
+        # Other variables are not implemented yet!
 
     def solve_linear(self, d_outputs, d_residuals, mode):
         # solve the adjoint equation [dRdW]^T * Psi = dFdW
@@ -470,7 +477,6 @@ class DAFoamFunctions(ExplicitComponent):
 
         # compute dFdAOA
         if "dafoam_aoa" in d_inputs:
-            # TODO: Check to make sure this is properly implemented, as in pyDAFoam line 2060
             dFdAOA = PETSc.Vec().create(PETSc.COMM_WORLD)
             dFdAOA.setSizes((PETSc.DECIDE, 1), bsize=1)
             dFdAOA.setFromOptions()
@@ -484,8 +490,8 @@ class DAFoamFunctions(ExplicitComponent):
             else:
                 d_inputs["dafoam_aoa"] += aoaBar
 
-        # NOTE: we only support states, vol_coords partials, and angle of attack. 
-        # Other variables such as angle of attack, is not implemented yet!
+        # NOTE: we only support states, vol_coords partials, and angle of attack.
+        # Other variables are not implemented yet!
 
 
 class DAFoamWarper(ExplicitComponent):
