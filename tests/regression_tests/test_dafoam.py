@@ -1,6 +1,6 @@
 # --- Python 3.8 ---
 """
-@File    :   test_dafoam_derivs.py
+@File    :   test_dafoam.py
 @Time    :   2021/07/28
 @Author  :   Bernardo Pacini
 @Desc    :   Aerodynamic analysis regression test used to test if the output
