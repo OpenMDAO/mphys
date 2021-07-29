@@ -3,7 +3,8 @@
 @File    :   test_dafoam_derivs.py
 @Time    :   2021/07/28
 @Author  :   Bernardo Pacini
-@Desc    :   File for testing the derivatives of the mphys dafoam wrapper
+@Desc    :   Aerodynamic analysis regression test used to test if the output
+             produced by MPHYS has changed
 """
 
 # === Standard Python Modules ===
@@ -13,6 +14,8 @@ import os
 # === External Python modules ===
 import shutil
 import numpy as np
+from mpi4py import MPI
+from parameterized import parameterized, parameterized_class
 
 # === Extension modules ===
 import openmdao.api as om
@@ -179,25 +182,18 @@ class Top(Multipoint):
         self.connect("alpha", "cruise.dafoam_aoa")
 
 
+@parameterized_class(
+    [
+        {
+            "ref_vals": {"CD": 0.03183567874922066, "CL": 0.13061624040077277},
+        },
+    ]
+)
 class TestDAFoam(unittest.TestCase):
     def setUp(self):
 
         prob = om.Problem()
         prob.model = Top()
-
-        # DVs
-        # define the design variables
-        prob.model.add_design_var("twist", lower=-10.0, upper=10.0, scaler=1.0)
-        prob.model.add_design_var("shape", lower=-1.0, upper=1.0, scaler=1.0)
-        prob.model.add_design_var("alpha", lower=5.0, upper=10.0, scaler=1.0)
-
-        # add constraints and the objective
-        prob.model.add_objective("cruise.aero_post.CD", scaler=1.0)
-        prob.model.add_constraint("cruise.aero_post.CL", equals=0.3, scaler=1.0)
-        prob.model.add_constraint("geometry.thickcon", lower=0.5, upper=3.0, scaler=1.0)
-        prob.model.add_constraint("geometry.volcon", lower=1.0, scaler=1.0)
-        prob.model.add_constraint("geometry.tecon", equals=0.0, scaler=1.0, linear=True)
-        prob.model.add_constraint("geometry.lecon", equals=0.0, scaler=1.0, linear=True)
 
         prob.setup()
 
@@ -210,24 +206,11 @@ class TestDAFoam(unittest.TestCase):
 
     def test_run_model(self):
         self.prob.run_model()
+        # self.prob.model.list_outputs()
+        if MPI.COMM_WORLD.rank == 0:
+            assert_near_equal(self.prob.get_val("cruise.aero_post.CL"), self.ref_vals["CL"], 1e-6)
 
-    def test_derivatives(self):
-        self.prob.run_model()
-
-        data = self.prob.check_totals(wrt="twist", step=1e-3)
-        for var, err in data.items():
-            abs_err = err["abs error"]
-            assert_near_equal(abs_err.forward, 0.0, 1e-3)
-
-        data = self.prob.check_totals(wrt="shape", step=1e-3)
-        for var, err in data.items():
-            abs_err = err["abs error"]
-            assert_near_equal(abs_err.forward, 0.0, 1e-3)
-
-        data = self.prob.check_totals(wrt="alpha", step=1e-3)
-        for var, err in data.items():
-            abs_err = err["abs error"]
-            assert_near_equal(abs_err.forward, 0.0, 1e-3)
+            assert_near_equal(self.prob.get_val("cruise.aero_post.CD"), self.ref_vals["CD"], 1e-6)
 
 
 if __name__ == "__main__":
