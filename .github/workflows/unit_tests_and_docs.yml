@@ -1,4 +1,4 @@
-name: Run unit tests and build docs
+name: Unit tests and docs
 
 on:
   # Triggers the workflow on push or pull request events but only for the main branch
@@ -19,10 +19,6 @@ jobs:
 
     steps:
 
-      # TEMPORARY WHILE GITHUB FIXES THIS https://github.com/actions/virtual-environments/issues/3185
-      - name: Add the current IP address, long hostname and short hostname record to /etc/hosts file
-        run: |
-          echo -e "$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)\t$(hostname -f) $(hostname -s)" | sudo tee -a /etc/hosts
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it.
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
@@ -77,7 +73,7 @@ jobs:
           echo "Run the tests.";
           echo "=============================================================";
           cd tests/unit_tests
-          testflo -n 1
+          testflo
           echo "=============================================================";
           echo "Build the docs.";
           echo "=============================================================";
