@@ -51,7 +51,7 @@ jobs:
           echo "=============================================================";
           cd ..;
           pip install testflo;
-          pip intall redbaron
+          pip install redbaron
           git clone -q https://github.com/OpenMDAO/OpenMDAO;
           cd OpenMDAO;
           pip install .[all];
