@@ -26,7 +26,7 @@ and potentially modules that transfer or interpolate between the physics modules
 Each type of scenario typically has an associated coupling group that it will add automatically given the proper builders.
 Within the Scenario group, the coupling group will have the name 'coupling'.
 The scenario-specific coupling group will have a default nonlinear and linear solvers,
-but these can be overwritten with the optional arguments to :func:`~mphys.Multipoint.mphys_add_scenario`.
+but these can be overwritten with the optional arguments to :func:`~mphys.multipoint.Multipoint.mphys_add_scenario`.
 
 .. _scenario_groups:
 
@@ -52,7 +52,7 @@ There are two versions of the multipoint group:
 1. ``Multipoint`` is derived from the standard OpenMDAO ``Group``
 2. ``MultipointParallel`` is derived for the OpenMDAO ``ParallelGroup``.
 
-For both versions have a convenience function,  :func:`~mphys.multipoint.MultipointBase.mphys_add_scenario`, is provided to aid in populating
+For both versions have a function,  :func:`~mphys.multipoint.Multipoint.mphys_add_scenario`, is used to populate
 the lower levels of the model hierarchy.
 
 ----------

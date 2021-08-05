@@ -20,8 +20,6 @@ class MELDThermal_temp_xfer(om.ExplicitComponent):
         self.options.declare('check_partials')
         self.options.declare('mapping')
 
-        self.options['distributed'] = True
-
         self.meldThermal = None
         self.initialized_meld = False
 
@@ -40,14 +38,15 @@ class MELDThermal_temp_xfer(om.ExplicitComponent):
         conv_nnodes = self.conv_nnodes
 
         # inputs
-        self.add_input('x_struct0', shape_by_conn=True, desc='initial structural node coordinates')
-        self.add_input('x_aero0', shape_by_conn=True, desc='initial aerodynamic surface node coordinates')
-        self.add_input('T_conduct', shape_by_conn=True, desc='conductive node displacements')
+        self.add_input('x_struct0', distributed=True, shape_by_conn=True, desc='initial structural node coordinates')
+        self.add_input('x_aero0', distributed=True, shape_by_conn=True, desc='initial aerodynamic surface node coordinates')
+        self.add_input('T_conduct', distributed=True, shape_by_conn=True, desc='conductive node displacements')
 
         # outputs
         print('T_convect', conv_nnodes)
 
         self.add_output('T_convect', shape = conv_nnodes,
+                                     distributed=True,
                                      val=np.ones(conv_nnodes)*301,
                                      desc='conv surface temperatures')
 
@@ -98,8 +97,6 @@ class MELDThermal_heat_xfer_rate_xfer(om.ExplicitComponent):
         self.options.declare('check_partials')
         self.options.declare('mapping')
 
-        self.options['distributed'] = True
-
         self.meldThermal = None
         self.initialized_meld = False
 
@@ -118,14 +115,14 @@ class MELDThermal_heat_xfer_rate_xfer(om.ExplicitComponent):
         self.check_partials= self.options['check_partials']
 
         # inputs
-        self.add_input('x_struct0', shape_by_conn=True, desc='initial structural node coordinates')
-        self.add_input('x_aero0', shape_by_conn=True, desc='initial aerodynamic surface node coordinates')
-        self.add_input('q_convect', shape_by_conn=True, desc='initial conv heat transfer rate')
+        self.add_input('x_struct0', distributed=True, shape_by_conn=True, desc='initial structural node coordinates')
+        self.add_input('x_aero0', distributed=True, shape_by_conn=True, desc='initial aerodynamic surface node coordinates')
+        self.add_input('q_convect', distributed=True, shape_by_conn=True, desc='initial conv heat transfer rate')
 
         print('q_conduct', self.cond_nnodes)
 
         # outputs
-        self.add_output('q_conduct', shape = self.cond_nnodes, desc='heat transfer rate on the conduction mesh at the interface')
+        self.add_output('q_conduct', distributed=True, shape = self.cond_nnodes, desc='heat transfer rate on the conduction mesh at the interface')
 
 
     def compute(self, inputs, outputs):

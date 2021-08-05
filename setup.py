@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 __package_name__ = "mphys"
-__package_version__ = "0.1.0"
+__package_version__ = "0.4.0"
 
 
 setup(
