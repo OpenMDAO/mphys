@@ -47,22 +47,13 @@ jobs:
           conda install -c anaconda mpi4py -q -y;
           conda install -c conda-forge petsc=3.12 petsc4py -q -y;
           echo "=============================================================";
-          echo "Install pyoptsparse";
-          echo "=============================================================";
-          git clone -q https://github.com/OpenMDAO/build_pyoptsparse;
-          cd build_pyoptsparse;
-          chmod 755 ./build_pyoptsparse.sh;
-          ./build_pyoptsparse.sh -b "v2.1.5";
-          cd ..;
-          export LD_LIBRARY_PATH=$HOME/ipopt/lib;
-          echo "=============================================================";
           echo "Install OpenMDAO";
           echo "=============================================================";
           cd ..;
+          pip install -v testflo;
           git clone -q https://github.com/OpenMDAO/OpenMDAO;
           cd OpenMDAO;
           pip install .[all];
-          pip install -v testflo;
           cd ../mphys;
           pip install -e .
           echo "=============================================================";
