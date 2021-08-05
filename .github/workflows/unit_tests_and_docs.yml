@@ -69,21 +69,16 @@ jobs:
           echo "List installed packages/versions";
           echo "=============================================================";
           conda list;
-          echo "=============================================================";
-          echo "Run the tests.";
-          echo "=============================================================";
+      - name: 'Run unit tests'
+        run: |
           cd tests/unit_tests
           testflo
-          echo "=============================================================";
-          echo "Build the docs.";
-          echo "=============================================================";
-          cd ../../docs
+      - name: 'Build docs'
+        run: |
+          cd docs
           make html
           cd _build/html
           zip -r ./mphys.zip .
-          echo "=============================================================";
-          echo "Operations Completed.";
-          echo "=============================================================";
       - name: 'Upload Docs'
         uses: actions/upload-artifact@v2
         with:
