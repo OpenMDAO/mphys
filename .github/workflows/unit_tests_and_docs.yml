@@ -62,13 +62,13 @@ jobs:
           conda list;
       - name: 'Run unit tests'
         run: |
-          conda init /usr/bin/bash
+          conda init bash
           conda activate OpenMDAO;
           cd tests/unit_tests
           testflo
       - name: 'Build docs'
         run: |
-          conda init /usr/bin/bash
+          conda init bash
           conda activate OpenMDAO;
           cd docs
           make html
