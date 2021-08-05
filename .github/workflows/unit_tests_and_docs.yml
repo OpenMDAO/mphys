@@ -62,7 +62,7 @@ jobs:
           git clone -q https://github.com/OpenMDAO/OpenMDAO;
           cd OpenMDAO;
           pip install .[all];
-          pip install testflo;
+          pip install -v testflo;
           cd ../mphys;
           pip install -e .
           echo "=============================================================";
@@ -71,10 +71,14 @@ jobs:
           conda list;
       - name: 'Run unit tests'
         run: |
+          source $CONDA/etc/profile.d/conda.sh;
+          echo $CONDA/bin >> $GITHUB_PATH;
           cd tests/unit_tests
           testflo
       - name: 'Build docs'
         run: |
+          source $CONDA/etc/profile.d/conda.sh;
+          echo $CONDA/bin >> $GITHUB_PATH;
           cd docs
           make html
           cd _build/html
