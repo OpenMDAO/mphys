@@ -51,6 +51,8 @@ jobs:
           echo "=============================================================";
           cd ..;
           pip install -v testflo;
+          which testflo
+          echo "TESTFLO"
           git clone -q https://github.com/OpenMDAO/OpenMDAO;
           cd OpenMDAO;
           pip install .[all];
