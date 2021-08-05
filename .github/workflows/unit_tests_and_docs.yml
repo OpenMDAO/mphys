@@ -13,7 +13,7 @@ on:
 
 jobs:
   # This job is called test_docs.
-  test_docs:
+  unit_test_and_docs:
     # Run on Ubuntu
     runs-on: ubuntu-latest
 
@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: 3.8
 
-      - name: Install, unit test, docs
+      - name: Install, run unit test, build docs
         run: |
           echo "=============================================================";
           echo "Run #${GITHUB_RUN_NUMBER}";
