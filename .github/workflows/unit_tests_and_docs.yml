@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: 3.8
 
-      - name: Install OpenMDAO Stack
+      - name: Install, unit test, docs
         run: |
           echo "=============================================================";
           echo "Run #${GITHUB_RUN_NUMBER}";
@@ -60,17 +60,9 @@ jobs:
           echo "List installed packages/versions";
           echo "=============================================================";
           conda list;
-      - name: 'Run unit tests'
-        run: |
-          conda init bash
-          conda activate OpenMDAO;
           cd tests/unit_tests
           testflo
-      - name: 'Build docs'
-        run: |
-          conda init bash
-          conda activate OpenMDAO;
-          cd docs
+          cd ../../docs
           make html
           cd _build/html
           zip -r ./mphys.zip .
