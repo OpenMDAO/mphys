@@ -1,7 +1,7 @@
 import numpy as np
 
 import openmdao.api as om
-from mphys import Builder
+from mphys import Builder, DistributedConverter, DistributedVariableDescription
 
 from vlm_solver import Vlm
 
@@ -9,7 +9,7 @@ class VlmMesh(om.IndepVarComp):
     def initialize(self):
         self.options.declare('x_aero0')
     def setup(self):
-        self.add_output('x_aero0', val=self.options['x_aero0'], tags=['mphys_coordinates'])
+        self.add_output('x_aero0', val=self.options['x_aero0'])#, tags=['mphys_coordinates'])
 
 class VlmSolver(om.ImplicitComponent):
     def initialize(self):
@@ -208,32 +208,72 @@ class VlmCoefficients(om.ExplicitComponent):
         partials['C_D','Cp'] = self.vlm.CD_Cp
 
 
-class VlmGroup(om.Group):
+class VlmMeshGroup(om.Group):
+    def initialize(self):
+        self.options.declare('x_aero0')
+
+    def setup(self):
+        x_aero0 = self.options['x_aero0']
+        self.add_subsystem('vlm_mesh', VlmMesh(x_aero0 = x_aero0))
+
+        vars = [DistributedVariableDescription(name='x_aero0',
+                                               shape=(x_aero0.size),
+                                               tags =['mphys_coordinates'])]
+
+        self.add_subsystem('distributor',DistributedConverter(distributed_outputs=vars),
+                            promotes_outputs=[var.name for var in vars])
+        for var in vars:
+            self.connect(f'vlm_mesh.{var.name}', f'distributor.{var.name}_serial')
+
+
+class VlmSolverGroup(om.Group):
     def initialize(self):
         self.options.declare('solver')
+        self.options.declare('n_aero')
         self.options.declare('complex_step', default=False)
 
     def setup(self):
         self.solver = self.options['solver']
         complex_step = self.options['complex_step']
+        n_aero = self.options['n_aero']
+
+        in_vars = [DistributedVariableDescription(name='x_aero',
+                                                  shape=(n_aero*3),
+                                                  tags =['mphys_coupling'])]
+        out_vars = [DistributedVariableDescription(name='f_aero',
+                                                   shape=(n_aero*3),
+                                                   tags =['mphys_coupling'])]
+
+        self.add_subsystem('collector',DistributedConverter(distributed_inputs=in_vars),
+                                       promotes_inputs=[var.name for var in in_vars])
 
         self.add_subsystem('aero_solver', VlmSolver(
             solver=self.solver, complex_step = complex_step),
-            promotes_inputs=['aoa','mach','x_aero'],
+            promotes_inputs=['aoa','mach'],
             promotes_outputs=['Cp']
             )
 
         self.add_subsystem('aero_forces', VlmForces(
             solver=self.solver, complex_step=complex_step),
-            promotes_inputs=['q_inf','Cp','x_aero'],
-            promotes_outputs=['f_aero']
+            promotes_inputs=['q_inf','Cp'],
             )
 
         self.add_subsystem('aero_coefficients', VlmCoefficients(
             solver=self.solver, complex_step=complex_step),
-            promotes_inputs=['mach','vel','nu','Cp','x_aero'],
+            promotes_inputs=['mach','vel','nu','Cp'],
             promotes_outputs=['C_L','C_D']
             )
+
+        self.add_subsystem('distributor',DistributedConverter(distributed_outputs=out_vars),
+                                         promotes_outputs=[var.name for var in out_vars])
+
+        connection_dest = ['aero_solver', 'aero_forces', 'aero_coefficients']
+        for var in in_vars:
+            for dest in connection_dest:
+                self.connect(f'collector.{var.name}_serial', f'{dest}.{var.name}')
+
+        for var in out_vars:
+            self.connect(f'aero_forces.{var.name}', f'distributor.{var.name}_serial')
 
 
 class VlmBuilder(Builder):
@@ -246,15 +286,17 @@ class VlmBuilder(Builder):
         self.solver = Vlm(compute_traction=self.compute_traction)
         self.solver.read_mesh(self.meshfile)
         self.x_aero0 = self.solver.xa
+        self.n_aero = self.x_aero0.size // 3
+        self.comm = comm
 
     def get_mesh_coordinate_subsystem(self):
-        return VlmMesh(x_aero0=self.x_aero0)
+        return VlmMeshGroup(x_aero0=self.x_aero0)
 
     def get_coupling_group_subsystem(self):
-        return VlmGroup(solver=self.solver, complex_step=self.complex_step)
+        return VlmSolverGroup(solver=self.solver, n_aero= self.n_aero, complex_step=self.complex_step)
 
     def get_number_of_nodes(self):
-        return self.x_aero0.size // 3
+        return self.n_aero if self.comm.Get_rank() == 0 else 0
 
     def get_ndof(self):
-        return self.x_aero0.size // 3
+        return 3

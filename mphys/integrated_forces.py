@@ -110,7 +110,7 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
 
         if mode == 'fwd':
             if 'aoa' in d_inputs:
-                daoa_rad = np.pi / 180.0 * d_inputs['aoa']
+                daoa_rad = d_inputs['aoa']
                 if 'Lift' in d_outputs or 'C_L' in d_outputs:
                     d_lift_d_aoa = ( - fx_total * np.cos(aoa) * daoa_rad
                                        - fz_total * np.sin(aoa) * daoa_rad )
@@ -128,7 +128,7 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                         d_outputs['C_D'] += d_drag_d_aoa / (q_inf * area)
 
             if 'yaw' in d_inputs:
-                dyaw_rad = np.pi / 180.0 * d_inputs['yaw']
+                dyaw_rad = d_inputs['yaw']
                 if 'Drag' in d_outputs or 'C_D' in d_outputs:
                     d_drag_d_yaw = ( fx_total * np.cos(aoa) * (-np.sin(yaw) * dyaw_rad)
                                     - fy_total * np.cos(yaw) * dyaw_rad
@@ -271,27 +271,24 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                 if 'Lift' in d_outputs or 'C_L' in d_outputs:
                     d_lift = d_outputs['Lift'] if 'Lift' in d_outputs else 0.0
                     d_cl   = d_outputs['C_L']  if 'C_L'  in d_outputs else 0.0
-                    d_lift_d_aoa_rad = ( - fx_total * np.cos(aoa)
+                    d_inputs['aoa'] += ( - fx_total * np.cos(aoa)
                                          - fz_total * np.sin(aoa)
                                        ) * (d_lift + d_cl / (q_inf * area))
 
-                    d_inputs['aoa'] += d_lift_d_aoa_rad * np.pi / 180.0
                 if 'Drag' in d_outputs or 'C_D' in d_outputs:
                     d_drag = d_outputs['Drag'] if 'Drag' in d_outputs else 0.0
                     d_cd   = d_outputs['C_D']  if 'C_D'  in d_outputs else 0.0
-                    d_drag_d_aoa_rad = ( fx_total * (-np.sin(aoa)) * np.cos(yaw)
+                    d_inputs['aoa'] += ( fx_total * (-np.sin(aoa)) * np.cos(yaw)
                                        + fz_total * ( np.cos(aoa)) * np.cos(yaw)
                                        ) * (d_drag + d_cd / (q_inf * area))
-                    d_inputs['aoa'] += d_drag_d_aoa_rad * np.pi / 180.0
             if 'yaw' in d_inputs:
                 if 'Drag' in d_outputs or 'C_D' in d_outputs:
                     d_drag = d_outputs['Drag'] if 'Drag' in d_outputs else 0.0
                     d_cd   = d_outputs['C_D']  if 'C_D'  in d_outputs else 0.0
-                    d_drag_d_yaw_rad = ( fx_total * np.cos(aoa) * (-np.sin(yaw))
+                    d_inputs['yaw'] += ( fx_total * np.cos(aoa) * (-np.sin(yaw))
                                        - fy_total * np.cos(yaw)
                                        + fz_total * np.sin(aoa) * (-np.sin(yaw))
                                        ) * (d_drag + d_cd / (q_inf * area))
-                    d_inputs['yaw'] += d_drag_d_yaw_rad * np.pi / 180.0
 
             if 'ref_area' in d_inputs:
                 d_nondim = - 1.0 / (q_inf * area**2.0)
@@ -423,8 +420,8 @@ if __name__ == '__main__':
     nnodes = 3
     prob = Problem()
     ivc = IndepVarComp()
-    ivc.add_output('aoa',val=45.0)
-    ivc.add_output('yaw',val=135.0)
+    ivc.add_output('aoa',val=45.0, units='deg')
+    ivc.add_output('yaw',val=135.0, units='deg')
     ivc.add_output('ref_area',val=0.2)
     ivc.add_output('moment_center',shape=3,val=np.zeros(3))
     ivc.add_output('ref_length', val = 3.0)
