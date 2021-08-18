@@ -152,7 +152,7 @@ class Top(Multipoint):
                 geo.rot_z["wingAxis"].coef[i] = -val[i - 1]
 
         def alpha(val, DASolver):
-            aoa = val[0] * np.pi / 180.0
+            aoa = val[0]
             U = [float(self.U0 * np.cos(aoa)), float(self.U0 * np.sin(aoa)), 0]
             DASolver.setOption("primalBC", {"U0": {"variable": "U", "patches": ["inout"], "value": U}})
             DASolver.updateDAOption()
@@ -173,10 +173,10 @@ class Top(Multipoint):
         # add dvs to ivc and connect
         self.dvs.add_output("twist", val=np.array([0] * (nRefAxPts - 1)))
         self.dvs.add_output("shape", val=np.array([0] * nShapes))
-        self.dvs.add_output("alpha", val=np.array([0]))
+        self.dvs.add_output("aoa", val=np.array([0]))
         self.connect("twist", "geometry.twist")
         self.connect("shape", "geometry.shape")
-        self.connect("alpha", "cruise.dafoam_aoa")
+        self.connect("aoa", "cruise.aoa")
 
 
 class TestDAFoam(unittest.TestCase):
@@ -189,7 +189,7 @@ class TestDAFoam(unittest.TestCase):
         # define the design variables
         prob.model.add_design_var("twist", lower=-10.0, upper=10.0, scaler=1.0)
         prob.model.add_design_var("shape", lower=-1.0, upper=1.0, scaler=1.0)
-        prob.model.add_design_var("alpha", lower=5.0, upper=10.0, scaler=1.0)
+        prob.model.add_design_var("aoa", units="deg", lower=5.0, upper=10.0, scaler=1.0)
 
         # add constraints and the objective
         prob.model.add_objective("cruise.aero_post.CD", scaler=1.0)
@@ -224,7 +224,7 @@ class TestDAFoam(unittest.TestCase):
             abs_err = err["abs error"]
             assert_near_equal(abs_err.forward, 0.0, 1e-3)
 
-        data = self.prob.check_totals(wrt="alpha", step=1e-3)
+        data = self.prob.check_totals(wrt="aoa", step=1e-3)
         for var, err in data.items():
             abs_err = err["abs error"]
             assert_near_equal(abs_err.forward, 0.0, 1e-3)

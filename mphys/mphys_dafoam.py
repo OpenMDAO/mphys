@@ -95,7 +95,7 @@ class DAFoamGroup(Group):
         self.add_subsystem(
             "solver",
             DAFoamSolver(solver=self.DASolver),
-            promotes_inputs=["dafoam_vol_coords", "dafoam_aoa"],
+            promotes_inputs=["dafoam_vol_coords", "aoa"],
             promotes_outputs=["dafoam_states"],
         )
 
@@ -140,7 +140,7 @@ class DAFoamSolver(ImplicitComponent):
         # setup input and output for the solver
         local_state_size = self.DASolver.getNLocalAdjointStates()
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
-        self.add_input("dafoam_aoa", shape_by_conn=True, distributed=False, tags=["mphys_coupling"])
+        self.add_input("aoa", units="rad", shape_by_conn=True, distributed=False, tags=["mphys_coupling"])
         self.add_output("dafoam_states", distributed=True, shape=local_state_size, tags=["mphys_coupling"])
 
     # calculate the residual
@@ -163,9 +163,9 @@ class DAFoamSolver(ImplicitComponent):
         DASolver.setOption("runStatus", "solvePrimal")
 
         # Compute and set angle of attack
-        dafoam_aoa = inputs["dafoam_aoa"]
+        aoa = inputs["aoa"]
         if callable(self.aoa_func):
-            self.aoa_func(dafoam_aoa, DASolver)
+            self.aoa_func(aoa, DASolver)
 
         DASolver.updateDAOption()
 
@@ -238,7 +238,7 @@ class DAFoamSolver(ImplicitComponent):
                 xVBar = DASolver.vec2Array(prodVec)
                 d_inputs["dafoam_vol_coords"] += xVBar
 
-            if "dafoam_aoa" in d_inputs:
+            if "aoa" in d_inputs:
                 prodVec = PETSc.Vec().create(PETSc.COMM_WORLD)
                 prodVec.setSizes((PETSc.DECIDE, 1), bsize=1)
                 prodVec.setFromOptions()
@@ -250,11 +250,11 @@ class DAFoamSolver(ImplicitComponent):
                 # To avoid a dimension mismatch with MPhys, we check the length of aoaBar on each proc
                 # and return 0.0 if the length on that proc is 0.
                 if len(aoaBar) == 0:
-                    d_inputs["dafoam_aoa"] += 0.0
+                    d_inputs["aoa"] += 0.0
                 else:
                     # NOTE: we need to manually multiple the AD seed by the number of cores in parallel
                     # this is due to the different treatment of OM and DAFoam
-                    d_inputs["dafoam_aoa"] += aoaBar * MPI.COMM_WORLD.size
+                    d_inputs["aoa"] += aoaBar * MPI.COMM_WORLD.size
 
         # NOTE: we only support states, vol_coords partials, and angle of attack.
         # Other variables are not implemented yet!
@@ -382,7 +382,7 @@ class DAFoamFunctions(ExplicitComponent):
         self.solution_counter = 0
 
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
-        self.add_input("dafoam_aoa", shape_by_conn=True, distributed=False, tags=["mphys_coupling"])
+        self.add_input("aoa", units="deg", shape_by_conn=True, distributed=False, tags=["mphys_coupling"])
         self.add_input("dafoam_states", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
 
     # connect the input and output for the function, called from runScript.py
@@ -471,7 +471,7 @@ class DAFoamFunctions(ExplicitComponent):
             d_inputs["dafoam_vol_coords"] += xVBar
 
         # compute dFdAOA
-        if "dafoam_aoa" in d_inputs:
+        if "aoa" in d_inputs:
             dFdAOA = PETSc.Vec().create(PETSc.COMM_WORLD)
             dFdAOA.setSizes((PETSc.DECIDE, 1), bsize=1)
             dFdAOA.setFromOptions()
@@ -481,9 +481,9 @@ class DAFoamFunctions(ExplicitComponent):
             # To avoid a dimension mismatch with MPhys, we check the length of aoaBar on each proc
             # and return 0.0 if the length on that proc is 0.
             if len(aoaBar) == 0:
-                d_inputs["dafoam_aoa"] += 0.0
+                d_inputs["aoa"] += 0.0
             else:
-                d_inputs["dafoam_aoa"] += aoaBar
+                d_inputs["aoa"] += aoaBar
 
         # NOTE: we only support states, vol_coords partials, and angle of attack.
         # Other variables are not implemented yet!
