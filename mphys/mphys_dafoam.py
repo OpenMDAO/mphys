@@ -154,10 +154,11 @@ class DAFoamSolver(ImplicitComponent):
     # solve the flow
     def solve_nonlinear(self, inputs, outputs):
         DASolver = self.DASolver
-        Info("\n")
-        Info("+--------------------------------------------------------------------------+")
-        Info("|                  Evaluating Objective Functions %03d                      |" % DASolver.nSolvePrimals)
-        Info("+--------------------------------------------------------------------------+")
+        if self.comm.rank == 0:
+            print("\n")
+            print("+--------------------------------------------------------------------------+")
+            print("|                  Evaluating Objective Functions %03d                      |" % DASolver.nSolvePrimals)
+            print("+--------------------------------------------------------------------------+")
 
         # set the runStatus, this is useful when the actuator term is activated
         DASolver.setOption("runStatus", "solvePrimal")
@@ -175,8 +176,9 @@ class DAFoamSolver(ImplicitComponent):
         # get the objective functions
         funcs = {}
         DASolver.evalFunctions(funcs, evalFuncs=self.evalFuncs)
-        Info("Objective Functions: ")
-        Info(funcs)
+        if self.comm.rank == 0:
+            print("Objective Functions: ")
+            print(funcs)
 
         # assign the computed flow states to outputs
         outputs["dafoam_states"] = DASolver.getStates()
@@ -186,15 +188,17 @@ class DAFoamSolver(ImplicitComponent):
 
         DASolver = self.DASolver
 
-        Info("\n")
-        Info("+--------------------------------------------------------------------------+")
-        Info("|              Evaluating Objective Function Sensitivities %03d             |" % DASolver.nSolveAdjoints)
-        Info("+--------------------------------------------------------------------------+")
+        if self.comm.rank == 0:
+            print("\n")
+            print("+--------------------------------------------------------------------------+")
+            print("|              Evaluating Objective Function Sensitivities %03d             |" % DASolver.nSolveAdjoints)
+            print("+--------------------------------------------------------------------------+")
 
         # move the solution folder to 0.000000x
         DASolver.renameSolution(DASolver.nSolveAdjoints)
 
-        Info("Running adjoint Solver %03d" % DASolver.nSolveAdjoints)
+        if self.comm.rank == 0:
+            print("Running adjoint Solver %03d" % DASolver.nSolveAdjoints)
 
         # set the runStatus, this is useful when the actuator term is activated
         DASolver.setOption("runStatus", "solveAdjoint")
@@ -439,7 +443,8 @@ class DAFoamFunctions(ExplicitComponent):
                     funcsBar[func_name] = d_outputs[func_name][0]
 
         # funcsBar should have only one seed for which we need to compute partials
-        # Info(funcsBar)
+        # if self.comm.rank == 0:
+        #     print(funcsBar)
 
         # get the name of the functions we need to compute partials for
         objFuncName = list(funcsBar.keys())[0]
@@ -533,14 +538,3 @@ class DAFoamWarper(ExplicitComponent):
                 dxS = self.DASolver.mesh.getdXs()
                 dxS = self.DASolver.mapVector(dxS, self.DASolver.meshFamilyGroup, self.DASolver.designFamilyGroup)
                 d_inputs["x_aero"] += dxS.flatten()
-
-
-class Info(object):
-    """
-    Print information and flush to screen for parallel cases
-    """
-
-    def __init__(self, message):
-        if self.comm.rank == 0:
-            print(message, flush=True)
-        self.comm.Barrier()
