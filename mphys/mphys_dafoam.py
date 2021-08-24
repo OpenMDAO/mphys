@@ -254,7 +254,7 @@ class DAFoamSolver(ImplicitComponent):
                 else:
                     # NOTE: we need to manually multiple the AD seed by the number of cores in parallel
                     # this is due to the different treatment of OM and DAFoam
-                    d_inputs["aoa"] += aoaBar * MPI.COMM_WORLD.size
+                    d_inputs["aoa"] += aoaBar * self.comm.size
 
         # NOTE: we only support states, vol_coords partials, and angle of attack.
         # Other variables are not implemented yet!
@@ -370,7 +370,7 @@ class DAFoamFunctions(ExplicitComponent):
         # a list that contains all function names, e.g., CD, CL
         self.funcs = None
 
-        self.nProcs = MPI.COMM_WORLD.size
+        self.nProcs = self.comm.size
 
     def setup(self):
 
@@ -541,6 +541,6 @@ class Info(object):
     """
 
     def __init__(self, message):
-        if MPI.COMM_WORLD.rank == 0:
+        if self.comm.rank == 0:
             print(message, flush=True)
-        MPI.COMM_WORLD.Barrier()
+        self.comm.Barrier()
