@@ -243,7 +243,7 @@ class DAFoamSolver(ImplicitComponent):
                 d_inputs["dafoam_vol_coords"] += xVBar
 
             if "aoa" in d_inputs:
-                prodVec = PETSc.Vec().create(PETSc.COMM_WORLD)
+                prodVec = PETSc.Vec().create(self.comm)
                 prodVec.setSizes((PETSc.DECIDE, 1), bsize=1)
                 prodVec.setFromOptions()
                 DASolver.solverAD.calcdRdAOATPsiAD(
@@ -282,11 +282,11 @@ class DAFoamSolver(ImplicitComponent):
         # compute the preconditioiner matrix for the adjoint linear equation solution
         # NOTE: we compute this only once and will reuse it during optimization
         if DASolver.dRdWTPC is None:
-            DASolver.dRdWTPC = PETSc.Mat().create(PETSc.COMM_WORLD)
+            DASolver.dRdWTPC = PETSc.Mat().create(self.comm)
             DASolver.solver.calcdRdWT(DASolver.xvVec, DASolver.wVec, 1, DASolver.dRdWTPC)
 
         # create the Petsc KSP object
-        ksp = PETSc.KSP().create(PETSc.COMM_WORLD)
+        ksp = PETSc.KSP().create(self.comm)
         DASolver.solverAD.createMLRKSPMatrixFree(DASolver.dRdWTPC, ksp)
 
         # solution vector
@@ -477,7 +477,7 @@ class DAFoamFunctions(ExplicitComponent):
 
         # compute dFdAOA
         if "aoa" in d_inputs:
-            dFdAOA = PETSc.Vec().create(PETSc.COMM_WORLD)
+            dFdAOA = PETSc.Vec().create(self.comm)
             dFdAOA.setSizes((PETSc.DECIDE, 1), bsize=1)
             dFdAOA.setFromOptions()
             DASolver.calcdFdAOAAnalytical(objFuncName, dFdAOA)
