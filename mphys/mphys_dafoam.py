@@ -140,7 +140,7 @@ class DAFoamSolver(ImplicitComponent):
         # setup input and output for the solver
         local_state_size = self.DASolver.getNLocalAdjointStates()
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
-        self.add_input("aoa", units="rad", shape_by_conn=True, distributed=False, tags=["mphys_coupling"])
+        self.add_input("aoa", units="deg", shape_by_conn=True, distributed=False, tags=["mphys_coupling"])
         self.add_output("dafoam_states", distributed=True, shape=local_state_size, tags=["mphys_coupling"])
 
     # calculate the residual
@@ -374,11 +374,10 @@ class DAFoamFunctions(ExplicitComponent):
         # a list that contains all function names, e.g., CD, CL
         self.funcs = None
 
-        self.nProcs = self.comm.size
-
     def setup(self):
 
         self.DASolver = self.options["solver"]
+        self.nProcs = self.comm.size
 
         # Initialze AOA option
         self.aoa_func = None

@@ -152,7 +152,7 @@ class Top(Multipoint):
                 geo.rot_z["wingAxis"].coef[i] = -val[i - 1]
 
         def alpha(val, DASolver):
-            aoa = val[0]
+            aoa = val[0] * np.pi / 180.0
             U = [float(self.U0 * np.cos(aoa)), float(self.U0 * np.sin(aoa)), 0]
             DASolver.setOption("primalBC", {"U0": {"variable": "U", "patches": ["inout"], "value": U}})
             DASolver.updateDAOption()
@@ -173,7 +173,7 @@ class Top(Multipoint):
         # add dvs to ivc and connect
         self.dvs.add_output("twist", val=np.array([0] * (nRefAxPts - 1)))
         self.dvs.add_output("shape", val=np.array([0] * nShapes))
-        self.dvs.add_output("aoa", val=np.array([0]))
+        self.dvs.add_output("aoa", units="deg", val=np.array([0]))
         self.connect("twist", "geometry.twist")
         self.connect("shape", "geometry.shape")
         self.connect("aoa", "cruise.aoa")
