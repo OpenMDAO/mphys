@@ -378,7 +378,6 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                 d_inputs['x_aero'][0::3] += -fz * (dm_y + dcm_y) + fy * (dm_z + dcm_z)
                 d_inputs['x_aero'][1::3] +=  fz * (dm_x + dcm_x) - fx * (dm_z + dcm_z)
                 d_inputs['x_aero'][2::3] += -fy * (dm_x + dcm_x) + fx * (dm_y + dcm_y)
-                d_inputs['x_aero'] *= self.comm.Get_size()
 
             if 'f_aero' in d_inputs:
                 if 'F_X' in d_outputs:
@@ -426,7 +425,7 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                 if 'CM_Z' in d_outputs:
                     d_inputs['f_aero'][0::3] += -(y-yc) * d_outputs['CM_Z'] / (q_inf * area * c)
                     d_inputs['f_aero'][1::3] +=  (x-xc) * d_outputs['CM_Z'] / (q_inf * area * c)
-                d_inputs['f_aero'] *= self.comm.Get_size()
+
 if __name__ == '__main__':
     from openmdao.api import Problem, IndepVarComp
 

@@ -535,10 +535,9 @@ class TacsFunctions(om.ExplicitComponent):
             self._update_internal(inputs)
 
             if 'func_struct' in d_outputs:
-                proc_contribution = d_outputs['func_struct'][:]
+                d_func= d_outputs['func_struct'][:]
             else: # not sure why OM would call this method without func_struct, but here for safety
-                proc_contribution = np.zeros(len(self.func_list))
-            d_func = self.comm.allreduce(proc_contribution) / self.comm.size
+                d_func = np.zeros(len(self.func_list))
 
             for ifunc, func in enumerate(self.func_list):
                 self.tacs_assembler.evalFunctions([func])
