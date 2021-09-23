@@ -44,12 +44,22 @@ class Fun3dFsiSolverGroup(MphysGroup):
 
 
 class Fun3dSfeBuilder(Builder):
-    def __init__(self, boundary_tag_list, input_file='input.cfg'):
+    def __init__(self, boundary_tag_list, input_file='input.cfg', complex_mode=False):
         self.boundary_tag_list = boundary_tag_list
         self.input_file = input_file
+        self.complex_mode = complex_mode
 
     def _initialize_meshdef(self, prob):
+        if self.complex_mode:
+            return self._initialize_complex_meshdef(prob)
+        else:
+            return self._initialize_meshdef(prob)
+
+    def _initialize_real_meshdef(self, prob):
         return MeshDeformer(prob.problem, self.mesh, self.iris)
+
+    def _initialize_complex_meshdef(self, prob):
+        return MeshDeformer(prob.problem, self.mesh, self.iris, library_basename='libmeshdef_wrapper_complex')
 
     def _initialize_sfe(self, prob):
         return SfeSolver(prob.problem, self.mesh, self.iris)
@@ -79,10 +89,13 @@ class Fun3dSfeBuilder(Builder):
 
     def get_coupling_group_subsystem(self):
         meshdef_om = MeshDeformationOpenMdao(meshdef_solver=self.meshdef,
-                                             boundary_tag_list=self.boundary_tag_list)
-        sfe_om = SfeSolverOpenMdao(sfe_solver=self.sfe)
+                                             boundary_tag_list=self.boundary_tag_list,
+                                             complex_mode = self.complex_mode)
+        sfe_om = SfeSolverOpenMdao(sfe_solver=self.sfe,
+                                   complex_mode = self.complex_mode)
         forces_om = SfeForcesOpenMdao(sfe_solver=self.sfe,
-                                      boundary_tag_list=self.boundary_tag_list)
+                                      boundary_tag_list=self.boundary_tag_list,
+                                      complex_mode = self.complex_mode)
         return Fun3dFsiSolverGroup(meshdef_comp=meshdef_om,
                                    flow_comp=sfe_om,
                                    forces_comp=forces_om,
