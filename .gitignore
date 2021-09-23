@@ -18,6 +18,9 @@ flow.*
 *cgns
 *ugrid
 *mapbc
+*npy
+*cfl
+*921
 
 mphys.egg-info/*
 docs/build/doctrees

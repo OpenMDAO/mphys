@@ -71,9 +71,9 @@ class Top(Multipoint):
 
         nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol = 1e-14, atol=1e-14)
         #linear_solver = om.LinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol = 1e-8, atol=1e-8)
-        linear_solver = om.PETScKrylov(maxiter=1, iprint=2, atol=1e-14, rtol=1e-14)
-        #linear_solver = om.ScipyKrylov(maxiter=1, iprint=2)
-        linear_solver.precon = om.LinearBlockGS(maxiter = 3)
+        #linear_solver = om.ScipyKrylov(maxiter=1000, iprint=2, atol=1e-14, rtol=1e-14)
+        linear_solver = om.PETScKrylov(maxiter=100, iprint=2, atol=1e-14, rtol=1e-14)
+        linear_solver.precon = om.LinearBlockGS(maxiter = 5, use_aitken=True)
         self.mphys_add_scenario('cruise',ScenarioAeroStructural(aero_builder=aero_builder,
                                                                 struct_builder=struct_builder,
                                                                 ldxfer_builder=ldxfer_builder),
@@ -101,3 +101,5 @@ om.n2(prob, show_browser=False, outfile='crm_aerostruct.html')
 
 prob.run_model()
 prob.check_totals(of='cruise.func_struct', wrt='aoa')
+#prob.check_totals(of='cruise.C_L', wrt='dv_struct')
+#print(prob.compute_totals(of='cruise.C_L', wrt='aoa'))
