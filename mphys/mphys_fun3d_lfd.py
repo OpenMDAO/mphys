@@ -53,9 +53,7 @@ class Fun3dLfdFlutterGroup(MphysGroup):
                                  PkSolverOM(density=prob.pk_density,
                                             velocity=prob.pk_velocity,
                                             reduced_frequencies=prob.reduced_frequencies,
-                                            nmodes=prob.nmodes,
-                                            b_ref=prob.semichord,
-                                            u_ref=prob.u_ref))
+                                            nmodes=prob.nmodes))
 
 
 class Fun3dLfdBuilder(Fun3dSfeBuilder):
