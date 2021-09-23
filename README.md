@@ -1,4 +1,6 @@
 # MPHYS
+[![Unit Tests and Docs](https://github.com/OpenMDAO/mphys/actions/workflows/unit_tests_and_docs.yml/badge.svg)](https://github.com/OpenMDAO/mphys/actions/workflows/unit_tests_and_docs.yml)
+
 MPHYS is a framework for coupling high-fidelity physics though OpenMDAO
 
 
