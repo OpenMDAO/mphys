@@ -43,8 +43,8 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
             if var[:2] == "x_":
                 # trim the _in and add a "0" to signify that these are initial conditions initial 
                 var_out = var[:-3] + '0'
-                self.nom_addPointSet(inputs[var], var_out)
-
+                if var_out not in self.omPtSetList:
+                    self.nom_addPointSet(inputs[var], var_out, add_output=False)
 
         # inputs are the geometric design variables
         self.DVGeo.setDesignVars(inputs)
