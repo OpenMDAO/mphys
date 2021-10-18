@@ -19,12 +19,18 @@ The documentation includes N2 diagrams from the unit tests. Before building the 
 Then go into the `docs` directory and run `make html`.
 
 
+# For developers
+
+## Signed Commits
+The mphys `main` branch requires verified commits. See the instructions on how to sign commits [here](https://openmdao.org/newdocs/versions/latest/other_useful_docs/developer_docs/signing_commits.html).
+
 ## Tests
 The test are written to use the testflo framework because it allows us to run tests with multiple cores.
-To run the tests you will need.
+To run the tests you will need to install testflo.
 
 ### Integration Tests
-These python packages
+The integration tests check the interaction of mphys with several solvers.
+These python packages are required to run them:
 ```
 adflow
 tacs
