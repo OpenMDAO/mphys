@@ -16,13 +16,12 @@ class Fun3dMesh(om.IndepVarComp):
     def initialize(self):
         self.options.declare('meshdef_solver')
         self.options.declare('boundary_tag_list')
-        self.options['distributed'] = True
 
     def setup(self):
         boundary_tag_list = self.options['boundary_tag_list']
         meshdef = self.options['meshdef_solver']
         x_aero0 = meshdef.get_boundary_node_coordinates(boundary_tag_list, owned_only = True, concatenate=True)
-        self.add_output('x_aero0', val=x_aero0.flatten(), desc='initial aerodynamic surface node coordinates',
+        self.add_output('x_aero0', distributed=True, val=x_aero0.flatten(), desc='initial aerodynamic surface node coordinates',
                          tags=['mphys_coordinates'])
 
 class Fun3dFsiSolverGroup(om.Group):
