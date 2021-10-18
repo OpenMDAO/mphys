@@ -472,7 +472,7 @@ class ADflowSolver(ImplicitComponent):
         # if we changed APs, then we also freed adjoint memory,
         # and then again we would need to setup adjoint again
         # finally, we generally want to avoid extra calls here
-         # because this routine can be call multiple times back to back in a LBGS solver.
+        # because this routine can be call multiple times back to back in a LBGS solver.
         if not solver.adjointSetup:
             solver._setupAdjoint()
 

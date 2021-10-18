@@ -37,15 +37,17 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         self.omPtSetList = []
 
     def compute(self, inputs, outputs):
+        # check for inputs thathave been added but the points have not been added to dvgeo
+        for var in inputs.keys():
+            # check that the input name matches the convention for points
+            if var[:2] == "x_":
+                # trim the _in and add a "0" to signify that these are initial conditions initial 
+                var_out = var[:-3] + '0'
+                self.nom_addPointSet(inputs[var], var_out)
+
+
         # inputs are the geometric design variables
         self.DVGeo.setDesignVars(inputs)
-        
-        # the inputs have been added but the points have not been added to dvgeo
-        if not self.omPtSetList and [k for k in inputs.keys()]:
-            for var in inputs:
-                if 'x_' == var[:2]:
-                    var_out = var[:-3] + '0'
-                    self.nom_addPointSet(inputs[var], var_out)
 
         # ouputs are the coordinates of the pointsets we have
         for ptName in self.DVGeo.points:

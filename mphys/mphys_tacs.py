@@ -516,8 +516,8 @@ class TacsFunctions(om.ExplicitComponent):
         self.tacs_assembler.setVariables(ans)
 
     def compute(self,inputs,outputs):
-        # if self.check_partials:
-        self._update_internal(inputs)
+        if self.check_partials:
+            self._update_internal(inputs)
 
         if 'func_struct' in outputs:
             outputs['func_struct'] = self.tacs_assembler.evalFunctions(self.func_list)
