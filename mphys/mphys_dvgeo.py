@@ -37,6 +37,15 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         self.omPtSetList = []
 
     def compute(self, inputs, outputs):
+        # check for inputs thathave been added but the points have not been added to dvgeo
+        for var in inputs.keys():
+            # check that the input name matches the convention for points
+            if var[:2] == "x_":
+                # trim the _in and add a "0" to signify that these are initial conditions initial 
+                var_out = var[:-3] + '0'
+                if var_out not in self.omPtSetList:
+                    self.nom_addPointSet(inputs[var], var_out, add_output=False)
+
         # inputs are the geometric design variables
         self.DVGeo.setDesignVars(inputs)
 
@@ -159,7 +168,7 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         # only do the computations when we have more than zero entries in d_inputs in the reverse mode
         ni = len(list(d_inputs.keys()))
-
+        
         if mode == "rev" and ni > 0:
 
             # this flag will be set to True after every compute call.
