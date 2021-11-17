@@ -1,22 +1,24 @@
 import numpy as np
-from tacs import TACS,functions
 
 import openmdao.api as om
 from mphys.builder import Builder
+from tacs import pyTACS
+
 
 class TacsMesh(om.IndepVarComp):
     """
     Component to read the initial mesh coordinates with TACS
     """
+
     def initialize(self):
-        self.options.declare('tacs_assembler', default = None, desc='the tacs object itself', recordable=False)
+        self.options.declare('fea_solver', default=None, desc='the pytacs object itself', recordable=False)
 
     def setup(self):
-        tacs_assembler = self.options['tacs_assembler']
-        xpts = tacs_assembler.createNodeVec()
-        x = xpts.getArray()
-        tacs_assembler.getNodes(xpts)
-        self.add_output('x_struct0', distributed=True, val=x, shape=x.size, desc='structural node coordinates', tags=['mphys_coordinates'])
+        fea_solver = self.options['fea_solver']
+        xpts = fea_solver.getOrigCoordinates()
+        self.add_output('x_struct0', distributed=True, val=xpts, shape=xpts.size,
+                        desc='structural node coordinates', tags=['mphys_coordinates'])
+
 
 class TacsSolver(om.ImplicitComponent):
     """
@@ -26,20 +28,12 @@ class TacsSolver(om.ImplicitComponent):
         - The TACS steady residual is R = K * u_s - f_s = 0
 
     """
-    def initialize(self):
 
-        self.options.declare('tacs_assembler', recordable=False)
-        self.options.declare('struct_objects', recordable=False)
+    def initialize(self):
+        self.options.declare('fea_solver', recordable=False)
         self.options.declare('check_partials')
 
-        self.tacs_assembler = None
-        self.pc = None
-
-        self.res = None
-        self.ans = None
-        self.struct_rhs = None
-        self.psi_s = None
-        self.x_save = None
+        self.fea_solver = None
 
         self.transposed = False
         self.check_partials = False
@@ -49,483 +43,171 @@ class TacsSolver(om.ImplicitComponent):
 
     def setup(self):
         self.check_partials = self.options['check_partials']
-        #self.set_check_partial_options(wrt='*',method='cs',directional=True)
 
-        tacs_assembler = self.options['tacs_assembler']
-        struct_objects = self.options['struct_objects']
-        # these objects come from self.struct_objects but ideally, they should be attributes of the struct solver object
-        mat = struct_objects[0]
-        pc = struct_objects[1]
-        gmres = struct_objects[2]
-        ndv = struct_objects[3]['ndv']
-        self.solver_dict = struct_objects[3]
-
-        # TACS assembler setup
-        self.tacs_assembler      = tacs_assembler
-        self.mat       = mat
-        self.pc        = pc
-        self.gmres     = gmres
-        self.ndv       = ndv
-
-        # create some TACS bvecs that will be needed later
-        self.res        = tacs_assembler.createVec()
-        self.force      = tacs_assembler.createVec()
-        self.ans        = tacs_assembler.createVec()
-        self.struct_rhs = tacs_assembler.createVec()
-        self.psi_s      = tacs_assembler.createVec()
-        self.xpt_sens   = tacs_assembler.createNodeVec()
+        self.fea_solver = self.options['fea_solver']
 
         # OpenMDAO setup
-        state_size = self.ans.getArray().size
-        node_size  = self.xpt_sens.getArray().size
-        self.ndof = int(state_size/(node_size/3))
+        ndv = self.fea_solver.getTotalNumDesignVars()
+        self.ndof = self.fea_solver.getVarsPerNode()
+        state_size = self.fea_solver.getNumOwnedNodes() * self.ndof
 
         # inputs
-        self.add_input('dv_struct', distributed=False, shape=ndv, desc='tacs design variables', tags=['mphys_input'])
-        self.add_input('x_struct0', distributed=True, shape_by_conn=True, desc='structural node coordinates',tags=['mphys_coordinates'])
-        self.add_input('f_struct',  distributed=True, shape_by_conn=True, desc='structural load vector', tags=['mphys_coupling'])
+        self.add_input('dv_struct', distributed=False, shape=ndv,
+                       desc='tacs design variables', tags=['mphys_input'])
+        self.add_input('x_struct0', distributed=True, shape_by_conn=True,
+                       desc='structural node coordinates', tags=['mphys_coordinates'])
+        '''
+        self.add_input('rhs',  distributed=True, shape=state_size, val = 0.0,
+                       desc='structural load vector', tags=['mphys_coupling'])
+        '''
 
         # outputs
         # its important that we set this to zero since this displacement value is used for the first iteration of the aero
-        self.add_output('u_struct', distributed=True, shape=state_size, val = np.zeros(state_size),desc='structural state vector', tags=['mphys_coupling'])
+        self.add_output('states', distributed=True, shape=state_size, val=np.zeros(state_size),
+                        desc='structural state vector', tags=['mphys_coupling'])
 
-        # partials
-        #self.declare_partials('u_struct',['dv_struct','x_struct0','f_struct'])
-
-    def _need_update(self,inputs):
-
+    def _need_update(self, inputs):
         update = False
 
         if self.old_dvs is None:
             self.old_dvs = inputs['dv_struct'].copy()
-            update =  True
+            update = True
 
-        for dv, dv_old in zip(inputs['dv_struct'],self.old_dvs):
-            if np.abs(dv - dv_old) > 0.:#1e-7:
+        for dv, dv_old in zip(inputs['dv_struct'], self.old_dvs):
+            if np.abs(dv - dv_old) > 0.:  # 1e-7:
                 self.old_dvs = inputs['dv_struct'].copy()
-                update =  True
+                update = True
 
         if self.old_xs is None:
             self.old_xs = inputs['x_struct0'].copy()
-            update =  True
+            update = True
 
-        for xs, xs_old in zip(inputs['x_struct0'],self.old_xs):
-            if np.abs(xs - xs_old) > 0.:#1e-7:
+        for xs, xs_old in zip(inputs['x_struct0'], self.old_xs):
+            if np.abs(xs - xs_old) > 0.:  # 1e-7:
                 self.old_xs = inputs['x_struct0'].copy()
-                update =  True
+                update = True
 
         return update
 
-    def _update_internal(self,inputs,outputs=None):
+    def _update_internal(self, inputs, outputs=None):
         if self._need_update(inputs):
-            self.tacs_assembler.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
-
-            xpts = self.tacs_assembler.createNodeVec()
-            self.tacs_assembler.getNodes(xpts)
-            xpts_array = xpts.getArray()
-            xpts_array[:] = inputs['x_struct0']
-            self.tacs_assembler.setNodes(xpts)
-
-            pc     = self.pc
-            alpha = 1.0
-            beta  = 0.0
-            gamma = 0.0
-
-            res = self.tacs_assembler.createVec()
-            res_array = res.getArray()
-            res_array[:] = 0.0
-
-            self.tacs_assembler.assembleJacobian(alpha,beta,gamma,res,self.mat)
-            pc.factor()
-
+            self.sp.setDesignVars(inputs['dv_struct'])
+            self.sp.setCoordinates(inputs['x_struct0'])
         if outputs is not None:
-            ans = self.ans
-            ans_array = ans.getArray()
-            ans_array[:] = outputs['u_struct']
-            self.tacs_assembler.applyBCs(ans)
-
-            self.tacs_assembler.setVariables(ans)
+            self.sp.setVariables(outputs['states'])
+        self.sp._setProblemVars()
 
     def apply_nonlinear(self, inputs, outputs, residuals):
-        tacs_assembler = self.tacs_assembler
-        res  = self.res
-
-        self._update_internal(inputs,outputs)
-
-        res_array = res.getArray()
-        res_array[:] = 0.0
-
-        # K * u
-        tacs_assembler.assembleRes(res)
-
-        # Add the external loads
-        res_array[:] -= inputs['f_struct']
-
-        # Apply BCs to the residual (forces)
-        tacs_assembler.applyBCs(res)
-
-        residuals['u_struct'][:] = res_array[:]
+        self._update_internal(inputs, outputs)
+        self.sp.getResidual(res=residuals['states'])  # ,
+        # Fext=inputs['rhs'])
 
     def solve_nonlinear(self, inputs, outputs):
-        tacs_assembler   = self.tacs_assembler
-        force  = self.force
-        ans    = self.ans
-        pc     = self.pc
-        gmres  = self.gmres
-
         self._update_internal(inputs)
-        # solve the linear system
-        force_array = force.getArray()
-        force_array[:] = inputs['f_struct']
-        tacs_assembler.applyBCs(force)
+        self.sp.solve()  # Fext=inputs['rhs'])
+        self.sp.getVariables(states=outputs['states'])
+        self.sp.writeSolution()
 
-        gmres.solve(force, ans)
-        ans_array = ans.getArray()
-        outputs['u_struct'] = ans_array[:]
-        tacs_assembler.setVariables(ans)
-
-    def solve_linear(self,d_outputs,d_residuals,mode):
-
+    def solve_linear(self, d_outputs, d_residuals, mode):
         if mode == 'fwd':
             if self.check_partials:
-                print ('solver fwd')
+                print('solver fwd')
             else:
                 raise ValueError('forward mode requested but not implemented')
 
         if mode == 'rev':
-            tacs_assembler = self.tacs_assembler
-            gmres = self.gmres
+            self.sp.solveAdjoint(d_outputs['states'], d_residuals['states'])
 
-            # if nonsymmetric, we need to form the transpose Jacobian
-            #if self._design_vector_changed(inputs['dv_struct']) or not self.transposed:
-            #    alpha = 1.0
-            #    beta  = 0.0
-            #    gamma = 0.0
-
-            #    tacs_assembler.assembleJacobian(alpha,beta,gamma,res,self.mat,matOr=TACS.PY_TRANSPOSE)
-            #    pc.factor()
-            #    self.transposed=True
-
-            res = self.res
-            res_array = res.getArray()
-            res_array[:] = d_outputs['u_struct']
-
-            # Tacs doesn't actually transpose the matrix here so keep track of
-            # RHS entries that TACS zeros out for BCs that openmdao is not
-            # aware of.
-            before = res_array.copy()
-            tacs_assembler.applyBCs(res)
-            after = res_array.copy()
-
-            gmres.solve(res,self.psi_s)
-            psi_s_array = self.psi_s.getArray()
-            tacs_assembler.applyBCs(self.psi_s)
-            d_residuals['u_struct'] = psi_s_array.copy()
-            d_residuals['u_struct'] -= np.array(after - before,dtype=np.float64)
-
-    def apply_linear(self,inputs,outputs,d_inputs,d_outputs,d_residuals,mode):
-        self._update_internal(inputs,outputs)
+    def apply_linear(self, inputs, outputs, d_inputs, d_outputs, d_residuals, mode):
+        self._update_internal(inputs, outputs)
         if mode == 'fwd':
             if not self.check_partials:
                 raise ValueError('TACS forward mode requested but not implemented')
 
         if mode == 'rev':
-            if 'u_struct' in d_residuals:
-                tacs_assembler = self.tacs_assembler
+            if 'states' in d_residuals:
 
-                res  = self.res
-                res_array = res.getArray()
+                if 'states' in d_outputs:
+                    self.sp.addTransposeJacVecProduct(d_residuals['states'],
+                                                      d_outputs['states'])
 
-                ans  = self.ans
-                ans_array = ans.getArray()
-
-                psi = tacs_assembler.createVec()
-                psi_array = psi.getArray()
-                psi_array[:] = d_residuals['u_struct'][:]
-
-                before = psi_array.copy()
-                tacs_assembler.applyBCs(psi)
-                after = psi_array.copy()
-
-                if 'u_struct' in d_outputs:
-
-                    ans_array[:] = outputs['u_struct']
-                    tacs_assembler.applyBCs(ans)
-                    tacs_assembler.setVariables(ans)
-
-                    # if nonsymmetric, we need to form the transpose Jacobian
-                    #if self._design_vector_changed(inputs['dv_struct']) or not self.transposed:
-                    #    alpha = 1.0
-                    #    beta  = 0.0
-                    #    gamma = 0.0
-                    #    tacs_assembler.assembleJacobian(alpha,beta,gamma,res,self.mat,matOr=TACS.PY_TRANSPOSE)
-                    #    pc.factor()
-                    #    self.transposed=True
-
-                    res_array[:] = 0.0
-
-                    self.mat.mult(psi,res)
-                    # tacs_assembler.applyBCs(res)
-
-                    d_outputs['u_struct'] += np.array(res_array[:],dtype=float)
-                    d_outputs['u_struct'] -= np.array(after - before,dtype=np.float64)
-
-                if 'f_struct' in d_inputs:
-                    d_inputs['f_struct'] -= np.array(psi_array[:],dtype=float)
+                if 'rhs' in d_inputs:
+                    d_inputs['rhs'] -= d_residuals['states']
 
                 if 'x_struct0' in d_inputs:
-                    xpt_sens = self.xpt_sens
-                    xpt_sens_array = xpt_sens.getArray()
-
-                    tacs_assembler.evalAdjointResXptSensProduct(psi, xpt_sens)
-
-                    d_inputs['x_struct0'] += np.array(xpt_sens_array[:],dtype=float)
+                    self.sp.addAdjointResXptSensProducts([d_residuals['states']], [d_inputs['x_struct0']], scale=1.0)
 
                 if 'dv_struct' in d_inputs:
-                    adj_res_product  = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
-                    self.tacs_assembler.evalAdjointResProduct(psi, adj_res_product)
+                    self.sp.addAdjointResProducts([d_residuals['states']], [d_inputs['dv_struct']], scale=1.0)
 
-                    d_inputs['dv_struct'] +=  np.array(adj_res_product,dtype=float)
-
-    def _design_vector_changed(self,x):
+    def _design_vector_changed(self, x):
         if self.x_save is None:
             self.x_save = x.copy()
             return True
-        elif not np.allclose(x,self.x_save,rtol=1e-10,atol=1e-10):
+        elif not np.allclose(x, self.x_save, rtol=1e-10, atol=1e-10):
             self.x_save = x.copy()
             return True
         else:
             return False
 
-
-class TacsSolverConduction(om.ImplicitComponent):
-    """
-    Component to perform TACS steady conduction analysis
-
-    Assumptions:
-        - User will provide a tacs_solver_setup function that gives some pieces
-          required for the tacs solver
-          => tacs, mat, pc, gmres, struct_ndv = tacs_solver_setup(comm)
-        - The TACS steady residual is R = K * u_s - f_s = 0
-
-    """
-    def initialize(self):
-
-        self.options.declare('tacs_assembler', recordable=False)
-        self.options.declare('struct_objects', recordable=False)
-        self.options.declare('check_partials')
-
-        self.tacs_assembler = None
-        self.pc = None
-
-        self.res = None
-        self.ans = None
-        self.struct_rhs = None
-        self.psi_s = None
-        self.x_save = None
-
-        self.transposed = False
-        self.check_partials = False
-
-    def setup(self):
-        self.check_partials = self.options['check_partials']
-
-        self.tacs_assembler = self.options['tacs_assembler']
-        struct_objects = self.options['struct_objects']
-        # these objects come from self.struct_objects but ideally, they should be attributes of the struct solver object
-        self.mat = struct_objects[0]
-        self.pc = struct_objects[1]
-        self.gmres = struct_objects[2]
-        self.ndv = struct_objects[3]['ndv']
-        self.solver_dict = struct_objects[3]
-
-        # create some TACS bvecs that will be needed later
-        self.res        = self.tacs_assembler.createVec()
-        self.force      = self.tacs_assembler.createVec()
-        self.ans        = self.tacs_assembler.createVec()
-        self.heat       = self.tacs_assembler.createVec()
-        self.struct_rhs = self.tacs_assembler.createVec()
-        self.psi_s      = self.tacs_assembler.createVec()
-        self.xpt_sens   = self.tacs_assembler.createNodeVec()
-
-        # OpenMDAO setup
-        surface_nodes = self.solver_dict['surface_nodes']
-
-        self.mapping = self.solver_dict['mapping']
-
-        # self.ndof = int(state_size/(node_size/3))
-
-
-        # inputs
-        # self.add_input('dv_struct', shape=ndv                                                 , desc='tacs design variables')
-        self.add_input('x_struct0', distributed=True, shape_by_conn=True, desc='structural node coordinates', tags=['mphys_coordinates'])
-        self.add_input('q_conduct', distributed=True, shape_by_conn=True, desc='structural load vector', tags=['mphys_coupling'])
-
-        # outputs
-        self.add_output('T_conduct', distributed=True, shape=surface_nodes.size//3, val = np.ones(surface_nodes.size//3)*300,desc='temperature vector', tags=['mphys_coupling'])
-
-        # partials
-        #self.declare_partials('u_struct',['dv_struct','x_struct0','f_struct'])
-
-    def get_ndof(self):
-        return self.solver_dict['ndof']
-
-    def get_nnodes(self):
-        return self.solver_dict['nnodes']
-
-    def get_ndv(self):
-        return self.solver_dict['ndv']
-
-    def get_funcs(self):
-        return self.solver_dict['get_funcs']
-
-    def _update_internal(self,inputs,outputs=None):
-        # self.tacs.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
-
-        pc     = self.pc
-        alpha = 1.0
-        beta  = 0.0
-        gamma = 0.0
-
-        xpts = self.tacs_assembler.createNodeVec()
-        self.tacs_assembler.getNodes(xpts)
-        xpts_array = xpts.getArray()
-        xpts_array[:] = inputs['x_struct0']
-        self.tacs_assembler.setNodes(xpts)
-
-        res = self.tacs_assembler.createVec()
-        res_array = res.getArray()
-        res_array[:] = 0.0
-
-        self.tacs_assembler.assembleJacobian(alpha,beta,gamma,res,self.mat)
-        pc.factor()
-
-    def solve_nonlinear(self, inputs, outputs):
-        ans    = self.ans
-        gmres  = self.gmres
-
-        self._update_internal(inputs)
-        heat = self.heat
-        heat_array = heat.getArray()
-
-        # may need to do mapping here
-        for i in range(len(self.mapping)):
-            heat_array[self.mapping[i]] = inputs['q_conduct'][i]
-
-        self.tacs_assembler.setBCs(heat)
-
-        gmres.solve(heat, ans)
-        ans_array = ans.getArray()
-        self.tacs_assembler.setVariables(ans)
-
-        ans_array = ans.getArray()
-
-        # get specifically the temps from the nodes in the mapping
-        # i.e. the surface nodes of the structure
-        for i in range(len(self.mapping)):
-            outputs['T_conduct'][i] = ans_array[self.mapping[i]]
+    def set_sp(self, sp):
+        self.sp = sp
 
 
 class TacsFunctions(om.ExplicitComponent):
     """
     Component to compute TACS functions
     """
+
     def initialize(self):
-        self.options.declare('tacs_assembler', recordable=False)
-        self.options.declare('struct_objects', recordable=False)
+        self.options.declare('fea_solver', recordable=False)
         self.options.declare('check_partials')
 
-        self.ans = None
-        self.tacs_assembler = None
-        
+        self.fea_solver = None
+
         self.check_partials = False
 
     def setup(self):
-
-        self.tacs_assembler = self.options['tacs_assembler']
-        self.struct_objects = self.options['struct_objects']
+        self.fea_solver = self.options['fea_solver']
         self.check_partials = self.options['check_partials']
 
-        ndv = self.struct_objects[3]['ndv']
-        get_funcs = self.struct_objects[3]['get_funcs']
-
-        if 'f5_writer' in self.struct_objects[3].keys():
-            self.f5_writer = self.struct_objects[3]['f5_writer']
-        else:
-            self.f5_writer = None
-
-        tacs_assembler = self.tacs_assembler
-
-        func_list = get_funcs(tacs_assembler)
-
         # TACS part of setup
-        self.ndv       = ndv
-        self.func_list = func_list
-
-        self.ans = tacs_assembler.createVec()
-
-        self.xpt_sens = tacs_assembler.createNodeVec()
+        self.ndv = ndv = self.fea_solver.getTotalNumDesignVars()
 
         # OpenMDAO part of setup
         # TODO move the dv_struct to an external call where we add the DVs
-        self.add_input('dv_struct', distributed=False, shape = ndv,        desc='tacs design variables', tags=['mphys_input'])
-        self.add_input('x_struct0', distributed=True, shape_by_conn=True, desc='structural node coordinates',tags=['mphys_coordinates'])
-        self.add_input('u_struct', distributed=True, shape_by_conn=True, desc='structural state vector', tags=['mphys_coupling'])
+        self.add_input('dv_struct', distributed=False, shape=ndv, desc='tacs design variables', tags=['mphys_input'])
+        self.add_input('x_struct0', distributed=True, shape_by_conn=True, desc='structural node coordinates',
+                       tags=['mphys_coordinates'])
+        self.add_input('states', distributed=True, shape_by_conn=True, desc='structural state vector',
+                       tags=['mphys_coupling'])
 
-        # Remove the mass function from the func list if it is there
-        # since it is not dependent on the structural state
-        func_no_mass = []
-        for i,func in enumerate(func_list):
-            if not isinstance(func,functions.StructuralMass):
-                func_no_mass.append(func)
+    def mphys_set_sp(self, sp):
+        # this is the external function to set the sp to this component
+        self.sp = sp
 
-        self.func_list = func_no_mass
-        if len(self.func_list) > 0:
-            self.add_output('func_struct', distributed=False, shape=len(self.func_list), desc='structural function values', tags=['mphys_result'])
+        # Add eval funcs as outputs
+        for func_name in self.sp.functionList:
+            self.add_output(func_name, distributed=False, shape=1, tags=["mphys_result"])
 
-            # declare the partials
-            #self.declare_partials('f_struct',['dv_struct','x_struct0','u_struct'])
+    def _update_internal(self, inputs):
+        self.sp.setDesignVars(inputs['dv_struct'])
+        self.sp.setCoordinates(inputs['x_struct0'])
+        self.sp.setVariables(inputs['states'])
 
-    def _update_internal(self,inputs):
-        self.tacs_assembler.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
-
-        xpts = self.tacs_assembler.createNodeVec()
-        self.tacs_assembler.getNodes(xpts)
-        xpts_array = xpts.getArray()
-        xpts_array[:] = inputs['x_struct0']
-        self.tacs_assembler.setNodes(xpts)
-
-        mat    = self.tacs_assembler.createFEMat()
-        pc     = TACS.Pc(mat)
-        alpha = 1.0
-        beta  = 0.0
-        gamma = 0.0
-
-        res = self.tacs_assembler.createVec()
-        res_array = res.getArray()
-        res_array[:] = 0.0
-
-        self.tacs_assembler.assembleJacobian(alpha,beta,gamma,res,mat)
-        pc.factor()
-
-        ans = self.ans
-        ans_array = ans.getArray()
-        ans_array[:] = inputs['u_struct']
-        self.tacs_assembler.applyBCs(ans)
-
-        self.tacs_assembler.setVariables(ans)
-
-    def compute(self,inputs,outputs):
+    def compute(self, inputs, outputs):
         if self.check_partials:
             self._update_internal(inputs)
 
-        if 'func_struct' in outputs:
-            outputs['func_struct'] = self.tacs_assembler.evalFunctions(self.func_list)
+        # Evaluate functions
+        funcs = {}
+        self.sp.evalFunctions(funcs)
+        for key in funcs:
+            # Remove struct problem name from key
+            func_name = key.replace(self.sp.name + '_', '')
+            outputs[func_name] = funcs[key]
 
-        if self.f5_writer is not None:
-            self.f5_writer(self.tacs_assembler)
-
-    def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
+    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
             if not self.check_partials:
                 raise ValueError('TACS forward mode requested but not implemented')
@@ -534,212 +216,92 @@ class TacsFunctions(om.ExplicitComponent):
             # and we need to load this scenario's state back into TACS before doing derivatives
             self._update_internal(inputs)
 
-            if 'func_struct' in d_outputs:
-                proc_contribution = d_outputs['func_struct'][:]
-            else: # not sure why OM would call this method without func_struct, but here for safety
-                proc_contribution = np.zeros(len(self.func_list))
-            d_func = self.comm.allreduce(proc_contribution) / self.comm.size
+            for func_name in d_outputs:
+                proc_contribution = d_outputs[func_name][:]
+                d_func = self.comm.allreduce(proc_contribution) / self.comm.size
 
-            for ifunc, func in enumerate(self.func_list):
-                self.tacs_assembler.evalFunctions([func])
                 if 'dv_struct' in d_inputs:
-                    dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
-                    self.tacs_assembler.evalDVSens(func, dvsens)
-                    d_inputs['dv_struct'][:] += np.array(dvsens,dtype=float) * d_func[ifunc]
+                    self.sp.addDVSens([func_name], [d_inputs['dv_struct']], scale=d_func)
 
                 if 'x_struct0' in d_inputs:
-                    xpt_sens = self.xpt_sens
-                    xpt_sens_array = xpt_sens.getArray()
-                    self.tacs_assembler.evalXptSens(func, xpt_sens)
+                    self.sp.addXptSens([func_name], [d_inputs['x_struct0']], scale=d_func)
 
-                    d_inputs['x_struct0'][:] += np.array(xpt_sens_array,dtype=float) * d_func[ifunc]
+                if 'states' in d_inputs:
+                    sv_sens = np.zeros_like(d_inputs['states'])
+                    self.sp.addSVSens([func_name], [sv_sens])
+                    d_inputs['states'][:] += sv_sens * d_func
 
-                if 'u_struct' in d_inputs:
-                    prod = self.tacs_assembler.createVec()
-                    self.tacs_assembler.evalSVSens(func,prod)
-                    prod_array = prod.getArray()
-
-                    d_inputs['u_struct'][:] += np.array(prod_array,dtype=float) * d_func[ifunc]
-
-class TacsMass(om.ExplicitComponent):
-    """
-    Component to compute TACS mass
-    """
-    def initialize(self):
-        self.options.declare('tacs_assembler', recordable=False)
-        self.options.declare('struct_objects', recordable=False)
-        self.options.declare('check_partials')
-
-        self.ans = None
-        self.tacs_assembler = None
-
-        self.mass = False
-
-        self.check_partials = False
-
-    def setup(self):
-
-        self.tacs_assembler = self.options['tacs_assembler']
-        self.struct_objects = self.options['struct_objects']
-        self.check_partials = self.options['check_partials']
-
-        #self.set_check_partial_options(wrt='*',directional=True)
-
-        tacs_assembler = self.tacs_assembler
-
-        # TACS part of setupk
-        self.tacs_assembler = tacs_assembler
-        ndv  = self.struct_objects[3]['ndv']
-
-        self.xpt_sens = tacs_assembler.createNodeVec()
-
-        # OpenMDAO part of setup
-        self.add_input('dv_struct', distributed=False, shape=ndv,          desc='tacs design variables', tags=['mphys_input'])
-        self.add_input('x_struct0', distributed=True, shape_by_conn=True, desc='structural node coordinates', tags=['mphys_coordinates'])
-
-        self.add_output('mass', val=0.0, distributed=False, desc = 'structural mass', tags=['mphys_result'])
-        #self.declare_partials('mass',['dv_struct','x_struct0'])
-
-    def _update_internal(self,inputs):
-        self.tacs_assembler.setDesignVars(np.array(inputs['dv_struct'],dtype=TACS.dtype))
-
-        xpts = self.tacs_assembler.createNodeVec()
-        self.tacs_assembler.getNodes(xpts)
-        xpts_array = xpts.getArray()
-        xpts_array[:] = inputs['x_struct0']
-        self.tacs_assembler.setNodes(xpts)
-
-    def compute(self,inputs,outputs):
-        if self.check_partials:
-            self._update_internal(inputs)
-
-        if 'mass' in outputs:
-            func = functions.StructuralMass(self.tacs_assembler)
-            outputs['mass'] = self.tacs_assembler.evalFunctions([func])
-
-    def compute_jacvec_product(self,inputs, d_inputs, d_outputs, mode):
-        if mode == 'fwd':
-            if not self.check_partials:
-                raise ValueError('TACS forward mode requested but not implemented')
-        if mode == 'rev':
-            self._update_internal(inputs)
-            if 'mass' in d_outputs:
-                func = functions.StructuralMass(self.tacs_assembler)
-                if 'dv_struct' in d_inputs:
-                    dvsens = np.zeros(d_inputs['dv_struct'].size,dtype=TACS.dtype)
-                    self.tacs_assembler.evalDVSens(func, dvsens)
-
-                    d_inputs['dv_struct'] += np.array(dvsens,dtype=float) * d_outputs['mass']
-
-                if 'x_struct0' in d_inputs:
-                    xpt_sens = self.xpt_sens
-                    xpt_sens_array = xpt_sens.getArray()
-                    self.tacs_assembler.evalXptSens(func, xpt_sens)
-                    d_inputs['x_struct0'] += np.array(xpt_sens_array,dtype=float) * d_outputs['mass']
-
-
-class PrescribedLoad(om.ExplicitComponent):
-    """
-    Prescribe a load to tacs
-    """
-    def initialize(self):
-        self.options.declare('load_function', default = None, desc='function that prescribes the loads', recordable=False)
-        self.options.declare('tacs_assembler', recordable=False)
-
-        self.ndof = 0
-
-    def setup(self):
-#        self.set_check_partial_options(wrt='*',directional=True)
-
-        # TACS assembler setup
-        tacs_assembler = self.options['tacs_assembler']
-
-        # create some TACS vectors so we can see what size they are
-        # TODO getting the node sizes should be easier than this...
-        xpts  = tacs_assembler.createNodeVec()
-        node_size = xpts.getArray().size
-
-        tmp   = tacs_assembler.createVec()
-        state_size = tmp.getArray().size
-        self.ndof = int(state_size / ( node_size / 3 ))
-
-        # OpenMDAO setup
-        self.add_input('x_struct0', distributed=True, shape_by_conn=True, desc='structural node coordinates', tags=['mphys_coordinates'])
-        self.add_output('f_struct', distributed=True, shape=state_size,   desc='structural load', tags=['mphys_coupling'])
-
-        #self.declare_partials('f_struct','x_struct0')
-
-    def compute(self,inputs,outputs):
-        load_function = self.options['load_function']
-        outputs['f_struct'] = load_function(inputs['x_struct0'],self.ndof)
 
 class TacsGroup(om.Group):
     def initialize(self):
-        self.options.declare('tacs_assembler', recordable=False)
-        self.options.declare('solver_objects', recordable=False)
+        self.options.declare('fea_solver', recordable=False)
         self.options.declare('check_partials')
         self.options.declare('conduction', default=False)
 
-
     def setup(self):
-        self.tacs_assembler = self.options['tacs_assembler']
-        self.struct_objects = self.options['solver_objects']
+        self.fea_solver = self.options['fea_solver']
         self.check_partials = self.options['check_partials']
 
-        # check if we have a loading function
-        solver_dict = self.struct_objects[3]
-
-        if 'load_function' in solver_dict:
-            self.prescribed_load = True
-            self.add_subsystem('loads', PrescribedLoad(
-                load_function=solver_dict['load_function'],
-                tacs_assembler=self.tacs_assembler
-            ), promotes_inputs=['x_struct0'], promotes_outputs=['f_struct'])
-
+        # Promote state variables/rhs with physics-specific tag that MPhys expects
         if self.options['conduction']:
-            self.add_subsystem('solver', TacsSolverConduction(
-                tacs_assembler=self.tacs_assembler,
-                struct_objects=self.struct_objects,
-                check_partials=self.check_partials),
-                promotes_inputs=['q_conduct', 'x_struct0'],
-                promotes_outputs=['T_conduct']
-            )
+            promotes_inputs = ['x_struct0', 'dv_struct']  # [('rhs', 'q_conduct'), 'x_struct0', 'dv_struct']
+            promotes_outputs = [('states', 'T_conduct')]
         else:
-            self.add_subsystem('solver', TacsSolver(
-                tacs_assembler=self.tacs_assembler,
-                struct_objects=self.struct_objects,
-                check_partials=self.check_partials),
-                promotes_inputs=['f_struct', 'x_struct0', 'dv_struct'],
-                promotes_outputs=['u_struct']
-            )
+            promotes_inputs = ['x_struct0', 'dv_struct']  # [('rhs', 'f_struct'), 'x_struct0', 'dv_struct']
+            promotes_outputs = [('states', 'u_struct')]
+
+        self.add_subsystem('solver', TacsSolver(
+            fea_solver=self.fea_solver,
+            check_partials=self.check_partials),
+                           promotes_inputs=promotes_inputs,
+                           promotes_outputs=promotes_outputs)
+
+        # Default structural problem
+        sp = self.fea_solver.createStaticProblem(name='wing')
+        self.mphys_set_sp(sp)
+
+    def mphys_set_sp(self, sp):
+        """
+        Allows user to attach custom structural problem. The problem can include
+        fixed structural loads that may have been added to the problem by the user.
+        """
+        # set the struct problem
+        self.sp = sp
+        self.solver.set_sp(sp)
 
 
 class TACSFuncsGroup(om.Group):
     def initialize(self):
-        self.options.declare('tacs_assembler', recordable=False)
-        self.options.declare('solver_objects', recordable=False)
+        self.options.declare('fea_solver', recordable=False)
         self.options.declare('check_partials')
+        self.options.declare('conduction', default=False)
 
     def setup(self):
-        self.tacs_assembler = self.options['tacs_assembler']
-        self.struct_objects = self.options['solver_objects']
+        self.fea_solver = self.options['fea_solver']
         self.check_partials = self.options['check_partials']
 
-        self.add_subsystem('funcs', TacsFunctions(
-            tacs_assembler=self.tacs_assembler,
-            struct_objects=self.struct_objects,
-            check_partials=self.check_partials),
-            promotes_inputs=['x_struct0', 'u_struct','dv_struct'],
-            promotes_outputs=['func_struct']
-        )
+        # Promote state variables/rhs with physics-specific tag that MPhys expects
+        if self.options['conduction']:
+            promotes_inputs = [('states', 'T_conduct'), 'x_struct0', 'dv_struct']
+        else:
+            promotes_inputs = [('states', 'u_struct'), 'x_struct0', 'dv_struct']
 
-        self.add_subsystem('mass', TacsMass(
-            tacs_assembler=self.tacs_assembler,
-            struct_objects=self.struct_objects,
+        self.add_subsystem('funcs', TacsFunctions(
+            fea_solver=self.fea_solver,
             check_partials=self.check_partials),
-            promotes_inputs=['x_struct0', 'dv_struct'],
-            promotes_outputs=['mass'],
-        )
+                           promotes_inputs=promotes_inputs,
+                           promotes_outputs=['*']
+                           )
+
+        # Default structural problem
+        sp = self.fea_solver.createStaticProblem(name='wing')
+        self.mphys_set_sp(sp)
+
+    def mphys_set_sp(self, sp):
+        # this is the external function to set the sp to this component
+        self.sp = sp
+        self.funcs.mphys_set_sp(sp)
+
 
 class TacsBuilder(Builder):
 
@@ -749,72 +311,45 @@ class TacsBuilder(Builder):
         self.conduction = conduction
 
     def initialize(self, comm):
-        solver_dict={}
+        bdf_file = self.options.pop('mesh_file')
 
-        mesh = TACS.MeshLoader(comm)
-        mesh.scanBDFFile(self.options['mesh_file'])
-
-        ndof, ndv = self.options['add_elements'](mesh)
-
-        tacs_assembler = mesh.createTACS(ndof)
-
-        number_of_nodes = tacs_assembler.createNodeVec().getArray().size // 3
-
-        if self.conduction:
-            mat = tacs_assembler.createSchurMat()
+        if 'element_callback' in self.options:
+            element_callback = self.options.pop('element_callback')
         else:
-            mat = tacs_assembler.createFEMat()
+            element_callback = None
 
-        pc = TACS.Pc(mat)
+        self.fea_solver = pyTACS(bdf_file, options=self.options, comm=comm)
 
-        subspace = 100
-        restarts = 2
-        gmres = TACS.KSM(mat, pc, subspace, restarts)
-
-        solver_dict['ndv']    = ndv
-        solver_dict['ndof']   = ndof
-        solver_dict['number_of_nodes'] = number_of_nodes
-        solver_dict['get_funcs'] = self.options['get_funcs']
-
-        #use the supplied function to get the surface points and mapping
-        if self.conduction:
-            solver_dict['surface_nodes'], solver_dict['mapping'] = self.options['get_surface'](tacs_assembler)
-
-        if 'f5_writer' in self.options.keys():
-            solver_dict['f5_writer'] = self.options['f5_writer']
-
-        # check if the user provided a load function
-        if 'load_function' in self.options.keys():
-            solver_dict['load_function'] = self.options['load_function']
-
-        self.solver_dict=solver_dict
-        self.tacs_assembler = tacs_assembler
-        self.solver_objects = [mat, pc, gmres, solver_dict]
+        # Set up elements and TACS assembler
+        self.fea_solver.createTACSAssembler(element_callback)
 
     def get_coupling_group_subsystem(self):
-        return TacsGroup(tacs_assembler=self.tacs_assembler,
-                         solver_objects=self.solver_objects,
+        return TacsGroup(fea_solver=self.fea_solver,
                          check_partials=self.check_partials)
 
     def get_mesh_coordinate_subsystem(self):
-        return TacsMesh(tacs_assembler=self.tacs_assembler)
+        return TacsMesh(fea_solver=self.fea_solver)
 
     def get_post_coupling_subsystem(self):
         return TACSFuncsGroup(
-            tacs_assembler=self.tacs_assembler,
-            solver_objects=self.solver_objects,
-            check_partials=self.check_partials
+            fea_solver=self.fea_solver,
+            check_partials=self.check_partials,
+            conduction=self.conduction
         )
 
     def get_ndof(self):
-        return self.solver_dict['ndof']
+        return self.fea_solver.getVarsPerNode()
 
     def get_number_of_nodes(self):
-        return self.solver_dict['number_of_nodes']
+        return self.fea_solver.getNumOwnedNodes()
 
     def get_ndv(self):
-        return self.solver_dict['ndv']
+        return self.fea_solver.getTotalNumDesignVars()
 
     def get_solver(self):
         # this method is only used by the RLT transfer scheme
-        return self.tacs_assembler
+        return self.fea_solver.assembler
+
+    def get_fea_solver(self):
+        # this method is only used by the RLT transfer scheme
+        return self.fea_solver

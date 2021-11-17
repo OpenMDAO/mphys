@@ -9,49 +9,36 @@ from mphys.scenario_structural import ScenarioStructural
 
 from tacs import elements, constitutive, functions
 
-
-def add_elements(mesh):
-    rho = 2780.0            # density, kg/m^3
-    E = 73.1e9              # elastic modulus, Pa
-    nu = 0.33               # poisson's ratio
-    kcorr = 5.0 / 6.0       # shear correction factor
-    ys = 324.0e6            # yield stress, Pa
+# Callback function used to setup TACS element objects and DVs
+def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
+    rho = 2780.0  # density, kg/m^3
+    E = 73.1e9  # elastic modulus, Pa
+    nu = 0.33  # poisson's ratio
+    ys = 324.0e6  # yield stress, Pa
     thickness = 0.003
     min_thickness = 0.002
     max_thickness = 0.05
 
-    num_components = mesh.getNumComponents()
-    for i in range(num_components):
-        descript = mesh.getElementDescript(i)
-        stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
-                                     min_thickness, max_thickness)
-        element = None
-        if descript in ["CQUAD", "CQUADR", "CQUAD4"]:
-            element = elements.MITCShell(2, stiff, component_num=i)
-        mesh.setElement(i, element)
-    ndof = 6
-    ndv = num_components
+    # Setup (isotropic) property and constitutive objects
+    prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
+    # Set one thickness dv for every component
+    con = constitutive.IsoShellConstitutive(prop, t=thickness, tNum=dvNum, tlb=min_thickness, tub=max_thickness)
 
-    return ndof, ndv
+    # For each element type in this component,
+    # pass back the appropriate tacs element object
+    elemList = []
+    transform = None
+    elem = elements.Quad4Shell(transform, con)
 
-
-def get_funcs(tacs):
-    ks_weight = 50.0
-    return [functions.KSFailure(tacs, ks_weight), functions.StructuralMass(tacs)]
-
-
-def forcer(x_s0, ndof):
-    return np.random.rand(int(x_s0.size/3*ndof))
+    return elem
 
 
 class Top(Multipoint):
 
     def setup(self):
 
-        tacs_options = {'add_elements': add_elements,
-                        'get_funcs': get_funcs,
-                        'mesh_file': '../input_files/debug.bdf',
-                        'load_function': forcer}
+        tacs_options = {'element_callback' : element_callback,
+                        'mesh_file': '../input_files/debug.bdf'}
 
         tacs_builder = TacsBuilder(tacs_options, check_partials=True)
         tacs_builder.initialize(self.comm)
@@ -64,6 +51,33 @@ class Top(Multipoint):
         self.mphys_add_scenario('analysis', ScenarioStructural(struct_builder=tacs_builder))
         self.connect('mesh.x_struct0', 'analysis.x_struct0')
         self.connect('dv_struct', 'analysis.dv_struct')
+
+    def configure(self):
+        # create the aero problems for both analysis point.
+        # this is custom to the ADflow based approach we chose here.
+        # any solver can have their own custom approach here, and we don't
+        # need to use a common API. AND, if we wanted to define a common API,
+        # it can easily be defined on the mp group, or the aero group.
+        fea_solver = self.analysis.coupling.fea_solver
+
+        # ==============================================================================
+        # Setup structural problem
+        # ==============================================================================
+        # Structural problem
+        sp = fea_solver.createStaticProblem(name='test')
+        # Add TACS Functions
+        sp.addFunction('mass', functions.StructuralMass)
+        sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0)
+
+        f = sp.F.getArray()
+        f[:] = np.random.rand(len(f))
+
+        # here we set the aero problems for every cruise case we have.
+        # this can also be called set_flow_conditions, we don't need to create and pass an AP,
+        # just flow conditions is probably a better general API
+        # this call automatically adds the DVs for the respective scenario
+        self.analysis.coupling.mphys_set_sp(sp)
+        self.analysis.struct_post.mphys_set_sp(sp)
 
 
 prob = om.Problem()
