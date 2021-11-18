@@ -33,9 +33,26 @@ class DAFoamBuilder(Builder):
         else:
             self.mesh_options = mesh_options
 
-        # check scenario
-        if scenario != "aerodynamic":
-            raise AnalysisError("scenario not valid! Option: aerodynamic")
+        # flag to determine if the mesh warping component is added
+        # in the nonlinear solver loop (e.g. for aerostructural)
+        # or as a preprocessing step like the surface mesh coordinates
+        # (e.g. for aeropropulsive). This will avoid doing extra work
+        # for mesh deformation when the volume mesh does not change
+        # during nonlinear iterations
+        self.warp_in_solver = False
+        # flag for aerostructural coupling variables
+        self.struct_coupling = False
+
+        # depending on the scenario we are building for, we adjust a few internal parameters:
+        if scenario.lower() == "aerodynamic":
+            # default
+            pass
+        elif scenario.lower() == "aerostructural":
+            # volume mesh warping needs to be inside the coupling loop for aerostructural
+            self.warp_in_solver = True
+            self.struct_coupling = True
+        else:
+            raise AnalysisError("scenario %s not valid! Options: aerodynamic, aerostructural" % scenario)
 
     # api level method for all builders
     def initialize(self, comm):
@@ -56,7 +73,9 @@ class DAFoamBuilder(Builder):
 
     # api level method for all builders
     def get_coupling_group_subsystem(self):
-        dafoam_group = DAFoamGroup(solver=self.DASolver)
+        dafoam_group = DAFoamGroup(
+            solver=self.DASolver, use_warper=self.warp_in_solver, struct_coupling=self.struct_coupling
+        )
         return dafoam_group
 
     def get_mesh_coordinate_subsystem(self):
@@ -66,7 +85,12 @@ class DAFoamBuilder(Builder):
 
     def get_pre_coupling_subsystem(self):
         # we warp as a pre-processing step
-        return DAFoamWarper(solver=self.DASolver)
+        if self.warp_in_solver:
+            # if we warp in the solver, then we wont have any pre-coupling systems
+            return None
+        else:
+            # we warp as a pre-processing step
+            return DAFoamWarper(solver=self.DASolver)
 
     def get_post_coupling_subsystem(self):
         return DAFoamFunctions(solver=self.DASolver)
@@ -86,10 +110,25 @@ class DAFoamGroup(Group):
 
     def initialize(self):
         self.options.declare("solver", recordable=False)
+        self.options.declare("struct_coupling", default=False)
+        self.options.declare("use_warper", default=True)
 
     def setup(self):
 
         self.DASolver = self.options["solver"]
+        self.struct_coupling = self.options["struct_coupling"]
+        self.use_warper = self.options["use_warper"]
+
+        if self.use_warper:
+            # if we dont have geo_disp, we also need to promote the x_a as x_a0 from the deformer component
+            self.add_subsystem(
+                "deformer",
+                DAFoamWarper(
+                    solver=self.DASolver,
+                ),
+                promotes_inputs=["x_aero"],
+                promotes_outputs=["dafoam_vol_coords"],
+            )
 
         # add the solver implicit component
         self.add_subsystem(
@@ -98,6 +137,14 @@ class DAFoamGroup(Group):
             promotes_inputs=["dafoam_vol_coords", "aoa"],
             promotes_outputs=["dafoam_states"],
         )
+
+        if self.struct_coupling:
+            self.add_subsystem(
+                "force",
+                DAFoamForces(solver=self.DASolver),
+                promotes_inputs=["dafoam_vol_coords", "dafoam_states"],
+                promotes_outputs=["f_aero"],
+            )
 
     # connect the input and output for the solver, called from runScript.py
     def mphys_set_dvs_and_cons(self):
@@ -130,8 +177,9 @@ class DAFoamSolver(ImplicitComponent):
         # the default name for angle of attack design variable
         self.alphaName = "alpha"
 
-        # always run coloring
-        self.DASolver.runColoring()
+        # run coloring
+        if self.DASolver.getOption("adjUseColoring"):
+            self.DASolver.runColoring()
 
         # determine which function to compute the adjoint
         self.evalFuncs = []
@@ -156,9 +204,9 @@ class DAFoamSolver(ImplicitComponent):
         DASolver = self.DASolver
         if self.comm.rank == 0:
             print("\n")
-            print("+--------------------------------------------------------------------------+")
-            print("|                  Evaluating Objective Functions %03d                      |" % DASolver.nSolvePrimals)
-            print("+--------------------------------------------------------------------------+")
+            print("+------------------------------------------------------+")
+            print("|          Evaluating Objective Functions %03d          |" % DASolver.nSolvePrimals)
+            print("+------------------------------------------------------+")
 
         # set the runStatus, this is useful when the actuator term is activated
         DASolver.setOption("runStatus", "solvePrimal")
@@ -190,9 +238,9 @@ class DAFoamSolver(ImplicitComponent):
 
         if self.comm.rank == 0:
             print("\n")
-            print("+--------------------------------------------------------------------------+")
-            print("|              Evaluating Objective Function Sensitivities %03d             |" % DASolver.nSolveAdjoints)
-            print("+--------------------------------------------------------------------------+")
+            print("+------------------------------------------------------+")
+            print("|    Evaluating Objective Function Sensitivities %03d   |" % DASolver.nSolveAdjoints)
+            print("+------------------------------------------------------+")
 
         # move the solution folder to 0.000000x
         DASolver.renameSolution(DASolver.nSolveAdjoints)
@@ -272,10 +320,6 @@ class DAFoamSolver(ImplicitComponent):
 
         DASolver = self.DASolver
 
-        # we only support JacobianFree because we need to use AD
-        if DASolver.getOption("adjJacobianOption") != "JacobianFree":
-            raise AnalysisError("adjJacobianOption not valid! Only support JacobianFree!")
-
         # initialize the dRdWT matrix-free matrix in DASolver
         DASolver.solverAD.initializedRdWTMatrixFree(DASolver.xvVec, DASolver.wVec)
 
@@ -302,6 +346,30 @@ class DAFoamSolver(ImplicitComponent):
         d_residuals["dafoam_states"] = DASolver.vec2Array(psi)
 
         return True, 0, 0
+
+
+class DAFoamMeshGroup(Group):
+    def initialize(self):
+        self.options.declare("solver", recordable=False)
+
+    def setup(self):
+        DASolver = self.options["solver"]
+
+        self.add_subsystem("surface_mesh", DAFoamMesh(solver=DASolver), promotes=["*"])
+        self.add_subsystem(
+            "volume_mesh",
+            DAFoamWarper(solver=DASolver),
+            promotes_inputs=[("x_aero", "x_aero0")],
+            promotes_outputs=["dafoam_vol_coords"],
+        )
+
+    def mphys_add_coordinate_input(self):
+        # just pass through the call
+        return self.surface_mesh.mphys_add_coordinate_input()
+
+    def mphys_get_triangulated_surface(self):
+        # just pass through the call
+        return self.surface_mesh.mphys_get_triangulated_surface()
 
 
 class DAFoamMesh(ExplicitComponent):
@@ -519,7 +587,11 @@ class DAFoamWarper(ExplicitComponent):
 
         x_a = inputs["x_aero"].reshape((-1, 3))
         DASolver.setSurfaceCoordinates(x_a)
-        outputs["dafoam_vol_coords"] = DASolver.mesh.getSolverGrid()
+        DASolver.mesh.warpMesh()
+        solverGrid = DASolver.mesh.getSolverGrid()
+        # actually change the mesh in the C++ layer by setting xvVec
+        DASolver.xvFlatten2XvVec(solverGrid, DASolver.xvVec)
+        outputs["dafoam_vol_coords"] = solverGrid
 
     # compute the mesh warping products in IDWarp
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
@@ -537,3 +609,61 @@ class DAFoamWarper(ExplicitComponent):
                 dxS = self.DASolver.mesh.getdXs()
                 dxS = self.DASolver.mapVector(dxS, self.DASolver.meshFamilyGroup, self.DASolver.designFamilyGroup)
                 d_inputs["x_aero"] += dxS.flatten()
+
+
+class DAFoamForces(ExplicitComponent):
+    """
+    OpenMDAO component that wraps force integration
+
+    """
+
+    def initialize(self):
+        self.options.declare("solver", recordable=False)
+
+    def setup(self):
+
+        self.DASolver = self.options["solver"]
+
+        self.nProcs = self.comm.size
+
+        self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
+        self.add_input("dafoam_states", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
+
+        local_surface_coord_size = self.DASolver.mesh.getSurfaceCoordinates().size
+        self.add_output("f_aero", distributed=True, shape=local_surface_coord_size, tags=["mphys_coupling"])
+
+    def compute(self, inputs, outputs):
+
+        # Set the warped mesh
+        # solver.mesh.setSolverGrid(inputs['adflow_vol_coords'])
+        # ^ This call does not exist. Assume the mesh hasn't changed since the last call to the warping comp for now
+        # TODO we must fix this. we need to put in the modified volume coordinates
+        self.DASolver.setStates(inputs["dafoam_states"])
+
+        outputs["f_aero"] = self.DASolver.getForces().flatten(order="C")
+
+    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
+
+        DASolver = self.DASolver
+
+        if mode == "fwd":
+            raise AnalysisError("fwd not implemented!")
+
+        if "f_aero" in d_outputs:
+            fBar = d_outputs["f_aero"]
+            fBarVec = DASolver.array2Vec(fBar)
+
+            if "dafoam_vol_coords" in d_inputs:
+                dForcedXv = DASolver.xvVec.duplicate()
+                dForcedXv.zeroEntries()
+                # NOTE: this function is not implemented yet!
+                DASolver.solverAD.calcdForcedXvAD(DASolver.xvVec, DASolver.wVec, fBarVec, dForcedXv)
+                xVBar = DASolver.vec2Array(dForcedXv) / self.nProcs
+                d_inputs["dafoam_vol_coords"] += xVBar
+            if "dafoam_states" in d_inputs:
+                dForcedW = DASolver.wVec.duplicate()
+                dForcedW.zeroEntries()
+                # NOTE: this function is not implemented yet!
+                DASolver.solverAD.calcdForcedWAD(DASolver.xvVec, DASolver.wVec, fBarVec, dForcedW)
+                wBar = DASolver.vec2Array(dForcedW) / self.nProcs
+                d_inputs["dafoam_states"] += wBar
