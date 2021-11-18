@@ -26,7 +26,6 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
 
     # For each element type in this component,
     # pass back the appropriate tacs element object
-    elemList = []
     transform = None
     elem = elements.Quad4Shell(transform, con)
 
@@ -43,6 +42,7 @@ class Top(Multipoint):
         tacs_builder = TacsBuilder(tacs_options, check_partials=True)
         tacs_builder.initialize(self.comm)
         ndv_struct = tacs_builder.get_ndv()
+        dv_src_indices = tacs_builder.get_dv_src_indices()
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         dvs.add_output('dv_struct', np.array(ndv_struct*[0.01]))
@@ -50,7 +50,7 @@ class Top(Multipoint):
         self.add_subsystem('mesh', tacs_builder.get_mesh_coordinate_subsystem())
         self.mphys_add_scenario('analysis', ScenarioStructural(struct_builder=tacs_builder))
         self.connect('mesh.x_struct0', 'analysis.x_struct0')
-        self.connect('dv_struct', 'analysis.dv_struct')
+        self.connect('dv_struct', 'analysis.dv_struct', src_indices=dv_src_indices)
 
     def configure(self):
         # create the aero problems for both analysis point.

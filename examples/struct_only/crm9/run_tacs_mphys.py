@@ -20,8 +20,8 @@ class Top(Multipoint):
 
         struct_builder = TacsBuilder(tacs_options, check_partials=True)
         struct_builder.initialize(self.comm)
-        fea_solver = struct_builder.get_fea_solver()
-        dv_array = fea_solver.getOrigDesignVars()
+        dv_array = struct_builder.get_initial_dvs()
+        dv_src_indices = struct_builder.get_dv_src_indices()
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         dvs.add_output('dv_struct', dv_array)
@@ -30,7 +30,7 @@ class Top(Multipoint):
         self.mphys_add_scenario('analysis', ScenarioStructural(struct_builder=struct_builder))
         self.mphys_connect_scenario_coordinate_source('mesh', 'analysis', 'struct')
 
-        self.connect('dv_struct', 'analysis.dv_struct')
+        self.connect('dv_struct', 'analysis.dv_struct', src_indices=dv_src_indices)
 
     def configure(self):
         # create the aero problems for both analysis point.
@@ -91,8 +91,12 @@ model.add_design_var('dv_struct', lower=0.002, upper=0.2, scaler=1000.0)
 model.add_objective('analysis.struct_post.mass', index=0, scaler=1.0 / 1000.0)
 model.add_constraint('analysis.struct_post.ks_vmfailure', lower=0.0, upper=1.0, scaler=1.0)
 
-prob.driver = om.ScipyOptimizeDriver(debug_print=['objs', 'nl_cons'], maxiter=100)
-prob.driver.options['optimizer'] = 'SLSQP'
+#prob.driver = om.ScipyOptimizeDriver(debug_print=['objs', 'nl_cons'], maxiter=100)
+#prob.driver.options['optimizer'] = 'SLSQP'
+
+prob.driver = om.pyOptSparseDriver()
+prob.driver.options['optimizer'] = "SNOPT"
+prob.driver.opt_settings['Major iterations limit'] = 100
 
 prob.setup()
 om.n2(prob, show_browser=False, outfile='tacs_struct.html')
