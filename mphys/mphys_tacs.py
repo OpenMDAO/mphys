@@ -144,7 +144,7 @@ class TacsSolver(om.ImplicitComponent):
 
                 if 'rhs' in d_inputs:
                     array_w_bcs = d_residuals['states'].copy()
-                    self.sp.applyBCsToVec(array_w_bcs)
+                    self.fea_solver.applyBCsToVec(array_w_bcs)
                     d_inputs['rhs'] -= array_w_bcs
 
                 if 'x_struct0' in d_inputs:
