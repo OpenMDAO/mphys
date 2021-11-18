@@ -31,6 +31,7 @@ class TacsSolver(om.ImplicitComponent):
     def initialize(self):
         self.options.declare('fea_solver', recordable=False)
         self.options.declare('check_partials')
+        self.options.declare('coupled', default=False)
 
         self.fea_solver = None
 
@@ -42,8 +43,8 @@ class TacsSolver(om.ImplicitComponent):
 
     def setup(self):
         self.check_partials = self.options['check_partials']
-
         self.fea_solver = self.options['fea_solver']
+        self.coupled = self.options['coupled']
 
         # OpenMDAO setup
         local_ndvs = self.fea_solver.getNumDesignVars()
@@ -55,10 +56,9 @@ class TacsSolver(om.ImplicitComponent):
                        desc='tacs design variables', tags=['mphys_input'])
         self.add_input('x_struct0', distributed=True, shape_by_conn=True,
                        desc='structural node coordinates', tags=['mphys_coordinates'])
-        '''
-        self.add_input('rhs',  distributed=True, shape=state_size, val = 0.0,
-                       desc='structural load vector', tags=['mphys_coupling'])
-        '''
+        if self.coupled:
+            self.add_input('rhs',  distributed=True, shape=state_size, val=0.0,
+                           desc='coupling load vector', tags=['mphys_coupling'])
 
         # outputs
         # its important that we set this to zero since this displacement value is used for the first iteration of the aero
@@ -99,12 +99,23 @@ class TacsSolver(om.ImplicitComponent):
 
     def apply_nonlinear(self, inputs, outputs, residuals):
         self._update_internal(inputs, outputs)
-        self.sp.getResidual(res=residuals['states'])  # ,
-        # Fext=inputs['rhs'])
+
+        if self.coupled:
+            Fext = inputs['rhs']
+        else:
+            Fext = None
+
+        self.sp.getResidual(res=residuals['states'], Fext=Fext)
 
     def solve_nonlinear(self, inputs, outputs):
         self._update_internal(inputs)
-        self.sp.solve()  # Fext=inputs['rhs'])
+
+        if self.coupled:
+            Fext = inputs['rhs']
+        else:
+            Fext = None
+
+        self.sp.solve(Fext=Fext)
         self.sp.getVariables(states=outputs['states'])
         self.sp.writeSolution()
 
@@ -132,7 +143,9 @@ class TacsSolver(om.ImplicitComponent):
                                                       d_outputs['states'])
 
                 if 'rhs' in d_inputs:
-                    d_inputs['rhs'] -= d_residuals['states']
+                    array_w_bcs = d_residuals['states'].copy()
+                    self.sp.applyBCsToVec(array_w_bcs)
+                    d_inputs['rhs'] -= array_w_bcs
 
                 if 'x_struct0' in d_inputs:
                     self.sp.addAdjointResXptSensProducts([d_residuals['states']], [d_inputs['x_struct0']], scale=1.0)
@@ -237,22 +250,28 @@ class TacsGroup(om.Group):
         self.options.declare('fea_solver', recordable=False)
         self.options.declare('check_partials')
         self.options.declare('conduction', default=False)
+        self.options.declare('coupled', default=False)
 
     def setup(self):
         self.fea_solver = self.options['fea_solver']
         self.check_partials = self.options['check_partials']
+        self.coupled = self.options['coupled']
 
         # Promote state variables/rhs with physics-specific tag that MPhys expects
         if self.options['conduction']:
-            promotes_inputs = ['x_struct0', 'dv_struct']  # [('rhs', 'q_conduct'), 'x_struct0', 'dv_struct']
+            promotes_inputs = ['x_struct0', 'dv_struct']
             promotes_outputs = [('states', 'T_conduct')]
+            if self.coupled:
+                promotes_inputs.append(('rhs', 'q_conduct'))
         else:
-            promotes_inputs = ['x_struct0', 'dv_struct']  # [('rhs', 'f_struct'), 'x_struct0', 'dv_struct']
+            promotes_inputs = ['x_struct0', 'dv_struct']
             promotes_outputs = [('states', 'u_struct')]
+            if self.coupled:
+                promotes_inputs.append(('rhs', 'f_struct'))
 
-        self.add_subsystem('solver', TacsSolver(
-            fea_solver=self.fea_solver,
-            check_partials=self.check_partials),
+        self.add_subsystem('solver',
+                           TacsSolver(fea_solver=self.fea_solver, check_partials=self.check_partials,
+                                      coupled=self.coupled),
                            promotes_inputs=promotes_inputs,
                            promotes_outputs=promotes_outputs)
 
@@ -280,7 +299,7 @@ class TACSFuncsGroup(om.Group):
         self.fea_solver = self.options['fea_solver']
         self.check_partials = self.options['check_partials']
 
-        # Promote state variables/rhs with physics-specific tag that MPhys expects
+        # Promote state variables with physics-specific tag that MPhys expects
         if self.options['conduction']:
             promotes_inputs = [('states', 'T_conduct'), 'x_struct0', 'dv_struct']
         else:
@@ -305,10 +324,12 @@ class TACSFuncsGroup(om.Group):
 
 class TacsBuilder(Builder):
 
-    def __init__(self, options, check_partials=False, conduction=False):
+    def __init__(self, options, check_partials=False, conduction=False, coupled=False):
         self.options = options
         self.check_partials = check_partials
         self.conduction = conduction
+        # Flag to turn on coupling variables
+        self.coupled = coupled
 
     def initialize(self, comm):
         bdf_file = self.options.pop('mesh_file')
@@ -326,7 +347,8 @@ class TacsBuilder(Builder):
 
     def get_coupling_group_subsystem(self):
         return TacsGroup(fea_solver=self.fea_solver,
-                         check_partials=self.check_partials)
+                         check_partials=self.check_partials,
+                         coupled=self.coupled)
 
     def get_mesh_coordinate_subsystem(self):
         return TacsMesh(fea_solver=self.fea_solver)

@@ -39,7 +39,7 @@ class Top(Multipoint):
         tacs_options = {'element_callback' : element_callback,
                         'mesh_file': '../input_files/debug.bdf'}
 
-        tacs_builder = TacsBuilder(tacs_options, check_partials=True)
+        tacs_builder = TacsBuilder(tacs_options, check_partials=True, coupled=False)
         tacs_builder.initialize(self.comm)
         ndv_struct = tacs_builder.get_ndv()
         dv_src_indices = tacs_builder.get_dv_src_indices()
@@ -53,11 +53,6 @@ class Top(Multipoint):
         self.connect('dv_struct', 'analysis.dv_struct', src_indices=dv_src_indices)
 
     def configure(self):
-        # create the aero problems for both analysis point.
-        # this is custom to the ADflow based approach we chose here.
-        # any solver can have their own custom approach here, and we don't
-        # need to use a common API. AND, if we wanted to define a common API,
-        # it can easily be defined on the mp group, or the aero group.
         fea_solver = self.analysis.coupling.fea_solver
 
         # ==============================================================================
@@ -72,10 +67,6 @@ class Top(Multipoint):
         f = sp.F.getArray()
         f[:] = np.random.rand(len(f))
 
-        # here we set the aero problems for every cruise case we have.
-        # this can also be called set_flow_conditions, we don't need to create and pass an AP,
-        # just flow conditions is probably a better general API
-        # this call automatically adds the DVs for the respective scenario
         self.analysis.coupling.mphys_set_sp(sp)
         self.analysis.struct_post.mphys_set_sp(sp)
 
