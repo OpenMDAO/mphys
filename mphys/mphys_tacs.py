@@ -86,6 +86,7 @@ class TacsSolver(om.ImplicitComponent):
                 self.old_xs = inputs['x_struct0'].copy()
                 update = True
         tmp = [update]
+        # Perform all reduce to check if any other procs came back True
         update = self.comm.allreduce(tmp)[0]
         return update
 
