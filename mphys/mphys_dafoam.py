@@ -624,8 +624,6 @@ class DAFoamForces(ExplicitComponent):
 
         self.DASolver = self.options["solver"]
 
-        self.nProcs = self.comm.size
-
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
         self.add_input("dafoam_states", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
 
@@ -656,14 +654,12 @@ class DAFoamForces(ExplicitComponent):
             if "dafoam_vol_coords" in d_inputs:
                 dForcedXv = DASolver.xvVec.duplicate()
                 dForcedXv.zeroEntries()
-                # NOTE: this function is not implemented yet!
                 DASolver.solverAD.calcdForcedXvAD(DASolver.xvVec, DASolver.wVec, fBarVec, dForcedXv)
-                xVBar = DASolver.vec2Array(dForcedXv) / self.nProcs
+                xVBar = DASolver.vec2Array(dForcedXv)
                 d_inputs["dafoam_vol_coords"] += xVBar
             if "dafoam_states" in d_inputs:
                 dForcedW = DASolver.wVec.duplicate()
                 dForcedW.zeroEntries()
-                # NOTE: this function is not implemented yet!
                 DASolver.solverAD.calcdForcedWAD(DASolver.xvVec, DASolver.wVec, fBarVec, dForcedW)
-                wBar = DASolver.vec2Array(dForcedW) / self.nProcs
+                wBar = DASolver.vec2Array(dForcedW)
                 d_inputs["dafoam_states"] += wBar
