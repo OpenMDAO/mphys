@@ -15,7 +15,7 @@ class TacsMesh(om.IndepVarComp):
 
     def setup(self):
         fea_solver = self.options['fea_solver']
-        xpts = fea_solver.getOrigCoordinates()
+        xpts = fea_solver.getOrigNodes()
         self.add_output('x_struct0', distributed=True, val=xpts, shape=xpts.size,
                         desc='structural node coordinates', tags=['mphys_coordinates'])
 
@@ -92,10 +92,10 @@ class TacsSolver(om.ImplicitComponent):
     def _update_internal(self, inputs, outputs=None):
         if self._need_update(inputs):
             self.sp.setDesignVars(inputs['dv_struct'])
-            self.sp.setCoordinates(inputs['x_struct0'])
+            self.sp.setNodes(inputs['x_struct0'])
         if outputs is not None:
             self.sp.setVariables(outputs['states'])
-        self.sp._setProblemVars()
+        self.sp._updateAssemblerVars()
 
     def apply_nonlinear(self, inputs, outputs, residuals):
         self._update_internal(inputs, outputs)
@@ -206,7 +206,7 @@ class TacsFunctions(om.ExplicitComponent):
 
     def _update_internal(self, inputs):
         self.sp.setDesignVars(inputs['dv_struct'])
-        self.sp.setCoordinates(inputs['x_struct0'])
+        self.sp.setNodes(inputs['x_struct0'])
         self.sp.setVariables(inputs['states'])
 
     def compute(self, inputs, outputs):
@@ -343,7 +343,7 @@ class TacsBuilder(Builder):
         self.comm = comm
 
         # Set up elements and TACS assembler
-        self.fea_solver.createTACSAssembler(element_callback)
+        self.fea_solver.initialize(element_callback)
 
     def get_coupling_group_subsystem(self):
         return TacsGroup(fea_solver=self.fea_solver,
