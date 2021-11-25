@@ -170,12 +170,23 @@ class DAFoamSolver(ImplicitComponent):
 
     def setup(self):
         self.DASolver = self.options["solver"]
+        DASolver = self.DASolver
 
         # Initialze AOA option
         self.aoa_func = None
 
         # the default name for angle of attack design variable
         self.alphaName = "alpha"
+
+        # initialize the dRdWT matrix-free matrix in DASolver
+        DASolver.solverAD.initializedRdWTMatrixFree(DASolver.xvVec, DASolver.wVec)
+
+        # create the Petsc KSP object
+        self.ksp = PETSc.KSP().create(self.comm)
+
+        # create the adjoint vector
+        self.psi = self.DASolver.wVec.duplicate()
+        self.psi.zeroEntries()
 
         # run coloring
         if self.DASolver.getOption("adjUseColoring"):
@@ -320,30 +331,22 @@ class DAFoamSolver(ImplicitComponent):
 
         DASolver = self.DASolver
 
-        # initialize the dRdWT matrix-free matrix in DASolver
-        DASolver.solverAD.initializedRdWTMatrixFree(DASolver.xvVec, DASolver.wVec)
-
         # compute the preconditioiner matrix for the adjoint linear equation solution
         # NOTE: we compute this only once and will reuse it during optimization
+        # similarly, we will create the ksp once and reuse
         if DASolver.dRdWTPC is None:
             DASolver.dRdWTPC = PETSc.Mat().create(self.comm)
             DASolver.solver.calcdRdWT(DASolver.xvVec, DASolver.wVec, 1, DASolver.dRdWTPC)
+            DASolver.solverAD.createMLRKSPMatrixFree(DASolver.dRdWTPC, self.ksp)
 
-        # create the Petsc KSP object
-        ksp = PETSc.KSP().create(self.comm)
-        DASolver.solverAD.createMLRKSPMatrixFree(DASolver.dRdWTPC, ksp)
-
-        # solution vector
-        psi = DASolver.wVec.duplicate()
-        psi.zeroEntries()
         # right hand side array from d_outputs
         dFdWArray = d_outputs["dafoam_states"]
         # convert the array to vector
         dFdW = DASolver.array2Vec(dFdWArray)
         # actually solving the adjoint linear equation using Petsc
-        DASolver.solverAD.solveLinearEqn(ksp, dFdW, psi)
+        DASolver.solverAD.solveLinearEqn(self.ksp, dFdW, self.psi)
         # convert the solution vector to array and assign it to d_residuals
-        d_residuals["dafoam_states"] = DASolver.vec2Array(psi)
+        d_residuals["dafoam_states"] = DASolver.vec2Array(self.psi)
 
         return True, 0, 0
 
