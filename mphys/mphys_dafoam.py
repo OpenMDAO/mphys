@@ -341,12 +341,39 @@ class DAFoamSolver(ImplicitComponent):
         dFdWArray = d_outputs["dafoam_states"]
         # convert the array to vector
         dFdW = DASolver.array2Vec(dFdWArray)
+        # update the KSP tolerances the coupled adjoint before solving
+        self._updateKSPTolerances(self.psi, dFdW, self.ksp)
         # actually solving the adjoint linear equation using Petsc
         DASolver.solverAD.solveLinearEqn(self.ksp, dFdW, self.psi)
         # convert the solution vector to array and assign it to d_residuals
         d_residuals["dafoam_states"] = DASolver.vec2Array(self.psi)
 
         return True, 0, 0
+
+    def _updateKSPTolerances(self, psi, dFdW, ksp):
+        # Here we need to manually update the KSP tolerances because the default
+        # relative tolerance will always want to converge the adjoint to a fixed
+        # tolerance during the LINGS adjoint solution. However, what we want is
+        # to converge just a few orders of magnitude. Here we need to bypass the
+        # rTol in Petsc and manually calculate the aTol.
+
+        DASolver = self.DASolver
+        # calculate the initial residual for the adjoint before solving
+        rVec = self.DASolver.wVec.duplicate()
+        rVec.zeroEntries()
+        DASolver.solverAD.calcdRdWTPsiAD(DASolver.xvVec, DASolver.wVec, psi, rVec)
+        rVec.axpy(-1.0, dFdW)
+        rNorm = rVec.norm()
+        # read the rTol and aTol from DAOption
+        rTol0 = self.DASolver.getOption("adjEqnOption")["gmresRelTol"]
+        aTol0 = self.DASolver.getOption("adjEqnOption")["gmresAbsTol"]
+        # calculate the new absolute tolerance that gives you rTol residual drop
+        aTolNew = rNorm * rTol0
+        # if aTolNew is smaller than aTol0, assign aTol0 to aTolNew
+        if aTolNew < aTol0:
+            aTolNew = aTol0
+        # assign the atolNew and distable rTol
+        ksp.setTolerances(rtol=0.0, atol=aTolNew, divtol=None, max_it=None)
 
 
 class DAFoamMeshGroup(Group):
