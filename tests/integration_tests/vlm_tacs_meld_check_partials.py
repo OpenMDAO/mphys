@@ -13,45 +13,27 @@ from tacs import elements, constitutive, functions, TACS
 
 use_modal = False
 
-
-def add_elements(mesh):
-    rho = 2780.0            # density, kg/m^3
-    E = 73.1e9              # elastic modulus, Pa
-    nu = 0.33               # poisson's ratio
-    kcorr = 5.0 / 6.0       # shear correction factor
-    ys = 324.0e6            # yield stress, Pa
+# Callback function used to setup TACS element objects and DVs
+def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
+    rho = 2780.0  # density, kg/m^3
+    E = 73.1e9  # elastic modulus, Pa
+    nu = 0.33  # poisson's ratio
+    ys = 324.0e6  # yield stress, Pa
     thickness = 0.003
     min_thickness = 0.002
     max_thickness = 0.05
 
-    num_components = mesh.getNumComponents()
-    for i in range(num_components):
-        descript = mesh.getElementDescript(i)
-        stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
-                                     min_thickness, max_thickness)
-        element = None
-        if descript in ['CQUAD', 'CQUADR', 'CQUAD4']:
-            element = elements.MITCShell(2, stiff, component_num=i)
-        mesh.setElement(i, element)
+    # Setup (isotropic) property and constitutive objects
+    prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
+    # Set one thickness dv for every component
+    con = constitutive.IsoShellConstitutive(prop, t=thickness, tNum=dvNum, tlb=min_thickness, tub=max_thickness)
 
-    ndof = 6
-    ndv = num_components
+    # For each element type in this component,
+    # pass back the appropriate tacs element object
+    transform = None
+    elem = elements.Quad4Shell(transform, con)
 
-    return ndof, ndv
-
-
-def get_funcs(tacs):
-    ks_weight = 50.0
-    return [functions.KSFailure(tacs, ks_weight), functions.StructuralMass(tacs)]
-
-
-def f5_writer(tacs):
-    flag = (TACS.ToFH5.NODES |
-            TACS.ToFH5.DISPLACEMENTS |
-            TACS.ToFH5.STRAINS |
-            TACS.ToFH5.EXTRAS)
-    f5 = TACS.ToFH5(tacs, TACS.PY_SHELL, flag)
-    f5.writeToFile('wingbox.f5')
+    return elem
 
 
 class Top(Multipoint):
@@ -77,19 +59,18 @@ class Top(Multipoint):
         self.add_subsystem('mesh_aero', aero_builder.get_mesh_coordinate_subsystem())
 
         # TACS
-        tacs_options = {'add_elements': add_elements,
-                        'get_funcs': get_funcs,
-                        'mesh_file': '../input_files/debug.bdf',
-                        'f5_writer': f5_writer}
+        tacs_options = {'element_callback' : element_callback,
+                        'mesh_file': '../input_files/debug.bdf'}
 
         if use_modal:
             tacs_options['nmodes'] = 15
             #struct_assembler = ModalStructAssembler(tacs_options)
         else:
-            struct_builder = TacsBuilder(tacs_options, check_partials=True)
+            struct_builder = TacsBuilder(tacs_options, check_partials=True, coupled=True)
 
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
+        dv_src_indices = struct_builder.get_dv_src_indices()
 
         self.add_subsystem('mesh_struct', struct_builder.get_mesh_coordinate_subsystem())
         dvs.add_output('dv_struct', np.array(ndv_struct*[0.02]))
@@ -113,8 +94,26 @@ class Top(Multipoint):
             self.mphys_connect_scenario_coordinate_source(
                 'mesh_%s' % discipline, 'cruise', discipline)
 
-        for dv in ['aoa', 'q_inf', 'vel', 'nu', 'mach', 'dv_struct']:
+        for dv in ['aoa', 'q_inf', 'vel', 'nu', 'mach']:
             self.connect(dv, f'cruise.{dv}')
+        self.connect('dv_struct', 'cruise.dv_struct', src_indices=dv_src_indices)
+
+    def configure(self):
+        fea_solver = self.cruise.coupling.struct.fea_solver
+
+        # ==============================================================================
+        # Setup structural problem
+        # ==============================================================================
+        # Structural problem
+        # Set converges to be tight for test
+        prob_options = {'L2Convergence': 1e-20, 'L2ConvergenceRel': 1e-20}
+        sp = fea_solver.createStaticProblem(name='test', options=prob_options)
+        # Add TACS Functions
+        sp.addFunction('mass', functions.StructuralMass)
+        sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0)
+
+        self.cruise.coupling.struct.mphys_set_sp(sp)
+        self.cruise.struct_post.mphys_set_sp(sp)
 
 
 prob = om.Problem()
