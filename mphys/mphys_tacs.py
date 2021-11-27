@@ -3,7 +3,7 @@ import numpy as np
 import openmdao.api as om
 from mphys.builder import Builder
 from tacs import pyTACS
-from mpi4py import MPI
+from openmdao.utils.mpi import MPI
 
 class TacsMesh(om.IndepVarComp):
     """
@@ -18,6 +18,61 @@ class TacsMesh(om.IndepVarComp):
         xpts = fea_solver.getOrigNodes()
         self.add_output('x_struct0', distributed=True, val=xpts, shape=xpts.size,
                         desc='structural node coordinates', tags=['mphys_coordinates'])
+
+class TacsDVComp(om.ExplicitComponent):
+
+    def initialize(self):
+        self.options.declare('fea_solver', default=None, desc='the pytacs object itself', recordable=False)
+        self.options.declare('initial_dv_vals', default=None, desc='initial values for global design variable vector')
+
+    def setup(self):
+        self.fea_solver = self.options['fea_solver']
+        self.src_indices = self.get_dv_src_indices()
+        vals = self.options['initial_dv_vals']
+        ndv = self.fea_solver.getNumDesignVars()
+        self.add_input('dv_struct', val=vals, distributed=False, tags=['mphys_input'])
+        self.add_output('dv_struct_distributed',shape=ndv, distributed=True, tags=['mphys_coupling'])
+
+    def compute(self, inputs, outputs):
+        outputs['dv_struct_distributed'] = inputs['dv_struct'][self.src_indices]
+
+    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
+        if mode == 'fwd':
+            if 'dv_struct_distributed' in d_outputs:
+                d_outputs['dv_struct_distributed'] += d_inputs['dv_struct'][self.src_indices]
+        else: # mode == 'rev'
+            if 'dv_struct' in d_inputs:
+                if MPI is not None and self.comm.size > 1:
+                    deriv = np.zeros_like(d_inputs['dv_struct'])
+                    deriv[self.src_indices] = d_outputs['dv_struct_distributed']
+                    deriv_sum = np.zeros_like(d_inputs['dv_struct'])
+                    self.comm.Allreduce(deriv, deriv_sum, op=MPI.SUM)
+                    d_inputs['dv_struct'] += deriv_sum
+                else:
+                    d_inputs['dv_struct'] += d_outputs['dv_struct_distributed']
+
+    def get_dv_src_indices(self):
+        """
+        Method to get src_indices on each processor
+        for tacs distributed design variable vec
+        """
+        if MPI is not None and self.comm.size > 1:
+            local_ndvs = self.fea_solver.getNumDesignVars()
+            all_proc_ndvs = self.comm.gather(local_ndvs, root=0)
+            all_proc_indices = []
+            if self.comm.rank == 0:
+                tot_ndvs = 0
+                for proc_i in range(self.comm.size):
+                    local_ndvs = all_proc_ndvs[proc_i]
+                    proc_indices = np.arange(tot_ndvs, tot_ndvs + local_ndvs)
+                    all_proc_indices.append(proc_indices)
+                    tot_ndvs += local_ndvs
+            local_dv_indices = self.comm.scatter(all_proc_indices, root=0)
+            return local_dv_indices
+        else:
+            ndvs = len(self.options['initial_dv_vals'])
+            all_dv_indices = np.arange(ndvs)
+            return all_dv_indices
 
 class TacsSolver(om.ImplicitComponent):
     """
@@ -52,10 +107,10 @@ class TacsSolver(om.ImplicitComponent):
         state_size = self.fea_solver.getNumOwnedNodes() * self.ndof
 
         # inputs
-        self.add_input('dv_struct', distributed=True, shape=local_ndvs,
-                       desc='tacs design variables', tags=['mphys_input'])
+        self.add_input('dv_struct_distributed', distributed=True, shape=local_ndvs,
+                       desc='tacs distributed design variables', tags=['mphys_coupling'])
         self.add_input('x_struct0', distributed=True, shape_by_conn=True,
-                       desc='structural node coordinates', tags=['mphys_coordinates'])
+                       desc='distributed structural node coordinates', tags=['mphys_coordinates'])
         if self.coupled:
             self.add_input('rhs',  distributed=True, shape=state_size, val=0.0,
                            desc='coupling load vector', tags=['mphys_coupling'])
@@ -69,12 +124,12 @@ class TacsSolver(om.ImplicitComponent):
         update = True
 
         if self.old_dvs is None:
-            self.old_dvs = inputs['dv_struct'].copy()
+            self.old_dvs = inputs['dv_struct_distributed'].copy()
             update = True
 
-        for dv, dv_old in zip(inputs['dv_struct'], self.old_dvs):
+        for dv, dv_old in zip(inputs['dv_struct_distributed'], self.old_dvs):
             if np.abs(dv - dv_old) > 0.:  # 1e-7:
-                self.old_dvs = inputs['dv_struct'].copy()
+                self.old_dvs = inputs['dv_struct_distributed'].copy()
                 update = True
 
         if self.old_xs is None:
@@ -92,7 +147,7 @@ class TacsSolver(om.ImplicitComponent):
 
     def _update_internal(self, inputs, outputs=None):
         if self._need_update(inputs):
-            self.sp.setDesignVars(inputs['dv_struct'])
+            self.sp.setDesignVars(inputs['dv_struct_distributed'])
             self.sp.setNodes(inputs['x_struct0'])
         if outputs is not None:
             self.sp.setVariables(outputs['states'])
@@ -151,8 +206,8 @@ class TacsSolver(om.ImplicitComponent):
                 if 'x_struct0' in d_inputs:
                     self.sp.addAdjointResXptSensProducts([d_residuals['states']], [d_inputs['x_struct0']], scale=1.0)
 
-                if 'dv_struct' in d_inputs:
-                    self.sp.addAdjointResProducts([d_residuals['states']], [d_inputs['dv_struct']], scale=1.0)
+                if 'dv_struct_distributed' in d_inputs:
+                    self.sp.addAdjointResProducts([d_residuals['states']], [d_inputs['dv_struct_distributed']], scale=1.0)
 
     def _design_vector_changed(self, x):
         if self.x_save is None:
@@ -189,9 +244,8 @@ class TacsFunctions(om.ExplicitComponent):
         local_ndvs = self.fea_solver.getNumDesignVars()
 
         # OpenMDAO part of setup
-        # TODO move the dv_struct to an external call where we add the DVs
-        self.add_input('dv_struct', distributed=True, shape=local_ndvs,
-                       desc='tacs design variables', tags=['mphys_input'])
+        self.add_input('dv_struct_distributed', distributed=True, shape=local_ndvs,
+                       desc='tacs design variables', tags=['mphys_coupling'])
         self.add_input('x_struct0', distributed=True, shape_by_conn=True, desc='structural node coordinates',
                        tags=['mphys_coordinates'])
         self.add_input('states', distributed=True, shape_by_conn=True, desc='structural state vector',
@@ -206,9 +260,11 @@ class TacsFunctions(om.ExplicitComponent):
             self.add_output(func_name, distributed=False, shape=1, tags=["mphys_result"])
 
     def _update_internal(self, inputs):
-        self.sp.setDesignVars(inputs['dv_struct'])
+        self.sp.setDesignVars(inputs['dv_struct_distributed'])
         self.sp.setNodes(inputs['x_struct0'])
-        self.sp.setVariables(inputs['states'])
+        states_w_bcs = inputs['states'].copy()
+        self.fea_solver.applyBCsToVec(states_w_bcs)
+        self.sp.setVariables(states_w_bcs)
 
     def compute(self, inputs, outputs):
         self._update_internal(inputs)
@@ -231,11 +287,10 @@ class TacsFunctions(om.ExplicitComponent):
             self._update_internal(inputs)
 
             for func_name in d_outputs:
-                proc_contribution = d_outputs[func_name][:]
-                d_func = self.comm.allreduce(proc_contribution)
+                d_func = d_outputs[func_name][0]
 
-                if 'dv_struct' in d_inputs:
-                    self.sp.addDVSens([func_name], [d_inputs['dv_struct']], scale=d_func)
+                if 'dv_struct_distributed' in d_inputs:
+                    self.sp.addDVSens([func_name], [d_inputs['dv_struct_distributed']], scale=d_func)
 
                 if 'x_struct0' in d_inputs:
                     self.sp.addXptSens([func_name], [d_inputs['x_struct0']], scale=d_func)
@@ -260,12 +315,12 @@ class TacsGroup(om.Group):
 
         # Promote state variables/rhs with physics-specific tag that MPhys expects
         if self.options['conduction']:
-            promotes_inputs = ['x_struct0', 'dv_struct']
+            promotes_inputs = ['x_struct0', 'dv_struct_distributed']
             promotes_outputs = [('states', 'T_conduct')]
             if self.coupled:
                 promotes_inputs.append(('rhs', 'q_conduct'))
         else:
-            promotes_inputs = ['x_struct0', 'dv_struct']
+            promotes_inputs = ['x_struct0', 'dv_struct_distributed']
             promotes_outputs = [('states', 'u_struct')]
             if self.coupled:
                 promotes_inputs.append(('rhs', 'f_struct'))
@@ -302,9 +357,9 @@ class TACSFuncsGroup(om.Group):
 
         # Promote state variables with physics-specific tag that MPhys expects
         if self.options['conduction']:
-            promotes_inputs = [('states', 'T_conduct'), 'x_struct0', 'dv_struct']
+            promotes_inputs = [('states', 'T_conduct'), 'x_struct0', 'dv_struct_distributed']
         else:
-            promotes_inputs = [('states', 'u_struct'), 'x_struct0', 'dv_struct']
+            promotes_inputs = [('states', 'u_struct'), 'x_struct0', 'dv_struct_distributed']
 
         self.add_subsystem('funcs', TacsFunctions(
             fea_solver=self.fea_solver,
@@ -354,6 +409,10 @@ class TacsBuilder(Builder):
     def get_mesh_coordinate_subsystem(self):
         return TacsMesh(fea_solver=self.fea_solver)
 
+    def get_pre_coupling_subsystem(self):
+        initial_dvs = self.get_initial_dvs()
+        return TacsDVComp(fea_solver=self.fea_solver, initial_dv_vals=initial_dvs)
+
     def get_post_coupling_subsystem(self):
         return TACSFuncsGroup(
             fea_solver=self.fea_solver,
@@ -371,43 +430,28 @@ class TacsBuilder(Builder):
         """
         Get an array holding all dvs values that have been added to TACS
         """
-        # Get DVs locally owned by this processor
-        local_dvs = self.fea_solver.getOrigDesignVars()
-        local_dvs = local_dvs.astype(float)
-        # Size of design variable on this processor
-        local_ndvs = self.fea_solver.getNumDesignVars()
-        # Size of design variable vector on each processor
-        dv_sizes = self.comm.allgather(local_ndvs)
-        # Offsets for global design variable vector
-        offsets = np.zeros(self.comm.size, dtype=int)
-        offsets[1:] = np.cumsum(dv_sizes)[:-1]
-        # Gather the portions of the design variable array distributed across each processor
-        tot_ndvs = self.fea_solver.getTotalNumDesignVars()
-        global_dvs = np.zeros(tot_ndvs, dtype=local_dvs.dtype)
-        self.comm.Allgatherv(local_dvs, [global_dvs, dv_sizes, offsets, MPI.DOUBLE])
-        # return the global dv array
-        return global_dvs
+        if MPI is not None and self.comm.size > 1:
+            # Get DVs locally owned by this processor
+            local_dvs = self.fea_solver.getOrigDesignVars()
+            local_dvs = local_dvs.astype(float)
+            # Size of design variable on this processor
+            local_ndvs = self.fea_solver.getNumDesignVars()
+            # Size of design variable vector on each processor
+            dv_sizes = self.comm.allgather(local_ndvs)
+            # Offsets for global design variable vector
+            offsets = np.zeros(self.comm.size, dtype=int)
+            offsets[1:] = np.cumsum(dv_sizes)[:-1]
+            # Gather the portions of the design variable array distributed across each processor
+            tot_ndvs = self.fea_solver.getTotalNumDesignVars()
+            global_dvs = np.zeros(tot_ndvs, dtype=local_dvs.dtype)
+            self.comm.Allgatherv(local_dvs, [global_dvs, dv_sizes, offsets, MPI.DOUBLE])
+            # return the global dv array
+            return global_dvs
+        else:
+            return self.fea_solver.getOrigDesignVars()
 
     def get_ndv(self):
         return self.fea_solver.getTotalNumDesignVars()
-
-    def get_dv_src_indices(self):
-        """
-        Method to get src_indices on each processor
-        for tacs distributed design variable vec
-        """
-        local_ndvs = self.fea_solver.getNumDesignVars()
-        all_proc_ndvs = self.comm.gather(local_ndvs, root=0)
-        all_proc_indices = []
-        if self.comm.rank == 0:
-            tot_ndvs = 0
-            for proc_i in range(self.comm.size):
-                local_ndvs = all_proc_ndvs[proc_i]
-                proc_indices = np.arange(tot_ndvs, tot_ndvs + local_ndvs)
-                all_proc_indices.append(proc_indices)
-                tot_ndvs += local_ndvs
-        local_dv_indices = self.comm.scatter(all_proc_indices, root=0)
-        return local_dv_indices
 
     def get_solver(self):
         # this method is only used by the RLT transfer scheme
