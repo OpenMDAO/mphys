@@ -21,7 +21,6 @@ class Top(Multipoint):
         struct_builder = TacsBuilder(tacs_options, check_partials=True)
         struct_builder.initialize(self.comm)
         dv_array = struct_builder.get_initial_dvs()
-        dv_src_indices = struct_builder.get_dv_src_indices()
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         dvs.add_output('dv_struct', dv_array)
@@ -30,7 +29,7 @@ class Top(Multipoint):
         self.mphys_add_scenario('analysis', ScenarioStructural(struct_builder=struct_builder))
         self.mphys_connect_scenario_coordinate_source('mesh', 'analysis', 'struct')
 
-        self.connect('dv_struct', 'analysis.dv_struct', src_indices=dv_src_indices)
+        self.connect('dv_struct', 'analysis.dv_struct')
 
     def configure(self):
         # create the aero problems for both analysis point.
@@ -44,7 +43,7 @@ class Top(Multipoint):
         # Setup structural problem
         # ==============================================================================
         # Structural problem
-        sp = fea_solver.createStaticProblem(name='cruise')
+        sp = fea_solver.createStaticProblem(name='cruise', options={'printTiming':True})
         # Add TACS Functions
         sp.addFunction('mass', functions.StructuralMass)
         sp.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
@@ -96,7 +95,7 @@ model.add_constraint('analysis.struct_post.ks_vmfailure', lower=0.0, upper=1.0, 
 
 prob.driver = om.pyOptSparseDriver()
 prob.driver.options['optimizer'] = "SNOPT"
-prob.driver.opt_settings['Major iterations limit'] = 100
+prob.driver.opt_settings['Major iterations limit'] = 200
 
 prob.setup()
 om.n2(prob, show_browser=False, outfile='tacs_struct.html')

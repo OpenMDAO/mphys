@@ -14,44 +14,28 @@ from tacs import elements, constitutive, functions, TACS
 
 use_modal = False
 
-def add_elements(mesh):
-    rho = 2780.0            # density, kg/m^3
-    E = 73.1e9              # elastic modulus, Pa
-    nu = 0.33               # poisson's ratio
-    kcorr = 5.0 / 6.0       # shear correction factor
-    ys = 324.0e6            # yield stress, Pa
+# Callback function used to setup TACS element objects and DVs
+def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
+    rho = 2780.0  # density, kg/m^3
+    E = 73.1e9  # elastic modulus, Pa
+    nu = 0.33  # poisson's ratio
+    ys = 324.0e6  # yield stress, Pa
     thickness = 0.003
     min_thickness = 0.002
     max_thickness = 0.05
 
-    num_components = mesh.getNumComponents()
-    for i in range(num_components):
-        descript = mesh.getElementDescript(i)
-        stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
-                                     min_thickness, max_thickness)
-        element = None
-        if descript in ['CQUAD', 'CQUADR', 'CQUAD4']:
-            element = elements.MITCShell(2, stiff, component_num=i)
-        mesh.setElement(i, element)
+    # Setup (isotropic) property and constitutive objects
+    prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
+    # Set one thickness dv for every component
+    con = constitutive.IsoShellConstitutive(prop, t=thickness, tNum=dvNum, tlb=min_thickness, tub=max_thickness)
 
-    ndof = 6
-    ndv = num_components
+    # For each element type in this component,
+    # pass back the appropriate tacs element object
+    transform = None
+    elem = elements.Quad4Shell(transform, con)
 
-    return ndof, ndv
+    return elem
 
-
-def get_funcs(tacs):
-    ks_weight = 50.0
-    return [functions.KSFailure(tacs, ks_weight), functions.StructuralMass(tacs)]
-
-
-def f5_writer(tacs):
-    flag = (TACS.ToFH5.NODES |
-            TACS.ToFH5.DISPLACEMENTS |
-            TACS.ToFH5.STRAINS |
-            TACS.ToFH5.EXTRAS)
-    f5 = TACS.ToFH5(tacs, TACS.PY_SHELL, flag)
-    f5.writeToFile('wingbox.f5')
 
 
 class Top(Multipoint):
@@ -77,16 +61,14 @@ class Top(Multipoint):
         self.add_subsystem('mesh_aero', aero_builder.get_mesh_coordinate_subsystem())
 
         # TACS
-        tacs_options = {'add_elements': add_elements,
-                        'get_funcs': get_funcs,
-                        'mesh_file': '../input_files/debug.bdf',
-                        'f5_writer': f5_writer}
+        tacs_options = {'element_callback' : element_callback,
+                        'mesh_file': '../input_files/debug.bdf'}
 
         if use_modal:
             tacs_options['nmodes'] = 15
             #struct_assembler = ModalStructAssembler(tacs_options)
         else:
-            struct_builder = TacsBuilder(tacs_options, check_partials=True)
+            struct_builder = TacsBuilder(tacs_options, check_partials=True, coupled=True)
 
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
@@ -100,16 +82,9 @@ class Top(Multipoint):
         ldxfer_builder.initialize(self.comm)
 
         # Scenario
-
-        #NOTE: use_aitken creates issues with complex step in check_totals
-        nonlinear_solver = om.NonlinearBlockGS(
-            maxiter=200, iprint=2, use_aitken=False, rtol=1e-14, atol=1e-14)
-        linear_solver = om.LinearBlockGS(
-            maxiter=200, iprint=2, use_aitken=False, rtol=1e-14, atol=1e-14)
         self.mphys_add_scenario('cruise', ScenarioAeroStructural(aero_builder=aero_builder,
                                                                  struct_builder=struct_builder,
-                                                                 ldxfer_builder=ldxfer_builder),
-                                nonlinear_solver, linear_solver)
+                                                                 ldxfer_builder=ldxfer_builder))
 
         for discipline in ['aero', 'struct']:
             self.mphys_connect_scenario_coordinate_source(
@@ -117,6 +92,29 @@ class Top(Multipoint):
 
         for dv in ['aoa', 'q_inf', 'vel', 'nu', 'mach', 'dv_struct']:
             self.connect(dv, f'cruise.{dv}')
+
+    def configure(self):
+        fea_solver = self.cruise.coupling.struct.fea_solver
+
+        # ==============================================================================
+        # Setup structural problem
+        # ==============================================================================
+        # Structural problem
+        # Set converges to be tight for test
+        prob_options = {'L2Convergence': 1e-20, 'L2ConvergenceRel': 1e-20}
+        sp = fea_solver.createStaticProblem(name='test', options=prob_options)
+        # Add TACS Functions
+        sp.addFunction('mass', functions.StructuralMass)
+        sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0)
+
+        self.cruise.coupling.struct.mphys_set_sp(sp)
+        self.cruise.struct_post.mphys_set_sp(sp)
+
+        # NOTE: use_aitken creates issues with complex step in check_totals
+        self.cruise.coupling.nonlinear_solver = om.NonlinearBlockGS(
+            maxiter=200, iprint=2, use_aitken=False, rtol=1e-14, atol=1e-14)
+        self.cruise.coupling.linear_solver = om.LinearBlockGS(
+            maxiter=200, iprint=2, use_aitken=False, rtol=1e-14, atol=1e-14)
 
 # OpenMDAO setup
 
@@ -128,5 +126,5 @@ prob.setup(force_alloc_complex=True, mode='rev')
 om.n2(prob, show_browser=False, outfile='check_totals.html')
 
 prob.run_model()
-prob.check_totals(of=['cruise.func_struct'], wrt=['aoa'], method='cs')
+prob.check_totals(of=['cruise.C_L', 'cruise.struct_post.ks_vmfailure', 'cruise.struct_post.mass'], wrt=['aoa', 'dv_struct'], method='cs', step=1e-50)
 #prob.check_totals(of=['cruise.C_L'], wrt=['aoa'], method='cs')
