@@ -57,7 +57,6 @@ class Top(Multipoint):
         tacs_builder = TacsBuilder(tacs_options, check_partials=True, coupled=True)
         tacs_builder.initialize(self.comm)
         ndv_struct = tacs_builder.get_ndv()
-        dv_src_indices = tacs_builder.get_dv_src_indices()
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         dvs.add_output('dv_struct', np.array(ndv_struct*[0.01]))
@@ -69,7 +68,7 @@ class Top(Multipoint):
         self.add_subsystem('mesh', tacs_builder.get_mesh_coordinate_subsystem())
         self.mphys_add_scenario('analysis', ScenarioStructural(struct_builder=tacs_builder))
         self.connect('mesh.x_struct0', 'analysis.x_struct0')
-        self.connect('dv_struct', 'analysis.dv_struct', src_indices=dv_src_indices)
+        self.connect('dv_struct', 'analysis.dv_struct')
         self.connect('f_struct', 'analysis.f_struct')
 
     def configure(self):
@@ -91,7 +90,7 @@ class Top(Multipoint):
 
 
 class TestTACS(unittest.TestCase):
-    N_PROCS=2
+    N_PROCS=1
     def setUp(self):
         prob = om.Problem()
         prob.model = Top()
@@ -107,23 +106,23 @@ class TestTACS(unittest.TestCase):
         print('----------------starting check totals--------------')
         data = self.prob.check_totals(of=['analysis.struct_post.ks_vmfailure', 'analysis.struct_post.mass'],
                                       wrt='mesh.x_struct0', method='cs',
-                                      step=1e-30, step_calc='rel')
+                                      step=1e-50, step_calc='rel')
         for var, err in data.items():
             rel_err = err['rel error']
-            assert_near_equal(rel_err.forward, 0.0, 2e-7)
+            assert_near_equal(rel_err.forward, 0.0, 2e-8)
 
         data = self.prob.check_totals(of=['analysis.struct_post.ks_vmfailure'], wrt='f_struct',
-                                      method='cs', step=1e-30, step_calc='rel')
+                                      method='cs', step=1e-50, step_calc='rel')
         for var, err in data.items():
             rel_err = err['rel error']
             assert_near_equal(rel_err.forward, 0.0, 5e-8)
 
         data = self.prob.check_totals(of=['analysis.struct_post.ks_vmfailure', 'analysis.struct_post.mass'],
                                       wrt='dv_struct', method='cs',
-                                      step=1e-30, step_calc='rel')
+                                      step=1e-50, step_calc='rel')
         for var, err in data.items():
             rel_err = err['rel error']
-            assert_near_equal(rel_err.forward, 0.0, 1e-7)
+            assert_near_equal(rel_err.forward, 0.0, 1e-8)
 
 
 if __name__ == '__main__':
