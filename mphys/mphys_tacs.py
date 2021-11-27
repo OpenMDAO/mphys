@@ -173,7 +173,6 @@ class TacsSolver(om.ImplicitComponent):
 
         self.sp.solve(Fext=Fext)
         self.sp.getVariables(states=outputs['states'])
-        self.sp.writeSolution()
 
     def solve_linear(self, d_outputs, d_residuals, mode):
         if mode == 'fwd':
@@ -231,6 +230,7 @@ class TacsFunctions(om.ExplicitComponent):
     def initialize(self):
         self.options.declare('fea_solver', recordable=False)
         self.options.declare('check_partials')
+        self.options.declare("write_solution", default=True)
 
         self.fea_solver = None
 
@@ -239,6 +239,8 @@ class TacsFunctions(om.ExplicitComponent):
     def setup(self):
         self.fea_solver = self.options['fea_solver']
         self.check_partials = self.options['check_partials']
+        self.write_solution = self.options["write_solution"]
+        self.solution_counter = 0
 
         # TACS part of setup
         local_ndvs = self.fea_solver.getNumDesignVars()
@@ -276,6 +278,11 @@ class TacsFunctions(om.ExplicitComponent):
             # Remove struct problem name from key
             func_name = key.replace(self.sp.name + '_', '')
             outputs[func_name] = funcs[key]
+
+        if self.write_solution:
+            # write the solution files.
+            self.sp.writeSolution(number=self.solution_counter)
+            self.solution_counter += 1
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
