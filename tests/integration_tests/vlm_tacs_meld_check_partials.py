@@ -70,7 +70,6 @@ class Top(Multipoint):
 
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
-        dv_src_indices = struct_builder.get_dv_src_indices()
 
         self.add_subsystem('mesh_struct', struct_builder.get_mesh_coordinate_subsystem())
         dvs.add_output('dv_struct', np.array(ndv_struct*[0.02]))
@@ -96,7 +95,7 @@ class Top(Multipoint):
 
         for dv in ['aoa', 'q_inf', 'vel', 'nu', 'mach']:
             self.connect(dv, f'cruise.{dv}')
-        self.connect('dv_struct', 'cruise.dv_struct', src_indices=dv_src_indices)
+        self.connect('dv_struct', 'cruise.dv_struct')
 
     def configure(self):
         fea_solver = self.cruise.coupling.struct.fea_solver

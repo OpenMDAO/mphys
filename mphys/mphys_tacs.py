@@ -5,6 +5,7 @@ from mphys.builder import Builder
 from tacs import pyTACS
 from openmdao.utils.mpi import MPI
 
+
 class TacsMesh(om.IndepVarComp):
     """
     Component to read the initial mesh coordinates with TACS
@@ -19,7 +20,12 @@ class TacsMesh(om.IndepVarComp):
         self.add_output('x_struct0', distributed=True, val=xpts, shape=xpts.size,
                         desc='structural node coordinates', tags=['mphys_coordinates'])
 
+
 class TacsDVComp(om.ExplicitComponent):
+    """
+    Component for splitting serial tacs design variable from top level
+    into distributed vector used by tacs.
+    """
 
     def initialize(self):
         self.options.declare('fea_solver', default=None, desc='the pytacs object itself', recordable=False)
@@ -30,8 +36,10 @@ class TacsDVComp(om.ExplicitComponent):
         self.src_indices = self.get_dv_src_indices()
         vals = self.options['initial_dv_vals']
         ndv = self.fea_solver.getNumDesignVars()
-        self.add_input('dv_struct', val=vals, distributed=False, tags=['mphys_input'])
-        self.add_output('dv_struct_distributed',shape=ndv, distributed=True, tags=['mphys_coupling'])
+        self.add_input('dv_struct', desc='serial design vector holding all tacs design variable values',
+                       val=vals, distributed=False, tags=['mphys_input'])
+        self.add_output('dv_struct_distributed', desc='distributed design vector holding tacs design variable values\
+                        for this proc', shape=ndv, distributed=True, tags=['mphys_coupling'])
 
     def compute(self, inputs, outputs):
         outputs['dv_struct_distributed'] = inputs['dv_struct'][self.src_indices]
@@ -40,7 +48,7 @@ class TacsDVComp(om.ExplicitComponent):
         if mode == 'fwd':
             if 'dv_struct_distributed' in d_outputs:
                 d_outputs['dv_struct_distributed'] += d_inputs['dv_struct'][self.src_indices]
-        else: # mode == 'rev'
+        else:  # mode == 'rev'
             if 'dv_struct' in d_inputs:
                 if MPI is not None and self.comm.size > 1:
                     deriv = np.zeros_like(d_inputs['dv_struct'])
@@ -73,6 +81,7 @@ class TacsDVComp(om.ExplicitComponent):
             ndvs = len(self.options['initial_dv_vals'])
             all_dv_indices = np.arange(ndvs)
             return all_dv_indices
+
 
 class TacsSolver(om.ImplicitComponent):
     """
@@ -112,7 +121,7 @@ class TacsSolver(om.ImplicitComponent):
         self.add_input('x_struct0', distributed=True, shape_by_conn=True,
                        desc='distributed structural node coordinates', tags=['mphys_coordinates'])
         if self.coupled:
-            self.add_input('rhs',  distributed=True, shape=state_size, val=0.0,
+            self.add_input('rhs', distributed=True, shape=state_size, val=0.0,
                            desc='coupling load vector', tags=['mphys_coupling'])
 
         # outputs
@@ -206,7 +215,8 @@ class TacsSolver(om.ImplicitComponent):
                     self.sp.addAdjointResXptSensProducts([d_residuals['states']], [d_inputs['x_struct0']], scale=1.0)
 
                 if 'dv_struct_distributed' in d_inputs:
-                    self.sp.addAdjointResProducts([d_residuals['states']], [d_inputs['dv_struct_distributed']], scale=1.0)
+                    self.sp.addAdjointResProducts([d_residuals['states']], [d_inputs['dv_struct_distributed']],
+                                                  scale=1.0)
 
     def _design_vector_changed(self, x):
         if self.x_save is None:
@@ -264,9 +274,7 @@ class TacsFunctions(om.ExplicitComponent):
     def _update_internal(self, inputs):
         self.sp.setDesignVars(inputs['dv_struct_distributed'])
         self.sp.setNodes(inputs['x_struct0'])
-        states_w_bcs = inputs['states'].copy()
-        self.fea_solver.applyBCsToVec(states_w_bcs)
-        self.sp.setVariables(states_w_bcs)
+        self.sp.setVariables(inputs['states'])
 
     def compute(self, inputs, outputs):
         self._update_internal(inputs)

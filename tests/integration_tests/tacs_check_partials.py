@@ -42,7 +42,6 @@ class Top(Multipoint):
         tacs_builder = TacsBuilder(tacs_options, check_partials=True, coupled=False)
         tacs_builder.initialize(self.comm)
         ndv_struct = tacs_builder.get_ndv()
-        dv_src_indices = tacs_builder.get_dv_src_indices()
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
         dvs.add_output('dv_struct', np.array(ndv_struct*[0.01]))
@@ -50,7 +49,7 @@ class Top(Multipoint):
         self.add_subsystem('mesh', tacs_builder.get_mesh_coordinate_subsystem())
         self.mphys_add_scenario('analysis', ScenarioStructural(struct_builder=tacs_builder))
         self.connect('mesh.x_struct0', 'analysis.x_struct0')
-        self.connect('dv_struct', 'analysis.dv_struct', src_indices=dv_src_indices)
+        self.connect('dv_struct', 'analysis.dv_struct')
 
     def configure(self):
         fea_solver = self.analysis.coupling.fea_solver
@@ -64,8 +63,9 @@ class Top(Multipoint):
         sp.addFunction('mass', functions.StructuralMass)
         sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0)
 
-        f = sp.F.getArray()
+        f = fea_solver.createVec()
         f[:] = np.random.rand(len(f))
+        sp.addLoadToRHS(f)
 
         self.analysis.coupling.mphys_set_sp(sp)
         self.analysis.struct_post.mphys_set_sp(sp)
