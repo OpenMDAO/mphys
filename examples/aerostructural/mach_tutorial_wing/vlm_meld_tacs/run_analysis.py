@@ -12,6 +12,7 @@ from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_meld import MeldBuilder
 
 import tacs_setup
+from tacs import functions
 
 class Top(Multipoint):
     def setup(self):
@@ -37,12 +38,10 @@ class Top(Multipoint):
         self.add_subsystem('mesh_aero',aero_builder.get_mesh_coordinate_subsystem())
 
         # TACS
-        tacs_options = {'add_elements': tacs_setup.add_elements,
-                        'get_funcs'   : tacs_setup.get_funcs,
-                        'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
-                        'f5_writer'   : tacs_setup.f5_writer }
+        tacs_options = {'element_callback': tacs_setup.element_callback,
+                        'mesh_file': 'wingbox_Y_Z_flip.bdf'}
 
-        struct_builder = TacsBuilder(tacs_options)
+        struct_builder = TacsBuilder(tacs_options, coupled=True)
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
 
@@ -70,6 +69,23 @@ class Top(Multipoint):
                 self.connect(dv, f'{scenario}.{dv}')
             self.connect('aoa', f'{scenario}.aoa', src_indices=[iscen])
 
+    def configure(self):
+        for scenario_name in ['cruise','maneuver']:
+            scenario = getattr(self, scenario_name)
+            fea_solver = scenario.coupling.struct.fea_solver
+
+            # ==============================================================================
+            # Setup structural problem
+            # ==============================================================================
+            # Structural problem
+            sp = fea_solver.createStaticProblem(name=scenario_name)
+            # Add TACS Functions
+            sp.addFunction('mass', functions.StructuralMass)
+            sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0, safetyFactor=1.0)
+
+            scenario.coupling.struct.mphys_set_sp(sp)
+            scenario.struct_post.mphys_set_sp(sp)
+
 ################################################################################
 # OpenMDAO setup
 ################################################################################
@@ -83,4 +99,4 @@ prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
     print('C_L =',prob['cruise.C_L'])
-    print('func_struct =',prob['maneuver.func_struct'])
+    print('KS =',prob['maneuver.struct_post.ks_vmfailure'])

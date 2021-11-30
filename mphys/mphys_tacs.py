@@ -4,6 +4,7 @@ import openmdao.api as om
 from mphys.builder import Builder
 from tacs import pyTACS
 from openmdao.utils.mpi import MPI
+import copy
 
 
 class TacsMesh(om.IndepVarComp):
@@ -396,21 +397,22 @@ class TACSFuncsGroup(om.Group):
 class TacsBuilder(Builder):
 
     def __init__(self, options, check_partials=False, conduction=False, coupled=False):
-        self.options = options
+        self.options = copy.deepcopy(options)
         self.check_partials = check_partials
         self.conduction = conduction
         # Flag to turn on coupling variables
         self.coupled = coupled
 
     def initialize(self, comm):
-        bdf_file = self.options.pop('mesh_file')
+        pytacs_options = copy.deepcopy(self.options)
+        bdf_file = pytacs_options.pop('mesh_file')
 
-        if 'element_callback' in self.options:
-            element_callback = self.options.pop('element_callback')
+        if 'element_callback' in pytacs_options:
+            element_callback = pytacs_options.pop('element_callback')
         else:
             element_callback = None
 
-        self.fea_solver = pyTACS(bdf_file, options=self.options, comm=comm)
+        self.fea_solver = pyTACS(bdf_file, options=pytacs_options, comm=comm)
         self.comm = comm
 
         # Set up elements and TACS assembler

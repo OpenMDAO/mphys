@@ -13,6 +13,8 @@ from mphys.mphys_meld import MeldBuilder
 
 import tacs_setup
 
+from tacs import functions
+
 class AerostructParallel(MultipointParallel):
     def setup(self):
         # VLM
@@ -20,12 +22,10 @@ class AerostructParallel(MultipointParallel):
         aero_builder = VlmBuilder(mesh_file)
 
         # TACS
-        tacs_options = {'add_elements': tacs_setup.add_elements,
-                        'get_funcs'   : tacs_setup.get_funcs,
-                        'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
-                        'f5_writer'   : tacs_setup.f5_writer }
+        tacs_options = {'element_callback': tacs_setup.element_callback,
+                        'mesh_file': 'wingbox_Y_Z_flip.bdf'}
 
-        struct_builder = TacsBuilder(tacs_options)
+        struct_builder = TacsBuilder(tacs_options, coupled=True)
 
         # MELD
         isym = 1
@@ -39,6 +39,25 @@ class AerostructParallel(MultipointParallel):
                                                                     ldxfer_builder=ldxfer_builder,
                                                                     in_MultipointParallel=True),
                                              nonlinear_solver, linear_solver)
+
+    def configure(self):
+        for scenario_name in ['cruise','maneuver']:
+            scenario = getattr(self, scenario_name)
+            # Check if scenario is on this processor group
+            if hasattr(scenario, 'coupling'):
+                fea_solver = scenario.coupling.struct.fea_solver
+
+                # ==============================================================================
+                # Setup structural problem
+                # ==============================================================================
+                # Structural problem
+                sp = fea_solver.createStaticProblem(name=scenario_name)
+                # Add TACS Functions
+                sp.addFunction('mass', functions.StructuralMass)
+                sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0, safetyFactor=1.0)
+
+                scenario.coupling.struct.mphys_set_sp(sp)
+                scenario.struct_post.mphys_set_sp(sp)
 
 class Top(om.Group):
     def setup(self):
@@ -79,8 +98,8 @@ om.n2(prob, show_browser=False, outfile='mphys_as_parallel.html')
 
 prob.run_model()
 
-ks = prob.get_val('multipoint.maneuver.func_struct',get_remote=True)
+ks = prob.get_val('multipoint.maneuver.struct_post.ks_vmfailure',get_remote=True)
 cl = prob.get_val('multipoint.cruise.C_L', get_remote=True)
 if MPI.COMM_WORLD.rank == 0:
     print('C_L =', cl)
-    print('func_struct =', ks)
+    print('KS =', ks)
