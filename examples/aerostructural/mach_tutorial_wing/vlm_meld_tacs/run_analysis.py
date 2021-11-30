@@ -81,7 +81,7 @@ class Top(Multipoint):
             sp = fea_solver.createStaticProblem(name=scenario_name)
             # Add TACS Functions
             sp.addFunction('mass', functions.StructuralMass)
-            sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0, safetyFactor=1.0)
+            sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0, safetyFactor=1.5)
 
             scenario.coupling.struct.mphys_set_sp(sp)
             scenario.struct_post.mphys_set_sp(sp)
