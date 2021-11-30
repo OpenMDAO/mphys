@@ -15,6 +15,8 @@ from mphys.mphys_vlm import VlmBuilder
 import tacs_setup
 from structural_patches_component import LumpPatches
 
+from tacs import functions
+
 # set these for convenience
 comm = MPI.COMM_WORLD
 rank = comm.rank
@@ -57,12 +59,10 @@ class Top(Multipoint):
 
         # TACS options
         tacs_options = {
-            'add_elements': tacs_setup.add_elements,
-            'mesh_file'   : 'CRM_box_2nd.bdf',
-            'get_funcs'   : tacs_setup.get_funcs,
-            'f5_writer'   : tacs_setup.f5_writer
+            'element_callback': tacs_setup.element_callback,
+            'mesh_file'   : 'CRM_box_2nd.bdf'
         }
-        struct_builder = TacsBuilder(tacs_options)
+        struct_builder = TacsBuilder(tacs_options, coupled=True)
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
 
@@ -92,6 +92,21 @@ class Top(Multipoint):
         for dv in aero_dvs:
             self.connect(dv, f'cruise.{dv}')
 
+    def configure(self):
+        fea_solver = self.cruise.coupling.struct.fea_solver
+
+        # ==============================================================================
+        # Setup structural problem
+        # ==============================================================================
+        # Structural problem
+        sp = fea_solver.createStaticProblem(name='cruise')
+        # Add TACS Functions
+        sp.addFunction('mass', functions.StructuralMass)
+        sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0, safetyFactor=1.0)
+
+        self.cruise.coupling.struct.mphys_set_sp(sp)
+        self.cruise.struct_post.mphys_set_sp(sp)
+
 
 ################################################################################
 # OpenMDAO setup
@@ -107,7 +122,8 @@ if MPI.COMM_WORLD.rank == 0:
     print("Scenario 0")
     print('C_L =',prob['cruise.C_L'])
     print('C_D =',prob['cruise.C_D'])
-    print('KS =',prob['cruise.func_struct'])
-#output = prob.check_totals(of=['mp_group.s0.aero_funcs.Lift'], wrt=['thickness_lumped'],)
-#if MPI.COMM_WORLD.rank == 0:
-#    print('check_totals output',output)
+    print('KS =',prob['cruise.struct_post.ks_vmfailure'])
+output = prob.check_totals(of=['cruise.C_L','cruise.C_D', 'cruise.struct_post.ks_vmfailure'], wrt=['aoa', 'thickness_lumped'],)
+if MPI.COMM_WORLD.rank == 0:
+    print('check_totals output',output)
+
