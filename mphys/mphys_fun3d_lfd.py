@@ -15,7 +15,9 @@ from parfait.distance_solver import DistanceSolver
 
 class PkFlutterDescription:
     def __init__(self, boundary_tag_list, nmodes, reduced_frequencies, u_ref, semichord,
-                 pk_density, pk_velocity, modal_reference_amplitudes=0.01):
+                 pk_density, pk_velocity, modal_reference_amplitudes=0.01,
+                 flutter_bound_coeffs = None, flutter_bound_breaks=None,
+                 KS_parameter = 20.0):
         self.boundary_tag_list = boundary_tag_list
         self.nmodes = nmodes
         self.reduced_frequencies = reduced_frequencies
@@ -24,6 +26,9 @@ class PkFlutterDescription:
         self.pk_density = pk_density
         self.pk_velocity = pk_velocity
         self.modal_reference_amplitude = modal_reference_amplitudes
+        self.flutter_bound_coeffs = flutter_bound_coeffs
+        self.flutter_bound_breaks = flutter_bound_breaks
+        self.KS_parameter =  KS_parameter
 
 
 class Fun3dLfdFlutterGroup(MphysGroup):
@@ -53,14 +58,19 @@ class Fun3dLfdFlutterGroup(MphysGroup):
                                  PkSolverOM(density=prob.pk_density,
                                             velocity=prob.pk_velocity,
                                             reduced_frequencies=prob.reduced_frequencies,
-                                            nmodes=prob.nmodes))
-
+                                            nmodes=prob.nmodes,
+                                            flutter_bound_coeffs=prob.flutter_bound_coeffs,
+                                            flutter_bound_breaks=prob.flutter_bound_breaks,
+                                            KS_parameter=prob.KS_parameter))
 
 class Fun3dLfdBuilder(Fun3dSfeBuilder):
     def __init__(self, boundary_tag_list, nmodes, u_ref, semichord,
                  reduced_frequencies, pk_density, pk_velocity,
                  modal_reference_amplitude=0.01,
-                 input_file='input.cfg'):
+                 input_file='input.cfg',
+                 flutter_bound_coeffs = None,
+                 flutter_bound_breaks = None,
+                 KS_parameter = 20.0):
         self.nmodes = nmodes
         self.u_ref = u_ref
         self.semichord = semichord
@@ -68,6 +78,10 @@ class Fun3dLfdBuilder(Fun3dSfeBuilder):
         self.pk_density = pk_density
         self.pk_velocity = pk_velocity
         self.modal_reference_amplitude = modal_reference_amplitude
+        self.lfd_frequencies = self.reduced_frequencies * self.u_ref / self.semichord
+        self.flutter_bound_coeffs = flutter_bound_coeffs
+        self.flutter_bound_breaks = flutter_bound_breaks
+        self.KS_parameter =  KS_parameter
 
         super().__init__(boundary_tag_list, input_file)
 
@@ -89,7 +103,10 @@ class Fun3dLfdBuilder(Fun3dSfeBuilder):
                                          self.reduced_frequencies, self.u_ref,
                                          self.semichord,
                                          self.pk_density, self.pk_velocity,
-                                         self.modal_reference_amplitude)
+                                         self.modal_reference_amplitude,
+                                         self.flutter_bound_coeffs,
+                                         self.flutter_bound_breaks,
+                                         self.KS_parameter)
 
     def get_coupling_group_subsystem(self):
         meshdef_om = MeshDeformationOpenMdao(meshdef_solver=self.meshdef,
