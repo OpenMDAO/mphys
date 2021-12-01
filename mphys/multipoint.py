@@ -27,7 +27,7 @@ class Multipoint(om.Group):
         super().__init__(**kwargs)
 
     def mphys_add_scenario(self, name, scenario, coupling_nonlinear_solver=None,
-                           coupling_linear_solver=None):
+                           coupling_linear_solver=None, promotes = False):
         """
         Add an Mphys scenario
 
@@ -41,10 +41,15 @@ class Multipoint(om.Group):
             The nonlinear solver to assign to the coupling group primal problem
         coupling_linear_solver: openmdao.solvers.solver.LinearSolver
             The linear solver to to assign to the coupling group sensitivity problem
+        promotes: bool
+            Whether to promote the scenario subsystem variables when it is added
         """
         solver_tuple = (coupling_nonlinear_solver, coupling_linear_solver)
         self.mphys_coupling_solvers.append((scenario, solver_tuple))
-        return self.add_subsystem(name, scenario)
+        if promotes:
+            return self.add_subsystem(name, scenario, promotes=['*'])
+        else:
+            return self.add_subsystem(name, scenario)
 
     def mphys_connect_scenario_coordinate_source(self, source, scenarios, disciplines):
         """
