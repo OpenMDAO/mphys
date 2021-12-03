@@ -49,3 +49,17 @@ to run the tests execute in the root directory
 ```bash
 testflo -v tests
 ```
+
+# Software Assurance Plan
+
+Mphys has been deemed as Class-E software, according to the [7120.5D Specification](https://www.nasa.gov/pdf/423715main_NPR_7120-5_HB_FINAL-02-25-10.pdf). 
+To maintain software quality and assure functionality, Mphys includes a unit and integration test suite. 
+Before any pull requests are merged, all of those tests must pass. 
+The tests are run as part of a continuous integration system, automatically upon pull request submission. 
+
+We require all commits to be signed to ensure that we know the "identity" (at least that the commit is actually coming from the account it claims to be). 
+Unsigned commits will not be accepted. 
+
+The Bandit static analysis tool is run on the codebase to check for any "simple" security issues. 
+This checks for basic vulnerabilities like having API keys, user names, or passwords in the repository. 
+Bandit is run manually on the repository before any major releases are made. 
