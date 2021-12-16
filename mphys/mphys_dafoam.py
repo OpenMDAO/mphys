@@ -169,6 +169,8 @@ class DAFoamSolver(ImplicitComponent):
         self.options.declare("solver", recordable=False)
 
     def setup(self):
+        # NOTE: the setup function will be called everytime a new scenario is created.
+
         self.DASolver = self.options["solver"]
         DASolver = self.DASolver
 
@@ -176,13 +178,13 @@ class DAFoamSolver(ImplicitComponent):
         self.aoa_func = None
 
         # the default name for angle of attack design variable
-        self.alphaName = "alpha"
+        self.alphaName = "aoa"
 
         # initialize the dRdWT matrix-free matrix in DASolver
         DASolver.solverAD.initializedRdWTMatrixFree(DASolver.xvVec, DASolver.wVec)
 
         # create the Petsc KSP object
-        self.ksp = PETSc.KSP().create(self.comm)
+        self.ksp = None
 
         # create the adjoint vector
         self.psi = self.DASolver.wVec.duplicate()
@@ -194,10 +196,10 @@ class DAFoamSolver(ImplicitComponent):
 
         # determine which function to compute the adjoint
         self.evalFuncs = []
-        self.DASolver.setEvalFuncs(self.evalFuncs)
+        DASolver.setEvalFuncs(self.evalFuncs)
 
         # setup input and output for the solver
-        local_state_size = self.DASolver.getNLocalAdjointStates()
+        local_state_size = DASolver.getNLocalAdjointStates()
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
         self.add_input("aoa", units="deg", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
         self.add_output("dafoam_states", distributed=True, shape=local_state_size, tags=["mphys_coupling"])
@@ -256,12 +258,11 @@ class DAFoamSolver(ImplicitComponent):
         # move the solution folder to 0.000000x
         DASolver.renameSolution(DASolver.nSolveAdjoints)
 
-        if self.comm.rank == 0:
-            print("Running adjoint Solver %03d" % DASolver.nSolveAdjoints)
-
         # set the runStatus, this is useful when the actuator term is activated
         DASolver.setOption("runStatus", "solveAdjoint")
         DASolver.updateDAOption()
+
+        DASolver.setStates(outputs["dafoam_states"])
 
         DASolver.nSolveAdjoints += 1
 
@@ -335,6 +336,9 @@ class DAFoamSolver(ImplicitComponent):
         if DASolver.dRdWTPC is None:
             DASolver.dRdWTPC = PETSc.Mat().create(self.comm)
             DASolver.solver.calcdRdWT(DASolver.xvVec, DASolver.wVec, 1, DASolver.dRdWTPC)
+
+        if self.ksp is None:
+            self.ksp = PETSc.KSP().create(self.comm)
             DASolver.solverAD.createMLRKSPMatrixFree(DASolver.dRdWTPC, self.ksp)
 
         # right hand side array from d_outputs
@@ -502,12 +506,11 @@ class DAFoamFunctions(ExplicitComponent):
         for f_name in funcs:
             self.add_output(f_name, distributed=False, shape=1, units=None, tags=["mphys_result"])
 
-    def _set_states(self, inputs):
-        self.DASolver.setStates(inputs["dafoam_states"])
-
     # get the objective function from DASolver
     def compute(self, inputs, outputs):
         DASolver = self.DASolver
+
+        DASolver.setStates(inputs["dafoam_states"])
 
         funcs = {}
 
@@ -520,6 +523,8 @@ class DAFoamFunctions(ExplicitComponent):
     # compute the partial derivatives of functions
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         DASolver = self.DASolver
+
+        DASolver.setStates(inputs["dafoam_states"])
 
         # we do not support forward mode AD
         if mode == "fwd":
