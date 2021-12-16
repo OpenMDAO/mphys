@@ -146,19 +146,6 @@ class DAFoamGroup(Group):
                 promotes_outputs=["f_aero"],
             )
 
-    # connect the input and output for the solver, called from runScript.py
-    def mphys_set_dvs_and_cons(self):
-
-        # promote the DVs
-        DVNames, _ = self.DASolver.getDVsCons()
-
-        for DVName in DVNames:
-            self.promotes("solver", inputs=[DVName])
-
-    # set the DVGeo for DASolver, called from runScript.py
-    def mphys_set_dvgeo(self, DVGeo):
-        self.DASolver.setDVGeo(DVGeo)
-
 
 class DAFoamSolver(ImplicitComponent):
     """
@@ -486,16 +473,6 @@ class DAFoamFunctions(ExplicitComponent):
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
         self.add_input("aoa", units="deg", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
         self.add_input("dafoam_states", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
-
-    # connect the input and output for the function, called from runScript.py
-    def mphys_set_dvs_and_cons(self):
-
-        DVNames, DVSizes = self.DASolver.getDVsCons()
-
-        # parameter inputs
-        for idxI, DVName in enumerate(DVNames):
-            DVSize = DVSizes[idxI]
-            self.add_input(DVName, distributed=False, shape=DVSize, units=None, tags=["mphys_input"])
 
     # add the function names to this component, called from runScript.py
     def mphys_add_funcs(self, funcs):
