@@ -95,6 +95,7 @@ class TacsSolver(om.ImplicitComponent):
 
     def initialize(self):
         self.options.declare('fea_solver', recordable=False)
+        self.options.declare('conduction', default=False)
         self.options.declare('check_partials')
         self.options.declare('coupled', default=False)
 
@@ -109,7 +110,15 @@ class TacsSolver(om.ImplicitComponent):
     def setup(self):
         self.check_partials = self.options['check_partials']
         self.fea_solver = self.options['fea_solver']
+        self.conduction = self.options['conduction']
         self.coupled = self.options['coupled']
+
+        if self.conduction:
+            self.states_name = 'T_conduct'
+            self.rhs_name = 'q_conduct'
+        else:
+            self.states_name = 'u_struct'
+            self.rhs_name = 'f_struct'
 
         # OpenMDAO setup
         local_ndvs = self.fea_solver.getNumDesignVars()
@@ -122,12 +131,12 @@ class TacsSolver(om.ImplicitComponent):
         self.add_input('x_struct0', distributed=True, shape_by_conn=True,
                        desc='distributed structural node coordinates', tags=['mphys_coordinates'])
         if self.coupled:
-            self.add_input('rhs', distributed=True, shape=state_size, val=0.0,
+            self.add_input(self.rhs_name, distributed=True, shape=state_size, val=0.0,
                            desc='coupling load vector', tags=['mphys_coupling'])
 
         # outputs
         # its important that we set this to zero since this displacement value is used for the first iteration of the aero
-        self.add_output('states', distributed=True, shape=state_size, val=np.zeros(state_size),
+        self.add_output(self.states_name, distributed=True, shape=state_size, val=np.zeros(state_size),
                         desc='structural state vector', tags=['mphys_coupling'])
 
     def _need_update(self, inputs):
@@ -160,29 +169,29 @@ class TacsSolver(om.ImplicitComponent):
             self.sp.setDesignVars(inputs['dv_struct_distributed'])
             self.sp.setNodes(inputs['x_struct0'])
         if outputs is not None:
-            self.sp.setVariables(outputs['states'])
+            self.sp.setVariables(outputs[self.states_name])
         self.sp._updateAssemblerVars()
 
     def apply_nonlinear(self, inputs, outputs, residuals):
         self._update_internal(inputs, outputs)
 
         if self.coupled:
-            Fext = inputs['rhs']
+            Fext = inputs[self.rhs_name]
         else:
             Fext = None
 
-        self.sp.getResidual(res=residuals['states'], Fext=Fext)
+        self.sp.getResidual(res=residuals[self.states_name], Fext=Fext)
 
     def solve_nonlinear(self, inputs, outputs):
         self._update_internal(inputs)
 
         if self.coupled:
-            Fext = inputs['rhs']
+            Fext = inputs[self.rhs_name]
         else:
             Fext = None
 
         self.sp.solve(Fext=Fext)
-        self.sp.getVariables(states=outputs['states'])
+        self.sp.getVariables(states=outputs[self.states_name])
 
     def solve_linear(self, d_outputs, d_residuals, mode):
         if mode == 'fwd':
@@ -192,7 +201,7 @@ class TacsSolver(om.ImplicitComponent):
                 raise ValueError('forward mode requested but not implemented')
 
         if mode == 'rev':
-            self.sp.solveAdjoint(d_outputs['states'], d_residuals['states'])
+            self.sp.solveAdjoint(d_outputs[self.states_name], d_residuals[self.states_name])
 
     def apply_linear(self, inputs, outputs, d_inputs, d_outputs, d_residuals, mode):
         self._update_internal(inputs, outputs)
@@ -201,22 +210,22 @@ class TacsSolver(om.ImplicitComponent):
                 raise ValueError('TACS forward mode requested but not implemented')
 
         if mode == 'rev':
-            if 'states' in d_residuals:
+            if self.states_name in d_residuals:
 
-                if 'states' in d_outputs:
-                    self.sp.addTransposeJacVecProduct(d_residuals['states'],
-                                                      d_outputs['states'])
+                if self.states_name in d_outputs:
+                    self.sp.addTransposeJacVecProduct(d_residuals[self.states_name],
+                                                      d_outputs[self.states_name])
 
-                if 'rhs' in d_inputs:
-                    array_w_bcs = d_residuals['states'].copy()
+                if self.rhs_name in d_inputs:
+                    array_w_bcs = d_residuals[self.states_name].copy()
                     self.fea_solver.applyBCsToVec(array_w_bcs)
-                    d_inputs['rhs'] -= array_w_bcs
+                    d_inputs[self.rhs_name] -= array_w_bcs
 
                 if 'x_struct0' in d_inputs:
-                    self.sp.addAdjointResXptSensProducts([d_residuals['states']], [d_inputs['x_struct0']], scale=1.0)
+                    self.sp.addAdjointResXptSensProducts([d_residuals[self.states_name]], [d_inputs['x_struct0']], scale=1.0)
 
                 if 'dv_struct_distributed' in d_inputs:
-                    self.sp.addAdjointResProducts([d_residuals['states']], [d_inputs['dv_struct_distributed']],
+                    self.sp.addAdjointResProducts([d_residuals[self.states_name]], [d_inputs['dv_struct_distributed']],
                                                   scale=1.0)
 
     def _design_vector_changed(self, x):
@@ -240,6 +249,7 @@ class TacsFunctions(om.ExplicitComponent):
 
     def initialize(self):
         self.options.declare('fea_solver', recordable=False)
+        self.options.declare('conduction', default=False)
         self.options.declare('check_partials')
         self.options.declare("write_solution", default=True)
 
@@ -251,7 +261,13 @@ class TacsFunctions(om.ExplicitComponent):
         self.fea_solver = self.options['fea_solver']
         self.check_partials = self.options['check_partials']
         self.write_solution = self.options["write_solution"]
+        self.conduction = self.options["conduction"]
         self.solution_counter = 0
+
+        if self.conduction:
+            self.states_name = 'T_conduct'
+        else:
+            self.states_name = 'u_struct'
 
         # TACS part of setup
         local_ndvs = self.fea_solver.getNumDesignVars()
@@ -261,7 +277,7 @@ class TacsFunctions(om.ExplicitComponent):
                        desc='tacs design variables', tags=['mphys_coupling'])
         self.add_input('x_struct0', distributed=True, shape_by_conn=True, desc='structural node coordinates',
                        tags=['mphys_coordinates'])
-        self.add_input('states', distributed=True, shape_by_conn=True, desc='structural state vector',
+        self.add_input(self.states_name, distributed=True, shape_by_conn=True, desc='structural state vector',
                        tags=['mphys_coupling'])
 
     def mphys_set_sp(self, sp):
@@ -275,7 +291,7 @@ class TacsFunctions(om.ExplicitComponent):
     def _update_internal(self, inputs):
         self.sp.setDesignVars(inputs['dv_struct_distributed'])
         self.sp.setNodes(inputs['x_struct0'])
-        self.sp.setVariables(inputs['states'])
+        self.sp.setVariables(inputs[self.states_name])
 
     def compute(self, inputs, outputs):
         self._update_internal(inputs)
@@ -311,10 +327,10 @@ class TacsFunctions(om.ExplicitComponent):
                 if 'x_struct0' in d_inputs:
                     self.sp.addXptSens([func_name], [d_inputs['x_struct0']], scale=d_func)
 
-                if 'states' in d_inputs:
-                    sv_sens = np.zeros_like(d_inputs['states'])
+                if self.states_name in d_inputs:
+                    sv_sens = np.zeros_like(d_inputs[self.states_name])
                     self.sp.addSVSens([func_name], [sv_sens])
-                    d_inputs['states'][:] += sv_sens * d_func
+                    d_inputs[self.states_name][:] += sv_sens * d_func
 
 
 class TacsGroup(om.Group):
@@ -328,22 +344,22 @@ class TacsGroup(om.Group):
         self.fea_solver = self.options['fea_solver']
         self.check_partials = self.options['check_partials']
         self.coupled = self.options['coupled']
+        self.conduction = self.options['conduction']
 
         # Promote state variables/rhs with physics-specific tag that MPhys expects
-        if self.options['conduction']:
-            promotes_inputs = ['x_struct0', 'dv_struct_distributed']
-            promotes_outputs = [('states', 'T_conduct')]
+        promotes_inputs = ['x_struct0', 'dv_struct_distributed']
+        if self.conduction:
+            promotes_outputs = ['T_conduct']
             if self.coupled:
-                promotes_inputs.append(('rhs', 'q_conduct'))
+                promotes_inputs.append('q_conduct')
         else:
-            promotes_inputs = ['x_struct0', 'dv_struct_distributed']
-            promotes_outputs = [('states', 'u_struct')]
+            promotes_outputs = ['u_struct']
             if self.coupled:
-                promotes_inputs.append(('rhs', 'f_struct'))
+                promotes_inputs.append('f_struct')
 
         self.add_subsystem('solver',
                            TacsSolver(fea_solver=self.fea_solver, check_partials=self.check_partials,
-                                      coupled=self.coupled),
+                                      coupled=self.coupled, conduction=self.conduction),
                            promotes_inputs=promotes_inputs,
                            promotes_outputs=promotes_outputs)
 
@@ -370,16 +386,18 @@ class TACSFuncsGroup(om.Group):
     def setup(self):
         self.fea_solver = self.options['fea_solver']
         self.check_partials = self.options['check_partials']
+        self.conduction = self.options['conduction']
 
         # Promote state variables with physics-specific tag that MPhys expects
-        if self.options['conduction']:
-            promotes_inputs = [('states', 'T_conduct'), 'x_struct0', 'dv_struct_distributed']
+        if self.conduction:
+            promotes_inputs = ['T_conduct', 'x_struct0', 'dv_struct_distributed']
         else:
-            promotes_inputs = [('states', 'u_struct'), 'x_struct0', 'dv_struct_distributed']
+            promotes_inputs = ['u_struct', 'x_struct0', 'dv_struct_distributed']
 
         self.add_subsystem('funcs', TacsFunctions(
             fea_solver=self.fea_solver,
-            check_partials=self.check_partials),
+            check_partials=self.check_partials,
+            conduction=self.conduction),
                            promotes_inputs=promotes_inputs,
                            promotes_outputs=['*']
                            )
