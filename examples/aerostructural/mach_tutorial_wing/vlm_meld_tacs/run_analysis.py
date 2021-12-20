@@ -83,6 +83,12 @@ class Top(Multipoint):
             sp.addFunction('mass', functions.StructuralMass)
             sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0, safetyFactor=1.5)
 
+            # Add inertial relief gravity load
+            g = np.array([0.0, 0.0, -9.81])  # m/s^2
+            if scenario_name == 'maneuver':
+                g *= 2.5  # 2.5 G's
+            sp.addInertialLoad(g)
+
             scenario.coupling.struct.mphys_set_sp(sp)
             scenario.struct_post.mphys_set_sp(sp)
 

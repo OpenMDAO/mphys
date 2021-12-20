@@ -106,6 +106,9 @@ class Top(Multipoint):
         # Add TACS Functions
         sp.addFunction('mass', functions.StructuralMass)
         sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0)
+        # Add gravity load
+        g = np.array([0.0, 0.0, -9.81]) # m/s^2
+        sp.addInertialLoad(g)
 
         self.cruise.coupling.struct.mphys_set_sp(sp)
         self.cruise.struct_post.mphys_set_sp(sp)
