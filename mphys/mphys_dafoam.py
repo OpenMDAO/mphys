@@ -326,6 +326,7 @@ class DAFoamSolver(ImplicitComponent):
         # NOTE: we compute this only once and will reuse it during optimization
         # similarly, we will create the ksp once and reuse
         if DASolver.dRdWTPC is None:
+            DASolver.cdRoot()
             DASolver.dRdWTPC = PETSc.Mat().create(self.comm)
             DASolver.solver.calcdRdWT(DASolver.xvVec, DASolver.wVec, 1, DASolver.dRdWTPC)
 
