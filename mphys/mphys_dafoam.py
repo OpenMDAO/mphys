@@ -1,5 +1,5 @@
 import numpy as np
-import sys, time
+import sys, time, os
 from mpi4py import MPI
 from numpy.core.fromnumeric import prod
 from openmdao.api import Group, ImplicitComponent, ExplicitComponent, AnalysisError
@@ -134,7 +134,7 @@ class DAFoamGroup(Group):
         self.add_subsystem(
             "solver",
             DAFoamSolver(solver=self.DASolver),
-            promotes_inputs=["dafoam_vol_coords", "aoa"],
+            promotes_inputs=["*"],
             promotes_outputs=["dafoam_states"],
         )
 
@@ -188,8 +188,9 @@ class DAFoamSolver(ImplicitComponent):
         # setup input and output for the solver
         local_state_size = DASolver.getNLocalAdjointStates()
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
-        self.add_input("aoa", units="deg", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
         self.add_output("dafoam_states", distributed=True, shape=local_state_size, tags=["mphys_coupling"])
+        if self.alphaName in DASolver.getOption("designVar"):
+            self.add_input("aoa", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
 
     # calculate the residual
     def apply_nonlinear(self, inputs, outputs, residuals):
@@ -212,8 +213,8 @@ class DAFoamSolver(ImplicitComponent):
         DASolver.setOption("runStatus", "solvePrimal")
 
         # Compute and set angle of attack
-        aoa = inputs["aoa"]
         if callable(self.aoa_func):
+            aoa = inputs["aoa"]
             self.aoa_func(aoa, DASolver)
 
         DASolver.updateDAOption()
@@ -465,14 +466,18 @@ class DAFoamFunctions(ExplicitComponent):
 
         self.DASolver = self.options["solver"]
 
+        # the default name for angle of attack design variable
+        self.alphaName = "aoa"
+
         # Initialze AOA option
         self.aoa_func = None
 
         self.solution_counter = 0
 
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
-        self.add_input("aoa", units="deg", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
         self.add_input("dafoam_states", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
+        if self.alphaName in self.DASolver.getOption("designVar"):
+            self.add_input("aoa", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
 
     # add the function names to this component, called from runScript.py
     def mphys_add_funcs(self, funcs):
