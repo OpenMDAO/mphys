@@ -21,6 +21,17 @@ class TacsMesh(om.IndepVarComp):
         self.add_output('x_struct0', distributed=True, val=xpts, shape=xpts.size,
                         desc='structural node coordinates', tags=['mphys_coordinates'])
 
+class TacsMeshGroup(om.Group):
+
+    def initialize(self):
+        self.options.declare('fea_solver', default=None, desc='the pytacs object itself', recordable=False)
+
+    def setup(self):
+        fea_solver = self.options['fea_solver']
+        self.add_subsystem('fea_mesh',
+                           TacsMesh(fea_solver=fea_solver),
+                           promotes_outputs=['x_struct0'])
+
 
 class TacsDVComp(om.ExplicitComponent):
     """
@@ -460,7 +471,7 @@ class TacsBuilder(Builder):
                                  coupled=self.coupled)
 
     def get_mesh_coordinate_subsystem(self):
-        return TacsMesh(fea_solver=self.fea_solver)
+        return TacsMeshGroup(fea_solver=self.fea_solver)
 
     def get_pre_coupling_subsystem(self):
         initial_dvs = self.get_initial_dvs()
