@@ -236,6 +236,11 @@ class DAFoamSolver(ImplicitComponent):
         # assign the computed flow states to outputs
         outputs["dafoam_states"] = DASolver.getStates()
 
+        # if the primal solution fail, we return analysisError and let the optimizer handle it
+        fail = funcs["fail"]
+        if fail:
+            raise AnalysisError("Primal solution failed!")
+
     def linearize(self, inputs, outputs, residuals):
         # NOTE: we do not do any computation in this function, just print some information
 
@@ -341,11 +346,13 @@ class DAFoamSolver(ImplicitComponent):
         # update the KSP tolerances the coupled adjoint before solving
         self._updateKSPTolerances(self.psi, dFdW, self.ksp)
         # actually solving the adjoint linear equation using Petsc
-        DASolver.solverAD.solveLinearEqn(self.ksp, dFdW, self.psi)
+        fail = DASolver.solverAD.solveLinearEqn(self.ksp, dFdW, self.psi)
         # convert the solution vector to array and assign it to d_residuals
         d_residuals["dafoam_states"] = DASolver.vec2Array(self.psi)
 
-        return True, 0, 0
+        # if the adjoint solution fail, we return analysisError and let the optimizer handle it
+        if fail:
+            raise AnalysisError("Adjoint solution failed!")
 
     def _updateKSPTolerances(self, psi, dFdW, ksp):
         # Here we need to manually update the KSP tolerances because the default
