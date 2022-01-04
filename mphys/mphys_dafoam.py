@@ -193,8 +193,12 @@ class DAFoamSolver(ImplicitComponent):
         local_state_size = DASolver.getNLocalAdjointStates()
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
         self.add_output("dafoam_states", distributed=True, shape=local_state_size, tags=["mphys_coupling"])
+        # add angle of attack variable
         if self.alphaName in DASolver.getOption("designVar"):
             self.add_input("aoa", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
+        # add rotation speed variable
+        if "MRF" in DASolver.getOption("designVar"):
+            self.add_input("omega", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
 
     # calculate the residual
     def apply_nonlinear(self, inputs, outputs, residuals):
@@ -299,6 +303,7 @@ class DAFoamSolver(ImplicitComponent):
                 xVBar = DASolver.vec2Array(prodVec)
                 d_inputs["dafoam_vol_coords"] += xVBar
 
+            # compute [dRdAOA]^T*Psi using reverse mode AD
             if "aoa" in d_inputs:
                 prodVec = PETSc.Vec().create(self.comm)
                 prodVec.setSizes((PETSc.DECIDE, 1), bsize=1)
@@ -315,8 +320,20 @@ class DAFoamSolver(ImplicitComponent):
 
                 d_inputs["aoa"] += self.comm.bcast(aoaBar, root=0)
 
-        # NOTE: we only support states, vol_coords partials, and angle of attack.
-        # Other variables are not implemented yet!
+            # compute [dRdOmega]^T*Psi using reverse mode AD
+            if "omega" in d_inputs:
+                prodVec = PETSc.Vec().create(self.comm)
+                prodVec.setSizes((PETSc.DECIDE, 1), bsize=1)
+                prodVec.setFromOptions()
+                DASolver.solverAD.calcdRdBCTPsiAD(DASolver.xvVec, DASolver.wVec, resBarVec, "MRF".encode(), prodVec)
+                # The omegaBar variable will be length 1 on the root proc, but length 0 an all slave procs.
+                # The value on the root proc must be broadcast across all procs.
+                if self.comm.rank == 0:
+                    omegaBar = DASolver.vec2Array(prodVec)[0]
+                else:
+                    omegaBar = 0.0
+
+                d_inputs["omega"] += self.comm.bcast(omegaBar, root=0)
 
     def solve_linear(self, d_outputs, d_residuals, mode):
         # solve the adjoint equation [dRdW]^T * Psi = dFdW
@@ -488,8 +505,12 @@ class DAFoamFunctions(ExplicitComponent):
 
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
         self.add_input("dafoam_states", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
+        # add angle of attack variable
         if self.alphaName in self.DASolver.getOption("designVar"):
             self.add_input("aoa", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
+        # add rotation speed variable
+        if "MRF" in self.DASolver.getOption("designVar"):
+            self.add_input("omega", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
 
     # add the function names to this component, called from runScript.py
     def mphys_add_funcs(self, funcs):
@@ -573,8 +594,20 @@ class DAFoamFunctions(ExplicitComponent):
 
             d_inputs["aoa"] += self.comm.bcast(aoaBar, root=0)
 
-        # NOTE: we only support states, vol_coords partials, and angle of attack.
-        # Other variables are not implemented yet!
+        # compute dFdMRF
+        if "omega" in d_inputs:
+            dFdOmega = PETSc.Vec().create(self.comm)
+            dFdOmega.setSizes((PETSc.DECIDE, 1), bsize=1)
+            dFdOmega.setFromOptions()
+            DASolver.calcdFdBCAD(DASolver.xvVec, DASolver.wVec, objFuncName.encode(), "MRF".encode(), dFdOmega)
+            # The omegaBar variable will be length 1 on the root proc, but length 0 an all slave procs.
+            # The value on the root proc must be broadcast across all procs.
+            if self.comm.rank == 0:
+                omegaBar = DASolver.vec2Array(dFdOmega)[0]
+            else:
+                omegaBar = 0.0
+
+            d_inputs["omega"] += self.comm.bcast(omegaBar, root=0)
 
 
 class DAFoamWarper(ExplicitComponent):
