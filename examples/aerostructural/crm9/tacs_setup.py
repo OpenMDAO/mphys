@@ -7,7 +7,7 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
     E = 73.1e9  # elastic modulus, Pa
     nu = 0.33  # poisson's ratio
     ys = 324.0e6  # yield stress, Pa
-    thickness = 0.012
+    thickness = 0.02#0.012
     min_thickness = 0.002
     max_thickness = 0.05
 

@@ -7,7 +7,7 @@ import openmdao.api as om
 
 from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
-from mphys.mphys_fun3d import Fun3dSfeBuilder
+#from mphys.mphys_fun3d import Fun3dSfeBuilder
 from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_meld import MeldBuilder
 from mphys.mphys_vlm import VlmBuilder
@@ -21,17 +21,17 @@ from tacs import functions
 comm = MPI.COMM_WORLD
 rank = comm.rank
 
-use_fun3d = True
+use_fun3d = False
 
 class Top(Multipoint):
     def setup(self):
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
 
-        aoa = 0.0
-        mach = 0.85
-        q_inf = 120.0
-        vel = 217.6
-        nu = 1.4E-5
+        mach = 0.6415
+        aoa = 6.5
+        q_inf = 29200.
+        vel = 220.
+        nu = 3.5E-5
 
         if use_fun3d:
             # FUN3D options
@@ -60,7 +60,7 @@ class Top(Multipoint):
         # TACS options
         tacs_options = {
             'element_callback': tacs_setup.element_callback,
-            'mesh_file'   : 'CRM_box_2nd.bdf'
+            'mesh_file'   : 'CRM_box_2nd_with_lumped_mass.bdf'
         }
         struct_builder = TacsBuilder(tacs_options, coupled=True)
         struct_builder.initialize(self.comm)
@@ -101,8 +101,13 @@ class Top(Multipoint):
         # Structural problem
         sp = fea_solver.createStaticProblem(name='cruise')
         # Add TACS Functions
-        sp.addFunction('mass', functions.StructuralMass)
+        compIDs = fea_solver.selectCompIDs(nGroup=-1)
+        sp.addFunction('mass', functions.StructuralMass, compIDs=compIDs)
         sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0, safetyFactor=1.0)
+
+        # Add gravity load
+        g = np.array([0.0, 0.0, -9.81])  # m/s^2
+        sp.addInertialLoad(g)
 
         self.cruise.coupling.struct.mphys_set_sp(sp)
         self.cruise.struct_post.mphys_set_sp(sp)

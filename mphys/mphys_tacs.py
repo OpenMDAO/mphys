@@ -2,6 +2,7 @@ import numpy as np
 
 import openmdao.api as om
 from mphys.builder import Builder
+from mphys.mask_converter import MaskedConverter, UnmaskedConverter, MaskedVariableDescription
 from tacs import pyTACS
 from openmdao.utils.mpi import MPI
 import copy
@@ -21,6 +22,7 @@ class TacsMesh(om.IndepVarComp):
         self.add_output('x_struct0', distributed=True, val=xpts, shape=xpts.size,
                         desc='structural node coordinates', tags=['mphys_coordinates'])
 
+
 class TacsMeshGroup(om.Group):
 
     def initialize(self):
@@ -28,9 +30,22 @@ class TacsMeshGroup(om.Group):
 
     def setup(self):
         fea_solver = self.options['fea_solver']
-        self.add_subsystem('fea_mesh',
-                           TacsMesh(fea_solver=fea_solver),
-                           promotes_outputs=['x_struct0'])
+        self.add_subsystem('fea_mesh', TacsMesh(fea_solver=fea_solver))
+
+        nnodes = fea_solver.getNumOwnedNodes()
+        nmult = fea_solver.getNumOwnedMultiplierNodes()
+        mask_input = MaskedVariableDescription('x_struct0', shape=nnodes * 3, tags=['mphys_coordinates'])
+        mask_output = MaskedVariableDescription('x_struct0_masked', shape=(nnodes - nmult) * 3,
+                                                tags=['mphys_coordinates'])
+        mult_ids = fea_solver.getLocalMultiplierNodeIDs()
+        mask = np.zeros([nnodes, 3], dtype=bool)
+        mask[:, :] = True
+        mask[mult_ids, :] = False
+        masker = MaskedConverter(input=mask_input, output=mask_output, mask=mask.flatten(), distributed=True)
+        self.add_subsystem('masker', masker,
+                           promotes_outputs=[('x_struct0_masked', 'x_struct0')])
+
+        self.connect('fea_mesh.x_struct0', 'masker.x_struct0')
 
 
 class TacsDVComp(om.ExplicitComponent):
@@ -94,6 +109,7 @@ class TacsDVComp(om.ExplicitComponent):
             all_dv_indices = np.arange(ndvs)
             return all_dv_indices
 
+
 class TacsPrecouplingGroup(om.Group):
 
     def initialize(self):
@@ -101,7 +117,6 @@ class TacsPrecouplingGroup(om.Group):
         self.options.declare('initial_dv_vals', default=None, desc='initial values for global design variable vector')
 
     def setup(self):
-
         # Promote state variables/rhs with physics-specific tag that MPhys expects
         promotes_inputs = [('dv_struct_serial', 'dv_struct')]
 
@@ -112,6 +127,20 @@ class TacsPrecouplingGroup(om.Group):
                            TacsDVComp(fea_solver=fea_solver, initial_dv_vals=initial_dv_vals),
                            promotes_inputs=promotes_inputs)
 
+        nnodes = fea_solver.getNumOwnedNodes()
+        nmult = fea_solver.getNumOwnedMultiplierNodes()
+        unmask_output = MaskedVariableDescription('x_struct0', shape=nnodes * 3, tags=['mphys_coordinates'])
+        unmask_input = MaskedVariableDescription('x_struct0_masked', shape=(nnodes - nmult) * 3,
+                                                 tags=['mphys_coordinates'])
+        mult_ids = fea_solver.getLocalMultiplierNodeIDs()
+        mask = np.zeros([nnodes, 3], dtype=bool)
+        mask[:, :] = True
+        mask[mult_ids, :] = False
+        vals = fea_solver.getOrigNodes()
+        unmasker = UnmaskedConverter(input=unmask_input, output=unmask_output, mask=mask.flatten(), default_values=vals,
+                                     distributed=True)
+        self.add_subsystem('unmasker', unmasker,
+                           promotes_inputs=[('x_struct0_masked', 'x_struct0')])
 
 class TacsSolver(om.ImplicitComponent):
     """
@@ -251,7 +280,8 @@ class TacsSolver(om.ImplicitComponent):
                     d_inputs[self.rhs_name] -= array_w_bcs
 
                 if 'x_struct0' in d_inputs:
-                    self.sp.addAdjointResXptSensProducts([d_residuals[self.states_name]], [d_inputs['x_struct0']], scale=1.0)
+                    self.sp.addAdjointResXptSensProducts([d_residuals[self.states_name]], [d_inputs['x_struct0']],
+                                                         scale=1.0)
 
                 if 'dv_struct' in d_inputs:
                     self.sp.addAdjointResProducts([d_residuals[self.states_name]], [d_inputs['dv_struct']],
@@ -376,21 +406,47 @@ class TacsCouplingGroup(om.Group):
         self.conduction = self.options['conduction']
 
         # Promote state variables/rhs with physics-specific tag that MPhys expects
-        promotes_inputs = ['x_struct0', ('dv_struct', 'distributor.dv_struct')]
+        promotes_inputs = [('x_struct0', 'unmasker.x_struct0'), ('dv_struct', 'distributor.dv_struct')]
         if self.conduction:
-            promotes_outputs = ['T_conduct']
-            if self.coupled:
-                promotes_inputs.append('q_conduct')
+            self.states_name = 'T_conduct'
+            self.rhs_name = 'q_conduct'
         else:
-            promotes_outputs = ['u_struct']
-            if self.coupled:
-                promotes_inputs.append('f_struct')
+            self.states_name = 'u_struct'
+            self.rhs_name = 'f_struct'
+
+        nnodes = self.fea_solver.getNumOwnedNodes()
+        nmult = self.fea_solver.getNumOwnedMultiplierNodes()
+        vpn = self.fea_solver.getVarsPerNode()
+        mult_ids = self.fea_solver.getLocalMultiplierNodeIDs()
+        mask = np.zeros([nnodes, vpn], dtype=bool)
+        mask[:, :] = True
+        mask[mult_ids, :] = False
+
+        if self.coupled:
+            unmask_output = MaskedVariableDescription(self.rhs_name, shape=nnodes * vpn, tags=['mphys_coupling'])
+            unmask_input = MaskedVariableDescription(self.rhs_name + '_masked', shape=(nnodes - nmult) * vpn,
+                                                     tags=['mphys_coupling'])
+            unmasker = UnmaskedConverter(input=unmask_input, output=unmask_output, mask=mask.flatten(),
+                                         distributed=True)
+            self.add_subsystem('unmasker', unmasker,
+                               promotes_inputs=[(self.rhs_name + '_masked', self.rhs_name)])
 
         self.add_subsystem('solver',
                            TacsSolver(fea_solver=self.fea_solver, check_partials=self.check_partials,
                                       coupled=self.coupled, conduction=self.conduction),
-                           promotes_inputs=promotes_inputs,
-                           promotes_outputs=promotes_outputs)
+                           promotes_inputs=promotes_inputs)
+
+        mask_input = MaskedVariableDescription(self.states_name, shape=nnodes * vpn, tags=['mphys_coupling'])
+        mask_output = MaskedVariableDescription(self.states_name + '_masked', shape=(nnodes - nmult) * vpn,
+                                                tags=['mphys_coupling'])
+        masker = MaskedConverter(input=mask_input, output=mask_output, mask=mask.flatten(), distributed=True)
+        self.add_subsystem('masker', masker,
+                           promotes_outputs=[(self.states_name + '_masked', self.states_name)])
+
+        self.connect('solver.' + self.states_name, 'masker.' + self.states_name)
+
+        if self.coupled:
+            self.connect('unmasker.' + self.rhs_name, 'solver.' + self.rhs_name)
 
         # Default structural problem
         sp = self.fea_solver.createStaticProblem(name='wing')
@@ -419,9 +475,11 @@ class TACSFuncsGroup(om.Group):
 
         # Promote state variables with physics-specific tag that MPhys expects
         if self.conduction:
-            promotes_inputs = ['T_conduct', 'x_struct0', ('dv_struct', 'distributor.dv_struct')]
+            promotes_inputs = [('T_conduct', 'solver.T_conduct'), ('x_struct0', 'unmasker.x_struct0'),
+                               ('dv_struct', 'distributor.dv_struct')]
         else:
-            promotes_inputs = ['u_struct', 'x_struct0', ('dv_struct', 'distributor.dv_struct')]
+            promotes_inputs = [('u_struct', 'solver.u_struct'), ('x_struct0', 'unmasker.x_struct0'),
+                               ('dv_struct', 'distributor.dv_struct')]
 
         self.add_subsystem('funcs', TacsFunctions(
             fea_solver=self.fea_solver,
@@ -494,7 +552,7 @@ class TacsBuilder(Builder):
         """
         nnodes = self.fea_solver.getNumOwnedNodes()
         nmult = self.fea_solver.getNumOwnedMultiplierNodes()
-        return nnodes #- nmult
+        return nnodes - nmult
 
     def get_initial_dvs(self):
         """
