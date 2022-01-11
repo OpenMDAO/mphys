@@ -45,13 +45,13 @@ class AerostructParallel(MultipointParallel):
             scenario = getattr(self, scenario_name)
             # Check if scenario is on this processor group
             if hasattr(scenario, 'coupling'):
-                fea_solver = scenario.coupling.struct.fea_solver
+                fea_assembler = scenario.coupling.struct.fea_assembler
 
                 # ==============================================================================
                 # Setup structural problem
                 # ==============================================================================
                 # Structural problem
-                sp = fea_solver.createStaticProblem(name=scenario_name)
+                sp = fea_assembler.createStaticProblem(name=scenario_name)
                 # Add TACS Functions
                 sp.addFunction('mass', functions.StructuralMass)
                 sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0, safetyFactor=1.5)

@@ -31,26 +31,26 @@ class Top(Multipoint):
         self.connect('dv_struct', 'analysis.dv_struct')
 
     def configure(self):
-        # create the tacs problems for analysis point.
-        # this is custom to the tacs based approach we chose here.
+        # create the tacs problems for adding evalfuncs and fixed structural loads to the analysis point.
+        # This is custom to the tacs based approach we chose here.
         # any solver can have their own custom approach here, and we don't
         # need to use a common API. AND, if we wanted to define a common API,
-        # it can easily be defined on the mp group, or the aero group.
-        fea_solver = self.analysis.coupling.fea_solver
+        # it can easily be defined on the mp group, or the struct group.
+        fea_assembler = self.analysis.coupling.fea_assembler
 
         # ==============================================================================
         # Setup static problem
         # ==============================================================================
         # Static problem
-        sp = fea_solver.createStaticProblem(name='analysis', options={'printTiming':True})
+        sp = fea_assembler.createStaticProblem(name='analysis', options={'printTiming':True})
         # Add TACS Functions
         sp.addFunction('mass', functions.StructuralMass)
         sp.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
                        ksWeight=100.0)
 
         # Add forces to static problem
-        F = fea_solver.createVec()
-        ndof = fea_solver.getVarsPerNode()
+        F = fea_assembler.createVec()
+        ndof = fea_assembler.getVarsPerNode()
         F[2::ndof] = 100.0
         sp.addLoadToRHS(F)
 

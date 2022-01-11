@@ -54,7 +54,7 @@ class Top(Multipoint):
         tacs_options = {'element_callback' : element_callback,
                         'mesh_file': '../input_files/debug.bdf'}
 
-        tacs_builder = TacsBuilder(tacs_options, check_partials=True, coupled=True)
+        tacs_builder = TacsBuilder(tacs_options, check_partials=True, coupled=True, write_solution=False)
         tacs_builder.initialize(self.comm)
         ndv_struct = tacs_builder.get_ndv()
 
@@ -72,7 +72,12 @@ class Top(Multipoint):
         self.connect('f_struct', 'analysis.f_struct')
 
     def configure(self):
-        fea_solver = self.analysis.coupling.fea_solver
+        # create the tacs problems for adding evalfuncs and fixed structural loads to the analysis point.
+        # This is custom to the tacs based approach we chose here.
+        # any solver can have their own custom approach here, and we don't
+        # need to use a common API. AND, if we wanted to define a common API,
+        # it can easily be defined on the mp group, or the struct group.
+        fea_assembler = self.analysis.coupling.fea_assembler
 
         # ==============================================================================
         # Setup structural problem
@@ -80,7 +85,7 @@ class Top(Multipoint):
         # Structural problem
         # Set converges to be tight for test
         prob_options = {'L2Convergence': 1e-20, 'L2ConvergenceRel': 1e-20}
-        sp = fea_solver.createStaticProblem(name='test', options=prob_options)
+        sp = fea_assembler.createStaticProblem(name='test', options=prob_options)
         # Add TACS Functions
         sp.addFunction('mass', functions.StructuralMass)
         sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0)

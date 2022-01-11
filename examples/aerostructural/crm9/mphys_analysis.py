@@ -93,15 +93,20 @@ class Top(Multipoint):
             self.connect(dv, f'cruise.{dv}')
 
     def configure(self):
-        fea_solver = self.cruise.coupling.struct.fea_solver
+        # create the tacs problems for adding evalfuncs and fixed structural loads to the analysis point.
+        # This is custom to the tacs based approach we chose here.
+        # any solver can have their own custom approach here, and we don't
+        # need to use a common API. AND, if we wanted to define a common API,
+        # it can easily be defined on the mp group, or the struct group.
+        fea_assembler = self.cruise.coupling.struct.fea_assembler
 
         # ==============================================================================
         # Setup structural problem
         # ==============================================================================
         # Structural problem
-        sp = fea_solver.createStaticProblem(name='cruise')
+        sp = fea_assembler.createStaticProblem(name='cruise')
         # Add TACS Functions
-        compIDs = fea_solver.selectCompIDs(nGroup=-1)
+        compIDs = fea_assembler.selectCompIDs(nGroup=-1)
         sp.addFunction('mass', functions.StructuralMass, compIDs=compIDs)
         sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0, safetyFactor=1.0)
 
@@ -109,6 +114,7 @@ class Top(Multipoint):
         g = np.array([0.0, 0.0, -9.81])  # m/s^2
         sp.addInertialLoad(g)
 
+        # here we set the tacs problems for every load case we have.
         self.cruise.coupling.struct.mphys_set_sp(sp)
         self.cruise.struct_post.mphys_set_sp(sp)
 

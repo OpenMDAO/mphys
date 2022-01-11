@@ -72,13 +72,13 @@ class Top(Multipoint):
     def configure(self):
         for scenario_name in ['cruise','maneuver']:
             scenario = getattr(self, scenario_name)
-            fea_solver = scenario.coupling.struct.fea_solver
+            fea_assembler = scenario.coupling.struct.fea_assembler
 
             # ==============================================================================
             # Setup structural problem
             # ==============================================================================
             # Structural problem
-            sp = fea_solver.createStaticProblem(name=scenario_name)
+            sp = fea_assembler.createStaticProblem(name=scenario_name)
             # Add TACS Functions
             sp.addFunction('mass', functions.StructuralMass)
             sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0, safetyFactor=1.5)

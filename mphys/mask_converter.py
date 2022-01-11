@@ -3,8 +3,8 @@ import openmdao.api as om
 
 class MaskedVariableDescription:
     """
-    Attributes of a variable for conversion from serial to distributed
-    or distributed to serial
+    Attributes of a variable for conversion from masked to unmasked
+    or unmasked to masked
     """
 
     def __init__(self, name: str, shape: tuple, tags=None):
@@ -15,16 +15,21 @@ class MaskedVariableDescription:
 
 class MaskedConverter(om.ExplicitComponent):
     """
+    An ExplicitComponent used to filter out a predefined set of indices from a larger input array.
+    This is useful in cases, for instance, where it desired to prevent certain fea nodes from participating
+    in the load and displacement transfers in an aerostructural scenario.
 
+    The masking operation breaks down to the python assignment:
+    masked_vector = unmasked_vector[mask_indices]
     """
 
     def initialize(self):
         self.options.declare(
             'input',
-            desc='MaskedVariableDescription object of input that will be unmasked')
+            desc='MaskedVariableDescription object of input that will be masked')
         self.options.declare(
             'output',
-            desc='MaskedVariableDescription object of unmasked output')
+            desc='MaskedVariableDescription object of masked output')
         self.options.declare(
             'distributed', default=False,
             desc='Flag to determine if the inputs and outputs should be distributed arrays')
@@ -62,7 +67,13 @@ class MaskedConverter(om.ExplicitComponent):
 
 class UnmaskedConverter(om.ExplicitComponent):
     """
+    An ExplicitComponent that undoes the procedure of the MaskedConverter component.
+    This companent takes an already masked vector, inserts missing indices,
+    and gives back a vector of the full unmasked size. The user can optionally set
+    the default values to be inserted for the inserted indices (default is 0.0).
 
+    The unmasking operation breaks down to the python assignment:
+    unmasked_vector[mask_indices] = masked_vector
     """
 
     def initialize(self):
@@ -73,8 +84,8 @@ class UnmaskedConverter(om.ExplicitComponent):
             'output',
             desc='MaskedVariableDescription object of unmasked output')
         self.options.declare(
-            'default_values', default= 0.0,
-            desc='MaskedVariableDescription object of unmasked output')
+            'default_values', default=0.0,
+            desc='default values for masked indices in output vector')
         self.options.declare(
             'distributed', default=False,
             desc='Flag to determine if the inputs and outputs should be distributed arrays')

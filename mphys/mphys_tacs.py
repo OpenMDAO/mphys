@@ -16,11 +16,11 @@ class TacsMesh(om.IndepVarComp):
     """
 
     def initialize(self):
-        self.options.declare('fea_solver', default=None, desc='the pytacs object itself', recordable=False)
+        self.options.declare('fea_assembler', default=None, desc='the pytacs object itself', recordable=False)
 
     def setup(self):
-        fea_solver = self.options['fea_solver']
-        xpts = fea_solver.getOrigNodes()
+        fea_assembler = self.options['fea_assembler']
+        xpts = fea_assembler.getOrigNodes()
         self.add_output('x_struct0', distributed=True, val=xpts, shape=xpts.size,
                         desc='structural node coordinates', tags=['mphys_coordinates'])
 
@@ -28,18 +28,22 @@ class TacsMesh(om.IndepVarComp):
 class TacsMeshGroup(om.Group):
 
     def initialize(self):
-        self.options.declare('fea_solver', default=None, desc='the pytacs object itself', recordable=False)
+        self.options.declare('fea_assembler', default=None, desc='the pytacs object itself', recordable=False)
 
     def setup(self):
-        fea_solver = self.options['fea_solver']
-        self.add_subsystem('fea_mesh', TacsMesh(fea_solver=fea_solver))
+        fea_assembler = self.options['fea_assembler']
+        self.add_subsystem('fea_mesh', TacsMesh(fea_assembler=fea_assembler))
 
-        nnodes = fea_solver.getNumOwnedNodes()
-        nmult = fea_solver.getNumOwnedMultiplierNodes()
+        # Identify tacs nodes corresponding to lagrange multipliers. These are nodes that are typically added in tacs
+        # whenever an element using a lagrange multiplier formulation is used (such as an RBE). It is important that
+        # these nodes not be included included in the aerostructural coupling procedure, as they a purely mathematical constructs.
+        # We'll use this information later to create a mask for filtering out these nodes in the coupling procedure.
+        nnodes = fea_assembler.getNumOwnedNodes()
+        nmult = fea_assembler.getNumOwnedMultiplierNodes()
         mask_input = MaskedVariableDescription('x_struct0', shape=nnodes * 3, tags=['mphys_coordinates'])
         mask_output = MaskedVariableDescription('x_struct0_masked', shape=(nnodes - nmult) * 3,
                                                 tags=['mphys_coordinates'])
-        mult_ids = fea_solver.getLocalMultiplierNodeIDs()
+        mult_ids = fea_assembler.getLocalMultiplierNodeIDs()
         mask = np.zeros([nnodes, 3], dtype=bool)
         mask[:, :] = True
         mask[mult_ids, :] = False
@@ -57,14 +61,14 @@ class TacsDVComp(om.ExplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare('fea_solver', default=None, desc='the pytacs object itself', recordable=False)
+        self.options.declare('fea_assembler', default=None, desc='the pytacs object itself', recordable=False)
         self.options.declare('initial_dv_vals', default=None, desc='initial values for global design variable vector')
 
     def setup(self):
-        self.fea_solver = self.options['fea_solver']
+        self.fea_assembler = self.options['fea_assembler']
         self.src_indices = self.get_dv_src_indices()
         vals = self.options['initial_dv_vals']
-        ndv = self.fea_solver.getNumDesignVars()
+        ndv = self.fea_assembler.getNumDesignVars()
         self.add_input('dv_struct_serial', desc='serial design vector holding all tacs design variable values',
                        val=vals, distributed=False, tags=['mphys_input'])
         self.add_output('dv_struct', desc='distributed design vector holding tacs design variable values\
@@ -87,7 +91,7 @@ class TacsDVComp(om.ExplicitComponent):
         for tacs distributed design variable vec
         """
         if MPI is not None and self.comm.size > 1:
-            local_ndvs = self.fea_solver.getNumDesignVars()
+            local_ndvs = self.fea_assembler.getNumDesignVars()
             all_proc_ndvs = self.comm.gather(local_ndvs, root=0)
             all_proc_indices = []
             if self.comm.rank == 0:
@@ -108,30 +112,30 @@ class TacsDVComp(om.ExplicitComponent):
 class TacsPrecouplingGroup(om.Group):
 
     def initialize(self):
-        self.options.declare('fea_solver', default=None, desc='the pytacs object itself', recordable=False)
+        self.options.declare('fea_assembler', default=None, desc='the pytacs object itself', recordable=False)
         self.options.declare('initial_dv_vals', default=None, desc='initial values for global design variable vector')
 
     def setup(self):
         # Promote state variables/rhs with physics-specific tag that MPhys expects
         promotes_inputs = [('dv_struct_serial', 'dv_struct')]
 
-        fea_solver = self.options['fea_solver']
+        fea_assembler = self.options['fea_assembler']
         initial_dv_vals = self.options['initial_dv_vals']
 
         self.add_subsystem('distributor',
-                           TacsDVComp(fea_solver=fea_solver, initial_dv_vals=initial_dv_vals),
+                           TacsDVComp(fea_assembler=fea_assembler, initial_dv_vals=initial_dv_vals),
                            promotes_inputs=promotes_inputs)
 
-        nnodes = fea_solver.getNumOwnedNodes()
-        nmult = fea_solver.getNumOwnedMultiplierNodes()
+        nnodes = fea_assembler.getNumOwnedNodes()
+        nmult = fea_assembler.getNumOwnedMultiplierNodes()
         unmask_output = MaskedVariableDescription('x_struct0', shape=nnodes * 3, tags=['mphys_coordinates'])
         unmask_input = MaskedVariableDescription('x_struct0_masked', shape=(nnodes - nmult) * 3,
                                                  tags=['mphys_coordinates'])
-        mult_ids = fea_solver.getLocalMultiplierNodeIDs()
+        mult_ids = fea_assembler.getLocalMultiplierNodeIDs()
         mask = np.zeros([nnodes, 3], dtype=bool)
         mask[:, :] = True
         mask[mult_ids, :] = False
-        vals = fea_solver.getOrigNodes()
+        vals = fea_assembler.getOrigNodes()
         unmasker = UnmaskedConverter(input=unmask_input, output=unmask_output, mask=mask.flatten(), default_values=vals,
                                      distributed=True)
         self.add_subsystem('unmasker', unmasker,
@@ -147,12 +151,12 @@ class TacsSolver(om.ImplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare('fea_solver', recordable=False)
+        self.options.declare('fea_assembler', recordable=False)
         self.options.declare('conduction', default=False)
         self.options.declare('check_partials')
         self.options.declare('coupled', default=False)
 
-        self.fea_solver = None
+        self.fea_assembler = None
 
         self.transposed = False
         self.check_partials = False
@@ -162,7 +166,7 @@ class TacsSolver(om.ImplicitComponent):
 
     def setup(self):
         self.check_partials = self.options['check_partials']
-        self.fea_solver = self.options['fea_solver']
+        self.fea_assembler = self.options['fea_assembler']
         self.conduction = self.options['conduction']
         self.coupled = self.options['coupled']
 
@@ -174,9 +178,9 @@ class TacsSolver(om.ImplicitComponent):
             self.rhs_name = 'f_struct'
 
         # OpenMDAO setup
-        local_ndvs = self.fea_solver.getNumDesignVars()
-        self.ndof = self.fea_solver.getVarsPerNode()
-        state_size = self.fea_solver.getNumOwnedNodes() * self.ndof
+        local_ndvs = self.fea_assembler.getNumDesignVars()
+        self.ndof = self.fea_assembler.getVarsPerNode()
+        state_size = self.fea_assembler.getNumOwnedNodes() * self.ndof
 
         # inputs
         self.add_input('dv_struct', distributed=True, shape=local_ndvs,
@@ -271,7 +275,7 @@ class TacsSolver(om.ImplicitComponent):
 
                 if self.rhs_name in d_inputs:
                     array_w_bcs = d_residuals[self.states_name].copy()
-                    self.fea_solver.applyBCsToVec(array_w_bcs)
+                    self.fea_assembler.applyBCsToVec(array_w_bcs)
                     d_inputs[self.rhs_name] -= array_w_bcs
 
                 if 'x_struct0' in d_inputs:
@@ -302,17 +306,17 @@ class TacsFunctions(om.ExplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare('fea_solver', recordable=False)
+        self.options.declare('fea_assembler', recordable=False)
         self.options.declare('conduction', default=False)
         self.options.declare('check_partials')
-        self.options.declare("write_solution", default=True)
+        self.options.declare("write_solution")
 
-        self.fea_solver = None
+        self.fea_assembler = None
 
         self.check_partials = False
 
     def setup(self):
-        self.fea_solver = self.options['fea_solver']
+        self.fea_assembler = self.options['fea_assembler']
         self.check_partials = self.options['check_partials']
         self.write_solution = self.options["write_solution"]
         self.conduction = self.options["conduction"]
@@ -324,7 +328,7 @@ class TacsFunctions(om.ExplicitComponent):
             self.states_name = 'u_struct'
 
         # TACS part of setup
-        local_ndvs = self.fea_solver.getNumDesignVars()
+        local_ndvs = self.fea_assembler.getNumDesignVars()
 
         # OpenMDAO part of setup
         self.add_input('dv_struct', distributed=True, shape=local_ndvs,
@@ -394,13 +398,13 @@ class TacsFunctions(om.ExplicitComponent):
 
 class TacsCouplingGroup(om.Group):
     def initialize(self):
-        self.options.declare('fea_solver', recordable=False)
+        self.options.declare('fea_assembler', recordable=False)
         self.options.declare('check_partials')
         self.options.declare('conduction', default=False)
         self.options.declare('coupled', default=False)
 
     def setup(self):
-        self.fea_solver = self.options['fea_solver']
+        self.fea_assembler = self.options['fea_assembler']
         self.check_partials = self.options['check_partials']
         self.coupled = self.options['coupled']
         self.conduction = self.options['conduction']
@@ -414,14 +418,22 @@ class TacsCouplingGroup(om.Group):
             self.states_name = 'u_struct'
             self.rhs_name = 'f_struct'
 
-        nnodes = self.fea_solver.getNumOwnedNodes()
-        nmult = self.fea_solver.getNumOwnedMultiplierNodes()
-        vpn = self.fea_solver.getVarsPerNode()
-        mult_ids = self.fea_solver.getLocalMultiplierNodeIDs()
+        # Identify tacs nodes corresponding to lagrange multipliers. These are nodes that are typically added in tacs
+        # whenever an element using a lagrange multiplier formulation is used (such as an RBE). It is important that
+        # these nodes not be included included in the aerostructural coupling procedure, as they a purely mathematical constructs.
+        # We'll use this information later to create a mask for filtering out these nodes in the coupling procedure.
+        nnodes = self.fea_assembler.getNumOwnedNodes()
+        nmult = self.fea_assembler.getNumOwnedMultiplierNodes()
+        vpn = self.fea_assembler.getVarsPerNode()
+        mult_ids = self.fea_assembler.getLocalMultiplierNodeIDs()
         mask = np.zeros([nnodes, vpn], dtype=bool)
         mask[:, :] = True
         mask[mult_ids, :] = False
 
+        # Create an unmasking component to process the coupled force vector from the aerostructural
+        # load transfer component. This component takes the masked load vector (length = vpn * (nnodes - nmult))
+        # and creates an unmasked load vector (length = vpn * nnodes), by inserting 0.0 for the forces on
+        # the multiplier nodes
         if self.coupled:
             unmask_output = MaskedVariableDescription(self.rhs_name, shape=nnodes * vpn, tags=['mphys_coupling'])
             unmask_input = MaskedVariableDescription(self.rhs_name + '_masked', shape=(nnodes - nmult) * vpn,
@@ -432,10 +444,12 @@ class TacsCouplingGroup(om.Group):
                                promotes_inputs=[(self.rhs_name + '_masked', self.rhs_name)])
 
         self.add_subsystem('solver',
-                           TacsSolver(fea_solver=self.fea_solver, check_partials=self.check_partials,
+                           TacsSolver(fea_assembler=self.fea_assembler, check_partials=self.check_partials,
                                       coupled=self.coupled, conduction=self.conduction),
                            promotes_inputs=promotes_inputs)
 
+        # Create a masking component to process the full structural displacement vector (length = vpn * nnodes)
+        # and remove indices corresponding to multiplier nodes (length = vpn*(nnodes - nmult)).
         mask_input = MaskedVariableDescription(self.states_name, shape=nnodes * vpn, tags=['mphys_coupling'])
         mask_output = MaskedVariableDescription(self.states_name + '_masked', shape=(nnodes - nmult) * vpn,
                                                 tags=['mphys_coupling'])
@@ -449,7 +463,7 @@ class TacsCouplingGroup(om.Group):
             self.connect('unmasker.' + self.rhs_name, 'solver.' + self.rhs_name)
 
         # Default structural problem
-        sp = self.fea_solver.createStaticProblem(name='wing')
+        sp = self.fea_assembler.createStaticProblem(name='default')
         self.mphys_set_sp(sp)
 
     def mphys_set_sp(self, sp):
@@ -461,17 +475,18 @@ class TacsCouplingGroup(om.Group):
         self.sp = sp
         self.solver.set_sp(sp)
 
-
 class TACSFuncsGroup(om.Group):
     def initialize(self):
-        self.options.declare('fea_solver', recordable=False)
+        self.options.declare('fea_assembler', recordable=False)
         self.options.declare('check_partials')
         self.options.declare('conduction', default=False)
+        self.options.declare('write_solution')
 
     def setup(self):
-        self.fea_solver = self.options['fea_solver']
+        self.fea_assembler = self.options['fea_assembler']
         self.check_partials = self.options['check_partials']
         self.conduction = self.options['conduction']
+        self.write_solution = self.options['write_solution']
 
         # Promote state variables with physics-specific tag that MPhys expects
         if self.conduction:
@@ -482,15 +497,16 @@ class TACSFuncsGroup(om.Group):
                                ('dv_struct', 'distributor.dv_struct')]
 
         self.add_subsystem('funcs', TacsFunctions(
-            fea_solver=self.fea_solver,
+            fea_assembler=self.fea_assembler,
             check_partials=self.check_partials,
-            conduction=self.conduction),
+            conduction=self.conduction,
+            write_solution=self.write_solution),
                            promotes_inputs=promotes_inputs,
                            promotes_outputs=['*']
                            )
 
         # Default structural problem
-        sp = self.fea_solver.createStaticProblem(name='wing')
+        sp = self.fea_assembler.createStaticProblem(name='default')
         self.mphys_set_sp(sp)
 
     def mphys_set_sp(self, sp):
@@ -501,10 +517,13 @@ class TACSFuncsGroup(om.Group):
 
 class TacsBuilder(Builder):
 
-    def __init__(self, options, check_partials=False, conduction=False, coupled=False):
+    def __init__(self, options, check_partials=False, conduction=False, coupled=True, write_solution=True):
         self.options = copy.deepcopy(options)
         self.check_partials = check_partials
+        # Flag to switch to tacs conduction solver (False->structural)
         self.conduction = conduction
+        # Flag to turn on f5 file writer
+        self.write_solution = write_solution
         # Flag to turn on coupling variables
         self.coupled = coupled
 
@@ -512,46 +531,50 @@ class TacsBuilder(Builder):
         pytacs_options = copy.deepcopy(self.options)
         bdf_file = pytacs_options.pop('mesh_file')
 
+        # Load optional user-defined callback function for setting up tacs elements
         if 'element_callback' in pytacs_options:
             element_callback = pytacs_options.pop('element_callback')
         else:
             element_callback = None
 
-        self.fea_solver = pyTACS(bdf_file, options=pytacs_options, comm=comm)
+        # Create pytacs instance
+        self.fea_assembler = pyTACS(bdf_file, options=pytacs_options, comm=comm)
         self.comm = comm
 
         # Set up elements and TACS assembler
-        self.fea_solver.initialize(element_callback)
+        self.fea_assembler.initialize(element_callback)
 
     def get_coupling_group_subsystem(self):
-        return TacsCouplingGroup(fea_solver=self.fea_solver,
+        return TacsCouplingGroup(fea_assembler=self.fea_assembler,
                                  check_partials=self.check_partials,
                                  coupled=self.coupled)
 
     def get_mesh_coordinate_subsystem(self):
-        return TacsMeshGroup(fea_solver=self.fea_solver)
+        return TacsMeshGroup(fea_assembler=self.fea_assembler)
 
     def get_pre_coupling_subsystem(self):
         initial_dvs = self.get_initial_dvs()
-        return TacsPrecouplingGroup(fea_solver=self.fea_solver, initial_dv_vals=initial_dvs)
+        return TacsPrecouplingGroup(fea_assembler=self.fea_assembler, initial_dv_vals=initial_dvs)
 
     def get_post_coupling_subsystem(self):
+
         return TACSFuncsGroup(
-            fea_solver=self.fea_solver,
+            fea_assembler=self.fea_assembler,
             check_partials=self.check_partials,
-            conduction=self.conduction
+            conduction=self.conduction,
+            write_solution=self.write_solution
         )
 
     def get_ndof(self):
-        return self.fea_solver.getVarsPerNode()
+        return self.fea_assembler.getVarsPerNode()
 
     def get_number_of_nodes(self):
         """
         Get the number of nodes on this processor,
         not including lagrange multiplier nodes
         """
-        nnodes = self.fea_solver.getNumOwnedNodes()
-        nmult = self.fea_solver.getNumOwnedMultiplierNodes()
+        nnodes = self.fea_assembler.getNumOwnedNodes()
+        nmult = self.fea_assembler.getNumOwnedMultiplierNodes()
         return nnodes - nmult
 
     def get_initial_dvs(self):
@@ -560,31 +583,36 @@ class TacsBuilder(Builder):
         """
         if MPI is not None and self.comm.size > 1:
             # Get DVs locally owned by this processor
-            local_dvs = self.fea_solver.getOrigDesignVars()
+            local_dvs = self.fea_assembler.getOrigDesignVars()
             local_dvs = local_dvs.astype(float)
             # Size of design variable on this processor
-            local_ndvs = self.fea_solver.getNumDesignVars()
+            local_ndvs = self.fea_assembler.getNumDesignVars()
             # Size of design variable vector on each processor
             dv_sizes = self.comm.allgather(local_ndvs)
             # Offsets for global design variable vector
             offsets = np.zeros(self.comm.size, dtype=int)
             offsets[1:] = np.cumsum(dv_sizes)[:-1]
             # Gather the portions of the design variable array distributed across each processor
-            tot_ndvs = self.fea_solver.getTotalNumDesignVars()
+            tot_ndvs = self.fea_assembler.getTotalNumDesignVars()
             global_dvs = np.zeros(tot_ndvs, dtype=local_dvs.dtype)
             self.comm.Allgatherv(local_dvs, [global_dvs, dv_sizes, offsets, MPI.DOUBLE])
             # return the global dv array
             return global_dvs
         else:
-            return self.fea_solver.getOrigDesignVars()
+            return self.fea_assembler.getOrigDesignVars()
 
     def get_ndv(self):
-        return self.fea_solver.getTotalNumDesignVars()
+        """
+        Get total number of structural design variables across all procs
+        """
+        return self.fea_assembler.getTotalNumDesignVars()
 
     def get_solver(self):
         # this method is only used by the RLT transfer scheme
-        return self.fea_solver.assembler
+        return self.fea_assembler.assembler
 
-    def get_fea_solver(self):
-        # this method is only used by the RLT transfer scheme
-        return self.fea_solver
+    def get_fea_assembler(self):
+        """
+        Returns underlying pytacs object.
+        """
+        return self.fea_assembler
