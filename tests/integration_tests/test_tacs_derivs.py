@@ -90,7 +90,7 @@ class Top(Multipoint):
 
 
 class TestTACS(unittest.TestCase):
-    N_PROCS=1
+    N_PROCS=2
     def setUp(self):
         prob = om.Problem()
         prob.model = Top()
@@ -105,7 +105,7 @@ class TestTACS(unittest.TestCase):
         self.prob.run_model()
         print('----------------starting check totals--------------')
         data = self.prob.check_totals(of=['analysis.struct_post.ks_vmfailure', 'analysis.struct_post.mass'],
-                                      wrt='mesh.x_struct0', method='cs',
+                                      wrt='mesh.fea_mesh.x_struct0', method='cs',
                                       step=1e-50, step_calc='rel')
         for var, err in data.items():
             rel_err = err['rel error']

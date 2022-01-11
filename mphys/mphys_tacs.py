@@ -1,6 +1,8 @@
 import numpy as np
 
 import openmdao.api as om
+from openmdao.utils.mpi import MPI
+
 from mphys.builder import Builder
 from mphys.mask_converter import MaskedConverter, UnmaskedConverter, MaskedVariableDescription
 from tacs import pyTACS
@@ -77,14 +79,7 @@ class TacsDVComp(om.ExplicitComponent):
                 d_outputs['dv_struct'] += d_inputs['dv_struct_serial'][self.src_indices]
         else:  # mode == 'rev'
             if 'dv_struct_serial' in d_inputs:
-                if MPI is not None and self.comm.size > 1:
-                    deriv = np.zeros_like(d_inputs['dv_struct_serial'])
-                    deriv[self.src_indices] = d_outputs['dv_struct']
-                    deriv_sum = np.zeros_like(d_inputs['dv_struct_serial'])
-                    self.comm.Allreduce(deriv, deriv_sum, op=MPI.SUM)
-                    d_inputs['dv_struct_serial'] += deriv_sum
-                else:
-                    d_inputs['dv_struct_serial'] += d_outputs['dv_struct']
+                d_inputs['dv_struct_serial'][self.src_indices] += d_outputs['dv_struct']
 
     def get_dv_src_indices(self):
         """
@@ -378,7 +373,12 @@ class TacsFunctions(om.ExplicitComponent):
             self._update_internal(inputs)
 
             for func_name in d_outputs:
-                d_func = d_outputs[func_name][0]
+                if MPI and self.comm.size > 1:
+                    full = np.zeros(d_outputs[func_name].size)
+                    self.comm.Allreduce(d_outputs[func_name], full, op=MPI.SUM)
+                    d_func = full
+                else:
+                    d_func = d_outputs[func_name]
 
                 if 'dv_struct' in d_inputs:
                     self.sp.addDVSens([func_name], [d_inputs['dv_struct']], scale=d_func)
