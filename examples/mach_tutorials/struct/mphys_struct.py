@@ -5,7 +5,8 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from mphys.multipoint import Multipoint
+from mphys import Multipoint
+from mphys.scenario_structural import ScenarioStructural
 
 # these imports will be from the respective codes' repos rather than omfsi
 from mphys.mphys_tacs import TacsBuilder
@@ -22,48 +23,44 @@ class Top(om.Group):
         ################################################################################
         # TACS options
         ################################################################################
-        def add_elements(mesh):
-            rho = 2780.0            # density, kg/m^3
-            E = 73.1e9              # elastic modulus, Pa
-            nu = 0.33               # poisson's ratio
-            kcorr = 5.0 / 6.0       # shear correction factor
-            ys = 324.0e6            # yield stress, Pa
-            thickness= 0.020
-            min_thickness = 0.002
-            max_thickness = 0.05
 
-            num_components = mesh.getNumComponents()
-            for i in range(num_components):
-                descript = mesh.getElementDescript(i)
-                stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
-                                            min_thickness, max_thickness)
-                element = None
-                if descript in ["CQUAD", "CQUADR", "CQUAD4"]:
-                    element = elements.MITCShell(2,stiff,component_num=i)
-                mesh.setElement(i, element)
+        # Material properties
+        rho = 2500.0  # density kg/m^3
+        E = 70.0e9  # Young's modulus (Pa)
+        nu = 0.30  # Poisson's ratio
+        kcorr = 5.0 / 6.0  # shear correction factor
+        ys = 350e6  # yield stress
 
-            ndof = 6
-            ndv = num_components
+        # Shell thickness
+        t = 0.01  # m
+        tMin = 0.002  # m
+        tMax = 0.05  # m
 
-            return ndof, ndv
+        # Callback function used to setup TACS element objects and DVs
+        def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
+            # Setup (isotropic) property and constitutive objects
+            prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
+            # Set one thickness dv for every component
+            con = constitutive.IsoShellConstitutive(prop, t=t, tNum=dvNum)
 
-        def get_funcs(tacs):
-            ks_weight = 50.0
-            return [ functions.KSFailure(tacs,ks_weight), functions.StructuralMass(tacs)]
+            # Define reference axis for local shell stresses
+            if 'SKIN' in compDescript:  # USKIN + LSKIN
+                sweep = 35.0 / 180.0 * np.pi
+                refAxis = np.array([np.sin(sweep), np.cos(sweep), 0])
+            else:  # RIBS + SPARS + ENGINE_MOUNT
+                refAxis = np.array([0.0, 0.0, 1.0])
 
-        def load_function(x_s, ndof):
-            f_s = np.zeros(int(x_s.size/3)*ndof)
-            f_s[2::ndof] = 100.0
-            return f_s
+            # For each element type in this component,
+            # pass back the appropriate tacs element object
+            transform = elements.ShellRefAxisTransform(refAxis)
+            elem = elements.Quad4Shell(transform, con)
+            return elem
 
-        tacs_options = {
-            'add_elements': add_elements,
-            'mesh_file'   : 'wingbox.bdf',
-            'get_funcs'   : get_funcs,
-            'load_function':load_function
-        }
+        tacs_options = {'element_callback': element_callback,
+                        'mesh_file': 'wingbox.bdf'}
 
-        tacs_builder = TacsBuilder(tacs_options)
+        tacs_builder = TacsBuilder(tacs_options, coupled=False)
+        tacs_builder.initialize(self.comm)
 
         ################################################################################
         # MPHY setup
@@ -75,17 +72,50 @@ class Top(om.Group):
         # create the multiphysics multipoint group.
         mp = self.add_subsystem(
             'mp_group',
-            Multipoint(struct_builder = tacs_builder)
+            Multipoint()
         )
 
+        # add the structural thickness DVs
+        ndv_struct = tacs_builder.get_ndv()
+        self.dvs.add_output('dv_struct', np.array(ndv_struct * [0.01]))
+
+        mp.add_subsystem('mesh', tacs_builder.get_mesh_coordinate_subsystem())
         # this is the method that needs to be called for every point in this mp_group
-        mp.mphys_add_scenario('s0')
+        mp.mphys_add_scenario('s0',
+                              ScenarioStructural(struct_builder=tacs_builder))
+        mp.mphys_connect_scenario_coordinate_source('mesh', 's0', 'struct')
+
+        self.connect('dv_struct', 'mp_group.s0.dv_struct')
 
     def configure(self):
-        # add the structural thickness DVs
-        ndv_struct = self.mp_group.struct_builder.get_ndv()
-        self.dvs.add_output('dv_struct', np.array(ndv_struct*[0.01]))
-        self.connect('dv_struct', ['mp_group.s0.solver_group.struct.dv_struct', 'mp_group.s0.struct_funcs.dv_struct'])
+
+        # create the tacs problems for adding evalfuncs and fixed structural loads to the analysis point.
+        # This is custom to the tacs based approach we chose here.
+        # any solver can have their own custom approach here, and we don't
+        # need to use a common API. AND, if we wanted to define a common API,
+        # it can easily be defined on the mp group, or the struct group.
+        fea_assembler = self.mp_group.s0.coupling.fea_assembler
+
+        # ==============================================================================
+        # Setup static problem
+        # ==============================================================================
+        # Static problem
+        sp = fea_assembler.createStaticProblem(name='s0')
+        # Add TACS Functions
+        sp.addFunction('mass', functions.StructuralMass)
+        sp.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
+                       ksWeight=50.0)
+
+        # Add forces to static problem
+        F = fea_assembler.createVec()
+        ndof = fea_assembler.getVarsPerNode()
+        F[2::ndof] = 100.0
+        sp.addLoadToRHS(F)
+
+        # here we set the tacs problems for the analysis case we have.
+        # this call automatically adds the functions and loads for the respective scenario
+        self.mp_group.s0.coupling.mphys_set_sp(sp)
+        self.mp_group.s0.struct_post.mphys_set_sp(sp)
 
 ################################################################################
 # OpenMDAO setup
