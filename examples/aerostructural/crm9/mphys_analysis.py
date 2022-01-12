@@ -7,7 +7,7 @@ import openmdao.api as om
 
 from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
-#from mphys.mphys_fun3d import Fun3dSfeBuilder
+from mphys.mphys_fun3d import Fun3dSfeBuilder
 from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_meld import MeldBuilder
 from mphys.mphys_vlm import VlmBuilder
@@ -21,17 +21,17 @@ from tacs import functions
 comm = MPI.COMM_WORLD
 rank = comm.rank
 
-use_fun3d = False
+use_fun3d = True
 
 class Top(Multipoint):
     def setup(self):
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
 
-        mach = 0.6415
-        aoa = 6.5
-        q_inf = 29200.
-        vel = 220.
-        nu = 3.5E-5
+        aoa = 0.0
+        mach = 0.85
+        q_inf = 120.0
+        vel = 217.6
+        nu = 1.4E-5
 
         if use_fun3d:
             # FUN3D options
@@ -60,7 +60,7 @@ class Top(Multipoint):
         # TACS options
         tacs_options = {
             'element_callback': tacs_setup.element_callback,
-            'mesh_file'   : 'CRM_box_2nd_with_lumped_mass.bdf'
+            'mesh_file'   : 'CRM_box_2nd.bdf'
         }
         struct_builder = TacsBuilder(tacs_options, coupled=True)
         struct_builder.initialize(self.comm)
@@ -134,7 +134,7 @@ if MPI.COMM_WORLD.rank == 0:
     print('C_L =',prob['cruise.C_L'])
     print('C_D =',prob['cruise.C_D'])
     print('KS =',prob['cruise.struct_post.ks_vmfailure'])
-output = prob.check_totals(of=['cruise.C_L','cruise.C_D', 'cruise.struct_post.ks_vmfailure'], wrt=['aoa', 'thickness_lumped'],)
-if MPI.COMM_WORLD.rank == 0:
-    print('check_totals output',output)
+#output = prob.check_totals(of=['mp_group.s0.aero_funcs.Lift'], wrt=['thickness_lumped'],)
+#if MPI.COMM_WORLD.rank == 0:
+#    print('check_totals output',output)
 
