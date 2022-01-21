@@ -204,8 +204,8 @@ class Top(Multipoint):
         # add the geometry component, we dont need a builder because we do it here.
         self.add_subsystem("geometry", OM_DVGEOCOMP(ffd_file="FFD/wingFFD.xyz"))
 
-        nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14)
-        linear_solver = om.LinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14)
+        nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-8, atol=1e-8)
+        linear_solver = om.LinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-8, atol=1e-8)
         self.mphys_add_scenario(
             "cruise",
             ScenarioAeroStructural(
@@ -227,6 +227,7 @@ class Top(Multipoint):
         self.connect("mesh_struct.x_struct0", "geometry.x_struct_in")
 
     def configure(self):
+        super().configure()
 
         self.cruise.aero_post.mphys_add_funcs(["CD", "CL"])
 
