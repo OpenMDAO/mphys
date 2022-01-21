@@ -33,3 +33,4 @@ dist/
 tests/input_files/*.xyz
 
 .ropeproject
+.vscode/launch.json
