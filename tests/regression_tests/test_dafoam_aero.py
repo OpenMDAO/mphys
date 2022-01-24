@@ -1,6 +1,6 @@
 # --- Python 3.8 ---
 """
-@File    :   test_dafoam.py
+@File    :   test_dafoam_aero.py
 @Time    :   2021/07/28
 @Author  :   Bernardo Pacini
 @Desc    :   Aerodynamic analysis regression test used to test if the output
@@ -25,7 +25,7 @@ from mphys.multipoint import Multipoint
 from mphys.scenario_aerodynamic import ScenarioAerodynamic
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
-dataDir = baseDir + "/../input_files/"
+dataDir = baseDir + "/../input_files/dafoam_aero/"
 
 inputDirs = ["0", "constant", "FFD", "system"]
 

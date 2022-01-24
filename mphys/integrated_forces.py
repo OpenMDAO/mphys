@@ -426,12 +426,10 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                     d_inputs['f_aero'][0::3] += -(y-yc) * d_outputs['CM_Z'] / (q_inf * area * c)
                     d_inputs['f_aero'][1::3] +=  (x-xc) * d_outputs['CM_Z'] / (q_inf * area * c)
 
-if __name__ == '__main__':
-    from openmdao.api import Problem, IndepVarComp
-
+def check_integrated_surface_force_partials():
     nnodes = 3
-    prob = Problem()
-    ivc = IndepVarComp()
+    prob = om.Problem()
+    ivc = om.IndepVarComp()
     ivc.add_output('aoa',val=45.0, units='deg')
     ivc.add_output('yaw',val=135.0, units='deg')
     ivc.add_output('ref_area',val=0.2)
@@ -447,3 +445,6 @@ if __name__ == '__main__':
     prob.setup(force_alloc_complex=True)
     prob.run_model()
     prob.check_partials(compact_print=True, method='cs')
+
+if __name__ == '__main__':
+    check_integrated_surface_force_partials()

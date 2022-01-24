@@ -311,8 +311,8 @@ class TacsSolverConduction(om.ImplicitComponent):
     """
     def initialize(self):
 
-        self.options.declare('tacs_assembler')
-        self.options.declare('struct_objects')
+        self.options.declare('tacs_assembler', recordable=False)
+        self.options.declare('struct_objects', recordable=False)
         self.options.declare('check_partials')
 
         self.tacs_assembler = None
@@ -437,7 +437,7 @@ class TacsFunctions(om.ExplicitComponent):
 
         self.ans = None
         self.tacs_assembler = None
-
+        
         self.check_partials = False
 
     def setup(self):
