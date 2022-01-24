@@ -89,7 +89,7 @@ class Top(Multipoint):
         self.mphys_add_scenario('flutter',ScenarioAeroStructural(aero_builder=aero_builder,
                                                                 struct_builder=struct_builder,
                                                                 ldxfer_builder=ldxfer_builder),
-                                         nonlinear_solver, linear_solver, promotes=True)
+                                         nonlinear_solver, linear_solver)
         self.add_subsystem('geometry_sum', GeometrySum(), promotes=['*'])
 
 ################################################################################
