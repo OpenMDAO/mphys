@@ -55,16 +55,16 @@ class AeroBuilder(Builder):
     def get_ndof(self):
         return 3
 
-    def get_mesh_coordinate_subsystem(self):
+    def get_mesh_coordinate_subsystem(self, scenario_name=None):
         return AeroMeshComp()
 
-    def get_pre_coupling_subsystem(self):
+    def get_pre_coupling_subsystem(self, scenario_name=None):
         return AeroPreCouplingComp()
 
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
         return AeroCouplingComp()
 
-    def get_post_coupling_subsystem(self):
+    def get_post_coupling_subsystem(self, scenario_name=None):
         return AeroPostCouplingComp()
 
 
@@ -112,16 +112,16 @@ class StructBuilder(Builder):
     def get_ndof(self):
         return 3
 
-    def get_mesh_coordinate_subsystem(self):
+    def get_mesh_coordinate_subsystem(self, scenario_name=None):
         return StructMeshComp()
 
-    def get_pre_coupling_subsystem(self):
+    def get_pre_coupling_subsystem(self, scenario_name=None):
         return StructPreCouplingComp()
 
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
         return StructCouplingComp()
 
-    def get_post_coupling_subsystem(self):
+    def get_post_coupling_subsystem(self, scenario_name=None):
         return StructPostCouplingComp()
 
 
@@ -155,7 +155,7 @@ class LDXferBuilder(Builder):
     def get_ndof(self):
         return 3
 
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
         return DispXferComp(), LoadXferComp()
 
 
@@ -173,7 +173,7 @@ class Geometry(om.ExplicitComponent):
 
 
 class GeometryBuilder(Builder):
-    def get_mesh_coordinate_subsystem(self):
+    def get_mesh_coordinate_subsystem(self, scenario_name=None):
         return Geometry()
 
 

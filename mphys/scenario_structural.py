@@ -24,12 +24,12 @@ class ScenarioStructural(Scenario):
 
             if geometry_builder is not None:
                 geometry_builder.initialize(self.comm)
-                self.add_subsystem('mesh',struct_builder.get_mesh_coordinate_subsystem())
-                self.mphys_add_subsystem('geometry',geometry_builder.get_mesh_coordinate_subsystem())
+                self.add_subsystem('mesh',struct_builder.get_mesh_coordinate_subsystem(self.name))
+                self.mphys_add_subsystem('geometry',geometry_builder.get_mesh_coordinate_subsystem(self.name))
                 self.connect('mesh.x_struct0','geometry.x_struct_in')
             else:
-                self.mphys_add_subsystem('mesh',struct_builder.get_mesh_coordinate_subsystem())
+                self.mphys_add_subsystem('mesh',struct_builder.get_mesh_coordinate_subsystem(self.name))
 
         self.mphys_add_pre_coupling_subsystem('struct', struct_builder)
-        self.mphys_add_subsystem('coupling',struct_builder.get_coupling_group_subsystem())
+        self.mphys_add_subsystem('coupling',struct_builder.get_coupling_group_subsystem(self.name))
         self.mphys_add_post_coupling_subsystem('struct', struct_builder)

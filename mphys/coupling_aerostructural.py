@@ -12,15 +12,17 @@ class CouplingAeroStructural(CouplingGroup):
         self.options.declare('aero_builder', recordable=False)
         self.options.declare('struct_builder', recordable=False)
         self.options.declare('ldxfer_builder', recordable=False)
+        self.options.declare("scenario_name", recordable=True, default=None)
 
     def setup(self):
         aero_builder = self.options['aero_builder']
         struct_builder = self.options['struct_builder']
         ldxfer_builder = self.options['ldxfer_builder']
+        scenario_name = self.options['scenario_name']
 
-        disp_xfer, load_xfer = ldxfer_builder.get_coupling_group_subsystem()
-        aero = aero_builder.get_coupling_group_subsystem()
-        struct = struct_builder.get_coupling_group_subsystem()
+        disp_xfer, load_xfer = ldxfer_builder.get_coupling_group_subsystem(scenario_name)
+        aero = aero_builder.get_coupling_group_subsystem(scenario_name)
+        struct = struct_builder.get_coupling_group_subsystem(scenario_name)
 
         geo_disp = GeoDisp(number_of_nodes=aero_builder.get_number_of_nodes())
 
