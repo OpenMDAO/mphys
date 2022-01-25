@@ -25,10 +25,15 @@ class Builder:
         """
         pass
 
-    def get_mesh_coordinate_subsystem(self):
+    def get_mesh_coordinate_subsystem(self, scenario_name=None):
         """
         The subsystem that contains the subsystem that will return the mesh
         coordinates
+
+        Parameters
+        ----------
+        scenario_name : str or None
+            The name of the scenario calling the builder.
 
         Returns
         -------
@@ -37,9 +42,14 @@ class Builder:
         """
         return None
 
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
         """
         The subsystem that this builder will add to the CouplingGroup
+
+        Parameters
+        ----------
+        scenario_name : str or None
+            The name of the scenario calling the builder.
 
         Returns
         -------
@@ -49,9 +59,14 @@ class Builder:
         """
         return None
 
-    def get_pre_coupling_subsystem(self):
+    def get_pre_coupling_subsystem(self, scenario_name=None):
         """
         Method that returns the openmdao subsystem to be added to each scenario before the coupling group
+
+        Parameters
+        ----------
+        scenario_name : str or None
+            The name of the scenario calling the builder.
 
         Returns
         -------
@@ -59,9 +74,14 @@ class Builder:
         """
         return None
 
-    def get_post_coupling_subsystem(self):
+    def get_post_coupling_subsystem(self, scenario_name=None):
         """
         Method that returns the openmdao subsystem to be added to each scenario after the coupling group
+
+        Parameters
+        ----------
+        scenario_name : str or None
+            The name of the scenario calling the builder.
 
         Returns
         -------

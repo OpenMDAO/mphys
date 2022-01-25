@@ -361,13 +361,13 @@ class VlmBuilder(Builder):
         self.n_aero = self.x_aero0.size // 3
         self.comm = comm
 
-    def get_mesh_coordinate_subsystem(self):
+    def get_mesh_coordinate_subsystem(self, scenario_name=None):
         return VlmMeshGroup(x_aero0=self.x_aero0)
 
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
         return VlmSolverGroup(solver=self.solver, n_aero=self.n_aero, complex_step=self.complex_step)
 
-    def get_post_coupling_subsystem(self):
+    def get_post_coupling_subsystem(self, scenario_name=None):
         return VlmFuncsGroup(solver=self.solver, n_aero=self.n_aero, complex_step=self.complex_step)
 
     def get_number_of_nodes(self):

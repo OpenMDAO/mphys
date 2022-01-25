@@ -1,7 +1,6 @@
 import numpy as np
 
 import openmdao.api as om
-from openmdao.utils.mpi import MPI
 
 from mphys.builder import Builder
 from mphys.mask_converter import MaskedConverter, UnmaskedConverter, MaskedVariableDescription
@@ -23,7 +22,6 @@ class TacsMesh(om.IndepVarComp):
         xpts = fea_assembler.getOrigNodes()
         self.add_output('x_struct0', distributed=True, val=xpts, shape=xpts.size,
                         desc='structural node coordinates', tags=['mphys_coordinates'])
-
 
 class TacsMeshGroup(om.Group):
 
@@ -402,12 +400,14 @@ class TacsCouplingGroup(om.Group):
         self.options.declare('check_partials')
         self.options.declare('conduction', default=False)
         self.options.declare('coupled', default=False)
+        self.options.declare('scenario_name', default=None)
 
     def setup(self):
         self.fea_assembler = self.options['fea_assembler']
         self.check_partials = self.options['check_partials']
         self.coupled = self.options['coupled']
         self.conduction = self.options['conduction']
+        self.scenario_name = self.options['scenario_name']
 
         # Promote state variables/rhs with physics-specific tag that MPhys expects
         promotes_inputs = [('x_struct0', 'unmasker.x_struct0'), ('dv_struct', 'distributor.dv_struct')]
@@ -462,8 +462,13 @@ class TacsCouplingGroup(om.Group):
         if self.coupled:
             self.connect('unmasker.' + self.rhs_name, 'solver.' + self.rhs_name)
 
-        # Default structural problem
-        sp = self.fea_assembler.createStaticProblem(name='default')
+        if self.scenario_name is None:
+            # Default structural problem
+            name = 'default'
+        else:
+            name = self.scenario_name
+        sp = self.fea_assembler.createStaticProblem(name=name)
+
         self.mphys_set_sp(sp)
 
     def mphys_set_sp(self, sp):
@@ -480,12 +485,14 @@ class TACSFuncsGroup(om.Group):
         self.options.declare('fea_assembler', recordable=False)
         self.options.declare('check_partials')
         self.options.declare('conduction', default=False)
+        self.options.declare('scenario_name', default=None)
         self.options.declare('write_solution')
 
     def setup(self):
         self.fea_assembler = self.options['fea_assembler']
         self.check_partials = self.options['check_partials']
         self.conduction = self.options['conduction']
+        self.scenario_name = self.options['scenario_name']
         self.write_solution = self.options['write_solution']
 
         # Promote state variables with physics-specific tag that MPhys expects
@@ -505,8 +512,12 @@ class TACSFuncsGroup(om.Group):
                            promotes_outputs=['*']
                            )
 
-        # Default structural problem
-        sp = self.fea_assembler.createStaticProblem(name='default')
+        if self.scenario_name is None:
+            # Default structural problem
+            name = 'default'
+        else:
+            name = self.scenario_name
+        sp = self.fea_assembler.createStaticProblem(name=name)
         self.mphys_set_sp(sp)
 
     def mphys_set_sp(self, sp):
@@ -544,25 +555,26 @@ class TacsBuilder(Builder):
         # Set up elements and TACS assembler
         self.fea_assembler.initialize(element_callback)
 
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
         return TacsCouplingGroup(fea_assembler=self.fea_assembler,
                                  check_partials=self.check_partials,
-                                 coupled=self.coupled)
+                                 coupled=self.coupled,
+                                 scenario_name=scenario_name)
 
-    def get_mesh_coordinate_subsystem(self):
+    def get_mesh_coordinate_subsystem(self, scenario_name=None):
         return TacsMeshGroup(fea_assembler=self.fea_assembler)
 
-    def get_pre_coupling_subsystem(self):
+    def get_pre_coupling_subsystem(self, scenario_name=None):
         initial_dvs = self.get_initial_dvs()
         return TacsPrecouplingGroup(fea_assembler=self.fea_assembler, initial_dv_vals=initial_dvs)
 
-    def get_post_coupling_subsystem(self):
-
+    def get_post_coupling_subsystem(self, scenario_name=None):
         return TACSFuncsGroup(
             fea_assembler=self.fea_assembler,
             check_partials=self.check_partials,
             conduction=self.conduction,
-            write_solution=self.write_solution
+            write_solution=self.write_solution,
+            scenario_name=scenario_name
         )
 
     def get_ndof(self):

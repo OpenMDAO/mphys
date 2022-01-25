@@ -326,7 +326,7 @@ class MeldBuilder(Builder):
                                           comm, 0,
                                           self.isym, self.n, self.beta)
 
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
         disp_xfer = MeldDispXfer(
             xfer_object=self.meld,
             struct_ndof=self.struct_ndof,
