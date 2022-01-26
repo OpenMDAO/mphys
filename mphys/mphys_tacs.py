@@ -4,7 +4,7 @@ import openmdao.api as om
 
 from mphys.builder import Builder
 from mphys.mask_converter import MaskedConverter, UnmaskedConverter, MaskedVariableDescription
-from tacs import pyTACS
+from tacs import pyTACS, functions
 from openmdao.utils.mpi import MPI
 import copy
 
@@ -300,7 +300,7 @@ class TacsSolver(om.ImplicitComponent):
 
 class TacsFunctions(om.ExplicitComponent):
     """
-    Component to compute TACS functions
+    Component to compute non-mass TACS functions
     """
 
     def initialize(self):
@@ -342,7 +342,10 @@ class TacsFunctions(om.ExplicitComponent):
 
         # Add eval funcs as outputs
         for func_name in self.sp.functionList:
-            self.add_output(func_name, distributed=False, shape=1, tags=["mphys_result"])
+            func_handle = self.sp.functionList[func_name]
+            # Skip any mass functions
+            if isinstance(func_handle, functions.StructuralMass) == False:
+                self.add_output(func_name, distributed=False, shape=1, tags=["mphys_result"])
 
     def _update_internal(self, inputs):
         self.sp.setDesignVars(inputs['dv_struct'])
@@ -355,9 +358,9 @@ class TacsFunctions(om.ExplicitComponent):
         # Evaluate functions
         funcs = {}
         self.sp.evalFunctions(funcs)
-        for key in funcs:
-            # Remove struct problem name from key
-            func_name = key.replace(self.sp.name + '_', '')
+        for func_name in outputs:
+            # Add struct problem name from key
+            key = self.sp.name + '_' + func_name
             outputs[func_name] = funcs[key]
 
         if self.write_solution:
@@ -393,6 +396,79 @@ class TacsFunctions(om.ExplicitComponent):
                     self.sp.addSVSens([func_name], [sv_sens])
                     d_inputs[self.states_name][:] += sv_sens * d_func
 
+class MassFunctions(om.ExplicitComponent):
+    """
+    Component to compute TACS mass-specific functions
+    """
+
+    def initialize(self):
+        self.options.declare('fea_assembler', recordable=False)
+        self.options.declare('check_partials')
+
+        self.fea_assembler = None
+        self.check_partials = False
+
+    def setup(self):
+        self.fea_assembler = self.options['fea_assembler']
+        self.check_partials = self.options['check_partials']
+
+        # TACS part of setup
+        local_ndvs = self.fea_assembler.getNumDesignVars()
+
+        # OpenMDAO part of setup
+        self.add_input('dv_struct', distributed=True, shape=local_ndvs,
+                       desc='tacs design variables', tags=['mphys_coupling'])
+        self.add_input('x_struct0', distributed=True, shape_by_conn=True, desc='structural node coordinates',
+                       tags=['mphys_coordinates'])
+
+    def mphys_set_sp(self, sp):
+        # this is the external function to set the sp to this component
+        self.sp = sp
+
+        # Add eval funcs as outputs
+        for func_name in self.sp.functionList:
+            func_handle = self.sp.functionList[func_name]
+            # Only include mass functions
+            if isinstance(func_handle, functions.StructuralMass):
+                self.add_output(func_name, distributed=False, shape=1, tags=["mphys_result"])
+
+    def _update_internal(self, inputs):
+        self.sp.setDesignVars(inputs['dv_struct'])
+        self.sp.setNodes(inputs['x_struct0'])
+
+    def compute(self, inputs, outputs):
+        self._update_internal(inputs)
+
+        # Evaluate functions
+        funcs = {}
+        self.sp.evalFunctions(funcs)
+        for func_name in outputs:
+            # Add struct problem name from key
+            key = self.sp.name + '_' + func_name
+            outputs[func_name] = funcs[key]
+
+    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
+        if mode == 'fwd':
+            if not self.check_partials:
+                raise ValueError('TACS forward mode requested but not implemented')
+        if mode == 'rev':
+            # always update internal because same tacs object could be used by multiple scenarios
+            # and we need to load this scenario's state back into TACS before doing derivatives
+            self._update_internal(inputs)
+
+            for func_name in d_outputs:
+                if MPI and self.comm.size > 1:
+                    full = np.zeros(d_outputs[func_name].size)
+                    self.comm.Allreduce(d_outputs[func_name], full, op=MPI.SUM)
+                    d_func = full
+                else:
+                    d_func = d_outputs[func_name]
+
+                if 'dv_struct' in d_inputs:
+                    self.sp.addDVSens([func_name], [d_inputs['dv_struct']], scale=d_func)
+
+                if 'x_struct0' in d_inputs:
+                    self.sp.addXptSens([func_name], [d_inputs['x_struct0']], scale=d_func)
 
 class TacsCouplingGroup(om.Group):
     def initialize(self):
@@ -471,7 +547,7 @@ class TacsCouplingGroup(om.Group):
             name = scenario_name
         sp = self.fea_assembler.createStaticProblem(name=name)
 
-        # Setup TACS problem with user-defined output functions
+        # Setup TACS problem with user-defined structural loads
         problem_setup = self.options['problem_setup']
         if problem_setup is not None:
             new_problem = problem_setup(scenario_name, self.fea_assembler, sp)
@@ -480,18 +556,9 @@ class TacsCouplingGroup(om.Group):
                 sp = new_problem
 
         # Set problem
-        self.mphys_set_sp(sp)
-
-    def mphys_set_sp(self, sp):
-        """
-        Allows user to attach custom structural problem. The problem can include
-        fixed structural loads that may have been added to the problem by the user.
-        """
-        # set the struct problem
-        self.sp = sp
         self.solver.set_sp(sp)
 
-class TACSFuncsGroup(om.Group):
+class TacsFuncsGroup(om.Group):
     def initialize(self):
         self.options.declare('fea_assembler', recordable=False)
         self.options.declare('check_partials')
@@ -506,24 +573,7 @@ class TACSFuncsGroup(om.Group):
         self.conduction = self.options['conduction']
         self.write_solution = self.options['write_solution']
 
-        # Promote state variables with physics-specific tag that MPhys expects
-        if self.conduction:
-            promotes_inputs = [('T_conduct', 'solver.T_conduct'), ('x_struct0', 'unmasker.x_struct0'),
-                               ('dv_struct', 'distributor.dv_struct')]
-        else:
-            promotes_inputs = [('u_struct', 'solver.u_struct'), ('x_struct0', 'unmasker.x_struct0'),
-                               ('dv_struct', 'distributor.dv_struct')]
-
-        self.add_subsystem('funcs', TacsFunctions(
-            fea_assembler=self.fea_assembler,
-            check_partials=self.check_partials,
-            conduction=self.conduction,
-            write_solution=self.write_solution),
-                           promotes_inputs=promotes_inputs,
-                           promotes_outputs=['*']
-                           )
-
-        # Name problem based on scenario that's calling builder
+        # Setup problem based on scenario that's calling builder
         scenario_name = self.options['scenario_name']
         if scenario_name is None:
             # Default structural problem
@@ -540,14 +590,39 @@ class TACSFuncsGroup(om.Group):
             if new_problem is not None:
                 sp = new_problem
 
-        # Set problem
-        self.mphys_set_sp(sp)
+        # Promote state variables with physics-specific tag that MPhys expects
+        promotes_inputs = [('x_struct0', 'unmasker.x_struct0'), ('dv_struct', 'distributor.dv_struct')]
+        if self.conduction:
+            promotes_states = [('T_conduct', 'solver.T_conduct')]
+        else:
+            promotes_states = [('u_struct', 'solver.u_struct')]
 
-    def mphys_set_sp(self, sp):
-        # this is the external function to set the sp to this component
-        self.sp = sp
-        self.funcs.mphys_set_sp(sp)
+        # Add function evaluation component for non-mass outputs
+        self.add_subsystem('eval_funcs', TacsFunctions(
+            fea_assembler=self.fea_assembler,
+            check_partials=self.check_partials,
+            conduction=self.conduction,
+            write_solution=self.write_solution),
+                           promotes_inputs=promotes_inputs + promotes_states,
+                           promotes_outputs=['*']
+                           )
+        self.eval_funcs.mphys_set_sp(sp)
 
+        # Check if there are any mass functions added by user
+        mass_funcs = False
+        for func_handle in sp.functionList.values():
+            if isinstance(func_handle, functions.StructuralMass):
+                mass_funcs = True
+
+        # Mass functions are handled in a seperate component to prevent useless adjoint solves
+        if mass_funcs:
+            # Note: these functions do not depend on the states
+            self.add_subsystem('mass_funcs', MassFunctions(
+                fea_assembler=self.fea_assembler,
+                check_partials=self.check_partials),
+                               promotes_inputs=promotes_inputs,
+                               promotes_outputs=['*'])
+            self.mass_funcs.mphys_set_sp(sp)
 
 class TacsBuilder(Builder):
 
@@ -599,7 +674,7 @@ class TacsBuilder(Builder):
         return TacsPrecouplingGroup(fea_assembler=self.fea_assembler, initial_dv_vals=initial_dvs)
 
     def get_post_coupling_subsystem(self, scenario_name=None):
-        return TACSFuncsGroup(
+        return TacsFuncsGroup(
             fea_assembler=self.fea_assembler,
             check_partials=self.check_partials,
             conduction=self.conduction,
