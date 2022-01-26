@@ -1,5 +1,5 @@
 import numpy as np
-from tacs import elements, constitutive
+from tacs import elements, constitutive, functions
 
 # Material properties
 rho = 2500.0        # density kg/m^3
@@ -25,3 +25,21 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
     transform = None
     elem = elements.Quad4Shell(transform, con)
     return elem
+
+def problem_setup(scenario_name, fea_assembler, problem):
+    """
+    Helper function to add fixed forces and eval functions
+    to structural problems used in tacs builder
+    """
+
+    # Add TACS Functions
+    if scenario_name == 'cruise':
+        problem.addFunction('mass', functions.StructuralMass)
+    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=100.0)
+
+    # Add gravity load
+    g = np.array([0.0, -9.81, 0.0])  # m/s^2
+    if scenario_name == 'maneuver':
+        problem.addInertialLoad(2.5 * g)
+    else: # cruise
+        problem.addInertialLoad(g)

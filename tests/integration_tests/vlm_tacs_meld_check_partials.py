@@ -35,6 +35,19 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
 
     return elem
 
+def problem_setup(scenario_name, fea_assembler, problem):
+    """
+    Helper function to add fixed forces and eval functions
+    to structural problems used in tacs builder
+    """
+    # Add TACS Functions
+    # Only include mass from elements that belong to pytacs components (i.e. skip concentrated masses)
+    problem.addFunction('mass', functions.StructuralMass)
+    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
+
+    # Add gravity load
+    g = np.array([0.0, 0.0, -9.81])  # m/s^2
+    problem.addInertialLoad(g)
 
 class Top(Multipoint):
     def setup(self):
@@ -60,6 +73,7 @@ class Top(Multipoint):
 
         # TACS
         tacs_options = {'element_callback' : element_callback,
+                        'problem_setup': problem_setup,
                         'mesh_file': '../input_files/debug.bdf'}
 
         if use_modal:
@@ -96,28 +110,6 @@ class Top(Multipoint):
         for dv in ['aoa', 'q_inf', 'vel', 'nu', 'mach']:
             self.connect(dv, f'cruise.{dv}')
         self.connect('dv_struct', 'cruise.dv_struct')
-
-    def configure(self):
-        # create the tacs problems for adding evalfuncs and fixed structural loads to the analysis point.
-        # This is custom to the tacs based approach we chose here.
-        # any solver can have their own custom approach here, and we don't
-        # need to use a common API. AND, if we wanted to define a common API,
-        # it can easily be defined on the mp group, or the struct group.
-        fea_assembler = self.cruise.coupling.struct.fea_assembler
-
-        # ==============================================================================
-        # Setup structural problem
-        # ==============================================================================
-        # Structural problem
-        # Set converges to be tight for test
-        prob_options = {'L2Convergence': 1e-20, 'L2ConvergenceRel': 1e-20}
-        sp = fea_assembler.createStaticProblem(name='test', options=prob_options)
-        # Add TACS Functions
-        sp.addFunction('mass', functions.StructuralMass)
-        sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0)
-
-        self.cruise.coupling.struct.mphys_set_sp(sp)
-        self.cruise.struct_post.mphys_set_sp(sp)
 
 
 prob = om.Problem()

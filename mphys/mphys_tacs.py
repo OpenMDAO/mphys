@@ -401,13 +401,13 @@ class TacsCouplingGroup(om.Group):
         self.options.declare('conduction', default=False)
         self.options.declare('coupled', default=False)
         self.options.declare('scenario_name', default=None)
+        self.options.declare('problem_setup', default=None)
 
     def setup(self):
         self.fea_assembler = self.options['fea_assembler']
         self.check_partials = self.options['check_partials']
         self.coupled = self.options['coupled']
         self.conduction = self.options['conduction']
-        self.scenario_name = self.options['scenario_name']
 
         # Promote state variables/rhs with physics-specific tag that MPhys expects
         promotes_inputs = [('x_struct0', 'unmasker.x_struct0'), ('dv_struct', 'distributor.dv_struct')]
@@ -462,13 +462,24 @@ class TacsCouplingGroup(om.Group):
         if self.coupled:
             self.connect('unmasker.' + self.rhs_name, 'solver.' + self.rhs_name)
 
-        if self.scenario_name is None:
+        # Name problem based on scenario that's calling builder
+        scenario_name = self.options['scenario_name']
+        if scenario_name is None:
             # Default structural problem
             name = 'default'
         else:
-            name = self.scenario_name
+            name = scenario_name
         sp = self.fea_assembler.createStaticProblem(name=name)
 
+        # Setup TACS problem with user-defined output functions
+        problem_setup = self.options['problem_setup']
+        if problem_setup is not None:
+            new_problem = problem_setup(scenario_name, self.fea_assembler, sp)
+            # Check if the user provided back a new problem to overwrite the default
+            if new_problem is not None:
+                sp = new_problem
+
+        # Set problem
         self.mphys_set_sp(sp)
 
     def mphys_set_sp(self, sp):
@@ -486,13 +497,13 @@ class TACSFuncsGroup(om.Group):
         self.options.declare('check_partials')
         self.options.declare('conduction', default=False)
         self.options.declare('scenario_name', default=None)
+        self.options.declare('problem_setup', default=None)
         self.options.declare('write_solution')
 
     def setup(self):
         self.fea_assembler = self.options['fea_assembler']
         self.check_partials = self.options['check_partials']
         self.conduction = self.options['conduction']
-        self.scenario_name = self.options['scenario_name']
         self.write_solution = self.options['write_solution']
 
         # Promote state variables with physics-specific tag that MPhys expects
@@ -512,12 +523,24 @@ class TACSFuncsGroup(om.Group):
                            promotes_outputs=['*']
                            )
 
-        if self.scenario_name is None:
+        # Name problem based on scenario that's calling builder
+        scenario_name = self.options['scenario_name']
+        if scenario_name is None:
             # Default structural problem
             name = 'default'
         else:
-            name = self.scenario_name
+            name = scenario_name
         sp = self.fea_assembler.createStaticProblem(name=name)
+
+        # Setup TACS problem with user-defined output functions
+        problem_setup = self.options['problem_setup']
+        if problem_setup is not None:
+            new_problem = problem_setup(scenario_name, self.fea_assembler, sp)
+            # Check if the user provided back a new problem to overwrite the default
+            if new_problem is not None:
+                sp = new_problem
+
+        # Set problem
         self.mphys_set_sp(sp)
 
     def mphys_set_sp(self, sp):
@@ -548,6 +571,12 @@ class TacsBuilder(Builder):
         else:
             element_callback = None
 
+        # Load optional user-defined callback function for setting up tacs elements
+        if 'problem_setup' in pytacs_options:
+            self.problem_setup = pytacs_options.pop('problem_setup')
+        else:
+            self.problem_setup = None
+
         # Create pytacs instance
         self.fea_assembler = pyTACS(bdf_file, options=pytacs_options, comm=comm)
         self.comm = comm
@@ -559,7 +588,8 @@ class TacsBuilder(Builder):
         return TacsCouplingGroup(fea_assembler=self.fea_assembler,
                                  check_partials=self.check_partials,
                                  coupled=self.coupled,
-                                 scenario_name=scenario_name)
+                                 scenario_name=scenario_name,
+                                 problem_setup=self.problem_setup)
 
     def get_mesh_coordinate_subsystem(self, scenario_name=None):
         return TacsMeshGroup(fea_assembler=self.fea_assembler)
@@ -574,7 +604,8 @@ class TacsBuilder(Builder):
             check_partials=self.check_partials,
             conduction=self.conduction,
             write_solution=self.write_solution,
-            scenario_name=scenario_name
+            scenario_name=scenario_name,
+            problem_setup=self.problem_setup
         )
 
     def get_ndof(self):

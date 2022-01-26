@@ -23,6 +23,7 @@ class AerostructParallel(MultipointParallel):
 
         # TACS
         tacs_options = {'element_callback': tacs_setup.element_callback,
+                        'problem_setup': tacs_setup.problem_setup,
                         'mesh_file': 'wingbox_Y_Z_flip.bdf'}
 
         struct_builder = TacsBuilder(tacs_options, coupled=True)
@@ -39,31 +40,6 @@ class AerostructParallel(MultipointParallel):
                                                                     ldxfer_builder=ldxfer_builder,
                                                                     in_MultipointParallel=True),
                                              nonlinear_solver, linear_solver)
-
-    def configure(self):
-        for scenario_name in ['cruise','maneuver']:
-            scenario = getattr(self, scenario_name)
-            # Check if scenario is on this processor group
-            if hasattr(scenario, 'coupling'):
-                fea_assembler = scenario.coupling.struct.fea_assembler
-
-                # ==============================================================================
-                # Setup structural problem
-                # ==============================================================================
-                # Structural problem
-                sp = fea_assembler.createStaticProblem(name=scenario_name)
-                # Add TACS Functions
-                sp.addFunction('mass', functions.StructuralMass)
-                sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0, safetyFactor=1.5)
-
-                # Add inertial relief gravity load
-                g = np.array([0.0, 0.0, -9.81]) # m/s^2
-                if scenario_name == 'maneuver':
-                    g *= 2.5 # 2.5 G's
-                sp.addInertialLoad(g)
-
-                scenario.coupling.struct.mphys_set_sp(sp)
-                scenario.struct_post.mphys_set_sp(sp)
 
 class Top(om.Group):
     def setup(self):
@@ -104,7 +80,7 @@ prob.setup()
 
 prob.run_model()
 
-ks = prob.get_val('multipoint.maneuver.struct_post.ks_vmfailure',get_remote=True)
+ks = prob.get_val('multipoint.maneuver.ks_vmfailure',get_remote=True)
 cl = prob.get_val('multipoint.cruise.C_L', get_remote=True)
 if MPI.COMM_WORLD.rank == 0:
     print('C_L =', cl)

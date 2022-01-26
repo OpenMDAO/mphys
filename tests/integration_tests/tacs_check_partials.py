@@ -31,12 +31,27 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
 
     return elem
 
+def problem_setup(scenario_name, fea_assembler, problem):
+    """
+    Helper function to add fixed forces and eval functions
+    to structural problems used in tacs builder
+    """
+
+    # Add TACS Functions
+    problem.addFunction('mass', functions.StructuralMass)
+    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
+
+    # Add random load vector
+    f = fea_assembler.createVec()
+    f[:] = np.random.rand(len(f))
+    problem.addLoadToRHS(f)
 
 class Top(Multipoint):
 
     def setup(self):
 
         tacs_options = {'element_callback' : element_callback,
+                        'problem_setup': problem_setup,
                         'mesh_file': '../input_files/debug.bdf'}
 
         tacs_builder = TacsBuilder(tacs_options, check_partials=True, coupled=False, write_solution=False)
@@ -50,30 +65,6 @@ class Top(Multipoint):
         self.mphys_add_scenario('analysis', ScenarioStructural(struct_builder=tacs_builder))
         self.connect('mesh.x_struct0', 'analysis.x_struct0')
         self.connect('dv_struct', 'analysis.dv_struct')
-
-    def configure(self):
-        # create the tacs problems for adding evalfuncs and fixed structural loads to the analysis point.
-        # This is custom to the tacs based approach we chose here.
-        # any solver can have their own custom approach here, and we don't
-        # need to use a common API. AND, if we wanted to define a common API,
-        # it can easily be defined on the mp group, or the struct group.
-        fea_assembler = self.analysis.coupling.fea_assembler
-
-        # ==============================================================================
-        # Setup structural problem
-        # ==============================================================================
-        # Structural problem
-        sp = fea_assembler.createStaticProblem(name='test')
-        # Add TACS Functions
-        sp.addFunction('mass', functions.StructuralMass)
-        sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0)
-
-        f = fea_assembler.createVec()
-        f[:] = np.random.rand(len(f))
-        sp.addLoadToRHS(f)
-
-        self.analysis.coupling.mphys_set_sp(sp)
-        self.analysis.struct_post.mphys_set_sp(sp)
 
 
 prob = om.Problem()

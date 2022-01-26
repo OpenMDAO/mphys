@@ -56,7 +56,25 @@ class Top(om.Group):
             elem = elements.Quad4Shell(transform, con)
             return elem
 
+        def problem_setup(scenario_name, fea_assembler, problem):
+            """
+            Helper function to add fixed forces and eval functions
+            to structural problems used in tacs builder
+            """
+
+            # Add TACS Functions
+            problem.addFunction('mass', functions.StructuralMass)
+            problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
+                                ksWeight=100.0)
+
+            # Add forces to static problem
+            F = fea_assembler.createVec()
+            ndof = fea_assembler.getVarsPerNode()
+            F[2::ndof] = 100.0
+            problem.addLoadToRHS(F)
+
         tacs_options = {'element_callback': element_callback,
+                        'problem_setup': problem_setup,
                         'mesh_file': 'wingbox.bdf'}
 
         tacs_builder = TacsBuilder(tacs_options, coupled=False)
@@ -86,36 +104,6 @@ class Top(om.Group):
         mp.mphys_connect_scenario_coordinate_source('mesh', 's0', 'struct')
 
         self.connect('dv_struct', 'mp_group.s0.dv_struct')
-
-    def configure(self):
-
-        # create the tacs problems for adding evalfuncs and fixed structural loads to the analysis point.
-        # This is custom to the tacs based approach we chose here.
-        # any solver can have their own custom approach here, and we don't
-        # need to use a common API. AND, if we wanted to define a common API,
-        # it can easily be defined on the mp group, or the struct group.
-        fea_assembler = self.mp_group.s0.coupling.fea_assembler
-
-        # ==============================================================================
-        # Setup static problem
-        # ==============================================================================
-        # Static problem
-        sp = fea_assembler.createStaticProblem(name='s0')
-        # Add TACS Functions
-        sp.addFunction('mass', functions.StructuralMass)
-        sp.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
-                       ksWeight=50.0)
-
-        # Add forces to static problem
-        F = fea_assembler.createVec()
-        ndof = fea_assembler.getVarsPerNode()
-        F[2::ndof] = 100.0
-        sp.addLoadToRHS(F)
-
-        # here we set the tacs problems for the analysis case we have.
-        # this call automatically adds the functions and loads for the respective scenario
-        self.mp_group.s0.coupling.mphys_set_sp(sp)
-        self.mp_group.s0.struct_post.mphys_set_sp(sp)
 
 ################################################################################
 # OpenMDAO setup

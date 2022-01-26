@@ -12,7 +12,6 @@ from mphys.mphys_tacs import TacsBuilder
 from mphys.mphys_meld import MeldBuilder
 
 import tacs_setup
-from tacs import functions
 
 class Top(Multipoint):
     def setup(self):
@@ -39,6 +38,7 @@ class Top(Multipoint):
 
         # TACS
         tacs_options = {'element_callback': tacs_setup.element_callback,
+                        'problem_setup': tacs_setup.problem_setup,
                         'mesh_file': 'wingbox_Y_Z_flip.bdf'}
 
         struct_builder = TacsBuilder(tacs_options, coupled=True)
@@ -69,29 +69,6 @@ class Top(Multipoint):
                 self.connect(dv, f'{scenario}.{dv}')
             self.connect('aoa', f'{scenario}.aoa', src_indices=[iscen])
 
-    def configure(self):
-        for scenario_name in ['cruise','maneuver']:
-            scenario = getattr(self, scenario_name)
-            fea_assembler = scenario.coupling.struct.fea_assembler
-
-            # ==============================================================================
-            # Setup structural problem
-            # ==============================================================================
-            # Structural problem
-            sp = fea_assembler.createStaticProblem(name=scenario_name)
-            # Add TACS Functions
-            sp.addFunction('mass', functions.StructuralMass)
-            sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0, safetyFactor=1.5)
-
-            # Add inertial relief gravity load
-            g = np.array([0.0, 0.0, -9.81])  # m/s^2
-            if scenario_name == 'maneuver':
-                g *= 2.5  # 2.5 G's
-            sp.addInertialLoad(g)
-
-            scenario.coupling.struct.mphys_set_sp(sp)
-            scenario.struct_post.mphys_set_sp(sp)
-
 ################################################################################
 # OpenMDAO setup
 ################################################################################
@@ -105,4 +82,4 @@ prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
     print('C_L =',prob['cruise.C_L'])
-    print('KS =',prob['maneuver.struct_post.ks_vmfailure'])
+    print('KS =',prob['maneuver.ks_vmfailure'])

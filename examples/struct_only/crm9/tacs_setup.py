@@ -1,5 +1,5 @@
 import numpy as np
-from tacs import elements, constitutive
+from tacs import elements, constitutive, functions
 
 # Material properties
 rho = 2500.0        # density kg/m^3
@@ -43,3 +43,20 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
     # Add scale for thickness dv
     scale = [100.0]
     return elemList, scale
+
+def problem_setup(scenario_name, fea_assembler, problem):
+    """
+    Helper function to add fixed forces and eval functions
+    to structural problems used in tacs builder
+    """
+
+    # Add TACS Functions
+    problem.addFunction('mass', functions.StructuralMass)
+    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
+                       ksWeight=100.0)
+
+    # Add forces to static problem
+    F = fea_assembler.createVec()
+    ndof = fea_assembler.getVarsPerNode()
+    F[2::ndof] = 100.0
+    problem.addLoadToRHS(F)

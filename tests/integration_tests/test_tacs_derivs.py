@@ -47,11 +47,29 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
 
     return elem
 
+def problem_setup(scenario_name, fea_assembler, problem):
+    """
+    Helper function to add fixed forces and eval functions
+    to structural problems used in tacs builder
+    """
+    # Set convergence to be tight for test
+    problem.setOption('L2Convergence', 1e-20)
+    problem.setOption('L2ConvergenceRel', 1e-20)
+
+    # Add TACS Functions
+    problem.addFunction('mass', functions.StructuralMass)
+    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
+
+    # Add gravity load
+    g = np.array([0.0, 0.0, -9.81])  # m/s^2
+    problem.addInertialLoad(g)
+
 class Top(Multipoint):
 
     def setup(self):
 
         tacs_options = {'element_callback' : element_callback,
+                        'problem_setup' : problem_setup,
                         'mesh_file': '../input_files/debug.bdf'}
 
         tacs_builder = TacsBuilder(tacs_options, check_partials=True, coupled=True, write_solution=False)
@@ -71,28 +89,6 @@ class Top(Multipoint):
         self.connect('dv_struct', 'analysis.dv_struct')
         self.connect('f_struct', 'analysis.f_struct')
 
-    def configure(self):
-        # create the tacs problems for adding evalfuncs and fixed structural loads to the analysis point.
-        # This is custom to the tacs based approach we chose here.
-        # any solver can have their own custom approach here, and we don't
-        # need to use a common API. AND, if we wanted to define a common API,
-        # it can easily be defined on the mp group, or the struct group.
-        fea_assembler = self.analysis.coupling.fea_assembler
-
-        # ==============================================================================
-        # Setup structural problem
-        # ==============================================================================
-        # Structural problem
-        # Set converges to be tight for test
-        prob_options = {'L2Convergence': 1e-20, 'L2ConvergenceRel': 1e-20}
-        sp = fea_assembler.createStaticProblem(name='test', options=prob_options)
-        # Add TACS Functions
-        sp.addFunction('mass', functions.StructuralMass)
-        sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0)
-
-        self.analysis.coupling.mphys_set_sp(sp)
-        self.analysis.struct_post.mphys_set_sp(sp)
-
 
 class TestTACS(unittest.TestCase):
     N_PROCS=2
@@ -109,20 +105,20 @@ class TestTACS(unittest.TestCase):
     def test_derivatives(self):
         self.prob.run_model()
         print('----------------starting check totals--------------')
-        data = self.prob.check_totals(of=['analysis.struct_post.ks_vmfailure', 'analysis.struct_post.mass'],
+        data = self.prob.check_totals(of=['analysis.ks_vmfailure', 'analysis.mass'],
                                       wrt='mesh.fea_mesh.x_struct0', method='cs',
                                       step=1e-50, step_calc='rel')
         for var, err in data.items():
             rel_err = err['rel error']
-            assert_near_equal(rel_err.forward, 0.0, 2e-8)
+            assert_near_equal(rel_err.forward, 0.0, 1e-7)
 
-        data = self.prob.check_totals(of=['analysis.struct_post.ks_vmfailure'], wrt='f_struct',
+        data = self.prob.check_totals(of=['analysis.ks_vmfailure'], wrt='f_struct',
                                       method='cs', step=1e-50, step_calc='rel')
         for var, err in data.items():
             rel_err = err['rel error']
             assert_near_equal(rel_err.forward, 0.0, 5e-8)
 
-        data = self.prob.check_totals(of=['analysis.struct_post.ks_vmfailure', 'analysis.struct_post.mass'],
+        data = self.prob.check_totals(of=['analysis.ks_vmfailure', 'analysis.mass'],
                                       wrt='dv_struct', method='cs',
                                       step=1e-50, step_calc='rel')
         for var, err in data.items():

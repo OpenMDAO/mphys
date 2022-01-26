@@ -36,7 +36,19 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
 
     return elem
 
+def problem_setup(scenario_name, fea_assembler, problem):
+    """
+    Helper function to add fixed forces and eval functions
+    to structural problems used in tacs builder
+    """
+    # Add TACS Functions
+    # Only include mass from elements that belong to pytacs components (i.e. skip concentrated masses)
+    problem.addFunction('mass', functions.StructuralMass)
+    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
 
+    # Add gravity load
+    g = np.array([0.0, 0.0, -9.81])  # m/s^2
+    problem.addInertialLoad(g)
 
 class Top(Multipoint):
     def setup(self):
@@ -62,6 +74,7 @@ class Top(Multipoint):
 
         # TACS
         tacs_options = {'element_callback' : element_callback,
+                        "problem_setup": problem_setup,
                         'mesh_file': '../input_files/debug.bdf'}
 
         if use_modal:
@@ -93,37 +106,6 @@ class Top(Multipoint):
         for dv in ['aoa', 'q_inf', 'vel', 'nu', 'mach', 'dv_struct']:
             self.connect(dv, f'cruise.{dv}')
 
-    def configure(self):
-        # create the tacs problems for adding evalfuncs and fixed structural loads to the analysis point.
-        # This is custom to the tacs based approach we chose here.
-        # any solver can have their own custom approach here, and we don't
-        # need to use a common API. AND, if we wanted to define a common API,
-        # it can easily be defined on the mp group, or the struct group.
-        fea_assembler = self.cruise.coupling.struct.fea_assembler
-
-        # ==============================================================================
-        # Setup structural problem
-        # ==============================================================================
-        # Structural problem
-        # Set converges to be tight for test
-        prob_options = {'L2Convergence': 1e-20, 'L2ConvergenceRel': 1e-20}
-        sp = fea_assembler.createStaticProblem(name='test', options=prob_options)
-        # Add TACS Functions
-        sp.addFunction('mass', functions.StructuralMass)
-        sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0)
-        # Add gravity load
-        g = np.array([0.0, 0.0, -9.81]) # m/s^2
-        sp.addInertialLoad(g)
-
-        self.cruise.coupling.struct.mphys_set_sp(sp)
-        self.cruise.struct_post.mphys_set_sp(sp)
-
-        # NOTE: use_aitken creates issues with complex step in check_totals
-        self.cruise.coupling.nonlinear_solver = om.NonlinearBlockGS(
-            maxiter=200, iprint=2, use_aitken=False, rtol=1e-14, atol=1e-14)
-        self.cruise.coupling.linear_solver = om.LinearBlockGS(
-            maxiter=200, iprint=2, use_aitken=False, rtol=1e-14, atol=1e-14)
-
 # OpenMDAO setup
 
 prob = om.Problem()
@@ -134,5 +116,5 @@ prob.setup(force_alloc_complex=True, mode='rev')
 om.n2(prob, show_browser=False, outfile='check_totals.html')
 
 prob.run_model()
-prob.check_totals(of=['cruise.C_L', 'cruise.struct_post.ks_vmfailure', 'cruise.struct_post.mass'], wrt=['aoa', 'dv_struct'], method='cs', step=1e-50)
+prob.check_totals(of=['cruise.C_L', 'cruise.ks_vmfailure', 'cruise.mass'], wrt=['aoa', 'dv_struct'], method='cs', step=1e-50)
 #prob.check_totals(of=['cruise.C_L'], wrt=['aoa'], method='cs')

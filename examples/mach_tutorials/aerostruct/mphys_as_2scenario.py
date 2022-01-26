@@ -178,39 +178,6 @@ class Top(Multipoint):
         self.connect("aoa0", ["cruise.coupling.aero.aoa", "cruise.aero_post.aoa"])
         self.connect("aoa1", ["maneuver.coupling.aero.aoa", "maneuver.aero_post.aoa"])
 
-        # create the tacs problems for adding evalfuncs and fixed structural loads to the analysis point.
-        # This is custom to the tacs based approach we chose here.
-        # any solver can have their own custom approach here, and we don't
-        # need to use a common API. AND, if we wanted to define a common API,
-        # it can easily be defined on the mp group, or the struct group.
-        fea_assembler = self.cruise.coupling.struct.fea_assembler
-
-        # ==============================================================================
-        # Setup static problem
-        # ==============================================================================
-        # Static problem
-        sp0 = fea_assembler.createStaticProblem(name='cruise')
-        sp1 = fea_assembler.createStaticProblem(name='maneuver')
-        # Add TACS Functions
-        sp0.addFunction('mass', functions.StructuralMass)
-        sp0.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
-                        ksWeight=100.0)
-        sp1.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
-                        ksWeight=100.0)
-
-        # Add gravity load
-        g = np.array([0.0, -9.81, 0.0])  # m/s^2
-        sp0.addInertialLoad(g)
-        sp1.addInertialLoad(2.5*g)
-
-        # here we set the tacs problems for the analysis case we have.
-        # this call automatically adds the functions and loads for the respective scenario
-        self.cruise.coupling.struct.mphys_set_sp(sp0)
-        self.cruise.struct_post.mphys_set_sp(sp0)
-
-        self.maneuver.coupling.struct.mphys_set_sp(sp1)
-        self.maneuver.struct_post.mphys_set_sp(sp1)
-
 
 ################################################################################
 # OpenMDAO setup

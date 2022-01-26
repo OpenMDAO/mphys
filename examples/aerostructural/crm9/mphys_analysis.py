@@ -92,32 +92,6 @@ class Top(Multipoint):
         for dv in aero_dvs:
             self.connect(dv, f'cruise.{dv}')
 
-    def configure(self):
-        # create the tacs problems for adding evalfuncs and fixed structural loads to the analysis point.
-        # This is custom to the tacs based approach we chose here.
-        # any solver can have their own custom approach here, and we don't
-        # need to use a common API. AND, if we wanted to define a common API,
-        # it can easily be defined on the mp group, or the struct group.
-        fea_assembler = self.cruise.coupling.struct.fea_assembler
-
-        # ==============================================================================
-        # Setup structural problem
-        # ==============================================================================
-        # Structural problem
-        sp = fea_assembler.createStaticProblem(name='cruise')
-        # Add TACS Functions
-        compIDs = fea_assembler.selectCompIDs(nGroup=-1)
-        sp.addFunction('mass', functions.StructuralMass, compIDs=compIDs)
-        sp.addFunction('ks_vmfailure', functions.KSFailure, ksWeight=50.0, safetyFactor=1.0)
-
-        # Add gravity load
-        g = np.array([0.0, 0.0, -9.81])  # m/s^2
-        sp.addInertialLoad(g)
-
-        # here we set the tacs problems for every load case we have.
-        self.cruise.coupling.struct.mphys_set_sp(sp)
-        self.cruise.struct_post.mphys_set_sp(sp)
-
 
 ################################################################################
 # OpenMDAO setup
@@ -133,7 +107,7 @@ if MPI.COMM_WORLD.rank == 0:
     print("Scenario 0")
     print('C_L =',prob['cruise.C_L'])
     print('C_D =',prob['cruise.C_D'])
-    print('KS =',prob['cruise.struct_post.ks_vmfailure'])
+    print('KS =',prob['cruise.ks_vmfailure'])
 #output = prob.check_totals(of=['mp_group.s0.aero_funcs.Lift'], wrt=['thickness_lumped'],)
 #if MPI.COMM_WORLD.rank == 0:
 #    print('check_totals output',output)
