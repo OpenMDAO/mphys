@@ -3,7 +3,7 @@ import numpy as np
 import openmdao.api as om
 
 from mphys.builder import Builder
-from mphys.mask_converter import MaskedConverter, UnmaskedConverter, MaskedVariableDescription
+from mphys import MaskedConverter, UnmaskedConverter, MaskedVariableDescription
 from tacs import pyTACS, functions
 from openmdao.utils.mpi import MPI
 import copy
@@ -357,7 +357,7 @@ class TacsFunctions(om.ExplicitComponent):
 
         # Evaluate functions
         funcs = {}
-        self.sp.evalFunctions(funcs)
+        self.sp.evalFunctions(funcs, evalFuncs=outputs.keys())
         for func_name in outputs:
             # Add struct problem name from key
             key = self.sp.name + '_' + func_name
@@ -441,7 +441,7 @@ class MassFunctions(om.ExplicitComponent):
 
         # Evaluate functions
         funcs = {}
-        self.sp.evalFunctions(funcs)
+        self.sp.evalFunctions(funcs, evalFuncs=outputs.keys())
         for func_name in outputs:
             # Add struct problem name from key
             key = self.sp.name + '_' + func_name
