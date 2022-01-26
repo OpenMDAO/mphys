@@ -60,6 +60,7 @@ class Top(Multipoint):
         # TACS options
         tacs_options = {
             'element_callback': tacs_setup.element_callback,
+            'problem_setup': tacs_setup.problem_setup,
             'mesh_file'   : 'CRM_box_2nd.bdf'
         }
         struct_builder = TacsBuilder(tacs_options, coupled=True)
