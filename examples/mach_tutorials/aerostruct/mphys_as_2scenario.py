@@ -81,6 +81,7 @@ class Top(Multipoint):
         ################################################################################
         tacs_options = {
             "element_callback": tacs_setup.element_callback,
+            "problem_setup": tacs_setup.problem_setup,
             "mesh_file": "wingbox.bdf",
         }
 

@@ -30,11 +30,22 @@ def problem_setup(scenario_name, fea_assembler, problem):
     to structural problems used in tacs builder
     """
     # Add TACS Functions
+    # This demonstrates how to define function domains in pytacs
+    # Only mass of wing skins
+    compIDs = fea_assembler.selectCompIDs('SKIN')
+    problem.addFunction('skin_mass', functions.StructuralMass, compIDs=compIDs)
+    # Only mass of wing spars
+    compIDs = fea_assembler.selectCompIDs(['SPAR', 'MOUNT'])
+    problem.addFunction('spar_mass', functions.StructuralMass, compIDs=compIDs)
+    # Only mass of wing skins
+    compIDs = fea_assembler.selectCompIDs('RIB')
+    problem.addFunction('rib_mass', functions.StructuralMass, compIDs=compIDs)
     # Only include mass from elements that belong to pytacs components (i.e. skip concentrated masses)
     compIDs = fea_assembler.selectCompIDs(nGroup=-1)
     problem.addFunction('struct_mass', functions.StructuralMass, compIDs=compIDs)
     # Total mass of model including non-structural point masses
     problem.addFunction('total_mass', functions.StructuralMass)
+
     problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=100.0)
 
     # Add gravity load
