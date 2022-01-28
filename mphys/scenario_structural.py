@@ -30,6 +30,6 @@ class ScenarioStructural(Scenario):
             else:
                 self.mphys_add_subsystem('mesh',struct_builder.get_mesh_coordinate_subsystem(self.name))
 
-        self.mphys_add_pre_coupling_subsystem('struct', struct_builder)
+        self.mphys_add_pre_coupling_subsystem('struct', struct_builder, self.name)
         self.mphys_add_subsystem('coupling',struct_builder.get_coupling_group_subsystem(self.name))
-        self.mphys_add_post_coupling_subsystem('struct', struct_builder)
+        self.mphys_add_post_coupling_subsystem('struct', struct_builder, self.name)
