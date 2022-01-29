@@ -102,8 +102,8 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         # call the dvgeo object and add this dv
         self.DVGeo.addGeoDVGlobal(dvName, value, func)
 
-    def nom_addGeoDVLocal(self, dvName, axis="y"):
-        nVal = self.DVGeo.addGeoDVLocal(dvName, axis=axis)
+    def nom_addGeoDVLocal(self, dvName, axis="y", pointSelect=None):
+        nVal = self.DVGeo.addGeoDVLocal(dvName, axis=axis, pointSelect=pointSelect)
         self.add_input(dvName, distributed=False, shape=nVal)
         return nVal
 
