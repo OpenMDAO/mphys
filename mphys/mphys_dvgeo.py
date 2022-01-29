@@ -163,15 +163,22 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         if comm.rank == 0:
             self.add_output(name, distributed=True, val=np.ones(nSpan), shape=nSpan)
         else:
-            self.add_output(name, distributed=True, shape=(0))
+            self.add_output(name, distributed=True, shape=0)
     
-    def nom_addCurvatureConstraint1D(self, name, start, end, nPts, axis, curvatureType, scaled):
-        self.DVCon.addCurvatureConstraint1D(
-            start=start, end=end, nPts=nPts, axis=axis, curvatureType=curvatureType, scaled=scaled, name=name
-        )
+    def nom_addCurvatureConstraint1D(self, name, start, end, nPts, axis, **kwargs):
+        self.DVCon.addCurvatureConstraint1D(start=start, end=end, nPts=nPts, axis=axis, name=name, **kwargs)
         comm = self.comm
         if comm.rank == 0:
             self.add_output(name, distributed=True, val=1.0)
+        else:
+            self.add_output(name, distributed=True, shape=0)
+    
+    def nom_addLinearConstraintsShape(self, name, indSetA, indSetB, factorA, factorB):
+        self.DVCon.addLinearConstraintsShape(indSetA=indSetA, indSetB=indSetB, factorA=factorA, factorB=factorB, name=name)
+        lSize = len(indSetA)
+        comm = self.comm
+        if comm.rank == 0:
+            self.add_output(name, distributed=True, val=np.zeros(lSize), shape=lSize)
         else:
             self.add_output(name, distributed=True, shape=0)
 
