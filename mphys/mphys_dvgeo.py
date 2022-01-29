@@ -102,8 +102,8 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         # call the dvgeo object and add this dv
         self.DVGeo.addGeoDVGlobal(dvName, value, func)
 
-    def nom_addGeoDVLocal(self, dvName, axis="y"):
-        nVal = self.DVGeo.addGeoDVLocal(dvName, axis=axis)
+    def nom_addGeoDVLocal(self, dvName, axis="y", pointSelect=None):
+        nVal = self.DVGeo.addGeoDVLocal(dvName, axis=axis, pointSelect=pointSelect)
         self.add_input(dvName, distributed=False, shape=nVal)
         return nVal
 
@@ -156,6 +156,31 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         else:
             self.add_output(name, distributed=True, shape=0)
         return nCon
+    
+    def nom_addLERadiusConstraints(self, name, leList, nSpan, axis, chordDir):
+        self.DVCon.addLERadiusConstraints(leList=leList, nSpan=nSpan, axis=axis, chordDir=chordDir, name=name)
+        comm = self.comm
+        if comm.rank == 0:
+            self.add_output(name, distributed=True, val=np.ones(nSpan), shape=nSpan)
+        else:
+            self.add_output(name, distributed=True, shape=0)
+    
+    def nom_addCurvatureConstraint1D(self, name, start, end, nPts, axis, **kwargs):
+        self.DVCon.addCurvatureConstraint1D(start=start, end=end, nPts=nPts, axis=axis, name=name, **kwargs)
+        comm = self.comm
+        if comm.rank == 0:
+            self.add_output(name, distributed=True, val=1.0)
+        else:
+            self.add_output(name, distributed=True, shape=0)
+    
+    def nom_addLinearConstraintsShape(self, name, indSetA, indSetB, factorA, factorB):
+        self.DVCon.addLinearConstraintsShape(indSetA=indSetA, indSetB=indSetB, factorA=factorA, factorB=factorB, name=name)
+        lSize = len(indSetA)
+        comm = self.comm
+        if comm.rank == 0:
+            self.add_output(name, distributed=True, val=np.zeros(lSize), shape=lSize)
+        else:
+            self.add_output(name, distributed=True, shape=0)
 
     def nom_addRefAxis(self, **kwargs):
         # we just pass this through
