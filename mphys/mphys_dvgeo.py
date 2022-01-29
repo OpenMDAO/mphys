@@ -156,6 +156,24 @@ class OM_DVGEOCOMP(om.ExplicitComponent):
         else:
             self.add_output(name, distributed=True, shape=0)
         return nCon
+    
+    def nom_addLERadiusConstraints(self, name, leList, nSpan, axis, chordDir):
+        self.DVCon.addLERadiusConstraints(leList=leList, nSpan=nSpan, axis=axis, chordDir=chordDir, name=name)
+        comm = self.comm
+        if comm.rank == 0:
+            self.add_output(name, distributed=True, val=np.ones(nSpan), shape=nSpan)
+        else:
+            self.add_output(name, distributed=True, shape=(0))
+    
+    def nom_addCurvatureConstraint1D(self, name, start, end, nPts, axis, curvatureType, scaled):
+        self.DVCon.addCurvatureConstraint1D(
+            start=start, end=end, nPts=nPts, axis=axis, curvatureType=curvatureType, scaled=scaled, name=name
+        )
+        comm = self.comm
+        if comm.rank == 0:
+            self.add_output(name, distributed=True, val=1.0)
+        else:
+            self.add_output(name, distributed=True, shape=0)
 
     def nom_addRefAxis(self, **kwargs):
         # we just pass this through
