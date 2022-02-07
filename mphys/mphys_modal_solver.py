@@ -280,18 +280,18 @@ class ModalBuilder(Builder):
         self.tacs_assembler = assembler
         self.solver_objects = solver_objects
 
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
         return ModalGroup(nmodes=self.nmodes,
                           nnodes=self.number_of_nodes,
                           ndof=self.ndof,
                           check_partials=self.check_partials)
 
-    def get_mesh_coordinate_subsystem(self):
+    def get_mesh_coordinate_subsystem(self, scenario_name=None):
         return ModalDecomp(tacs_assembler=self.tacs_assembler,
                            ndv=self.ndv,
                            nmodes=self.nmodes)
 
-    def get_post_coupling_subsystem(self):
+    def get_post_coupling_subsystem(self, scenario_name=None):
         return TACSFuncsGroup(
             tacs_assembler=self.tacs_assembler,
             solver_objects=self.solver_objects,

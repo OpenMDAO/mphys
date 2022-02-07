@@ -355,7 +355,7 @@ class RltBuilder(Builder):
         self.struct_nnodes = self.struct_builder.get_number_of_nodes()
         self.aero_nnodes = self.aero_builder.get_number_of_nodes()
 
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
 
         disp_xfer = RltDispXfer(
             xfer_object=self.xfer_object,

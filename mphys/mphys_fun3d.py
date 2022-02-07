@@ -65,11 +65,11 @@ class Fun3dSfeBuilder(Builder):
         self.sfe.set_node_wall_distance(distance, owned_only = False)
         self.meshdef.set_node_wall_distance(distance, owned_only = False)
 
-    def get_mesh_coordinate_subsystem(self):
+    def get_mesh_coordinate_subsystem(self, scenario_name=None):
         return Fun3dMesh(meshdef_solver = self.meshdef,
                          boundary_tag_list = self.boundary_tag_list)
 
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
         meshdef_om = MeshDeformationOpenMdao(meshdef_solver = self.meshdef,
                                              boundary_tag_list = self.boundary_tag_list)
         sfe_om = SfeSolverOpenMdao(sfe_solver = self.sfe)
@@ -79,7 +79,7 @@ class Fun3dSfeBuilder(Builder):
                                    flow_comp = sfe_om,
                                    forces_comp = forces_om,
                                    number_of_surface_nodes = self.number_of_nodes)
-    def get_post_coupling_subsystem(self):
+    def get_post_coupling_subsystem(self, scenario_name=None):
         return IntegratedSurfaceForces()
 
     def get_number_of_nodes(self):
