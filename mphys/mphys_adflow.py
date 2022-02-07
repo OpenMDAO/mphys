@@ -1246,7 +1246,7 @@ class ADflowBuilder(Builder):
         return self.solver
 
     # api level method for all builders
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
         adflow_group = ADflowGroup(
             solver=self.solver,
             use_warper=self.warp_in_solver,
@@ -1258,7 +1258,7 @@ class ADflowBuilder(Builder):
         )
         return adflow_group
 
-    def get_mesh_coordinate_subsystem(self):
+    def get_mesh_coordinate_subsystem(self, scenario_name=None):
 
         # TODO modify this so that we can move the volume mesh warping to the top level
         # we need this to do mesh warping only once for all serial points.
@@ -1273,7 +1273,7 @@ class ADflowBuilder(Builder):
         # just return the component that outputs the surface mesh.
         return ADflowMesh(aero_solver=self.solver)
 
-    def get_pre_coupling_subsystem(self):
+    def get_pre_coupling_subsystem(self, scenario_name=None):
         if self.warp_in_solver:
             # if we warp in the solver, then we wont have any pre-coupling systems
             return None
@@ -1281,7 +1281,7 @@ class ADflowBuilder(Builder):
             # we warp as a pre-processing step
             return ADflowWarper(aero_solver=self.solver)
 
-    def get_post_coupling_subsystem(self):
+    def get_post_coupling_subsystem(self, scenario_name=None):
         return ADflowFunctions(aero_solver=self.solver)
 
     # TODO the get_nnodes is deprecated. will remove
