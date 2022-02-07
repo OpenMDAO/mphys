@@ -317,9 +317,9 @@ class MeldBuilder(Builder):
         self.check_partials = check_partials
 
     def initialize(self, comm):
-        self.aero_nnodes = self.aero_builder.get_number_of_nodes()
-        self.struct_nnodes = self.struct_builder.get_number_of_nodes()
-        self.struct_ndof = self.struct_builder.get_ndof()
+        self.nnodes_aero = self.aero_builder.get_number_of_nodes()
+        self.nnodes_struct = self.struct_builder.get_number_of_nodes()
+        self.ndof_struct = self.struct_builder.get_ndof()
 
         self.meld = TransferScheme.pyMELD(comm,
                                           comm, 0,
@@ -329,17 +329,17 @@ class MeldBuilder(Builder):
     def get_coupling_group_subsystem(self, scenario_name=None):
         disp_xfer = MeldDispXfer(
             xfer_object=self.meld,
-            struct_ndof=self.struct_ndof,
-            struct_nnodes=self.struct_nnodes,
-            aero_nnodes=self.aero_nnodes,
+            struct_ndof=self.ndof_struct,
+            struct_nnodes=self.nnodes_struct,
+            aero_nnodes=self.nnodes_aero,
             check_partials=self.check_partials
         )
 
         load_xfer = MeldLoadXfer(
             xfer_object=self.meld,
-            struct_ndof=self.struct_ndof,
-            struct_nnodes=self.struct_nnodes,
-            aero_nnodes=self.aero_nnodes,
+            struct_ndof=self.ndof_struct,
+            struct_nnodes=self.nnodes_struct,
+            aero_nnodes=self.nnodes_aero,
             check_partials=self.check_partials
         )
 
