@@ -13,6 +13,8 @@ from mphys.mphys_meld import MeldBuilder
 
 import tacs_setup
 
+from tacs import functions
+
 class AerostructParallel(MultipointParallel):
     def setup(self):
         # VLM
@@ -20,12 +22,11 @@ class AerostructParallel(MultipointParallel):
         aero_builder = VlmBuilder(mesh_file)
 
         # TACS
-        tacs_options = {'add_elements': tacs_setup.add_elements,
-                        'get_funcs'   : tacs_setup.get_funcs,
-                        'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
-                        'f5_writer'   : tacs_setup.f5_writer }
+        tacs_options = {'element_callback': tacs_setup.element_callback,
+                        'problem_setup': tacs_setup.problem_setup,
+                        'mesh_file': 'wingbox_Y_Z_flip.bdf'}
 
-        struct_builder = TacsBuilder(tacs_options)
+        struct_builder = TacsBuilder(tacs_options, coupled=True)
 
         # MELD
         isym = 1
@@ -75,12 +76,12 @@ prob = om.Problem()
 prob.model = Top()
 
 prob.setup()
-om.n2(prob, show_browser=False, outfile='mphys_as_parallel.html')
+#om.n2(prob, show_browser=False, outfile='mphys_as_parallel.html')
 
 prob.run_model()
 
-ks = prob.get_val('multipoint.maneuver.func_struct',get_remote=True)
+ks = prob.get_val('multipoint.maneuver.ks_vmfailure',get_remote=True)
 cl = prob.get_val('multipoint.cruise.C_L', get_remote=True)
 if MPI.COMM_WORLD.rank == 0:
     print('C_L =', cl)
-    print('func_struct =', ks)
+    print('KS =', ks)

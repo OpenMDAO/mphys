@@ -1,4 +1,7 @@
+import numpy as np
+
 import openmdao.api as om
+from openmdao.utils.mpi import MPI
 
 
 class DistributedVariableDescription:
@@ -72,12 +75,15 @@ class DistributedConverter(om.ExplicitComponent):
         if mode == 'rev':
             for input in self.options['distributed_inputs']:
                 if input.name in d_inputs and f'{input.name}_serial' in d_outputs:
-                    if self.comm.Get_rank() == 0:
+                    if MPI and self.comm.size > 1:
+                        full = np.zeros(d_outputs[f'{input.name}_serial'].size)
+                        self.comm.Reduce(d_outputs[f'{input.name}_serial'], full, op=MPI.SUM)
+                        if self.comm.Get_rank() == 0:
+                            d_inputs[input.name] += full
+                    else:
                         d_inputs[input.name] += d_outputs[f'{input.name}_serial']
 
             for output in self.options['distributed_outputs']:
                 if output.name in d_outputs and f'{output.name}_serial' in d_inputs:
                     if self.comm.Get_rank() == 0:
                         d_inputs[f'{output.name}_serial'] += d_outputs[output.name]
-                    d_inputs[f'{output.name}_serial'] = self.comm.bcast(
-                        d_inputs[f'{output.name}_serial'])

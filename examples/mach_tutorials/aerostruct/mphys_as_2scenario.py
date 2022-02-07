@@ -15,8 +15,7 @@ from mphys.mphys_rlt import RltBuilder
 
 from baseclasses import AeroProblem
 
-# from tacs import elements, constitutive, functions
-
+from tacs import functions
 import tacs_setup
 
 # set these for convenience
@@ -81,11 +80,9 @@ class Top(Multipoint):
         # TACS Setup
         ################################################################################
         tacs_options = {
-            "add_elements": tacs_setup.add_elements,
-            "get_funcs": tacs_setup.get_funcs,
+            "element_callback": tacs_setup.element_callback,
+            "problem_setup": tacs_setup.problem_setup,
             "mesh_file": "wingbox.bdf",
-            # 'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
-            "f5_writer": tacs_setup.f5_writer,
         }
 
         struct_builder = TacsBuilder(tacs_options)
@@ -142,7 +139,7 @@ class Top(Multipoint):
         # it can easily be defined on the mp group, or the aero group.
         aoa0 = 2.0
         ap0 = AeroProblem(
-            name="ap0",
+            name="cruise",
             mach=0.85,
             altitude=10000,
             alpha=aoa0,
@@ -154,7 +151,7 @@ class Top(Multipoint):
 
         aoa1 = 5.0
         ap1 = AeroProblem(
-            name="ap1",
+            name="maneuver",
             mach=0.85,
             altitude=10000,
             alpha=aoa1,

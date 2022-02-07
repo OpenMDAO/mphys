@@ -37,12 +37,11 @@ class Top(Multipoint):
         self.add_subsystem('mesh_aero',aero_builder.get_mesh_coordinate_subsystem())
 
         # TACS
-        tacs_options = {'add_elements': tacs_setup.add_elements,
-                        'get_funcs'   : tacs_setup.get_funcs,
-                        'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
-                        'f5_writer'   : tacs_setup.f5_writer }
+        tacs_options = {'element_callback': tacs_setup.element_callback,
+                        'problem_setup': tacs_setup.problem_setup,
+                        'mesh_file': 'wingbox_Y_Z_flip.bdf'}
 
-        struct_builder = TacsBuilder(tacs_options)
+        struct_builder = TacsBuilder(tacs_options, coupled=True)
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
 
@@ -83,4 +82,4 @@ prob.run_model()
 
 if MPI.COMM_WORLD.rank == 0:
     print('C_L =',prob['cruise.C_L'])
-    print('func_struct =',prob['maneuver.func_struct'])
+    print('KS =',prob['maneuver.ks_vmfailure'])
