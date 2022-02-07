@@ -34,16 +34,16 @@ class ScenarioAeropropulsive(Scenario):
             self._mphys_initialize_builders(aero_builder, prop_builder, geometry_builder)
             self._mphys_add_mesh_and_geometry_subsystems(aero_builder, prop_builder, geometry_builder)
 
-        self.mphys_add_pre_coupling_subsystem("aero", aero_builder)
-        self.mphys_add_pre_coupling_subsystem("prop", prop_builder)
+        self.mphys_add_pre_coupling_subsystem("aero", aero_builder, self.name)
+        self.mphys_add_pre_coupling_subsystem("prop", prop_builder, self.name)
 
         coupling_group = CouplingAeropropulsive(
-            aero_builder=aero_builder, prop_builder=prop_builder, balance_builder=balance_builder
+            aero_builder=aero_builder, prop_builder=prop_builder, balance_builder=balance_builder, scenario_name=self.name
         )
         self.mphys_add_subsystem("coupling", coupling_group)
 
-        self.mphys_add_post_coupling_subsystem("aero", aero_builder)
-        self.mphys_add_post_coupling_subsystem("prop", prop_builder)
+        self.mphys_add_post_coupling_subsystem("aero", aero_builder, self.name)
+        self.mphys_add_post_coupling_subsystem("prop", prop_builder, self.name)
 
     def _mphys_initialize_builders(self, aero_builder, prop_builder, geometry_builder):
         aero_builder.initialize(self.comm)
@@ -54,13 +54,13 @@ class ScenarioAeropropulsive(Scenario):
     def _mphys_add_mesh_and_geometry_subsystems(self, aero_builder, prop_builder, geometry_builder):
 
         if geometry_builder is None:
-            self.mphys_add_subsystem("aero_mesh", aero_builder.get_mesh_coordinate_subsystem())
-            # self.mphys_add_subsystem("prop_mesh", prop_builder.get_mesh_coordinate_subsystem())
+            self.mphys_add_subsystem("aero_mesh", aero_builder.get_mesh_coordinate_subsystem(self.name))
+            # self.mphys_add_subsystem("prop_mesh", prop_builder.get_mesh_coordinate_subsystem(self.name))
         else:
-            self.add_subsystem("aero_mesh", aero_builder.get_mesh_coordinate_subsystem())
+            self.add_subsystem("aero_mesh", aero_builder.get_mesh_coordinate_subsystem(self.name))
             # the propulsion model does not need a mesh with pycycle
-            # self.add_subsystem("prop_mesh", prop_builder.get_mesh_coordinate_subsystem())
-            self.mphys_add_subsystem("geometry", geometry_builder.get_mesh_coordinate_subsystem())
+            # self.add_subsystem("prop_mesh", prop_builder.get_mesh_coordinate_subsystem(self.name))
+            self.mphys_add_subsystem("geometry", geometry_builder.get_mesh_coordinate_subsystem(self.name))
             self.connect("aero_mesh.x_aero0", "geometry.x_aero_in")
             # the propulsion model does not need a mesh with pycycle
             # self.connect("prop_mesh.x_prop0", "geometry.x_prop_in")
@@ -84,20 +84,22 @@ class CouplingAeropropulsive(CouplingGroup):
         self.options.declare("aero_builder", recordable=False)
         self.options.declare("prop_builder", recordable=False)
         self.options.declare("balance_builder", recordable=False, default=None)
+        self.options.declare("scenario_name", recordable=True, default=None)
 
     def setup(self):
         aero_builder = self.options["aero_builder"]
         prop_builder = self.options["prop_builder"]
         balance_builder = self.options["balance_builder"]
+        scenario_name = self.options["scenario_name"]
 
-        aero = aero_builder.get_coupling_group_subsystem()
-        prop = prop_builder.get_coupling_group_subsystem()
+        aero = aero_builder.get_coupling_group_subsystem(scenario_name)
+        prop = prop_builder.get_coupling_group_subsystem(scenario_name)
 
         self.mphys_add_subsystem("aero", aero)
         self.mphys_add_subsystem("prop", prop)
 
         if balance_builder is not None:
-            balance = balance_builder.get_coupling_group_subsystem()
+            balance = balance_builder.get_coupling_group_subsystem(scenario_name)
             self.mphys_add_subsystem("balance", balance)
 
         self.nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, atol=1e-8, rtol=1e-8)

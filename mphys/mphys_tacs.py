@@ -791,15 +791,15 @@ class TacsBuilder(Builder):
         self.tacs_assembler = tacs_assembler
         self.solver_objects = [mat, pc, gmres, solver_dict]
 
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
         return TacsGroup(tacs_assembler=self.tacs_assembler,
                          solver_objects=self.solver_objects,
                          check_partials=self.check_partials)
 
-    def get_mesh_coordinate_subsystem(self):
+    def get_mesh_coordinate_subsystem(self, scenario_name=None):
         return TacsMesh(tacs_assembler=self.tacs_assembler)
 
-    def get_post_coupling_subsystem(self):
+    def get_post_coupling_subsystem(self, scenario_name=None):
         return TACSFuncsGroup(
             tacs_assembler=self.tacs_assembler,
             solver_objects=self.solver_objects,
