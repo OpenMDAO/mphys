@@ -727,7 +727,7 @@ class DAFoamForces(ExplicitComponent):
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
         self.add_input("dafoam_states", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
 
-        local_surface_coord_size = self.DASolver.mesh.getSurfaceCoordinates(self.DASolver.designFamilyGroup).size
+        local_surface_coord_size = self.DASolver.mesh.getSurfaceCoordinates().size
         self.add_output("f_aero", distributed=True, shape=local_surface_coord_size, tags=["mphys_coupling"])
 
     def compute(self, inputs, outputs):
