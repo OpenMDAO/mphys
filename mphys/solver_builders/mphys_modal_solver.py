@@ -4,7 +4,7 @@ from mpi4py import MPI
 from tacs import TACS
 import openmdao.api as om
 from mphys import Builder
-from mphys.mphys_tacs import TACSFuncsGroup
+from mphys.solver_builders.mphys_tacs import TACSFuncsGroup
 
 class ModalDecomp(om.ExplicitComponent):
     def initialize(self):

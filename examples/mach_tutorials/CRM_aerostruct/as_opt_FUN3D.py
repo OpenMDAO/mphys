@@ -8,10 +8,10 @@ import openmdao.api as om
 from tacs import elements, constitutive, functions, TACS
 
 from mphys import Multipoint
-from mphys.mphys_fun3d import Fun3dSfeBuilder
-from mphys.mphys_tacs import TACS_builder
-from mphys.mphys_modal_solver import ModalBuilder
-from mphys.mphys_meld import MeldBuilder
+from sfe.mphys import Fun3dSfeBuilder
+from mphys.solver_builders.mphys_tacs import TACS_builder
+from mphys.solver_builders.mphys_modal_solver import ModalBuilder
+from mphys.solver_builders.mphys_meld import MeldBuilder
 
 from structural_patches_component import PatchList, DesignPatches, PatchSmoothness, LumpPatches
 from wing_geometry_component import WingGeometry, airfoil_thickness_bounds

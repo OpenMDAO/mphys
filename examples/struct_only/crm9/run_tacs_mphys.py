@@ -5,7 +5,7 @@ from __future__ import division, print_function
 
 import openmdao.api as om
 
-from mphys.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
 from mphys import Multipoint
 from mphys.scenario_structural import ScenarioStructural
 import tacs_setup

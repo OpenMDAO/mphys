@@ -3,9 +3,9 @@ import openmdao.api as om
 
 from mphys.multipoint import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
-from mphys.mphys_vlm import VlmBuilder
-from mphys.mphys_tacs import TacsBuilder
-from mphys.mphys_meld import MeldBuilder
+from vlm_solver.mphys_vlm import VlmBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_meld import MeldBuilder
 
 from struct_dv_components import StructDvMapper, SmoothnessEvaluatorGrid, struct_comps
 import tacs_setup

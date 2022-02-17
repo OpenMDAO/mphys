@@ -3,10 +3,10 @@ from mpi4py import MPI
 
 import openmdao.api as om
 from mphys.multipoint import MultipointParallel
-from mphys.mphys_adflow import ADflowBuilder
+from mphys.solver_builders.mphys_adflow import ADflowBuilder
 from baseclasses import AeroProblem
 from mphys.scenario_aerodynamic import ScenarioAerodynamic
-from mphys.mphys_dvgeo import OM_DVGEOCOMP
+from mphys.solver_builders.mphys_dvgeo import OM_DVGEOCOMP
 
 import argparse
 

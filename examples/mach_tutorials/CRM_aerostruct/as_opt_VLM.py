@@ -8,10 +8,9 @@ import openmdao.api as om
 from tacs import elements, constitutive, functions, TACS
 
 from mphys import Multipoint
-from mphys.mphys_vlm import VLM_builder
-from mphys.mphys_tacs import TACS_builder
-from mphys.mphys_modal_solver import ModalBuilder
-from mphys.mphys_meld import MeldBuilder
+from vlm_solver.mphys_vlm import VlmBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_meld import MeldBuilder
 
 from structural_patches_component import PatchList, DesignPatches, PatchSmoothness, LumpPatches
 from wing_geometry_component import WingGeometry, airfoil_thickness_bounds
@@ -119,7 +118,7 @@ class Top(om.Group):
 
         # VLM builder
 
-        vlm_builder = VLM_builder(aero_options)
+        vlm_builder = VlmBuilder(aero_options)
 
         # TACS setup
 
@@ -168,7 +167,7 @@ class Top(om.Group):
                     'mesh_file'   : self.misc_parameters['BDF_file'],
                     'f5_writer'   : f5_writer }
 
-        struct_builder = TACS_builder(tacs_setup, check_partials=False)
+        struct_builder = TacsBuilder(tacs_setup, check_partials=False)
 
         meld_options = {'isym': 1,
                         'n': 200,
