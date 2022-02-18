@@ -64,7 +64,7 @@ class Top(om.Group):
         # # GEOMETRY SETUP
         # ################################################################################
 
-        from mphys.mphys_adflow import ADflowBuilder
+        from mphys.solver_builders.mphys_adflow import ADflowBuilder
 
         aero_options = {
             # I/O Parameters
