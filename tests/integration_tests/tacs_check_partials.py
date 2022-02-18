@@ -3,7 +3,7 @@
 import numpy as np
 
 import openmdao.api as om
-from mphys.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
 from mphys.multipoint import Multipoint
 from mphys.scenario_structural import ScenarioStructural
 

@@ -22,7 +22,7 @@ from openmdao.utils.assert_utils import assert_near_equal
 from mphys.multipoint import Multipoint
 from adflow import ADFLOW
 
-from mphys.mphys_dvgeo import OM_DVGEOCOMP
+from mphys.solver_builders.mphys_dvgeo import OM_DVGEOCOMP
 
 
 baseDir = os.path.dirname(os.path.abspath(__file__))

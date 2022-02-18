@@ -31,7 +31,7 @@ class Top(Multipoint):
         # AERO
         ################################################################################
 
-        from mphys.mphys_adflow import ADflowBuilder
+        from mphys.solver_builders.mphys_adflow import ADflowBuilder
 
         aero_options = {
             # I/O Parameters
