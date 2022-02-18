@@ -35,8 +35,8 @@ for dir in inputDirs:
 
 class Top(Multipoint):
     def setup(self):
-        from mphys.mphys_dafoam import DAFoamBuilder
-        from mphys.mphys_dvgeo import OM_DVGEOCOMP
+        from mphys.solver_builders.mphys_dafoam import DAFoamBuilder
+        from mphys.solver_builders.mphys_dvgeo import OM_DVGEOCOMP
 
         self.U0 = 10.0
 
