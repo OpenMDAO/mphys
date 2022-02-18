@@ -7,9 +7,9 @@ import openmdao.api as om
 
 from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
-from mphys.mphys_fun3d import Fun3dSfeBuilder
-from mphys.mphys_tacs import TacsBuilder
-from mphys.mphys_meld import MeldBuilder
+from sfe.mphys import Fun3dSfeBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_meld import MeldBuilder
 
 import tacs_setup
 from structural_patches_component import LumpPatches
@@ -38,12 +38,11 @@ class Top(Multipoint):
 
         # TACS options
         tacs_options = {
-            'add_elements': tacs_setup.add_elements,
-            'mesh_file'   : 'CRM_box_2nd.bdf',
-            'get_funcs'   : tacs_setup.get_funcs,
-            'f5_writer'   : tacs_setup.f5_writer
+            'element_callback': tacs_setup.element_callback,
+            'problem_setup': tacs_setup.problem_setup,
+            'mesh_file'   : 'CRM_box_2nd.bdf'
         }
-        struct_builder = TacsBuilder(tacs_options, check_partials=True)
+        struct_builder = TacsBuilder(tacs_options, coupled=True)
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
 
