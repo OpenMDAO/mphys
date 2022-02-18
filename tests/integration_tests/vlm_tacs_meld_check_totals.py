@@ -6,11 +6,11 @@ import openmdao.api as om
 
 from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
-from mphys.mphys_vlm import VlmBuilder
-from mphys.mphys_tacs import TacsBuilder
-from mphys.mphys_meld import MeldBuilder
+from vlm_solver.mphys_vlm import VlmBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_meld import MeldBuilder
 
-from tacs import elements, constitutive, functions, TACS
+from tacs import elements, constitutive, functions
 
 use_modal = False
 
@@ -95,9 +95,12 @@ class Top(Multipoint):
         ldxfer_builder.initialize(self.comm)
 
         # Scenario
+        nonlinear_solver = om.NonlinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1E-14, atol=1E-14)
+        linear_solver = om.LinearBlockGS(maxiter=50, iprint=2, use_aitken=False, rtol = 1e-14, atol=1e-14)
         self.mphys_add_scenario('cruise', ScenarioAeroStructural(aero_builder=aero_builder,
                                                                  struct_builder=struct_builder,
-                                                                 ldxfer_builder=ldxfer_builder))
+                                                                 ldxfer_builder=ldxfer_builder),
+                                                                 nonlinear_solver, linear_solver)
 
         for discipline in ['aero', 'struct']:
             self.mphys_connect_scenario_coordinate_source(

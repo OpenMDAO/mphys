@@ -3,7 +3,7 @@ from mpi4py import MPI
 import openmdao.api as om
 from mphys.multipoint import Multipoint
 from mphys.scenario_aerodynamic import ScenarioAerodynamic
-from mphys.mphys_vlm import VlmBuilder
+from vlm_solver.mphys_vlm import VlmBuilder
 
 comm = MPI.COMM_WORLD
 
@@ -39,4 +39,4 @@ prob = om.Problem()
 prob.model = Top()
 prob.setup(force_alloc_complex=True)
 prob.run_model()
-prob.check_partials(method='cs', compact_print=True)
+prob.check_partials(method='cs', compact_print=False)
