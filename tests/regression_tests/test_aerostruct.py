@@ -31,7 +31,7 @@ from mphys.scenario_aerostructural import ScenarioAeroStructural
 from mphys.solver_builders.mphys_adflow import ADflowBuilder
 from mphys.solver_builders.mphys_tacs import TacsBuilder
 from mphys.solver_builders.mphys_meld import MeldBuilder
-from mphys.solver_builders.mphys_rlt import RltBuilder
+# from mphys.solver_builders.mphys_rlt import RltBuilder
 
 from baseclasses import AeroProblem
 from tacs import elements, constitutive, functions
@@ -131,7 +131,7 @@ class Top(Multipoint):
 
         tacs_options = {'element_callback' : element_callback,
                         "problem_setup": problem_setup,
-                        'mesh_file': '../input_files/debug.bdf'}
+                        'mesh_file': '../input_files/wingbox.bdf'}
 
         struct_builder = TacsBuilder(tacs_options, coupled=True)
         struct_builder.initialize(self.comm)
@@ -218,18 +218,18 @@ class Top(Multipoint):
             "xfer_builder_class": MeldBuilder,
             "xfer_options": {"isym": 1, "n": 200, "beta": 0.5},
             "ref_vals": {
-                "xa": 5.443441765975671,
-                "cl": 0.33844664,
-                "func_struct": 0.24355979,
-                "cd": 0.02988495,
+                "xa": 5.44356782419053,
+                "cl": 0.3384087364751269,
+                "func_struct": 0.25177455023767636,
+                "cd": 0.029881839034169452,
             },
         },
-        {
-            "name": "rlt",
-            "xfer_builder_class": RltBuilder,
-            "xfer_options": {"transfergaussorder": 2},
-            "ref_vals": {"xa": 5.504999831790868, "func_struct": 0.31363742, "cl": 0.3047756, "cd": 0.0280476},
-        },
+        # {
+        #     "name": "rlt",
+        #     # "xfer_builder_class": RltBuilder,
+        #     "xfer_options": {"transfergaussorder": 2},
+        #     "ref_vals": {"xa": 5.504999831790868, "func_struct": 0.31363742, "cl": 0.3047756, "cd": 0.0280476},
+        # },
     ]
 )
 class TestAeroStructSolve(unittest.TestCase):
@@ -264,10 +264,10 @@ class TestAeroStructSolve(unittest.TestCase):
             print("Scenario 0")
 
             print("xa =", np.mean(self.prob.get_val("cruise.coupling.geo_disp.x_aero", get_remote=True)))
-            print("cl =", self.prob.get_val("cruise.aero_post.cl", get_remote=True))
-            print("cd =", self.prob.get_val("cruise.aero_post.cd", get_remote=True))
-            print("f_struct =", self.prob.get_val("cruise.func_struct", get_remote=True))
-
+            print("cl =", self.prob.get_val("cruise.aero_post.cl", get_remote=True)[0])
+            print("cd =", self.prob.get_val("cruise.aero_post.cd", get_remote=True)[0])
+            print("ks_vmfailure =", self.prob.get_val("cruise.ks_vmfailure", get_remote=True)[0])
+            
             assert_near_equal(
                 np.mean(self.prob.get_val("cruise.coupling.geo_disp.x_aero", get_remote=True)),
                 self.ref_vals["xa"],
@@ -280,7 +280,12 @@ class TestAeroStructSolve(unittest.TestCase):
                 np.mean(self.prob.get_val("cruise.aero_post.cd", get_remote=True)), self.ref_vals["cd"], 1e-6
             )
             assert_near_equal(
-                np.mean(self.prob.get_val("cruise.func_struct", get_remote=True)),
+                np.mean(self.prob.get_val("cruise.ks_vmfailure", get_remote=True)),
                 self.ref_vals["func_struct"],
                 1e-6,
             )
+
+
+
+if __name__ == "__main__":
+    unittest.main()

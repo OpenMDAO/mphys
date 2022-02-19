@@ -186,7 +186,7 @@ class Top(Multipoint):
         # TACS Setup
         tacs_options = {'element_callback' : element_callback,
                         "problem_setup": problem_setup,
-                        'mesh_file': '../input_files/debug.bdf'}
+                        'mesh_file': '../input_files/wingbox.bdf'}
 
         struct_builder = TacsBuilder(tacs_options)
         struct_builder.initialize(self.comm)
