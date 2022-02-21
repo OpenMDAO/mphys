@@ -1,39 +1,45 @@
 import numpy as np
-from tacs import TACS, elements, constitutive, functions
+from tacs import elements, constitutive, functions
 
-def add_elements(mesh):
-    rho = 2780.0            # density, kg/m^3
-    E = 73.1e9              # elastic modulus, Pa
-    nu = 0.33               # poisson's ratio
-    kcorr = 5.0 / 6.0       # shear correction factor
-    ys = 324.0e6            # yield stress, Pa
-    thickness= 0.003
-    min_thickness = 0.002
-    max_thickness = 0.05
+# Material properties
+rho = 2500.0        # density kg/m^3
+E = 70.0e9          # Young's modulus (Pa)
+nu = 0.30           # Poisson's ratio
+kcorr = 5.0/6.0     # shear correction factor
+ys = 350e6        # yield stress
 
-    num_components = mesh.getNumComponents()
-    for i in range(num_components):
-        descript = mesh.getElementDescript(i)
-        stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
-                                    min_thickness, max_thickness)
-        element = None
-        if descript in ["CQUAD", "CQUADR", "CQUAD4"]:
-            element = elements.MITCShell(2,stiff,component_num=i)
-        mesh.setElement(i, element)
+# Shell thickness
+t = 0.01            # m
+tMin = 0.002        # m
+tMax = 0.05         # m
 
-    ndof = 6
-    ndv = num_components
+# Callback function used to setup TACS element objects and DVs
+def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
+    # Setup (isotropic) property and constitutive objects
+    prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
+    # Set one thickness dv for every component
+    con = constitutive.IsoShellConstitutive(prop, t=t, tNum=dvNum)
 
-    return ndof, ndv
+    # For each element type in this component,
+    # pass back the appropriate tacs element object
+    transform = None
+    elem = elements.Quad4Shell(transform, con)
+    return elem
 
-def get_funcs(tacs):
-    ks_weight = 50.0
-    return [ functions.KSFailure(tacs,ks_weight), functions.StructuralMass(tacs)]
+def problem_setup(scenario_name, fea_assembler, problem):
+    """
+    Helper function to add fixed forces and eval functions
+    to structural problems used in tacs builder
+    """
 
-def f5_writer(tacs):
-    flag = (TACS.ToFH5.NODES |
-            TACS.ToFH5.DISPLACEMENTS |
-            TACS.ToFH5.STRAINS |
-            TACS.ToFH5.EXTRAS)
-    f5 = TACS.ToFH5(tacs, TACS.PY_SHELL, flag)
-    f5.writeToFile('wingbox.f5')
+    # Add TACS Functions
+    if scenario_name == 'cruise':
+        problem.addFunction('mass', functions.StructuralMass)
+    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=100.0)
+
+    # Add gravity load
+    g = np.array([0.0, -9.81, 0.0])  # m/s^2
+    if scenario_name == 'maneuver':
+        problem.addInertialLoad(2.5 * g)
+    else: # cruise
+        problem.addInertialLoad(g)

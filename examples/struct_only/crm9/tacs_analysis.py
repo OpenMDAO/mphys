@@ -1,188 +1,202 @@
-# A demonstration of basic functions of the Python interface for TACS: loading a
-# mesh, creating elements, evaluating functions, solution, and output
+"""
+This is similar to the crm.py example, but demonstrates how to solve problems through
+the pytacs interface rather than using TACS directly.
+This wingbox is a simplified version of the one of the University of Michigan uCRM-9.
+We use a couple of pyTACS load generating methods to model various wing loads under cruise.
+The script runs the structural analysis, evaluates the wing mass and von misses failure index
+and computes sensitivities with respect to wingbox thicknesses and node xyz locations.
+The sensitivities are then verified agains finite-difference or complex step approximations.
+"""
+# ==============================================================================
+# Standard Python modules
+# ==============================================================================
 from __future__ import print_function
+import os
 
-# Import necessary libraries
+# ==============================================================================
+# External Python modules
+# ==============================================================================
+from pprint import pprint
 import numpy as np
 from mpi4py import MPI
-from tacs import TACS, elements, constitutive, functions
 
-# Load structural mesh from BDF file
-tacs_comm = MPI.COMM_WORLD
-struct_mesh = TACS.MeshLoader(tacs_comm)
-struct_mesh.scanBDFFile("CRM_box_2nd.bdf")
+# ==============================================================================
+# Extension modules
+# ==============================================================================
+from tacs import functions, constitutive, elements, pyTACS, TACS
 
-# Set constitutive properties
-rho = 2500.0  # density, kg/m^3
-E = 70.0e9 # elastic modulus, Pa
-nu = 0.3 # poisson's ratio
-kcorr = 5.0 / 6.0 # shear correction factor
-ys = 350e6  # yield stress, Pa
-t= 0.005
-min_thickness = 0.00
-max_thickness = 1.00
+comm = MPI.COMM_WORLD
 
-# Loop over components, creating stiffness and element object for each
-num_components = struct_mesh.getNumComponents()
-for i in range(num_components):
-    descriptor = struct_mesh.getElementDescript(i)
-    stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, t, i,
-                                 min_thickness, max_thickness)
-    element = None
-    if descriptor in ["CQUAD", "CQUADR", "CQUAD4"]:
-        element = elements.MITCShell(2, stiff, component_num=i)
-    struct_mesh.setElement(i, element)
+# Instantiate FEAAssembler
+structOptions = {
+    'printtiming':True,
+}
 
-# Create tacs assembler object from mesh loader
-tacs = struct_mesh.createTACS(6)
+bdfFile = os.path.join(os.path.dirname(__file__), 'CRM_box_2nd.bdf')
+FEAAssembler = pyTACS(bdfFile, options=structOptions, comm=comm)
 
-# Create the KS Function
-ksWeight = 100.0
-funcs = [functions.KSFailure(tacs, ksWeight),functions.StructuralMass(tacs)]
+# Material properties
+rho = 2780.0        # density kg/m^3
+E = 73.1e9          # Young's modulus (Pa)
+nu = 0.33           # Poisson's ratio
+ys = 324.0e6        # yield stress
 
-# Get the design variable values
-x = np.zeros(num_components, TACS.dtype)
-tacs.getDesignVars(x)
+# Shell thickness
+t = 0.01            # m
+tMin = 0.002        # m
+tMax = 0.05         # m
 
-# Get the node locations
-X = tacs.createNodeVec()
-tacs.getNodes(X)
-tacs.setNodes(X)
+# Callback function used to setup TACS element objects and DVs
+def elemCallBack(dvNum, compID, compDescript, elemDescripts, globalDVs, **kwargs):
+    # Setup (isotropic) property and constitutive objects
+    prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
+    # Set one thickness dv for every component
+    con = constitutive.IsoShellConstitutive(prop, t=t, tNum=dvNum)
 
-# Create the forces
-forces = tacs.createVec()
-force_array = forces.getArray()
-force_array[2::6] += 100.0 # uniform load in z direction
-tacs.applyBCs(forces)
+    # Define reference axis for local shell stresses
+    if 'SKIN' in compDescript: # USKIN + LSKIN
+        sweep = 35.0 / 180.0 * np.pi
+        refAxis = np.array([np.sin(sweep), np.cos(sweep), 0])
+    else: # RIBS + SPARS + ENGINE_MOUNT
+        refAxis = np.array([0.0, 0.0, 1.0])
 
-# Set up and solve the analysis problem
-res = tacs.createVec()
-ans = tacs.createVec()
-u = tacs.createVec()
-mat = tacs.createFEMat()
-pc = TACS.Pc(mat)
-subspace = 100
-restarts = 2
-gmres = TACS.KSM(mat, pc, subspace, restarts)
+    # For each element type in this component,
+    # pass back the appropriate tacs element object
+    elemList = []
+    transform = elements.ShellRefAxisTransform(refAxis)
+    for elemDescript in elemDescripts:
+        if elemDescript in ['CQUAD4', 'CQUADR']:
+            elem = elements.Quad4Shell(transform, con)
+        elif elemDescript in ['CTRIA3', 'CTRIAR']:
+            elem = elements.Tri3Shell(transform, con)
+        else:
+            print("Uh oh, '%s' not recognized" % (elemDescript))
+        elemList.append(elem)
 
-# Assemble the Jacobian and factor
-alpha = 1.0
-beta = 0.0
-gamma = 0.0
-tacs.zeroVariables()
-tacs.assembleJacobian(alpha, beta, gamma, res, mat)
-pc.factor()
+    # Add scale for thickness dv
+    scale = [100.0]
+    return elemList, scale
 
-# Solve the linear system
-gmres.solve(forces, ans)
-tacs.setVariables(ans)
+# Set up elements and TACS assembler
+FEAAssembler.initialize(elemCallBack)
 
-# Evaluate the function
-fvals1 = tacs.evalFunctions(funcs)
+# ==============================================================================
+# Setup static problem
+# ==============================================================================
+# Static problem
+problem = FEAAssembler.createStaticProblem('cruise')
 
-# Solve for the adjoint variables
-adjoint = tacs.createVec()
-tacs.evalSVSens(funcs[0], res)
-res_array = res.getArray()
-res_array *= -1.0
-gmres.solve(res, adjoint)
+# Add TACS Functions
+problem.addFunction('mass', functions.StructuralMass)
+problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.5,
+                    ksWeight=100.0)
 
-# Compute the total derivative w.r.t. material design variables
-fdvSens = np.zeros(x.shape, TACS.dtype)
-product = np.zeros(x.shape, TACS.dtype)
-tacs.evalDVSens(funcs[0], fdvSens)
-tacs.evalAdjointResProduct(adjoint, product)
-fdvSens = fdvSens + product
+# Various methods for adding loads to structural problem:
+# Let's model an engine load of 75kN weight, and 64kN thrust attached to spar
+compIDs = FEAAssembler.selectCompIDs(["WING_SPARS/LE_SPAR/SEG.16", "WING_SPARS/LE_SPAR/SEG.17"])
+We = 75.0e3 # N
+Te = 64.0e3 # N
+problem.addLoadToComponents(compIDs, [-Te, 0.0, -We, 0.0, 0.0, 0.0], averageLoad=True)
+# Next we'll approximate aerodynamic loads on upper/lower skin with a uniform traction
+L = 3e3 # N/m^2
+D = 150 # N/m^2
+tracVec = np.array([D, 0.0, L])
+compIDs = FEAAssembler.selectCompIDs(include='SKIN')
+problem.addTractionToComponents(compIDs, tracVec)
+# Finally, we can approximate fuel load by adding a pressure load to the lower skin
+P = 2e3 # N/m^2
+compIDs = FEAAssembler.selectCompIDs(include='L_SKIN')
+problem.addPressureToComponents(compIDs, P)
 
-# Create a random direction along which to perturb the nodes
-pert = tacs.createNodeVec()
-X_array = X.getArray()
-pert_array = pert.getArray()
-pert_array[0::3] = X_array[1::3]
-pert_array[1::3] = X_array[0::3]
-pert_array[2::3] = X_array[2::3]
+# ==============================================================================
+# Solve static problem
+# ==============================================================================
 
-# Compute the total derivative w.r.t. nodal locations
-fXptSens = tacs.createNodeVec()
-product = tacs.createNodeVec()
-tacs.evalXptSens(funcs[0], fXptSens)
-tacs.evalAdjointResXptSensProduct(adjoint, product)
-fXptSens.axpy(+1.0, product)
+# Solve structural problem
+problem.solve()
 
-# Set the complex step
-xpert = np.random.uniform(size=x.shape)
-xpert = tacs_comm.bcast(xpert, root=0)
-if TACS.dtype is np.complex:
-    dh = 1e-30
-    xnew = x + 1j*dh*xpert
+# Evaluate functions
+funcs = {}
+problem.evalFunctions(funcs)
+if comm.rank == 0:
+    pprint(funcs)
+
+# Solve adjoints and evaluate function sensitivities
+funcsSens = {}
+problem.evalFunctionsSens(funcsSens)
+if comm.rank == 0:
+    pprint(funcsSens)
+
+# Write out solution
+problem.writeSolution(outputDir=os.path.dirname(__file__))
+
+# ==============================================================================
+# Perform sensitivity check
+# ==============================================================================
+# Perform a fd/cs sensisitivity check on design  variable sensitivity
+x_orig = problem.getDesignVars()
+
+# Get number of design variables owned by this proc
+ndvs = FEAAssembler.getNumDesignVars()
+x_pert = np.random.rand(ndvs)
+
+if TACS.dtype == complex:
+    dh = 1e-50 * 1j
 else:
     dh = 1e-6
-    xnew = x + dh*xpert
+x_new = x_orig + x_pert * dh
 
-# Set the design variables
-tacs.setDesignVars(xnew)
+# Re-solve and evaluate function with new perturbed design variable
+funcs_new = {}
+problem.setDesignVars(x_new)
+# Solve
+problem.solve()
+# Evaluate pertrubed functions
+problem.evalFunctions(funcs_new)
 
-# Compute the perturbed solution
-tacs.zeroVariables()
-tacs.assembleJacobian(alpha, beta, gamma, res, mat)
-pc.factor()
-gmres.solve(forces, u)
-tacs.setVariables(u)
+# Loop through each function and compare sensitivities
+for funcName in funcs:
+    dfunc_approx = np.real((funcs_new[funcName] - funcs[funcName]) / dh)
+    # Project sensitivity against perturbation vector
+    dfunc_exact_local = np.real(np.dot(funcsSens[funcName]['struct'], x_pert))
+    # The sens vector is distributed across multiple processors,
+    # accumulate sensitivity contribution from each processor to get total sensitivity
+    dfunc_exact = comm.allreduce(dfunc_exact_local)
+    if comm.rank == 0:
+        print('Func name:      ', funcName)
+        print('FD (DVSens):      ', dfunc_approx)
+        print('Result (DVSens):  ', dfunc_exact)
+        print('Rel err (DVSens): ', (dfunc_exact - dfunc_approx) / dfunc_exact)
 
-# Evaluate the function for perturbed solution
-fvals2 = tacs.evalFunctions(funcs)
+# Reset design variables
+problem.setDesignVars(x_orig)
 
-if TACS.dtype is np.complex:
-    fd = fvals2.imag/dh
-else:
-    fd = (fvals2 - fvals1)/dh
+# Perform a fd/cs sensisitivity check on nodal coordinate sensitivity
+xpts_orig = problem.getNodes()
 
-result = np.dot(xpert, fdvSens)
-if tacs_comm.rank == 0:
-    print('FD:      ', fd[0])
-    print('Result:  ', result)
-    print('Rel err: ', (result - fd[0])/result)
+# Get number of nodes owned by this proc
+nnodes = FEAAssembler.getNumOwnedNodes()
+xpts_pert = np.random.rand(3 * nnodes)
 
-# Reset the old variable values
-tacs.setDesignVars(x)
+xpts_new = xpts_orig + xpts_pert * dh
 
-if TACS.dtype is np.complex:
-    dh = 1e-30
-    X.axpy(dh*1j, pert)
-else:
-    dh = 1e-6
-    X.axpy(dh, pert)
+# Re-solve and evaluate function with new perturbed node coordinates
+problem.setNodes(xpts_new)
+# Solve
+problem.solve()
+# Evaluate pertrubed functions
+problem.evalFunctions(funcs_new)
 
-# Set the perturbed node locations
-tacs.setNodes(X)
-
-# Compute the perturbed solution
-tacs.zeroVariables()
-tacs.assembleJacobian(alpha, beta, gamma, res, mat)
-pc.factor()
-gmres.solve(forces, u)
-tacs.setVariables(u)
-
-# Evaluate the function again
-fvals2 = tacs.evalFunctions(funcs)
-
-if TACS.dtype is np.complex:
-    fd = fvals2.imag/dh
-else:
-    fd = (fvals2 - fvals1)/dh
-
-# Compute the projected derivative
-result = pert.dot(fXptSens)
-
-if tacs_comm.rank == 0:
-    print('FD:      ', fd[0])
-    print('Result:  ', result)
-    print('Rel err: ', (result - fd[0])/result)
-
-# Output for visualization
-flag = (TACS.ToFH5.NODES |
-        TACS.ToFH5.DISPLACEMENTS |
-        TACS.ToFH5.STRAINS |
-        TACS.ToFH5.EXTRAS)
-f5 = TACS.ToFH5(tacs, TACS.PY_SHELL, flag)
-f5.writeToFile('ucrm.f5')
+# Loop through each function and compare sensitivities
+for funcName in funcs:
+    dfunc_approx = np.real((funcs_new[funcName] - funcs[funcName]) / dh)
+    # Project sensitivity against perturbation vector
+    dfunc_exact_local = np.real(np.dot(funcsSens[funcName]['Xpts'], xpts_pert))
+    # The sens vector is distributed across multiple processors,
+    # accumulate sensitivity contribution from each processor to get total sensitivity
+    dfunc_exact = comm.allreduce(dfunc_exact_local)
+    if comm.rank == 0:
+        print('Func name:      ', funcName)
+        print('FD (XptSens):      ', dfunc_approx)
+        print('Result (XptSens):  ', dfunc_exact)
+        print('Rel err (XptSens): ', (dfunc_exact - dfunc_approx) / dfunc_exact)

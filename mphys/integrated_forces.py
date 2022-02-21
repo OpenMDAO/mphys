@@ -10,8 +10,14 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         self.add_input('ref_length', val = 1.0,tags=['mphys_input'])
         self.add_input('q_inf', val = 1.0,tags=['mphys_input'])
 
-        self.add_input('x_aero', shape_by_conn=True, desc = 'surface coordinates', tags=['mphys_coupling'])
-        self.add_input('f_aero', shape_by_conn=True, desc = 'dimensional forces at nodes', tags=['mphys_coupling'])
+        self.add_input('x_aero', shape_by_conn=True,
+                                 distributed=True,
+                                 desc = 'surface coordinates',
+                                 tags=['mphys_coupling'])
+        self.add_input('f_aero', shape_by_conn=True,
+                                 distributed=True,
+                                 desc = 'dimensional forces at nodes',
+                                 tags=['mphys_coupling'])
 
         self.add_output('C_L', desc = 'Lift coefficient', tags=['mphys_result'])
         self.add_output('C_D', desc = 'Drag coefficient', tags=['mphys_result'])
@@ -49,9 +55,9 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         fy = inputs['f_aero'][1::3]
         fz = inputs['f_aero'][2::3]
 
-        fx_total = np.sum(fx)
-        fy_total = np.sum(fy)
-        fz_total = np.sum(fz)
+        fx_total = self.comm.allreduce(np.sum(fx))
+        fy_total = self.comm.allreduce(np.sum(fy))
+        fz_total = self.comm.allreduce(np.sum(fz))
 
         outputs['F_X'] = fx_total
         outputs['F_Y'] = fy_total
@@ -69,13 +75,17 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         outputs['C_L'] = outputs['Lift'] / (q_inf * area)
         outputs['C_D'] = outputs['Drag'] / (q_inf * area)
 
-        outputs['M_X'] =  np.dot(fz,(y-yc)) - np.dot(fy,(z-zc))
-        outputs['M_Y'] = -np.dot(fz,(x-xc)) + np.dot(fx,(z-zc))
-        outputs['M_Z'] =  np.dot(fy,(x-xc)) - np.dot(fx,(y-yc))
+        m_x = self.comm.allreduce( np.dot(fz,(y-yc)) - np.dot(fy,(z-zc)))
+        m_y = self.comm.allreduce(-np.dot(fz,(x-xc)) + np.dot(fx,(z-zc)))
+        m_z = self.comm.allreduce( np.dot(fy,(x-xc)) - np.dot(fx,(y-yc)))
 
-        outputs['CM_X'] = outputs['M_X'] / (q_inf * area * c)
-        outputs['CM_Y'] = outputs['M_Y'] / (q_inf * area * c)
-        outputs['CM_Z'] = outputs['M_Z'] / (q_inf * area * c)
+        outputs['M_X'] =  m_x
+        outputs['M_Y'] =  m_y
+        outputs['M_Z'] =  m_z
+
+        outputs['CM_X'] = m_x / (q_inf * area * c)
+        outputs['CM_Y'] = m_y / (q_inf * area * c)
+        outputs['CM_Z'] = m_z / (q_inf * area * c)
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         aoa = inputs['aoa']
@@ -95,18 +105,19 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         fy = inputs['f_aero'][1::3]
         fz = inputs['f_aero'][2::3]
 
-        fx_total = np.sum(fx)
-        fy_total = np.sum(fy)
-        fz_total = np.sum(fz)
+        fx_total = self.comm.allreduce(np.sum(fx))
+        fy_total = self.comm.allreduce(np.sum(fy))
+        fz_total = self.comm.allreduce(np.sum(fz))
+
         lift = -fx_total * np.sin(aoa) + fz_total * np.cos(aoa)
         drag = ( fx_total * np.cos(aoa) * np.cos(yaw)
                - fy_total * np.sin(yaw)
                + fz_total * np.sin(aoa) * np.cos(yaw)
                )
 
-        m_x =  np.dot(fz,(y-yc)) - np.dot(fy,(z-zc))
-        m_y = -np.dot(fz,(x-xc)) + np.dot(fx,(z-zc))
-        m_z =  np.dot(fy,(x-xc)) - np.dot(fx,(y-yc))
+        m_x = self.comm.allreduce( np.dot(fz,(y-yc)) - np.dot(fy,(z-zc)))
+        m_y = self.comm.allreduce(-np.dot(fz,(x-xc)) + np.dot(fx,(z-zc)))
+        m_z = self.comm.allreduce( np.dot(fy,(x-xc)) - np.dot(fx,(y-yc)))
 
         if mode == 'fwd':
             if 'aoa' in d_inputs:
@@ -414,20 +425,19 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                 if 'CM_Z' in d_outputs:
                     d_inputs['f_aero'][0::3] += -(y-yc) * d_outputs['CM_Z'] / (q_inf * area * c)
                     d_inputs['f_aero'][1::3] +=  (x-xc) * d_outputs['CM_Z'] / (q_inf * area * c)
-if __name__ == '__main__':
-    from openmdao.api import Problem, IndepVarComp
 
+def check_integrated_surface_force_partials():
     nnodes = 3
-    prob = Problem()
-    ivc = IndepVarComp()
+    prob = om.Problem()
+    ivc = om.IndepVarComp()
     ivc.add_output('aoa',val=45.0, units='deg')
     ivc.add_output('yaw',val=135.0, units='deg')
     ivc.add_output('ref_area',val=0.2)
     ivc.add_output('moment_center',shape=3,val=np.zeros(3))
     ivc.add_output('ref_length', val = 3.0)
     ivc.add_output('q_inf',val=10.0)
-    ivc.add_output('x_aero',shape=3*nnodes,val=np.random.rand(3*nnodes))
-    ivc.add_output('f_aero',shape=3*nnodes,val=np.random.rand(3*nnodes))
+    ivc.add_output('x_aero',shape=3*nnodes,val=np.random.rand(3*nnodes),distributed=True)
+    ivc.add_output('f_aero',shape=3*nnodes,val=np.random.rand(3*nnodes),distributed=True)
     prob.model.add_subsystem('ivc',ivc,promotes_outputs=['*'])
     prob.model.add_subsystem('forces',IntegratedSurfaceForces(),
                                       promotes_inputs=['*'])
@@ -435,3 +445,6 @@ if __name__ == '__main__':
     prob.setup(force_alloc_complex=True)
     prob.run_model()
     prob.check_partials(compact_print=True, method='cs')
+
+if __name__ == '__main__':
+    check_integrated_surface_force_partials()

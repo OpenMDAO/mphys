@@ -1,45 +1,62 @@
 import numpy as np
-from tacs import TACS, elements, constitutive, functions
+from tacs import elements, constitutive, functions
 
-def add_elements(mesh):
-    rho = 2500.0  # density, kg/m^3
-    E = 70.0e9 # elastic modulus, Pa
-    nu = 0.3 # poisson's ratio
-    kcorr = 5.0 / 6.0 # shear correction factor
-    ys = 350e6  # yield stress, Pa
-    thickness = 0.020
-    min_thickness = 0.00
-    max_thickness = 1.00
+# Material properties
+rho = 2500.0        # density kg/m^3
+E = 70.0e9          # Young's modulus (Pa)
+nu = 0.30           # Poisson's ratio
+kcorr = 5.0/6.0     # shear correction factor
+ys = 350e6        # yield stress
 
-    num_components = mesh.getNumComponents()
-    for i in range(num_components):
-        descript = mesh.getElementDescript(i)
-        stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i,
-                                    min_thickness, max_thickness)
-        element = None
-        if descript in ['CQUAD', 'CQUADR', 'CQUAD4']:
-            element = elements.MITCShell(2,stiff,component_num=i)
-        mesh.setElement(i, element)
+# Shell thickness
+t = 0.01            # m
+tMin = 0.002        # m
+tMax = 0.05         # m
 
-    ndof = 6
-    ndv = num_components
+# Callback function used to setup TACS element objects and DVs
+def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
+    # Setup (isotropic) property and constitutive objects
+    prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
+    # Set one thickness dv for every component
+    con = constitutive.IsoShellConstitutive(prop, t=t, tNum=dvNum)
 
-    return ndof, ndv
+    # Define reference axis for local shell stresses
+    if 'SKIN' in compDescript: # USKIN + LSKIN
+        sweep = 35.0 / 180.0 * np.pi
+        refAxis = np.array([np.sin(sweep), np.cos(sweep), 0])
+    else: # RIBS + SPARS + ENGINE_MOUNT
+        refAxis = np.array([0.0, 0.0, 1.0])
 
-def get_funcs(tacs):
-    ks_weight = 50.0
-    return [ functions.KSFailure(tacs,ks_weight), functions.StructuralMass(tacs)]
+    # For each element type in this component,
+    # pass back the appropriate tacs element object
+    elemList = []
+    transform = elements.ShellRefAxisTransform(refAxis)
+    for elemDescript in elemDescripts:
+        if elemDescript in ['CQUAD4', 'CQUADR']:
+            elem = elements.Quad4Shell(transform, con)
+        elif elemDescript in ['CTRIA3', 'CTRIAR']:
+            elem = elements.Tri3Shell(transform, con)
+        else:
+            print("Uh oh, '%s' not recognized" % (elemDescript))
+        elemList.append(elem)
 
-def forcer_function(x_s,ndof):
-    # apply uniform z load
-    f_s = np.zeros(int(x_s.size/3)*ndof)
-    f_s[2::ndof] = 100.0
-    return f_s
+    # Add scale for thickness dv
+    scale = [100.0]
+    return elemList, scale
 
-def f5_writer(tacs):
-    flag = (TACS.ToFH5.NODES |
-            TACS.ToFH5.DISPLACEMENTS |
-            TACS.ToFH5.STRAINS |
-            TACS.ToFH5.EXTRAS)
-    f5 = TACS.ToFH5(tacs, TACS.PY_SHELL, flag)
-    f5.writeToFile('ucrm.f5')
+def problem_setup(scenario_name, fea_assembler, problem):
+    """
+    Helper function to add fixed forces and eval functions
+    to structural problems used in tacs builder
+    """
+
+    # Add TACS Functions
+    problem.addFunction('mass', functions.StructuralMass)
+    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
+                       ksWeight=100.0)
+
+    # Add forces to static problem
+    F = fea_assembler.createVec()
+    ndof = fea_assembler.getVarsPerNode()
+    F[2::ndof] = 100.0
+    problem.addLoadToRHS(F)

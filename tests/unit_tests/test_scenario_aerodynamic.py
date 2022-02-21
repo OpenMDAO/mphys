@@ -53,16 +53,16 @@ class AeroBuilder(Builder):
     def get_ndof(self):
         return 3
 
-    def get_mesh_coordinate_subsystem(self):
+    def get_mesh_coordinate_subsystem(self, scenario_name=None):
         return MeshComp()
 
-    def get_pre_coupling_subsystem(self):
+    def get_pre_coupling_subsystem(self, scenario_name=None):
         return PreCouplingComp()
 
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
         return CouplingComp()
 
-    def get_post_coupling_subsystem(self):
+    def get_post_coupling_subsystem(self, scenario_name=None):
         return PostCouplingComp()
 
 
@@ -76,7 +76,7 @@ class Geometry(om.ExplicitComponent):
 
 
 class GeometryBuilder(Builder):
-    def get_mesh_coordinate_subsystem(self):
+    def get_mesh_coordinate_subsystem(self, scenario_name=None):
         return Geometry()
 
 

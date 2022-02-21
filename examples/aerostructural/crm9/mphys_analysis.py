@@ -15,6 +15,8 @@ from mphys.mphys_vlm import VlmBuilder
 import tacs_setup
 from structural_patches_component import LumpPatches
 
+from tacs import functions
+
 # set these for convenience
 comm = MPI.COMM_WORLD
 rank = comm.rank
@@ -57,12 +59,11 @@ class Top(Multipoint):
 
         # TACS options
         tacs_options = {
-            'add_elements': tacs_setup.add_elements,
-            'mesh_file'   : 'CRM_box_2nd.bdf',
-            'get_funcs'   : tacs_setup.get_funcs,
-            'f5_writer'   : tacs_setup.f5_writer
+            'element_callback': tacs_setup.element_callback,
+            'problem_setup': tacs_setup.problem_setup,
+            'mesh_file'   : 'CRM_box_2nd.bdf'
         }
-        struct_builder = TacsBuilder(tacs_options)
+        struct_builder = TacsBuilder(tacs_options, coupled=True)
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
 
@@ -107,7 +108,8 @@ if MPI.COMM_WORLD.rank == 0:
     print("Scenario 0")
     print('C_L =',prob['cruise.C_L'])
     print('C_D =',prob['cruise.C_D'])
-    print('KS =',prob['cruise.func_struct'])
+    print('KS =',prob['cruise.ks_vmfailure'])
 #output = prob.check_totals(of=['mp_group.s0.aero_funcs.Lift'], wrt=['thickness_lumped'],)
 #if MPI.COMM_WORLD.rank == 0:
 #    print('check_totals output',output)
+

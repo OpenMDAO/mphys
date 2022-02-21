@@ -72,18 +72,18 @@ class DAFoamBuilder(Builder):
         return self.DASolver
 
     # api level method for all builders
-    def get_coupling_group_subsystem(self):
+    def get_coupling_group_subsystem(self, scenario_name=None):
         dafoam_group = DAFoamGroup(
             solver=self.DASolver, use_warper=self.warp_in_solver, struct_coupling=self.struct_coupling
         )
         return dafoam_group
 
-    def get_mesh_coordinate_subsystem(self):
+    def get_mesh_coordinate_subsystem(self, scenario_name=None):
 
         # just return the component that outputs the surface mesh.
         return DAFoamMesh(solver=self.DASolver)
 
-    def get_pre_coupling_subsystem(self):
+    def get_pre_coupling_subsystem(self, scenario_name=None):
         # we warp as a pre-processing step
         if self.warp_in_solver:
             # if we warp in the solver, then we wont have any pre-coupling systems
@@ -92,7 +92,7 @@ class DAFoamBuilder(Builder):
             # we warp as a pre-processing step
             return DAFoamWarper(solver=self.DASolver)
 
-    def get_post_coupling_subsystem(self):
+    def get_post_coupling_subsystem(self, scenario_name=None):
         return DAFoamFunctions(solver=self.DASolver)
 
     # TODO the get_nnodes is deprecated. will remove
