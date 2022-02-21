@@ -148,40 +148,45 @@ class Top(Multipoint):
         ################################################################################
         # TACS options
         ################################################################################
-        def add_elements(mesh):
+        def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
             rho = 2780.0  # density, kg/m^3
             E = 73.1e9  # elastic modulus, Pa
             nu = 0.33  # poisson's ratio
-            kcorr = 5.0 / 6.0  # shear correction factor
             ys = 324.0e6  # yield stress, Pa
             thickness = 0.003
             min_thickness = 0.002
             max_thickness = 0.05
 
-            num_components = mesh.getNumComponents()
-            for i in range(num_components):
-                descript = mesh.getElementDescript(i)
-                stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i, min_thickness, max_thickness)
-                element = None
-                if descript in ["CQUAD", "CQUADR", "CQUAD4"]:
-                    element = elements.MITCShell(2, stiff, component_num=i)
-                mesh.setElement(i, element)
+            # Setup (isotropic) property and constitutive objects
+            prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
+            # Set one thickness dv for every component
+            con = constitutive.IsoShellConstitutive(prop, t=thickness, tNum=dvNum, tlb=min_thickness, tub=max_thickness)
 
-            ndof = 6
-            ndv = num_components
+            # For each element type in this component,
+            # pass back the appropriate tacs element object
+            transform = None
+            elem = elements.Quad4Shell(transform, con)
 
-            return ndof, ndv
+            return elem
 
-        def get_funcs(tacs):
-            ks_weight = 50.0
-            return [functions.KSFailure(tacs, ks_weight), functions.StructuralMass(tacs)]
+        def problem_setup(scenario_name, fea_assembler, problem):
+            """
+            Helper function to add fixed forces and eval functions
+            to structural problems used in tacs builder
+            """
+            # Add TACS Functions
+            # Only include mass from elements that belong to pytacs components (i.e. skip concentrated masses)
+            problem.addFunction('mass', functions.StructuralMass)
+            problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
+
+            # Add gravity load
+            g = np.array([0.0, 0.0, -9.81])  # m/s^2
+            problem.addInertialLoad(g)
 
         # TACS Setup
-        tacs_options = {
-            "add_elements": add_elements,
-            "get_funcs": get_funcs,
-            "mesh_file": "wingbox.bdf",
-        }
+        tacs_options = {'element_callback' : element_callback,
+                        "problem_setup": problem_setup,
+                        'mesh_file': '../input_files/wingbox.bdf'}
 
         struct_builder = TacsBuilder(tacs_options)
         struct_builder.initialize(self.comm)
@@ -268,10 +273,11 @@ class Top(Multipoint):
         {
             "name": "meld",
             "ref_vals": {
-                "xa": 5.352207486847637,
-                "cl": 0.3198179367954018,
-                "func_struct": 0.5486517532524455,
-                "cd": 0.0121905627249948,
+                "xa": 5.352438021381199,
+                "cl": 0.3196186044913372,
+                "cd": 0.0121836189015169,
+                "mass": 2165.4853211276463,
+                "ks_vmfailure" : 0.5578983727565848,
             },
         },
     ]
@@ -302,7 +308,8 @@ class TestAeroStructSolve(unittest.TestCase):
             print("xa =", np.mean(self.prob.get_val("cruise.coupling.geo_disp.x_aero", get_remote=True)))
             print("cl =", self.prob.get_val("cruise.aero_post.CL", get_remote=True))
             print("cd =", self.prob.get_val("cruise.aero_post.CD", get_remote=True))
-            print("f_struct =", self.prob.get_val("cruise.func_struct", get_remote=True))
+            print("mass =", self.prob.get_val("cruise.mass", get_remote=True))
+            print("ks_vmfailure =", self.prob.get_val("cruise.ks_vmfailure", get_remote=True))
 
             assert_near_equal(
                 np.mean(self.prob.get_val("cruise.coupling.geo_disp.x_aero", get_remote=True)),
@@ -316,11 +323,15 @@ class TestAeroStructSolve(unittest.TestCase):
                 np.mean(self.prob.get_val("cruise.aero_post.CD", get_remote=True)), self.ref_vals["cd"], 1e-6
             )
             assert_near_equal(
-                np.mean(self.prob.get_val("cruise.func_struct", get_remote=True)),
-                self.ref_vals["func_struct"],
+                np.mean(self.prob.get_val("cruise.mass", get_remote=True)),
+                self.ref_vals["mass"],
                 1e-6,
             )
-
+            assert_near_equal(
+                np.mean(self.prob.get_val("cruise.ks_vmfailure", get_remote=True)),
+                self.ref_vals["ks_vmfailure"],
+                1e-6,
+            )
 
 if __name__ == "__main__":
     unittest.main()
