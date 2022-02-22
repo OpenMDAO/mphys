@@ -1,9 +1,8 @@
-import numpy as np
 from mpi4py import MPI
 
 import openmdao.api as om
 from mphys.multipoint import Multipoint
-from mphys.mphys_adflow import ADflowBuilder
+from mphys.solver_builders.mphys_adflow import ADflowBuilder
 from baseclasses import AeroProblem
 from mphys.scenario_aerodynamic import ScenarioAerodynamic
 

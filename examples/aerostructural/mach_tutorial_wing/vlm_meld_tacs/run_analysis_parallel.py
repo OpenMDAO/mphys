@@ -7,13 +7,11 @@ import openmdao.api as om
 
 from mphys import MultipointParallel
 from mphys.scenario_aerostructural import ScenarioAeroStructural
-from mphys.mphys_vlm import VlmBuilder
-from mphys.mphys_tacs import TacsBuilder
-from mphys.mphys_meld import MeldBuilder
+from vlm_solver.mphys_vlm import VlmBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_meld import MeldBuilder
 
 import tacs_setup
-
-from tacs import functions
 
 class AerostructParallel(MultipointParallel):
     def setup(self):

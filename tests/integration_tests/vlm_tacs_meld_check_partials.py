@@ -5,11 +5,11 @@ import openmdao.api as om
 
 from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
-from mphys.mphys_vlm import VlmBuilder
-from mphys.mphys_tacs import TacsBuilder
-from mphys.mphys_meld import MeldBuilder
+from vlm_solver.mphys_vlm import VlmBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_meld import MeldBuilder
 
-from tacs import elements, constitutive, functions, TACS
+from tacs import elements, constitutive, functions
 
 use_modal = False
 

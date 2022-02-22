@@ -31,6 +31,9 @@ class MaskedConverter(om.ExplicitComponent):
             'output',
             desc='MaskedVariableDescription object of masked output')
         self.options.declare(
+            'init_output', default=1.0,
+            desc='initail value of the ouput. The default value matches the default value for val in add_output')
+        self.options.declare(
             'distributed', default=False,
             desc='Flag to determine if the inputs and outputs should be distributed arrays')
         self.options.declare(
@@ -45,7 +48,7 @@ class MaskedConverter(om.ExplicitComponent):
         mask = self.options['mask']
 
         self.add_input(input.name, shape=input.shape, tags=input.tags, distributed=distributed)
-        self.add_output(output.name, shape=output.shape, tags=output.tags, distributed=distributed)
+        self.add_output(output.name, shape=output.shape, tags=output.tags, val=self.options['init_output'], distributed=distributed)
 
     def compute(self, inputs, outputs):
         input = self.options['input']

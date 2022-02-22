@@ -28,10 +28,10 @@ from mphys.multipoint import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 
 # these imports will be from the respective codes' repos rather than mphys
-from mphys.mphys_adflow import ADflowBuilder
-from mphys.mphys_tacs import TacsBuilder
-from mphys.mphys_meld import MeldBuilder
-from mphys.mphys_rlt import RltBuilder
+from mphys.solver_builders.mphys_adflow import ADflowBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_meld import MeldBuilder
+# from mphys.solver_builders.mphys_rlt import RltBuilder
 
 from baseclasses import AeroProblem
 from tacs import elements, constitutive, functions
@@ -43,6 +43,42 @@ rank = comm.rank
 
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
+
+# Callback function used to setup TACS element objects and DVs
+def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
+    rho = 2780.0  # density, kg/m^3
+    E = 73.1e9  # elastic modulus, Pa
+    nu = 0.33  # poisson's ratio
+    ys = 324.0e6  # yield stress, Pa
+    thickness = 0.003
+    min_thickness = 0.002
+    max_thickness = 0.05
+
+    # Setup (isotropic) property and constitutive objects
+    prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
+    # Set one thickness dv for every component
+    con = constitutive.IsoShellConstitutive(prop, t=thickness, tNum=dvNum, tlb=min_thickness, tub=max_thickness)
+
+    # For each element type in this component,
+    # pass back the appropriate tacs element object
+    transform = None
+    elem = elements.Quad4Shell(transform, con)
+
+    return elem
+
+def problem_setup(scenario_name, fea_assembler, problem):
+    """
+    Helper function to add fixed forces and eval functions
+    to structural problems used in tacs builder
+    """
+    # Add TACS Functions
+    # Only include mass from elements that belong to pytacs components (i.e. skip concentrated masses)
+    problem.addFunction('mass', functions.StructuralMass)
+    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
+
+    # Add gravity load
+    g = np.array([0.0, 0.0, -9.81])  # m/s^2
+    problem.addInertialLoad(g)
 
 
 class Top(Multipoint):
@@ -92,41 +128,12 @@ class Top(Multipoint):
         ################################################################################
         # TACS options
         ################################################################################
-        def add_elements(mesh):
-            rho = 2780.0  # density, kg/m^3
-            E = 73.1e9  # elastic modulus, Pa
-            nu = 0.33  # poisson's ratio
-            kcorr = 5.0 / 6.0  # shear correction factor
-            ys = 324.0e6  # yield stress, Pa
-            thickness = 0.020
-            min_thickness = 0.002
-            max_thickness = 0.05
 
-            num_components = mesh.getNumComponents()
-            for i in range(num_components):
-                descript = mesh.getElementDescript(i)
-                stiff = constitutive.isoFSDT(rho, E, nu, kcorr, ys, thickness, i, min_thickness, max_thickness)
-                element = None
-                if descript in ["CQUAD", "CQUADR", "CQUAD4"]:
-                    element = elements.MITCShell(2, stiff, component_num=i)
-                mesh.setElement(i, element)
+        tacs_options = {'element_callback' : element_callback,
+                        "problem_setup": problem_setup,
+                        'mesh_file': '../input_files/wingbox.bdf'}
 
-            ndof = 6
-            ndv = num_components
-
-            return ndof, ndv
-
-        def get_funcs(tacs):
-            ks_weight = 50.0
-            return [functions.KSFailure(tacs, ks_weight), functions.StructuralMass(tacs)]
-
-        tacs_options = {
-            "add_elements": add_elements,
-            "mesh_file": os.path.join(baseDir, "../input_files/wingbox.bdf"),
-            "get_funcs": get_funcs,
-        }
-
-        struct_builder = TacsBuilder(tacs_options)
+        struct_builder = TacsBuilder(tacs_options, coupled=True)
         struct_builder.initialize(self.comm)
 
         self.add_subsystem("mesh_struct", struct_builder.get_mesh_coordinate_subsystem())
@@ -167,6 +174,8 @@ class Top(Multipoint):
         self.connect("dv_struct", "cruise.dv_struct")
 
     def configure(self):
+        super().configure()
+
         # create the aero problems for both analysis point.
         # this is custom to the ADflow based approach we chose here.
         # any solver can have their own custom approach here, and we don't
@@ -209,18 +218,18 @@ class Top(Multipoint):
             "xfer_builder_class": MeldBuilder,
             "xfer_options": {"isym": 1, "n": 200, "beta": 0.5},
             "ref_vals": {
-                "xa": 5.443441765975671,
-                "cl": 0.33844664,
-                "func_struct": 0.24355979,
-                "cd": 0.02988495,
+                "xa": 5.44356782419053,
+                "cl": 0.3384087364751269,
+                "func_struct": 0.25177455023767636,
+                "cd": 0.029881839034169452,
             },
         },
-        {
-            "name": "rlt",
-            "xfer_builder_class": RltBuilder,
-            "xfer_options": {"transfergaussorder": 2},
-            "ref_vals": {"xa": 5.504999831790868, "func_struct": 0.31363742, "cl": 0.3047756, "cd": 0.0280476},
-        },
+        # {
+        #     "name": "rlt",
+        #     # "xfer_builder_class": RltBuilder,
+        #     "xfer_options": {"transfergaussorder": 2},
+        #     "ref_vals": {"xa": 5.504999831790868, "func_struct": 0.31363742, "cl": 0.3047756, "cd": 0.0280476},
+        # },
     ]
 )
 class TestAeroStructSolve(unittest.TestCase):
@@ -255,10 +264,10 @@ class TestAeroStructSolve(unittest.TestCase):
             print("Scenario 0")
 
             print("xa =", np.mean(self.prob.get_val("cruise.coupling.geo_disp.x_aero", get_remote=True)))
-            print("cl =", self.prob.get_val("cruise.aero_post.cl", get_remote=True))
-            print("cd =", self.prob.get_val("cruise.aero_post.cd", get_remote=True))
-            print("f_struct =", self.prob.get_val("cruise.func_struct", get_remote=True))
-
+            print("cl =", self.prob.get_val("cruise.aero_post.cl", get_remote=True)[0])
+            print("cd =", self.prob.get_val("cruise.aero_post.cd", get_remote=True)[0])
+            print("ks_vmfailure =", self.prob.get_val("cruise.ks_vmfailure", get_remote=True)[0])
+            
             assert_near_equal(
                 np.mean(self.prob.get_val("cruise.coupling.geo_disp.x_aero", get_remote=True)),
                 self.ref_vals["xa"],
@@ -271,7 +280,12 @@ class TestAeroStructSolve(unittest.TestCase):
                 np.mean(self.prob.get_val("cruise.aero_post.cd", get_remote=True)), self.ref_vals["cd"], 1e-6
             )
             assert_near_equal(
-                np.mean(self.prob.get_val("cruise.func_struct", get_remote=True)),
+                np.mean(self.prob.get_val("cruise.ks_vmfailure", get_remote=True)),
                 self.ref_vals["func_struct"],
                 1e-6,
             )
+
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -19,7 +19,7 @@ import openmdao.api as om
 from openmdao.utils.assert_utils import assert_near_equal
 
 from mphys import Builder
-from mphys.mphys_meld import MeldBuilder
+from mphys.solver_builders.mphys_meld import MeldBuilder
 
 
 isym = 1

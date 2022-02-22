@@ -3,9 +3,9 @@ import openmdao.api as om
 
 from mphys.multipoint import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
-from mphys.mphys_vlm import VlmBuilder
-from mphys.mphys_tacs import TacsBuilder
-from mphys.mphys_meld import MeldBuilder
+from vlm_solver.mphys_vlm import VlmBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_meld import MeldBuilder
 
 from struct_dv_components import StructDvMapper, SmoothnessEvaluatorGrid, struct_comps
 import tacs_setup
@@ -35,14 +35,12 @@ class Top(Multipoint):
         self.add_subsystem('mesh_aero',aero_builder.get_mesh_coordinate_subsystem())
 
         # TACS
-        tacs_options = {'add_elements': tacs_setup.add_elements,
-                        'get_funcs'   : tacs_setup.get_funcs,
-                        'mesh_file'   : 'wingbox_Y_Z_flip.bdf',
-                        'f5_writer'   : tacs_setup.f5_writer }
+        tacs_options = {'element_callback': tacs_setup.element_callback,
+                        'problem_setup': tacs_setup.problem_setup,
+                        'mesh_file': 'wingbox_Y_Z_flip.bdf'}
 
         struct_builder = TacsBuilder(tacs_options)
         struct_builder.initialize(self.comm)
-        ndv_struct = struct_builder.get_ndv()
 
         self.add_subsystem('mesh_struct',struct_builder.get_mesh_coordinate_subsystem())
 
@@ -107,7 +105,7 @@ prob.model.add_design_var('lo_stringer', lower=0.001, upper=0.020, ref=0.005)
 prob.model.add_objective('cruise.mass',ref=1000.0)
 prob.model.add_constraint('cruise.C_L',ref=1.0,equals=0.5)
 prob.model.add_constraint('maneuver.C_L',ref=1.0,equals=0.9)
-prob.model.add_constraint('maneuver.func_struct',ref=1.0, upper = 2.0/3.0)
+prob.model.add_constraint('maneuver.ks_vmfailure',ref=1.0, upper = 2.0/3.0)
 
 prob.model.add_constraint('le_spar_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
 prob.model.add_constraint('te_spar_smoothness.diff', ref=1e-3, upper = 0.0, linear=True)
@@ -133,7 +131,7 @@ om.n2(prob, show_browser=False, outfile='mphys_as_vlm.html')
 
 if check_derivs:
     prob.run_model()
-    prob.check_totals(of=['cruise.mass','cruise.C_L','maneuver.func_struct'],
+    prob.check_totals(of=['cruise.mass','cruise.C_L','maneuver.ks_vmfailure'],
                       wrt=['aoa','ribs'])
 else:
     prob.run_driver()
@@ -146,5 +144,5 @@ else:
         case = cr.get_case(case_id)
         matrix[i,1] = case.get_objectives()['cruise.mass'][0]
         matrix[i,2] = case.get_constraints()['cruise.C_L'][0]
-        matrix[i,3] = case.get_constraints()['maneuver.func_struct'][0]
+        matrix[i,3] = case.get_constraints()['maneuver.ks_vmfailure'][0]
     np.savetxt('history.dat',matrix)

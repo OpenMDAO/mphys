@@ -8,10 +8,10 @@ from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 
 # these imports will be from the respective codes' repos rather than mphys
-from mphys.mphys_adflow import ADflowBuilder
-from mphys.mphys_tacs import TacsBuilder
-from mphys.mphys_meld import MeldBuilder
-from mphys.mphys_rlt import RltBuilder
+from mphys.solver_builders.mphys_adflow import ADflowBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_meld import MeldBuilder
+from mphys.solver_builders.mphys_rlt import RltBuilder
 
 from baseclasses import AeroProblem
 
