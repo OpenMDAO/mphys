@@ -529,7 +529,7 @@ class TacsCouplingGroup(om.Group):
         mask_input = MaskedVariableDescription(self.states_name, shape=nnodes * vpn, tags=['mphys_coupling'])
         mask_output = MaskedVariableDescription(self.states_name + '_masked', shape=(nnodes - nmult) * vpn,
                                                 tags=['mphys_coupling'])
-        masker = MaskedConverter(input=mask_input, output=mask_output, mask=mask.flatten(), distributed=True)
+        masker = MaskedConverter(input=mask_input, output=mask_output, mask=mask.flatten(), distributed=True, init_output=0.0)
         self.add_subsystem('masker', masker,
                            promotes_outputs=[(self.states_name + '_masked', self.states_name)])
 

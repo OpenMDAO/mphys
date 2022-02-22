@@ -9,7 +9,7 @@ from mphys import Multipoint
 from mphys.scenario_structural import ScenarioStructural
 
 # these imports will be from the respective codes' repos rather than omfsi
-from mphys.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
 from tacs import elements, constitutive, functions
 
 # set these for convenience
@@ -117,4 +117,3 @@ prob.run_model()
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
     print("Scenario 0")
-

@@ -5,7 +5,7 @@ from __future__ import division, print_function
 
 import openmdao.api as om
 
-from mphys.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
 from mphys import Multipoint
 from mphys.scenario_structural import ScenarioStructural
 import tacs_setup
@@ -43,13 +43,12 @@ model.add_design_var('dv_struct', lower=0.002, upper=0.2, scaler=1000.0)
 model.add_objective('analysis.mass', index=0, scaler=1.0 / 1000.0)
 model.add_constraint('analysis.ks_vmfailure', lower=0.0, upper=1.0, scaler=1.0)
 
-prob.driver = om.ScipyOptimizeDriver(debug_print=['objs', 'nl_cons'], maxiter=1)
+prob.driver = om.ScipyOptimizeDriver(debug_print=['objs', 'nl_cons'], maxiter=200)
 prob.driver.options['optimizer'] = 'SLSQP'
 
 prob.setup()
 om.n2(prob, show_browser=False, outfile='tacs_struct.html')
-prob.run_model()
 
 prob.run_driver()
-for i in range(242):
+for i in range(240):
     print('final dvs', i, prob['dv_struct'][i])

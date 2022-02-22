@@ -3,7 +3,7 @@ from mpi4py import MPI
 import openmdao.api as om
 
 from mphys import Multipoint
-from mphys.mphys_fun3d import Fun3dSfeBuilder
+from sfe.mphys_fun3d import Fun3dSfeBuilder
 from mphys.scenario_aerodynamic import ScenarioAerodynamic
 
 
