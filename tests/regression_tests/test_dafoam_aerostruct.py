@@ -24,10 +24,10 @@ from mphys.multipoint import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 
 # these imports will be from the respective codes' repos rather than mphys
-from mphys.mphys_dafoam import DAFoamBuilder
-from mphys.mphys_tacs import TacsBuilder
-from mphys.mphys_meld import MeldBuilder
-from mphys.mphys_dvgeo import OM_DVGEOCOMP
+from mphys.solver_builders.mphys_dafoam import DAFoamBuilder
+from mphys.solver_builders.mphys_tacs import TacsBuilder
+from mphys.solver_builders.mphys_meld import MeldBuilder
+from mphys.solver_builders.mphys_dvgeo import OM_DVGEOCOMP
 
 from tacs import elements, constitutive, functions
 
