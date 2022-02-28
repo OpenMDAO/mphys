@@ -9,7 +9,7 @@ from mphys import Multipoint
 from mphys.scenario_structural import ScenarioStructural
 
 # these imports will be from the respective codes' repos rather than omfsi
-from mphys.solver_builders.mphys_tacs import TacsBuilder
+from tacs.mphys import TacsBuilder
 from tacs import elements, constitutive, functions
 
 # set these for convenience

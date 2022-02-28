@@ -8,7 +8,7 @@ import openmdao.api as om
 from mphys import MultipointParallel
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 from vlm_solver.mphys_vlm import VlmBuilder
-from mphys.solver_builders.mphys_tacs import TacsBuilder
+from tacs.mphys import TacsBuilder
 from mphys.solver_builders.mphys_meld import MeldBuilder
 
 import tacs_setup
