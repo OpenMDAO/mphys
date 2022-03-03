@@ -63,14 +63,9 @@ jobs:
           cd tests/unit_tests
           testflo
           cd ../../
-          conda deactivate
-          pip install -e .
 
-      #github action: "uses: sphinx-notes/pages@v2" but with conda enviroment activated
-      - name: Build and Commit
-        run: |
-          repo_dir=$GITHUB_WORKSPACE/$INPUT_REPOSITORY_PATH
-          doc_dir=$repo_dir/$INPUT_DOCUMENTATION_PATH
+          repo_dir=$GITHUB_WORKSPACE
+          doc_dir=$repo_dir/docs
 
           echo ::group:: Initialize various paths
           echo Workspace: $GITHUB_WORKSPACE
@@ -83,12 +78,7 @@ jobs:
           echo ::group:: Installing Sphinx
 
           echo Installing sphinx via pip
-          conda activate OpenMDAO;
-          if [ -z "$INPUT_SPHINX_VERSION" ] ; then
-              pip3 install -U sphinx
-          else
-              pip3 install -U sphinx==$INPUT_SPHINX_VERSION
-          fi
+          pip3 install -U sphinx
 
           echo Adding user bin to system path
           PATH=$HOME/.local/bin:$PATH
@@ -101,16 +91,6 @@ jobs:
 
           echo ::endgroup::
 
-          if [ ! -z "$INPUT_REQUIREMENTS_PATH" ] ; then
-              echo ::group:: Installing requirements
-              if [ -f "$repo_dir/$INPUT_REQUIREMENTS_PATH" ]; then
-                  echo Installing python requirements
-                  pip3 install -r "$repo_dir/$INPUT_REQUIREMENTS_PATH"
-              else
-                  echo No requirements.txt found, skipped
-              fi
-              echo ::endgroup::
-          fi
 
           echo ::group:: Creating temp directory
           tmp_dir=$(mktemp -d -t pages-XXXXXXXXXX)
