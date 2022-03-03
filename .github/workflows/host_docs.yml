@@ -13,8 +13,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    # Run on Ubuntu
+  build_docs:
     runs-on: ubuntu-latest
 
     steps:
