@@ -37,6 +37,8 @@ jobs:
           echo "=============================================================";
           source $CONDA/etc/profile.d/conda.sh;
           echo $CONDA/bin >> $GITHUB_PATH;
+          conda create -n OpenMDAO python=3.8 numpy=1.18 scipy=1.4 -q -y;
+          conda activate OpenMDAO;
           pip install --upgrade pip
           echo "=============================================================";
           echo "Install PETSc";
@@ -60,6 +62,9 @@ jobs:
           conda list;
           cd tests/unit_tests
           testflo
+          cd ../../
+          conda deactivate
+          pip install -e .
 
       - name: Build and Commit
         uses: sphinx-notes/pages@v2
