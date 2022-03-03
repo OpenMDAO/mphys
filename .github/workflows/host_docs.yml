@@ -64,6 +64,9 @@ jobs:
           testflo
 
       - name: Build and Commit
+        run: |
+          conda activate OpenMDAO;
+          conda list
         uses: sphinx-notes/pages@v2
 
       - name: Push changes
