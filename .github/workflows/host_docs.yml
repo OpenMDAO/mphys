@@ -1,31 +1,25 @@
-name: Unit tests and docs
+name: Host Documentation
 
 on:
-  # Triggers the workflow on push or pull request events but only for the main branch
-  # Remove push when finally merging.
+  # Triggers the workflow on push events but only for the main branch
   push:
-    branches: [ main ]
-  pull_request:
     branches: [ main ]
 
   # Allows you to run this workflow manually from the Actions tab.
   workflow_dispatch:
 
 jobs:
-  # This job is called test_docs.
-  unit_test_and_docs:
+  build:
     # Run on Ubuntu
     runs-on: ubuntu-latest
 
     steps:
-
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it.
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
           python-version: 3.8
 
-      - name: Install, run unit test, build docs
+      - name: Run unit test
         run: |
           echo "=============================================================";
           echo "Run #${GITHUB_RUN_NUMBER}";
@@ -64,5 +58,12 @@ jobs:
           conda list;
           cd tests/unit_tests
           testflo
-          cd ../../docs
-          make html
+
+    - name: Build and Commit
+      uses: sphinx-notes/pages@v2
+
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: gh-pages
