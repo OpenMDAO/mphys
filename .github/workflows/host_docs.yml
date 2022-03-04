@@ -63,16 +63,17 @@ jobs:
           conda list;
           echo ::endgroup::
 
+          echo ::group:: Run the unit tests
           cd tests/unit_tests
           testflo
           pwd
           ls n2/
           cd ../../
-
-          repo_dir=$GITHUB_WORKSPACE
-          doc_dir=$repo_dir/docs
+          echo ::endgroup::
 
           echo ::group:: Initialize various paths
+          repo_dir=$GITHUB_WORKSPACE
+          doc_dir=$repo_dir/docs
           echo Workspace: $GITHUB_WORKSPACE
           echo Repository: $repo_dir
           echo Documentation: $doc_dir
@@ -93,9 +94,7 @@ jobs:
           else
               echo Everything goes well
           fi
-
           echo ::endgroup::
-
 
           echo ::group:: Creating temp directory
           tmp_dir=$(mktemp -d -t pages-XXXXXXXXXX)
@@ -103,7 +102,9 @@ jobs:
           echo ::endgroup::
 
           echo ::group:: Running Sphinx builder
-          sphinx-build -b html $doc_dir $tmp_dir
+          cd docs
+          make html
+          mv _build/html/* $tmp_dir
           echo ::endgroup::
 
           echo ::group:: Setting up git repository
@@ -130,7 +131,6 @@ jobs:
           rm -vrf *
           echo Copying HTML documentation to repository
           # Remove unused doctree
-          rm -rf $tmp_dir/.doctrees
           cp -vr $tmp_dir/. .
           echo Adding HTML documentation to repository index
           git add .
