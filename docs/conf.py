@@ -44,6 +44,7 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
+    'sphinx.ext.githubpages',
     'numpydoc',
     'embed_code',
     'embed_options',
@@ -74,7 +75,7 @@ master_doc = 'index'
 # -- Project information -----------------------------------------------------
 
 project = 'Mphys'
-copyright = '2021, NASA'
+copyright = '2022, NASA'
 author = 'NASA'
 
 

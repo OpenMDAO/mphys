@@ -1,0 +1,140 @@
+name: Host Documentation
+
+on:
+  # Triggers the workflow on push events but only for the main branch
+  push:
+    branches: [ main ]
+
+jobs:
+  # This job is called test_docs.
+  build_docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Run unit test
+        run: |
+          echo ::group:: Set up environment
+          echo "=============================================================";
+          echo "Run #${GITHUB_RUN_NUMBER}";
+          echo "Run ID: ${GITHUB_RUN_ID}";
+          echo "Testing: ${GITHUB_REPOSITORY}";
+          echo "Triggered by: ${GITHUB_EVENT_NAME}";
+          echo "Initiated by: ${GITHUB_ACTOR}";
+          echo "=============================================================";
+          echo "=============================================================";
+          echo "Create conda environment";
+          echo "=============================================================";
+          source $CONDA/etc/profile.d/conda.sh;
+          echo $CONDA/bin >> $GITHUB_PATH;
+          conda create -n OpenMDAO python=3.8 numpy=1.18 scipy=1.4 -q -y;
+          conda activate OpenMDAO;
+          pip install --upgrade pip
+          echo "=============================================================";
+          echo "Install PETSc";
+          echo "=============================================================";
+          conda install -c anaconda mpi4py -q -y;
+          conda install -c conda-forge petsc=3.12 petsc4py -q -y;
+          echo "=============================================================";
+          echo "Install OpenMDAO";
+          echo "=============================================================";
+          cd ..;
+          pip install testflo;
+          pip install redbaron
+          git clone -q https://github.com/OpenMDAO/OpenMDAO;
+          cd OpenMDAO;
+          pip install .[all];
+          cd ../mphys;
+          pip install -e .
+          echo "=============================================================";
+          echo "List installed packages/versions";
+          echo "=============================================================";
+          conda list;
+          echo ::endgroup::
+
+          echo ::group:: Run the unit tests
+          cd tests/unit_tests
+          testflo
+          pwd
+          ls n2/
+          cd ../../
+          echo ::endgroup::
+
+          echo ::group:: Initialize various paths
+          repo_dir=$GITHUB_WORKSPACE
+          doc_dir=$repo_dir/docs
+          echo Workspace: $GITHUB_WORKSPACE
+          echo Repository: $repo_dir
+          echo Documentation: $doc_dir
+          echo ::endgroup::
+
+          # The actions doesn't depends on any images,
+          # so we have to try various package manager.
+          echo ::group:: Installing Sphinx
+
+          echo Installing sphinx via pip
+          pip3 install -U sphinx
+
+          echo Adding user bin to system path
+          PATH=$HOME/.local/bin:$PATH
+          if ! command -v sphinx-build &>/dev/null; then
+              echo Sphinx is not successfully installed
+              exit 1
+          else
+              echo Everything goes well
+          fi
+          echo ::endgroup::
+
+          echo ::group:: Creating temp directory
+          tmp_dir=$(mktemp -d -t pages-XXXXXXXXXX)
+          echo Temp directory \"$tmp_dir\" is created
+          echo ::endgroup::
+
+          echo ::group:: Running Sphinx builder
+          cd docs
+          make html
+          mv _build/html/* $tmp_dir
+          echo ::endgroup::
+
+          echo ::group:: Setting up git repository
+          echo Setting up git configure
+          cd $repo_dir
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git stash
+          INPUT_TARGET_BRANCH=gh-pages
+          echo Setting up branch $INPUT_TARGET_BRANCH
+          branch_exist=$(git ls-remote --heads origin refs/heads/$INPUT_TARGET_BRANCH)
+          if [ -z "$branch_exist" ]; then
+              echo Branch doesn\'t exist, create an empty branch
+              git checkout --force --orphan $INPUT_TARGET_BRANCH
+          else
+              echo Branch exists, checkout to it
+              git checkout --force $INPUT_TARGET_BRANCH
+          fi
+          git clean -fd
+          echo ::endgroup::
+
+          echo ::group:: Committing HTML documentation
+          cd $repo_dir
+          echo Deleting all file in repository
+          rm -vrf *
+          echo Copying HTML documentation to repository
+          # Remove unused doctree
+          cp -vr $tmp_dir/. .
+          echo Adding HTML documentation to repository index
+          git add .
+          echo Recording changes to repository
+          git commit --allow-empty -m "Add changes for $GITHUB_SHA"
+          echo ::endgroup::
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: gh-pages
