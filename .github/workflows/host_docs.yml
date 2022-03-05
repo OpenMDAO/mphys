@@ -62,8 +62,6 @@ jobs:
           echo ::group:: Run the unit tests
           cd tests/unit_tests
           testflo
-          pwd
-          ls n2/
           cd ../../
           echo ::endgroup::
 
@@ -75,8 +73,6 @@ jobs:
           echo Documentation: $doc_dir
           echo ::endgroup::
 
-          # The actions doesn't depends on any images,
-          # so we have to try various package manager.
           echo ::group:: Installing Sphinx
 
           echo Installing sphinx via pip
@@ -125,12 +121,14 @@ jobs:
           echo ::group:: Committing HTML documentation
           cd $repo_dir
           echo Deleting all file in repository
-          rm -vrf *
+          cp -r .git $tmp_dir
+          rm -vrf ..?* .[!.]* *
           echo Copying HTML documentation to repository
-          # Remove unused doctree
-          cp -vr $tmp_dir/. .
+          cp -r $tmp_dir/.git .
+          cp -vr $tmp_dir/* .
           echo Adding HTML documentation to repository index
           git add .
+          git status
           echo Recording changes to repository
           git commit --allow-empty -m "Add changes for $GITHUB_SHA"
           echo ::endgroup::
