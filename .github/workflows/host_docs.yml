@@ -127,16 +127,11 @@ jobs:
           echo ::group:: Committing HTML documentation
           cd $repo_dir
           echo Deleting all file in repository
-          rm -vrf *
+          rm -vrf ..?* .[!.]* *
           echo Copying HTML documentation to repository
-          # Remove unused doctree
           cp -vr $tmp_dir/. .
           echo Adding HTML documentation to repository index
-          ls
-          echo "CAT gitignore"
-          cat .gitignore
-          echo "End CAT gitignore"
-          git add -A
+          git add .
           git status
           echo Recording changes to repository
           git commit --allow-empty -m "Add changes for $GITHUB_SHA"
