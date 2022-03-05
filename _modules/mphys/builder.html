@@ -1,0 +1,217 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mphys.builder &#8212; Mphys  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/style.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Mphys  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">mphys.builder</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for mphys.builder</h1><div class="highlight"><pre>
+<div class="viewcode-block" id="Builder"><a class="viewcode-back" href="../../basics/builders.html#mphys.builder.Builder">[docs]</a><span></span><span class="k">class</span> <span class="nc">Builder</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    MPHYS builder base class. Template for developers to create their builders.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Because the MPI communicator that will be used inside the OpenMDAO</span>
+<span class="sd">        problem is not known when the builder is instantiated. The actual</span>
+<span class="sd">        solver, transfer scheme, etc. should not be instantiated in the</span>
+<span class="sd">        constructor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+<div class="viewcode-block" id="Builder.initialize"><a class="viewcode-back" href="../../basics/builders.html#mphys.builder.Builder.initialize">[docs]</a>    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">comm</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize the solver, transfer scheme, etc.</span>
+<span class="sd">        This method will be called when the MPI comm is available</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        comm : :class:`~mpi4py.MPI.Comm`</span>
+<span class="sd">            The communicator object created for this xfer object instance.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Builder.get_mesh_coordinate_subsystem"><a class="viewcode-back" href="../../basics/builders.html#mphys.builder.Builder.get_mesh_coordinate_subsystem">[docs]</a>    <span class="k">def</span> <span class="nf">get_mesh_coordinate_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The subsystem that contains the subsystem that will return the mesh</span>
+<span class="sd">        coordinates</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        scenario_name : str or None</span>
+<span class="sd">            The name of the scenario calling the builder.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        mesh : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group` or None</span>
+<span class="sd">            The openmdao subsystem that has an output of coordinates.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Builder.get_coupling_group_subsystem"><a class="viewcode-back" href="../../basics/builders.html#mphys.builder.Builder.get_coupling_group_subsystem">[docs]</a>    <span class="k">def</span> <span class="nf">get_coupling_group_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The subsystem that this builder will add to the CouplingGroup</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        scenario_name : str or None</span>
+<span class="sd">            The name of the scenario calling the builder.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group` or None</span>
+<span class="sd">            The openmdao subsystem that handles all the computations for</span>
+<span class="sd">            this solver. Transfer schemes can return multiple subsystems</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Builder.get_pre_coupling_subsystem"><a class="viewcode-back" href="../../basics/builders.html#mphys.builder.Builder.get_pre_coupling_subsystem">[docs]</a>    <span class="k">def</span> <span class="nf">get_pre_coupling_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Method that returns the openmdao subsystem to be added to each scenario before the coupling group</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        scenario_name : str or None</span>
+<span class="sd">            The name of the scenario calling the builder.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group` or None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Builder.get_post_coupling_subsystem"><a class="viewcode-back" href="../../basics/builders.html#mphys.builder.Builder.get_post_coupling_subsystem">[docs]</a>    <span class="k">def</span> <span class="nf">get_post_coupling_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Method that returns the openmdao subsystem to be added to each scenario after the coupling group</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        scenario_name : str or None</span>
+<span class="sd">            The name of the scenario calling the builder.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group` or None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Builder.get_number_of_nodes"><a class="viewcode-back" href="../../basics/builders.html#mphys.builder.Builder.get_number_of_nodes">[docs]</a>    <span class="k">def</span> <span class="nf">get_number_of_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Method that returns the number of nodes defining the interface</span>
+<span class="sd">        (input) mesh</span>
+
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        number_of_nodes : int</span>
+<span class="sd">            number of nodes in the computational domain</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span></div>
+
+<div class="viewcode-block" id="Builder.get_ndof"><a class="viewcode-back" href="../../basics/builders.html#mphys.builder.Builder.get_ndof">[docs]</a>    <span class="k">def</span> <span class="nf">get_ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The number of degrees of freedom used at each output location.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ndof : int</span>
+<span class="sd">            number of degrees of freedom of each node in the domain</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span></div></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h3><a href="../../index.html">Table of Contents</a></h3>
+<p class="caption" role="heading"><span class="caption-text">Mphys Basics</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../basics/model_hierarchy.html">Model Hierarchy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../basics/tagged_promotion.html">Tagged Promotion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../basics/builders.html">Builders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../basics/naming_conventions.html">Variable Naming Conventions</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Multiphysics Scenarios</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../scenarios/aerostructural.html">Aerostructural Scenario</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Single Discipline Scenarios</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../scenarios/structural.html">Structural Scenario</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../scenarios/aerodynamic.html">Aerodynamic Scenario</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developers Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../developers/mphys_group.html">The MphysGroup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../developers/new_multiphysics_problems.html">Extending the Scenario Library</a></li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Mphys  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">mphys.builder</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022, NASA.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,163 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The MphysGroup &#8212; Mphys  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Extending the Scenario Library" href="new_multiphysics_problems.html" />
+    <link rel="prev" title="Aerodynamic Scenario" href="../scenarios/aerodynamic.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="new_multiphysics_problems.html" title="Extending the Scenario Library"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../scenarios/aerodynamic.html" title="Aerodynamic Scenario"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Mphys  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">The MphysGroup</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="the-mphysgroup">
+<h1>The MphysGroup<a class="headerlink" href="#the-mphysgroup" title="Permalink to this headline">¶</a></h1>
+<p>The purpose of the MphysGroup is to implement the mechananics of promoting the Mphys variables by tags.
+Subsystems with tagged variables that will be promoted are added with the <a class="reference internal" href="#mphys.mphys_group.MphysGroup.mphys_add_subsystem" title="mphys.mphys_group.MphysGroup.mphys_add_subsystem"><code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_subsystem()</span></code></a> method.
+Subsystems that have variables that should not be promoted can still be added with <code class="docutils literal notranslate"><span class="pre">add_subsystem</span></code>
+The automated promotion of tagged variables is done during the configure phase of OpenMDAO setup.
+If you need to use <code class="docutils literal notranslate"><span class="pre">configure</span></code> in your CouplingGroup or Scenario group, be sure to call the parent’s configure with
+<code class="docutils literal notranslate"><span class="pre">super().configure()</span></code>.</p>
+<p>The <a class="reference internal" href="#mphys.mphys_group.MphysGroup" title="mphys.mphys_group.MphysGroup"><code class="xref py py-class docutils literal notranslate"><span class="pre">MphysGroup</span></code></a> is the base class of the <a class="reference internal" href="new_multiphysics_problems.html#dev-coupling-group"><span class="std std-ref">Coupling Groups</span></a> and <a class="reference internal" href="new_multiphysics_problems.html#dev-scenario-group"><span class="std std-ref">Scenarios</span></a>.
+While it is important to understand the MphysGroup’s <a class="reference internal" href="#mphys.mphys_group.MphysGroup.configure" title="mphys.mphys_group.MphysGroup.configure"><code class="xref py py-func docutils literal notranslate"><span class="pre">configure()</span></code></a> and <a class="reference internal" href="#mphys.mphys_group.MphysGroup.mphys_add_subsystem" title="mphys.mphys_group.MphysGroup.mphys_add_subsystem"><code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_subsystem()</span></code></a> interactions,
+any new scenario or coupling group should inherit from <a class="reference internal" href="new_multiphysics_problems.html#mphys.scenario.Scenario" title="mphys.scenario.Scenario"><code class="xref py py-class docutils literal notranslate"><span class="pre">Scenario</span></code></a> and <a class="reference internal" href="new_multiphysics_problems.html#mphys.coupling_group.CouplingGroup" title="mphys.coupling_group.CouplingGroup"><code class="xref py py-class docutils literal notranslate"><span class="pre">CouplingGroup</span></code></a>.
+rather than subclassing MphysGroup directly.</p>
+<span class="target" id="module-mphys.mphys_group"></span><dl class="py class">
+<dt class="sig sig-object py" id="mphys.mphys_group.MphysGroup">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mphys.mphys_group.</span></span><span class="sig-name descname"><span class="pre">MphysGroup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/mphys_group.html#MphysGroup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.mphys_group.MphysGroup" title="Permalink to this definition">¶</a></dt>
+<dd><p>A OpenMDAO class for automated promotion of Mphys variables</p>
+<p>Set the solvers to nonlinear and linear block Gauss–Seidel by default.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.mphys_group.MphysGroup.mphys_add_subsystem">
+<span class="sig-name descname"><span class="pre">mphys_add_subsystem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subsystem</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/mphys_group.html#MphysGroup.mphys_add_subsystem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.mphys_group.MphysGroup.mphys_add_subsystem" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adding an mphys subsystem will add the subsystem and then set the group
+to automatically promote the mphys tagged variables</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.mphys_group.MphysGroup.configure">
+<span class="sig-name descname"><span class="pre">configure</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/mphys_group.html#MphysGroup.configure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.mphys_group.MphysGroup.configure" title="Permalink to this definition">¶</a></dt>
+<dd><p>Promote the mphys-tagged variables of subsystems added by <a class="reference internal" href="#mphys.mphys_group.MphysGroup.mphys_add_subsystem" title="mphys.mphys_group.MphysGroup.mphys_add_subsystem"><code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_subsystem()</span></code></a></p>
+</dd></dl>
+
+</dd></dl>
+
+<div class="section" id="manual-connection-of-variables">
+<h2>Manual Connection of Variables<a class="headerlink" href="#manual-connection-of-variables" title="Permalink to this headline">¶</a></h2>
+<p>In some instances, the use of automated promotion is not appropriate.
+Because the MphysGroup inherits from the standard OpenMDAO group,
+subsystems can be added with the standard <code class="docutils literal notranslate"><span class="pre">add_subsystem</span></code> method and connected manually.</p>
+</div>
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">The MphysGroup</a><ul>
+<li><a class="reference internal" href="#manual-connection-of-variables">Manual Connection of Variables</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+<h3><a href="../index.html">Table of Contents</a></h3>
+<p class="caption" role="heading"><span class="caption-text">Mphys Basics</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../basics/model_hierarchy.html">Model Hierarchy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../basics/tagged_promotion.html">Tagged Promotion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../basics/builders.html">Builders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../basics/naming_conventions.html">Variable Naming Conventions</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Multiphysics Scenarios</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../scenarios/aerostructural.html">Aerostructural Scenario</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Single Discipline Scenarios</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../scenarios/structural.html">Structural Scenario</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../scenarios/aerodynamic.html">Aerodynamic Scenario</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developers Guide</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">The MphysGroup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="new_multiphysics_problems.html">Extending the Scenario Library</a></li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="new_multiphysics_problems.html" title="Extending the Scenario Library"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="../scenarios/aerodynamic.html" title="Aerodynamic Scenario"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Mphys  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">The MphysGroup</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022, NASA.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
+    </div>
+  </body>
+</html>
