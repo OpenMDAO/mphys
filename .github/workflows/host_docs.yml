@@ -130,7 +130,8 @@ jobs:
           mv .git $tmp_dir
           rm -vrf ..?* .[!.]* *
           echo Copying HTML documentation to repository
-          cp -vr $tmp_dir/. .
+          cp -vr $tmp_dir/.git .
+          cp -vr $tmp_dir/* .
           echo Adding HTML documentation to repository index
           git add .
           git status
