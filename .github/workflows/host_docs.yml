@@ -133,7 +133,10 @@ jobs:
           cp -vr $tmp_dir/. .
           echo Adding HTML documentation to repository index
           ls
-          git add .
+          echo "CAT gitignore"
+          cat .gitignore
+          echo "End CAT gitignore"
+          git add -A
           git status
           echo Recording changes to repository
           git commit --allow-empty -m "Add changes for $GITHUB_SHA"
