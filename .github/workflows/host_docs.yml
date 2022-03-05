@@ -4,6 +4,8 @@ on:
   # Triggers the workflow on push events but only for the main branch
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   # This job is called test_docs.
@@ -130,7 +132,9 @@ jobs:
           # Remove unused doctree
           cp -vr $tmp_dir/. .
           echo Adding HTML documentation to repository index
+          ls
           git add .
+          git status
           echo Recording changes to repository
           git commit --allow-empty -m "Add changes for $GITHUB_SHA"
           echo ::endgroup::
