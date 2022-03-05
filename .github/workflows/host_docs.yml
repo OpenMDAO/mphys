@@ -127,6 +127,7 @@ jobs:
           echo ::group:: Committing HTML documentation
           cd $repo_dir
           echo Deleting all file in repository
+          mv .git $tmp_dir
           rm -vrf ..?* .[!.]* *
           echo Copying HTML documentation to repository
           cp -vr $tmp_dir/. .
