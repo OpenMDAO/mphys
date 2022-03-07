@@ -43,7 +43,6 @@ class Top(Multipoint):
         daOptions = {
             "designSurfaces": ["wing"],
             "solverName": "DASimpleFoam",
-            "adjJacobianOption": "JacobianFree",
             "primalMinResTol": 1.0e-8,
             "primalBC": {
                 "U0": {"variable": "U", "patches": ["inout"], "value": [self.U0, 0.0, 0.0]},
@@ -56,7 +55,7 @@ class Top(Multipoint):
                         "source": "patchToFace",
                         "patches": ["wing"],
                         "directionMode": "parallelToFlow",
-                        "alphaName": "alpha",
+                        "alphaName": "aoa",
                         "scale": 1.0 / (0.5 * 10.0 * 10.0 * 45.5),
                         "addToAdjoint": True,
                     }
@@ -67,7 +66,7 @@ class Top(Multipoint):
                         "source": "patchToFace",
                         "patches": ["wing"],
                         "directionMode": "normalToFlow",
-                        "alphaName": "alpha",
+                        "alphaName": "aoa",
                         "scale": 1.0 / (0.5 * 10.0 * 10.0 * 45.5),
                         "addToAdjoint": True,
                     }
@@ -88,7 +87,7 @@ class Top(Multipoint):
                 "maxIncorrectlyOrientedFaces": 0,
             },
             "designVar": {
-                "alpha": {"designVarType": "AOA", "patches": ["inout"], "flowAxis": "x", "normalAxis": "y"},
+                "aoa": {"designVarType": "AOA", "patches": ["inout"], "flowAxis": "x", "normalAxis": "y"},
                 "twist": {"designVarType": "FFD"},
                 "shape": {"designVarType": "FFD"},
             },
@@ -124,11 +123,7 @@ class Top(Multipoint):
         self.connect("geometry.x_aero0", "cruise.x_aero")
 
     def configure(self):
-        self.cruise.coupling.mphys_set_dvgeo(self.geometry.DVGeo)
-
-        # set the aero problem in the coupling and post coupling groups
-        self.cruise.coupling.mphys_set_dvs_and_cons()
-        self.cruise.aero_post.mphys_set_dvs_and_cons()
+        super().configure()
 
         self.cruise.aero_post.mphys_add_funcs(["CD", "CL"])
 

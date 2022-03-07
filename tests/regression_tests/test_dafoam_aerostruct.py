@@ -24,10 +24,10 @@ from mphys.multipoint import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 
 # these imports will be from the respective codes' repos rather than mphys
-from mphys.mphys_dafoam import DAFoamBuilder
-from mphys.mphys_tacs import TacsBuilder
-from mphys.mphys_meld import MeldBuilder
-from mphys.mphys_dvgeo import OM_DVGEOCOMP
+from mphys.solver_builders.mphys_dafoam import DAFoamBuilder
+from tacs.mphys import TacsBuilder
+from mphys.solver_builders.mphys_meld import MeldBuilder
+from mphys.solver_builders.mphys_dvgeo import OM_DVGEOCOMP
 
 from tacs import elements, constitutive, functions
 
@@ -273,10 +273,11 @@ class Top(Multipoint):
         {
             "name": "meld",
             "ref_vals": {
-                "xa": 5.352207486847637,
-                "cl": 0.3198179367954018,
-                "func_struct": 0.5486517532524455,
-                "cd": 0.0121905627249948,
+                "xa": 5.352438021381199,
+                "cl": 0.3196186044913372,
+                "cd": 0.0121836189015169,
+                "mass": 2165.4853211276463,
+                "ks_vmfailure" : 0.5578983727565848,
             },
         },
     ]
@@ -307,7 +308,8 @@ class TestAeroStructSolve(unittest.TestCase):
             print("xa =", np.mean(self.prob.get_val("cruise.coupling.geo_disp.x_aero", get_remote=True)))
             print("cl =", self.prob.get_val("cruise.aero_post.CL", get_remote=True))
             print("cd =", self.prob.get_val("cruise.aero_post.CD", get_remote=True))
-            print("f_struct =", self.prob.get_val("cruise.func_struct", get_remote=True))
+            print("mass =", self.prob.get_val("cruise.mass", get_remote=True))
+            print("ks_vmfailure =", self.prob.get_val("cruise.ks_vmfailure", get_remote=True))
 
             assert_near_equal(
                 np.mean(self.prob.get_val("cruise.coupling.geo_disp.x_aero", get_remote=True)),
@@ -321,11 +323,15 @@ class TestAeroStructSolve(unittest.TestCase):
                 np.mean(self.prob.get_val("cruise.aero_post.CD", get_remote=True)), self.ref_vals["cd"], 1e-6
             )
             assert_near_equal(
-                np.mean(self.prob.get_val("cruise.func_struct", get_remote=True)),
-                self.ref_vals["func_struct"],
+                np.mean(self.prob.get_val("cruise.mass", get_remote=True)),
+                self.ref_vals["mass"],
                 1e-6,
             )
-
+            assert_near_equal(
+                np.mean(self.prob.get_val("cruise.ks_vmfailure", get_remote=True)),
+                self.ref_vals["ks_vmfailure"],
+                1e-6,
+            )
 
 if __name__ == "__main__":
     unittest.main()

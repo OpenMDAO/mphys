@@ -1,5 +1,5 @@
 import numpy as np
-import sys, time
+import sys, time, os
 from mpi4py import MPI
 from numpy.core.fromnumeric import prod
 from openmdao.api import Group, ImplicitComponent, ExplicitComponent, AnalysisError
@@ -97,9 +97,13 @@ class DAFoamBuilder(Builder):
 
     # TODO the get_nnodes is deprecated. will remove
     def get_nnodes(self, groupName=None):
+        if groupName is None:
+            groupName = self.DASolver.designFamilyGroup
         return int(self.DASolver.getSurfaceCoordinates(groupName=groupName).size / 3)
 
     def get_number_of_nodes(self, groupName=None):
+        if groupName is None:
+            groupName = self.DASolver.designFamilyGroup
         return int(self.DASolver.getSurfaceCoordinates(groupName=groupName).size / 3)
 
 
@@ -134,7 +138,7 @@ class DAFoamGroup(Group):
         self.add_subsystem(
             "solver",
             DAFoamSolver(solver=self.DASolver),
-            promotes_inputs=["dafoam_vol_coords", "aoa"],
+            promotes_inputs=["*"],
             promotes_outputs=["dafoam_states"],
         )
 
@@ -145,6 +149,11 @@ class DAFoamGroup(Group):
                 promotes_inputs=["dafoam_vol_coords", "dafoam_states"],
                 promotes_outputs=["f_aero"],
             )
+
+    def mphys_set_options(self, optionDict):
+        # here optionDict should be a dictionary that has a consistent format
+        # with the daOptions defined in the run script
+        self.solver.set_options(optionDict)
 
 
 class DAFoamSolver(ImplicitComponent):
@@ -161,7 +170,13 @@ class DAFoamSolver(ImplicitComponent):
         self.DASolver = self.options["solver"]
         DASolver = self.DASolver
 
-        # Initialze AOA option
+        # by default, we will not have a separate optionDict attached to this
+        # solver. But if we do multipoint optimization, we need to use the
+        # optionDict for each point because each point may have different
+        # objFunc and primalBC options
+        self.optionDict = None
+
+        # Initialize AOA option
         self.aoa_func = None
 
         # the default name for angle of attack design variable
@@ -169,9 +184,6 @@ class DAFoamSolver(ImplicitComponent):
 
         # initialize the dRdWT matrix-free matrix in DASolver
         DASolver.solverAD.initializedRdWTMatrixFree(DASolver.xvVec, DASolver.wVec)
-
-        # create the Petsc KSP object
-        self.ksp = None
 
         # create the adjoint vector
         self.psi = self.DASolver.wVec.duplicate()
@@ -188,8 +200,26 @@ class DAFoamSolver(ImplicitComponent):
         # setup input and output for the solver
         local_state_size = DASolver.getNLocalAdjointStates()
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
-        self.add_input("aoa", units="deg", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
         self.add_output("dafoam_states", distributed=True, shape=local_state_size, tags=["mphys_coupling"])
+        # add angle of attack variable
+        if self.alphaName in DASolver.getOption("designVar"):
+            self.add_input("aoa", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
+        # add rotation speed variable
+        if "MRF" in DASolver.getOption("designVar"):
+            self.add_input("omega", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
+
+    def set_options(self, optionDict):
+        # here optionDict should be a dictionary that has a consistent format
+        # with the daOptions defined in the run script
+        self.optionDict = optionDict
+
+    def apply_options(self, optionDict):
+        if optionDict is not None:
+            # This is a multipoint optimization. We need to replace the
+            # daOptions with optionDict
+            for key in optionDict.keys():
+                self.DASolver.setOption(key, optionDict[key])
+            self.DASolver.updateDAOption()
 
     # calculate the residual
     def apply_nonlinear(self, inputs, outputs, residuals):
@@ -201,19 +231,22 @@ class DAFoamSolver(ImplicitComponent):
 
     # solve the flow
     def solve_nonlinear(self, inputs, outputs):
+
         DASolver = self.DASolver
         if self.comm.rank == 0:
-            print("\n")
-            print("+------------------------------------------------------+")
-            print("|          Evaluating Objective Functions %03d          |" % DASolver.nSolvePrimals)
-            print("+------------------------------------------------------+")
+            print("\n", flush=True)
+            print("+------------------------------------------------------+", flush=True)
+            print("|          Evaluating Objective Functions %03d          |" % DASolver.nSolvePrimals, flush=True)
+            print("+------------------------------------------------------+", flush=True)
 
         # set the runStatus, this is useful when the actuator term is activated
         DASolver.setOption("runStatus", "solvePrimal")
 
+        # assign the optionDict to the solver
+        self.apply_options(self.optionDict)
         # Compute and set angle of attack
-        aoa = inputs["aoa"]
         if callable(self.aoa_func):
+            aoa = inputs["aoa"]
             self.aoa_func(aoa, DASolver)
 
         DASolver.updateDAOption()
@@ -224,12 +257,14 @@ class DAFoamSolver(ImplicitComponent):
         # get the objective functions
         funcs = {}
         DASolver.evalFunctions(funcs, evalFuncs=self.evalFuncs)
-        if self.comm.rank == 0:
-            print("Objective Functions: ")
-            print(funcs)
 
         # assign the computed flow states to outputs
         outputs["dafoam_states"] = DASolver.getStates()
+
+        # if the primal solution fail, we return analysisError and let the optimizer handle it
+        fail = funcs["fail"]
+        if fail:
+            raise AnalysisError("Primal solution failed!")
 
     def linearize(self, inputs, outputs, residuals):
         # NOTE: we do not do any computation in this function, just print some information
@@ -237,10 +272,10 @@ class DAFoamSolver(ImplicitComponent):
         DASolver = self.DASolver
 
         if self.comm.rank == 0:
-            print("\n")
-            print("+------------------------------------------------------+")
-            print("|    Evaluating Objective Function Sensitivities %03d   |" % DASolver.nSolveAdjoints)
-            print("+------------------------------------------------------+")
+            print("\n", flush=True)
+            print("+------------------------------------------------------+", flush=True)
+            print("|    Evaluating Objective Function Sensitivities %03d   |" % DASolver.nSolveAdjoints, flush=True)
+            print("+------------------------------------------------------+", flush=True)
 
         # move the solution folder to 0.000000x
         DASolver.renameSolution(DASolver.nSolveAdjoints)
@@ -263,6 +298,12 @@ class DAFoamSolver(ImplicitComponent):
 
         DASolver = self.DASolver
 
+        # assign the optionDict to the solver
+        self.apply_options(self.optionDict)
+        # Compute and set angle of attack
+        if callable(self.aoa_func):
+            aoa = inputs["aoa"]
+            self.aoa_func(aoa, DASolver)
         # assign the states in outputs to the OpenFOAM flow fields
         DASolver.setStates(outputs["dafoam_states"])
 
@@ -289,6 +330,7 @@ class DAFoamSolver(ImplicitComponent):
                 xVBar = DASolver.vec2Array(prodVec)
                 d_inputs["dafoam_vol_coords"] += xVBar
 
+            # compute [dRdAOA]^T*Psi using reverse mode AD
             if "aoa" in d_inputs:
                 prodVec = PETSc.Vec().create(self.comm)
                 prodVec.setSizes((PETSc.DECIDE, 1), bsize=1)
@@ -305,8 +347,20 @@ class DAFoamSolver(ImplicitComponent):
 
                 d_inputs["aoa"] += self.comm.bcast(aoaBar, root=0)
 
-        # NOTE: we only support states, vol_coords partials, and angle of attack.
-        # Other variables are not implemented yet!
+            # compute [dRdOmega]^T*Psi using reverse mode AD
+            if "omega" in d_inputs:
+                prodVec = PETSc.Vec().create(self.comm)
+                prodVec.setSizes((PETSc.DECIDE, 1), bsize=1)
+                prodVec.setFromOptions()
+                DASolver.solverAD.calcdRdBCTPsiAD(DASolver.xvVec, DASolver.wVec, resBarVec, "MRF".encode(), prodVec)
+                # The omegaBar variable will be length 1 on the root proc, but length 0 an all slave procs.
+                # The value on the root proc must be broadcast across all procs.
+                if self.comm.rank == 0:
+                    omegaBar = DASolver.vec2Array(prodVec)[0]
+                else:
+                    omegaBar = 0.0
+
+                d_inputs["omega"] += self.comm.bcast(omegaBar, root=0)
 
     def solve_linear(self, d_outputs, d_residuals, mode):
         # solve the adjoint equation [dRdW]^T * Psi = dFdW
@@ -321,25 +375,29 @@ class DAFoamSolver(ImplicitComponent):
         # NOTE: we compute this only once and will reuse it during optimization
         # similarly, we will create the ksp once and reuse
         if DASolver.dRdWTPC is None:
+            DASolver.cdRoot()
             DASolver.dRdWTPC = PETSc.Mat().create(self.comm)
             DASolver.solver.calcdRdWT(DASolver.xvVec, DASolver.wVec, 1, DASolver.dRdWTPC)
 
-        if self.ksp is None:
-            self.ksp = PETSc.KSP().create(self.comm)
-            DASolver.solverAD.createMLRKSPMatrixFree(DASolver.dRdWTPC, self.ksp)
+        # NOTE: here we reuse the KSP object defined in pyDAFoam.py
+        if DASolver.ksp is None:
+            DASolver.ksp = PETSc.KSP().create(self.comm)
+            DASolver.solverAD.createMLRKSPMatrixFree(DASolver.dRdWTPC, DASolver.ksp)
 
         # right hand side array from d_outputs
         dFdWArray = d_outputs["dafoam_states"]
         # convert the array to vector
         dFdW = DASolver.array2Vec(dFdWArray)
         # update the KSP tolerances the coupled adjoint before solving
-        self._updateKSPTolerances(self.psi, dFdW, self.ksp)
+        self._updateKSPTolerances(self.psi, dFdW, DASolver.ksp)
         # actually solving the adjoint linear equation using Petsc
-        DASolver.solverAD.solveLinearEqn(self.ksp, dFdW, self.psi)
+        fail = DASolver.solverAD.solveLinearEqn(DASolver.ksp, dFdW, self.psi)
         # convert the solution vector to array and assign it to d_residuals
         d_residuals["dafoam_states"] = DASolver.vec2Array(self.psi)
 
-        return True, 0, 0
+        # if the adjoint solution fail, we return analysisError and let the optimizer handle it
+        if fail:
+            raise AnalysisError("Adjoint solution failed!")
 
     def _updateKSPTolerances(self, psi, dFdW, ksp):
         # Here we need to manually update the KSP tolerances because the default
@@ -465,14 +523,24 @@ class DAFoamFunctions(ExplicitComponent):
 
         self.DASolver = self.options["solver"]
 
+        # the default name for angle of attack design variable
+        self.alphaName = "aoa"
+
         # Initialze AOA option
         self.aoa_func = None
+
+        self.optionDict = None
 
         self.solution_counter = 0
 
         self.add_input("dafoam_vol_coords", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
-        self.add_input("aoa", units="deg", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
         self.add_input("dafoam_states", distributed=True, shape_by_conn=True, tags=["mphys_coupling"])
+        # add angle of attack variable
+        if self.alphaName in self.DASolver.getOption("designVar"):
+            self.add_input("aoa", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
+        # add rotation speed variable
+        if "MRF" in self.DASolver.getOption("designVar"):
+            self.add_input("omega", distributed=False, shape_by_conn=True, tags=["mphys_coupling"])
 
     # add the function names to this component, called from runScript.py
     def mphys_add_funcs(self, funcs):
@@ -483,8 +551,22 @@ class DAFoamFunctions(ExplicitComponent):
         for f_name in funcs:
             self.add_output(f_name, distributed=False, shape=1, units=None, tags=["mphys_result"])
 
+    def mphys_set_options(self, optionDict):
+        # here optionDict should be a dictionary that has a consistent format
+        # with the daOptions defined in the run script
+        self.optionDict = optionDict
+
+    def apply_options(self, optionDict):
+        if optionDict is not None:
+            # This is a multipoint optimization. We need to replace the
+            # daOptions with optionDict
+            for key in optionDict.keys():
+                self.DASolver.setOption(key, optionDict[key])
+            self.DASolver.updateDAOption()
+
     # get the objective function from DASolver
     def compute(self, inputs, outputs):
+
         DASolver = self.DASolver
 
         DASolver.setStates(inputs["dafoam_states"])
@@ -499,8 +581,15 @@ class DAFoamFunctions(ExplicitComponent):
 
     # compute the partial derivatives of functions
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
+
         DASolver = self.DASolver
 
+        # assign the optionDict to the solver
+        self.apply_options(self.optionDict)
+        # Compute and set angle of attack
+        if callable(self.aoa_func):
+            aoa = inputs["aoa"]
+            self.aoa_func(aoa, DASolver)
         DASolver.setStates(inputs["dafoam_states"])
 
         # we do not support forward mode AD
@@ -556,8 +645,20 @@ class DAFoamFunctions(ExplicitComponent):
 
             d_inputs["aoa"] += self.comm.bcast(aoaBar, root=0)
 
-        # NOTE: we only support states, vol_coords partials, and angle of attack.
-        # Other variables are not implemented yet!
+        # compute dFdMRF
+        if "omega" in d_inputs:
+            dFdOmega = PETSc.Vec().create(self.comm)
+            dFdOmega.setSizes((PETSc.DECIDE, 1), bsize=1)
+            dFdOmega.setFromOptions()
+            DASolver.calcdFdBCAD(DASolver.xvVec, DASolver.wVec, objFuncName.encode(), "MRF".encode(), dFdOmega)
+            # The omegaBar variable will be length 1 on the root proc, but length 0 an all slave procs.
+            # The value on the root proc must be broadcast across all procs.
+            if self.comm.rank == 0:
+                omegaBar = DASolver.vec2Array(dFdOmega)[0]
+            else:
+                omegaBar = 0.0
+
+            d_inputs["omega"] += self.comm.bcast(omegaBar, root=0)
 
 
 class DAFoamWarper(ExplicitComponent):
@@ -585,7 +686,7 @@ class DAFoamWarper(ExplicitComponent):
         DASolver = self.DASolver
 
         x_a = inputs["x_aero"].reshape((-1, 3))
-        DASolver.setSurfaceCoordinates(x_a)
+        DASolver.setSurfaceCoordinates(x_a, DASolver.designFamilyGroup)
         DASolver.mesh.warpMesh()
         solverGrid = DASolver.mesh.getSolverGrid()
         # actually change the mesh in the C++ layer by setting xvVec
