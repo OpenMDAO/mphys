@@ -9,13 +9,12 @@ from mphys.scenario_aerostructural import ScenarioAeroStructural
 
 # these imports will be from the respective codes' repos rather than mphys
 from mphys.solver_builders.mphys_adflow import ADflowBuilder
-from mphys.solver_builders.mphys_tacs import TacsBuilder
+from tacs.mphys import TacsBuilder
 from mphys.solver_builders.mphys_meld import MeldBuilder
 from mphys.solver_builders.mphys_rlt import RltBuilder
 
 from baseclasses import AeroProblem
 
-from tacs import functions
 import tacs_setup
 
 # set these for convenience

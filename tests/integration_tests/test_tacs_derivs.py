@@ -20,8 +20,7 @@ from mphys.multipoint import Multipoint
 from mphys.scenario_structural import ScenarioStructural
 
 from tacs import elements, constitutive, functions
-from mphys.solver_builders.mphys_tacs import TacsBuilder
-
+from tacs.mphys import TacsBuilder
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
 

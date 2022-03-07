@@ -66,11 +66,3 @@ jobs:
           testflo
           cd ../../docs
           make html
-          cd _build/html
-          zip -r ./mphys.zip .
-      - name: 'Upload Docs'
-        uses: actions/upload-artifact@v2
-        with:
-          name: mphys
-          path: docs/_build/html/mphys.zip
-          retention-days: 7
