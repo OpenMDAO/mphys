@@ -27,7 +27,7 @@ from mphys.scenario_aerostructural import ScenarioAeroStructural
 from mphys.solver_builders.mphys_dafoam import DAFoamBuilder
 from tacs.mphys import TacsBuilder
 from mphys.solver_builders.mphys_meld import MeldBuilder
-from mphys.solver_builders.mphys_dvgeo import OM_DVGEOCOMP
+from pygeo.mphys import OM_DVGEOCOMP
 
 from tacs import elements, constitutive, functions
 

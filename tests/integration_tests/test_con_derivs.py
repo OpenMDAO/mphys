@@ -24,7 +24,7 @@ import os
 from mphys.multipoint import Multipoint
 
 # for geometric DVs
-from mphys.solver_builders.mphys_dvgeo import OM_DVGEOCOMP
+from pygeo.mphys import OM_DVGEOCOMP
 
 # only try to import this so that people can run the script w/o mdolab code
 # TACS is required regardless of the structural solver used
@@ -64,7 +64,7 @@ class Top(om.Group):
         # # GEOMETRY SETUP
         # ################################################################################
 
-        from mphys.solver_builders.mphys_adflow import ADflowBuilder
+        from adflow.mphys import ADflowBuilder
 
         aero_options = {
             # I/O Parameters
