@@ -14,13 +14,28 @@ or for a development version
 pip install -e .
 ```
 
-## Docuementation
+## Documentation
 Online documentation is available at [https://openmdao.github.io/mphys/](https://openmdao.github.io/mphys/).
 
 ### Building the Docs
 The documentation includes N2 diagrams from the unit tests. Before building the docs, go into `tests/unit_tests` and run `python -m unittest`.
 Then go into the `docs` directory and run `make html`.
 
+# Solvers compatible with mphys
+Open-source codes with builders and components compatible with mphys:
+
+| Code                                                       | Analysis Type                  | Notes                                                                                              |
+|------------------------------------------------------------|--------------------------------|----------------------------------------------------------------------------------------------------|
+|[ADflow](https://github.com/mdolab/adflow)                  | Aerodynamics                   | Structured multi-block and overset CFD.                                                            |
+|[DAfoam](https://github.com/mdolab/dafoam)                  | Aerodynamics                   | Discrete Adjoint with OpenFOAM.                                                                    |
+|[MELD](https://github.com/smdogroup/funtofem)               | Load and Displacement Transfer | Point cloud based transfer scheme. Part of the FUNtoFEM package.                                   |
+|[pyCycle](https://github.com/OpenMDAO/pyCycle)              | Propulsion                     | Thermodynamic cycle modeling library for engines.                                                  |
+|[pyGeo](https://github.com/mdolab/pygeo)                    | Geometric Parameterization     | Wrapper for ESP, OpenVSP, and a free-form deformation parameterization.                            |
+|[TACS](https://github.com/smdogroup/tacs)                   | Structures                     | Parallel Finite Element Analysis.                                                                  |
+
+# Examples
+As noted their README.md files, some of the examples use codes that are not widely available;
+however, they are still included in order to provide more illustrations of how mphys can be used.
 
 # For developers
 
