@@ -127,12 +127,12 @@ class Top(Multipoint):
         teList = [[4.99, 0, 0.001], [8.99, 0, 13.99]]
         self.geometry.nom_addThicknessConstraints2D("thickcon", leList, teList, nSpan=10, nChord=10)
         self.geometry.nom_addVolumeConstraint("volcon", leList, teList, nSpan=20, nChord=20)
-        nLECon = self.geometry.nom_add_LETEConstraint(
+        self.geometry.nom_add_LETEConstraint(
             "lecon",
             0,
             "iLow",
         )
-        nTECon = self.geometry.nom_add_LETEConstraint("tecon", 0, "iHigh")
+        self.geometry.nom_add_LETEConstraint("tecon", 0, "iHigh")
         # add dvs to ivc and connect
         self.dvs.add_output("aoa", val=aoa, units="deg")
         self.dvs.add_output("local", val=np.array([0] * nLocal))
@@ -177,11 +177,11 @@ prob.driver.opt_settings = {
     # 'Difference interval':1.0e-6,
     # 'Hessian full memory':None,
     "Hessian frequency": 200,
-    #'Linesearch tolerance':0.99,
+    # 'Linesearch tolerance':0.99,
     "Print file": "SNOPT_print.out",
     "Summary file": "SNOPT_summary.out",
     "Problem Type": "Minimize",
-    #'New superbasics limit':500,
+    # 'New superbasics limit':500,
     "Penalty parameter": 1.0,
 }
 

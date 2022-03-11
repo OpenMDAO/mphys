@@ -1,4 +1,3 @@
-import numpy as np
 from mpi4py import MPI
 
 import openmdao.api as om
@@ -191,11 +190,11 @@ prob.driver.opt_settings = {
     # 'Difference interval':1.0e-6,
     # 'Hessian full memory':None,
     "Hessian frequency": 200,
-    #'Linesearch tolerance':0.99,
+    # 'Linesearch tolerance':0.99,
     "Print file": "SNOPT_print.out",
     "Summary file": "SNOPT_summary.out",
     "Problem Type": "Minimize",
-    #'New superbasics limit':500,
+    # 'New superbasics limit':500,
     "Penalty parameter": 1.0,
 }
 

@@ -1,4 +1,4 @@
-#rst Imports
+# rst Imports
 from __future__ import print_function, division
 import numpy as np
 from mpi4py import MPI
@@ -16,8 +16,8 @@ from tacs import elements, constitutive, functions
 comm = MPI.COMM_WORLD
 rank = comm.rank
 
-class Top(om.Group):
 
+class Top(om.Group):
     def setup(self):
 
         ################################################################################
@@ -44,7 +44,7 @@ class Top(om.Group):
             con = constitutive.IsoShellConstitutive(prop, t=t, tNum=dvNum)
 
             # Define reference axis for local shell stresses
-            if 'SKIN' in compDescript:  # USKIN + LSKIN
+            if "SKIN" in compDescript:  # USKIN + LSKIN
                 sweep = 35.0 / 180.0 * np.pi
                 refAxis = np.array([np.sin(sweep), np.cos(sweep), 0])
             else:  # RIBS + SPARS + ENGINE_MOUNT
@@ -63,9 +63,8 @@ class Top(om.Group):
             """
 
             # Add TACS Functions
-            problem.addFunction('mass', functions.StructuralMass)
-            problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
-                                ksWeight=100.0)
+            problem.addFunction("mass", functions.StructuralMass)
+            problem.addFunction("ks_vmfailure", functions.KSFailure, safetyFactor=1.0, ksWeight=100.0)
 
             # Add forces to static problem
             F = fea_assembler.createVec()
@@ -73,9 +72,11 @@ class Top(om.Group):
             F[2::ndof] = 100.0
             problem.addLoadToRHS(F)
 
-        tacs_options = {'element_callback': element_callback,
-                        'problem_setup': problem_setup,
-                        'mesh_file': 'wingbox.bdf'}
+        tacs_options = {
+            "element_callback": element_callback,
+            "problem_setup": problem_setup,
+            "mesh_file": "wingbox.bdf",
+        }
 
         tacs_builder = TacsBuilder(tacs_options, coupled=False)
         tacs_builder.initialize(self.comm)
@@ -85,25 +86,22 @@ class Top(om.Group):
         ################################################################################
 
         # ivc to keep the top level DVs
-        dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
+        dvs = self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
 
         # create the multiphysics multipoint group.
-        mp = self.add_subsystem(
-            'mp_group',
-            Multipoint()
-        )
+        mp = self.add_subsystem("mp_group", Multipoint())
 
         # add the structural thickness DVs
         ndv_struct = tacs_builder.get_ndv()
-        self.dvs.add_output('dv_struct', np.array(ndv_struct * [0.01]))
+        self.dvs.add_output("dv_struct", np.array(ndv_struct * [0.01]))
 
-        mp.add_subsystem('mesh', tacs_builder.get_mesh_coordinate_subsystem())
+        mp.add_subsystem("mesh", tacs_builder.get_mesh_coordinate_subsystem())
         # this is the method that needs to be called for every point in this mp_group
-        mp.mphys_add_scenario('s0',
-                              ScenarioStructural(struct_builder=tacs_builder))
-        mp.mphys_connect_scenario_coordinate_source('mesh', 's0', 'struct')
+        mp.mphys_add_scenario("s0", ScenarioStructural(struct_builder=tacs_builder))
+        mp.mphys_connect_scenario_coordinate_source("mesh", "s0", "struct")
 
-        self.connect('dv_struct', 'mp_group.s0.dv_struct')
+        self.connect("dv_struct", "mp_group.s0.dv_struct")
+
 
 ################################################################################
 # OpenMDAO setup
@@ -112,7 +110,7 @@ prob = om.Problem()
 prob.model = Top()
 model = prob.model
 prob.setup()
-om.n2(prob, show_browser=False, outfile='mphys_struct.html')
+om.n2(prob, show_browser=False, outfile="mphys_struct.html")
 prob.run_model()
 # prob.model.list_outputs()
 if MPI.COMM_WORLD.rank == 0:
