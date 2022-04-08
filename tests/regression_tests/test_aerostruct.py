@@ -90,7 +90,7 @@ class Top(Multipoint):
         ################################################################################
         aero_options = {
             # I/O Parameters
-            "gridFile": os.path.join(baseDir, "../input_files/wing_vol.cgns"),
+            "gridFile": os.path.join(baseDir, "../input_files/wing_vol_L3.cgns"),
             "outputDirectory": ".",
             "monitorvariables": ["resrho", "resturb", "cl", "cd"],
             "writeTecplotSurfaceSolution": False,
@@ -98,6 +98,7 @@ class Top(Multipoint):
             # 'writesurfacesolution':False,
             # Physics Parameters
             "equationType": "RANS",
+            "liftindex": 3,
             # Solver Parameters
             "smoother": "DADI",
             "CFL": 1.5,
@@ -219,10 +220,10 @@ class Top(Multipoint):
             "xfer_builder_class": MeldBuilder,
             "xfer_options": {"isym": 1, "n": 200, "beta": 0.5},
             "ref_vals": {
-                "xa": 5.44356782419053,
-                "cl": 0.3384087364751269,
-                "func_struct": 0.25177455023767636,
-                "cd": 0.029881839034169452,
+                "xa": 5.633698956781166,
+                "cl": 0.209180113189859,
+                "func_struct": 0.6808193125485819,
+                "cd": 0.025108879963099927,
             },
         },
         # {
