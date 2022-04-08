@@ -1,4 +1,4 @@
-from mpi4py import MPI
+import argparse
 
 import openmdao.api as om
 from mphys.multipoint import MultipointParallel
@@ -6,10 +6,10 @@ from mphys.scenario_aerodynamic import ScenarioAerodynamic
 from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
 
-import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--task", default="run")
+parser.add_argument("--level", type=str, default="L1")
 args = parser.parse_args()
 
 
@@ -21,8 +21,7 @@ class ParallelCruises(MultipointParallel):
         ################################################################################
         aero_options = {
             # I/O Parameters
-            # "gridFile": "wing_vol_coarse.cgns",
-            "gridFile": "wing_vol.cgns",
+            "gridFile": f"wing_vol_{args.level}.cgns",
             "outputDirectory": ".",
             "monitorvariables": ["resrho", "resturb", "cl", "cd"],
             "writeTecplotSurfaceSolution": False,
@@ -30,6 +29,7 @@ class ParallelCruises(MultipointParallel):
             # 'writesurfacesolution':False,
             # Physics Parameters
             "equationType": "RANS",
+            "liftindex": 3,  # z is the lift direction
             # Solver Parameters
             "smoother": "DADI",
             "CFL": 1.5,
@@ -220,7 +220,7 @@ cd0 = prob.get_val("mp.cruise0.aero_post.cd", get_remote=True)
 cl1 = prob.get_val("mp.cruise1.aero_post.cl", get_remote=True)
 cd1 = prob.get_val("mp.cruise1.aero_post.cd", get_remote=True)
 
-if MPI.COMM_WORLD.rank == 0:
+if prob.model.comm.rank == 0:
     print("Cruise 0")
     print("cl =", cl0)
     print("cd =", cd1)
