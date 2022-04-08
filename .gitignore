@@ -42,3 +42,18 @@ examples/aerostructural/mach_tutorial_wing/adflow_meld_tacs/*.xyz
 
 # DAFoam input files
 tests/input_files/dafoam*
+
+# DAFoam test outputs
+tests/regression_tests/0
+tests/regression_tests/constant
+tests/regression_tests/FFD
+tests/regression_tests/system
+tests/integration_tests/0
+tests/integration_tests/constant
+tests/integration_tests/FFD
+tests/integration_tests/system
+tests/0
+tests/constant
+tests/FFD
+tests/system
+
