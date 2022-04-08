@@ -32,3 +32,10 @@ tests/input_files/*.xyz
 
 # n2s that might be generated under examples
 examples/**/*.html
+
+# FFD files for adflow examples
+examples/aero_only/mach_tutorial_wing/adflow/*.xyz
+examples/aerostructural/mach_tutorial_wing/adflow_meld_tacs/*.xyz
+
+# DAFoam input files
+tests/input_files/dafoam*
