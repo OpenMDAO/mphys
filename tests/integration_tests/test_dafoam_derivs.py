@@ -32,8 +32,8 @@ for dir in inputDirs:
 
 class Top(Multipoint):
     def setup(self):
-        from mphys.solver_builders.mphys_dafoam import DAFoamBuilder
-        from mphys.solver_builders.mphys_dvgeo import OM_DVGEOCOMP
+        from dafoam.mphys_dafoam import DAFoamBuilder
+        from pygeo.mphys import OM_DVGEOCOMP
 
         self.U0 = 10.0
 
@@ -144,14 +144,14 @@ class Top(Multipoint):
             for i in range(1, nRefAxPts):
                 geo.rot_z["wingAxis"].coef[i] = -val[i - 1]
 
-        def alpha(val, DASolver):
+        def aoa(val, DASolver):
             aoa = val[0] * np.pi / 180.0
             U = [float(self.U0 * np.cos(aoa)), float(self.U0 * np.sin(aoa)), 0]
             DASolver.setOption("primalBC", {"U0": {"variable": "U", "patches": ["inout"], "value": U}})
             DASolver.updateDAOption()
 
-        self.cruise.coupling.solver.aoa_func = alpha
-        self.cruise.aero_post.aoa_func = alpha
+        self.cruise.coupling.solver.add_dv_func("aoa", aoa)
+        self.cruise.aero_post.add_dv_func("aoa", aoa)
 
         self.geometry.nom_addGeoDVGlobal(dvName="twist", value=np.array([0] * (nRefAxPts - 1)), func=twist)
         nShapes = self.geometry.nom_addGeoDVLocal(dvName="shape")

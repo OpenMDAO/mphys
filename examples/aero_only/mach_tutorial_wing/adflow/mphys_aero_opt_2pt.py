@@ -3,10 +3,10 @@ from mpi4py import MPI
 
 import openmdao.api as om
 from mphys.multipoint import Multipoint
-from mphys.solver_builders.mphys_adflow import ADflowBuilder
-from baseclasses import AeroProblem
 from mphys.scenario_aerodynamic import ScenarioAerodynamic
-from mphys.solver_builders.mphys_dvgeo import OM_DVGEOCOMP
+from adflow.mphys import ADflowBuilder
+from baseclasses import AeroProblem
+from pygeo.mphys import OM_DVGEOCOMP
 
 import argparse
 
@@ -178,11 +178,11 @@ prob.driver.opt_settings = {
     # 'Difference interval':1.0e-6,
     # 'Hessian full memory':None,
     "Hessian frequency": 200,
-    #'Linesearch tolerance':0.99,
+    # 'Linesearch tolerance':0.99,
     "Print file": "SNOPT_print.out",
     "Summary file": "SNOPT_summary.out",
     "Problem Type": "Minimize",
-    #'New superbasics limit':500,
+    # 'New superbasics limit':500,
     "Penalty parameter": 1.0,
 }
 

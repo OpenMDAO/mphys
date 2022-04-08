@@ -24,10 +24,10 @@ from mphys.multipoint import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 
 # these imports will be from the respective codes' repos rather than mphys
-from mphys.solver_builders.mphys_dafoam import DAFoamBuilder
+from dafoam.mphys_dafoam import DAFoamBuilder
 from tacs.mphys import TacsBuilder
 from mphys.solver_builders.mphys_meld import MeldBuilder
-from mphys.solver_builders.mphys_dvgeo import OM_DVGEOCOMP
+from pygeo.mphys import OM_DVGEOCOMP
 
 from tacs import elements, constitutive, functions
 
@@ -253,8 +253,8 @@ class Top(Multipoint):
             DASolver.setOption("primalBC", {"U0": {"variable": "U", "patches": ["inout"], "value": U}})
             DASolver.updateDAOption()
 
-        self.cruise.coupling.aero.solver.aoa_func = aoa
-        self.cruise.aero_post.aoa_func = aoa
+        self.cruise.coupling.aero.solver.add_dv_func("aoa", aoa)
+        self.cruise.aero_post.add_dv_func("aoa", aoa)
 
         # add dvs to ivc and connect
         self.dvs.add_output("aoa", val=np.array([aoa0]))

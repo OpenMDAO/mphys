@@ -7,11 +7,13 @@ import openmdao.api as om
 from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 
-# these imports will be from the respective codes' repos rather than mphys
-from mphys.solver_builders.mphys_adflow import ADflowBuilder
+
+from adflow.mphys import ADflowBuilder
 from tacs.mphys import TacsBuilder
 from mphys.solver_builders.mphys_meld import MeldBuilder
-from mphys.solver_builders.mphys_rlt import RltBuilder
+
+# TODO RLT needs to be updated with the new tacs wrapper
+# from rlt.mphys import RltBuilder
 
 from baseclasses import AeroProblem
 

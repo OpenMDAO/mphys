@@ -28,10 +28,11 @@ from mphys.multipoint import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 
 # these imports will be from the respective codes' repos rather than mphys
-from mphys.solver_builders.mphys_adflow import ADflowBuilder
+from adflow.mphys import ADflowBuilder
 from tacs.mphys import TacsBuilder
 from mphys.solver_builders.mphys_meld import MeldBuilder
-# from mphys.solver_builders.mphys_rlt import RltBuilder
+# TODO RLT needs to be updated with the new tacs wrapper
+# from rlt.mphys import RltBuilder
 
 from baseclasses import AeroProblem
 from tacs import elements, constitutive, functions
@@ -267,7 +268,7 @@ class TestAeroStructSolve(unittest.TestCase):
             print("cl =", self.prob.get_val("cruise.aero_post.cl", get_remote=True)[0])
             print("cd =", self.prob.get_val("cruise.aero_post.cd", get_remote=True)[0])
             print("ks_vmfailure =", self.prob.get_val("cruise.ks_vmfailure", get_remote=True)[0])
-            
+
             assert_near_equal(
                 np.mean(self.prob.get_val("cruise.coupling.geo_disp.x_aero", get_remote=True)),
                 self.ref_vals["xa"],
