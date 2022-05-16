@@ -12,5 +12,9 @@ setup(
     author="",
     author_email="",
     zip_safe=False,
-    packages = find_packages()
+    packages = find_packages(),
+    install_requires=[
+          'numpy',
+          'openmdao>=3.15,!=3.17'
+    ],
 )
