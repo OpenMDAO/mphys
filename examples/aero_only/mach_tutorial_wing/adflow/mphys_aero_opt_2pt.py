@@ -1,5 +1,5 @@
+import argparse
 import numpy as np
-from mpi4py import MPI
 
 import openmdao.api as om
 from mphys.multipoint import Multipoint
@@ -8,10 +8,10 @@ from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
 from pygeo.mphys import OM_DVGEOCOMP
 
-import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--task", default="run")
+parser.add_argument("--level", type=str, default="L1")
 args = parser.parse_args()
 
 
@@ -23,7 +23,7 @@ class Top(Multipoint):
         ################################################################################
         aero_options = {
             # I/O Parameters
-            "gridFile": "wing_vol.cgns",
+            "gridFile": f"wing_vol_{args.level}.cgns",
             "outputDirectory": ".",
             "monitorvariables": ["resrho", "resturb", "cl", "cd"],
             "writeTecplotSurfaceSolution": False,
@@ -31,6 +31,7 @@ class Top(Multipoint):
             # 'writesurfacesolution':False,
             # Physics Parameters
             "equationType": "RANS",
+            "liftindex": 3,  # z is the lift direction
             # Solver Parameters
             "smoother": "DADI",
             "CFL": 1.5,
@@ -129,7 +130,7 @@ class Top(Multipoint):
         # Set up global design variables
         def twist(val, geo):
             for i in range(1, nRefAxPts):
-                geo.rot_z["wing"].coef[i] = val[i - 1]
+                geo.rot_y["wing"].coef[i] = val[i - 1]
 
         self.geometry.nom_addGeoDVGlobal(dvName="twist", value=np.array([0] * nTwist), func=twist)
 
@@ -200,7 +201,7 @@ prob.model.list_inputs(units=True)
 prob.model.list_outputs(units=True)
 
 # prob.model.list_outputs()
-if MPI.COMM_WORLD.rank == 0:
+if prob.model.comm.rank == 0:
     print("Cruise 0")
     print("cl =", prob["cruise0.aero_post.cl"])
     print("cd =", prob["cruise0.aero_post.cd"])

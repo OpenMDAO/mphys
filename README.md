@@ -59,6 +59,8 @@ paramerized
 and these input files. They can be obtained by running `get-input-files.sh`
 ```
 wingbox.bdf
+wing_vol_L1.cgns
+wing_vol_L2.cgns
 wing_vol_L3.cgns
 ffd.xyz
 ```

@@ -1,5 +1,5 @@
+import argparse
 import numpy as np
-from mpi4py import MPI
 
 import openmdao.api as om
 from mphys.multipoint import Multipoint
@@ -8,10 +8,9 @@ from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
 from pygeo.mphys import OM_DVGEOCOMP
 
-import argparse
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--task", default="run")
+parser.add_argument("--level", type=str, default="L1")
 args = parser.parse_args()
 
 
@@ -23,7 +22,7 @@ class Top(Multipoint):
         ################################################################################
         aero_options = {
             # I/O Parameters
-            "gridFile": "wing_vol.cgns",
+            "gridFile": f"wing_vol_{args.level}.cgns",
             "outputDirectory": ".",
             "monitorvariables": ["resrho", "resturb", "cl", "cd"],
             "writeTecplotSurfaceSolution": False,
@@ -31,6 +30,7 @@ class Top(Multipoint):
             # 'writesurfacesolution':False,
             # Physics Parameters
             "equationType": "RANS",
+            "liftindex": 3,  # z is the lift direction
             # Solver Parameters
             "smoother": "DADI",
             "CFL": 1.5,
@@ -118,13 +118,19 @@ class Top(Multipoint):
         # Set up global design variables
         def twist(val, geo):
             for i in range(1, nRefAxPts):
-                geo.rot_z["wing"].coef[i] = val[i - 1]
+                geo.rot_y["wing"].coef[i] = val[i - 1]
 
         self.geometry.nom_addGeoDVGlobal(dvName="twist", value=np.array([0] * nTwist), func=twist)
-        nLocal = self.geometry.nom_addGeoDVLocal(dvName="thickness")
+        nLocal = self.geometry.nom_addGeoDVLocal(dvName="thickness", axis="z")
 
-        leList = [[0.01, 0, 0.001], [7.51, 0, 13.99]]
-        teList = [[4.99, 0, 0.001], [8.99, 0, 13.99]]
+        if args.level == "L3":
+            # we need to offset the projected points a bit further in the wing because this mesh is too coarse
+            leList = [[0.1, 0.001, 0.0], [7.6, 13.8, 0.0]]
+            teList = [[4.8, 0.001, 0.0], [8.8, 13.8, 0.0]]
+        else:
+            # L1 and L2 meshes can work with the more accurate coordinates
+            leList = [[0.01, 0.001, 0.0], [7.51, 13.99, 0.0]]
+            teList = [[4.99, 0.001, 0.0], [8.99, 13.99, 0.0]]
         self.geometry.nom_addThicknessConstraints2D("thickcon", leList, teList, nSpan=10, nChord=10)
         self.geometry.nom_addVolumeConstraint("volcon", leList, teList, nSpan=20, nChord=20)
         self.geometry.nom_add_LETEConstraint(
@@ -201,8 +207,7 @@ elif args.task == "opt":
 prob.model.list_inputs(units=True)
 prob.model.list_outputs(units=True)
 
-# prob.model.list_outputs()
-if MPI.COMM_WORLD.rank == 0:
+if prob.model.comm.rank == 0:
     print("Scenario 0")
     print("cl =", prob["cruise.aero_post.cl"])
     print("cd =", prob["cruise.aero_post.cd"])

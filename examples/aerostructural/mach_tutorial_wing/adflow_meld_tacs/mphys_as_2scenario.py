@@ -1,30 +1,23 @@
 import numpy as np
 import argparse
-from mpi4py import MPI
 
 import openmdao.api as om
-
 from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 
-
 from adflow.mphys import ADflowBuilder
+from baseclasses import AeroProblem
 from tacs.mphys import TacsBuilder
 from mphys.solver_builders.mphys_meld import MeldBuilder
-
 # TODO RLT needs to be updated with the new tacs wrapper
 # from rlt.mphys import RltBuilder
 
-from baseclasses import AeroProblem
-
 import tacs_setup
 
-# set these for convenience
-comm = MPI.COMM_WORLD
-rank = comm.rank
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--xfer", default="meld", choices=["meld", "rlt"])
+parser.add_argument("--level", type=str, default="L1")
 args = parser.parse_args()
 
 if args.xfer == "meld":
@@ -41,7 +34,7 @@ class Top(Multipoint):
         ################################################################################
         aero_options = {
             # I/O Parameters
-            "gridFile": "wing_vol.cgns",
+            "gridFile": f"wing_vol_{args.level}.cgns",
             "outputDirectory": ".",
             "monitorvariables": ["resrho", "resturb", "cl", "cd"],
             "writeTecplotSurfaceSolution": False,
@@ -49,6 +42,7 @@ class Top(Multipoint):
             # 'writesurfacesolution':False,
             # Physics Parameters
             "equationType": "RANS",
+            "liftindex": 3,  # z is the lift direction
             # Solver Parameters
             "smoother": "DADI",
             "CFL": 1.5,
@@ -97,7 +91,7 @@ class Top(Multipoint):
         ################################################################################
 
         if args.xfer == "meld":
-            isym = 1
+            isym = 1  # y-symmetry
             ldxfer_builder = MeldBuilder(aero_builder, struct_builder, isym=isym)
             ldxfer_builder.initialize(self.comm)
         else:
@@ -193,7 +187,7 @@ prob.run_model()
 
 prob.model.list_outputs()
 
-if MPI.COMM_WORLD.rank == 0:
+if prob.model.comm.rank == 0:
     print("Cruise")
     print("cl =", prob["cruise.aero_post.cl"])
     print("cd =", prob["cruise.aero_post.cd"])

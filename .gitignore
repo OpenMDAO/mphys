@@ -32,3 +32,28 @@ tests/input_files/*.xyz
 
 # n2s that might be generated under examples
 examples/**/*.html
+
+# n2s that are generated under tests for the documentation
+tests/**/*.html
+
+# FFD files for adflow examples
+examples/aero_only/mach_tutorial_wing/adflow/*.xyz
+examples/aerostructural/mach_tutorial_wing/adflow_meld_tacs/*.xyz
+
+# DAFoam input files
+tests/input_files/dafoam*
+
+# DAFoam test outputs
+tests/regression_tests/0
+tests/regression_tests/constant
+tests/regression_tests/FFD
+tests/regression_tests/system
+tests/integration_tests/0
+tests/integration_tests/constant
+tests/integration_tests/FFD
+tests/integration_tests/system
+tests/0
+tests/constant
+tests/FFD
+tests/system
+

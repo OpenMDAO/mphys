@@ -1,23 +1,27 @@
-from mpi4py import MPI
+import argparse
 
 import openmdao.api as om
 from mphys.multipoint import Multipoint
+from mphys.scenario_aerodynamic import ScenarioAerodynamic
 from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
-from mphys.scenario_aerodynamic import ScenarioAerodynamic
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--level", type=str, default="L1")
+args = parser.parse_args()
 
 class Top(Multipoint):
     def setup(self):
 
         aero_options = {
             # I/O Parameters
-            "gridFile": "wing_vol.cgns",
+            "gridFile": f"wing_vol_{args.level}.cgns",
             "outputDirectory": ".",
             "monitorvariables": ["resrho", "cl", "cd"],
             "writeTecplotSurfaceSolution": True,
             # Physics Parameters
             "equationType": "RANS",
+            "liftindex": 3,  # z is the lift direction
             # Solver Parameters
             "smoother": "DADI",
             "CFL": 0.5,
@@ -90,7 +94,7 @@ prob.model.list_inputs(units=True)
 prob.model.list_outputs(units=True)
 
 # prob.model.list_outputs()
-if MPI.COMM_WORLD.rank == 0:
+if prob.model.comm.rank == 0:
     print("Scenario 0")
     print("cl =", prob["cruise.aero_post.cl"])
     print("cd =", prob["cruise.aero_post.cd"])
