@@ -5,7 +5,7 @@ from mphys.multipoint import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 from vlm_solver.mphys_vlm import VlmBuilder
 from tacs.mphys import TacsBuilder
-from mphys.solver_builders.mphys_meld import MeldBuilder
+from funtofem.mphys import MeldBuilder
 
 from struct_dv_components import StructDvMapper, SmoothnessEvaluatorGrid, struct_comps
 import tacs_setup
