@@ -2,7 +2,7 @@
 This example demonstrates TACS structural optimization capabilities.
 The beam model that we will be using for this problem is a rectangular beam,
 cantilevered, with a shear load applied at the tip. The beam is discretized using
-100 shell elements along it's span and depth.
+1001 shell elements along it's span and depth.
 
 The optimization problem is as follows:
 Minimize the mass of the beam with respect to the dpeth of the cross-section along the span,
