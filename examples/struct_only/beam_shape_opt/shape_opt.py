@@ -94,6 +94,7 @@ class Top(Multipoint):
 
         # add the geometry component, we dont need a builder because we do it here.
         self.add_subsystem("geometry", OM_DVGEOCOMP(ffd_file=ffd_file))
+        self.geometry.nom_add_discipline_coords("struct")
 
         self.mphys_add_scenario('tip_shear', ScenarioStructural(struct_builder=struct_builder))
 
@@ -101,12 +102,6 @@ class Top(Multipoint):
         self.connect("geometry.x_struct0", "tip_shear.x_struct0")
 
     def configure(self):
-        # create geometric DV setup
-        points = self.mesh.get_val("x_struct0")
-
-        # add pointset
-        self.geometry.nom_add_discipline_coords("struct", points)
-
         # Create reference axis
         nRefAxPts = self.geometry.nom_addRefAxis(name="centerline", alignIndex='i', yFraction=0.5)
 
