@@ -5,18 +5,18 @@ cantilevered, with a shear load applied at the tip. The beam is discretized usin
 1001 shell elements along it's span and depth.
 
 The optimization problem is as follows:
-Minimize the mass of the beam with respect to the dpeth of the cross-section along the span,
+Minimize the mass of the beam with respect to the depth of the cross-section along the span,
 subject to a max stress constraint dictated by the materials yield stress.
 
 In order to change the shape of the FEM we use a free-form deformation (FFD) volume
 parmeterization scheme provided by the pyGeo library.
 
-An aproximate analytcal solution can be derived from beam theory,
+An aproximate analytical solution can be derived from beam theory,
 by realizing that the stress at any spanwise cross-section in the beam
 can be found independently using:
     sigma(x,y) = y*M(x)/I
 An analytical solution for this problem can be shown to be:
-    t(x) = sqrt(6*V*(L-x)/(t*sigma_y))
+    d(x) = sqrt(6*V*(L-x)/(t*sigma_y))
 
 The optimization is setup using TACS' MPHYS module, which acts as a wrapper
 for OpenMDAO.
