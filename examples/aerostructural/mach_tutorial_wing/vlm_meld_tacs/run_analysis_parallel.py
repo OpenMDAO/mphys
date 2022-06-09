@@ -9,7 +9,7 @@ from mphys import MultipointParallel
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 from vlm_solver.mphys_vlm import VlmBuilder
 from tacs.mphys import TacsBuilder
-from mphys.solver_builders.mphys_meld import MeldBuilder
+from funtofem.mphys import MeldBuilder
 
 import tacs_setup
 
