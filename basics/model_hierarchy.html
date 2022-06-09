@@ -1,16 +1,18 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
     <title>Model Hierarchy &#8212; Mphys  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/style.css" />
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
     <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -42,8 +44,8 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <div class="section" id="model-hierarchy">
-<h1>Model Hierarchy<a class="headerlink" href="#model-hierarchy" title="Permalink to this headline">¶</a></h1>
+  <section id="model-hierarchy">
+<h1>Model Hierarchy<a class="headerlink" href="#model-hierarchy" title="Permalink to this heading">¶</a></h1>
 <p>Mphys uses a pattern to build multiphysics optimization problems.
 Each level of the pattern is a different type of group that Mphys provides.</p>
 <p>The highest level of the model is the multipoint group.
@@ -51,8 +53,8 @@ The multipoint group consist of scenarios which represent different conditions a
 Within the scenario is the coupling group which represents the primary multiphysics problem for the scenario.</p>
 <p><a class="reference internal" href="builders.html#builders"><span class="std std-ref">Builders</span></a> are used to help populate these levels of the model hierarchy with subsystems from the solvers.
 <a class="reference internal" href="tagged_promotion.html#tagged-promotion"><span class="std std-ref">Tagged Promotion</span></a> is used to promote specific variables to the level of scenario.</p>
-<div class="section" id="coupling-groups">
-<span id="id1"></span><h2>Coupling Groups<a class="headerlink" href="#coupling-groups" title="Permalink to this headline">¶</a></h2>
+<section id="coupling-groups">
+<span id="id1"></span><h2>Coupling Groups<a class="headerlink" href="#coupling-groups" title="Permalink to this heading">¶</a></h2>
 <p>The CouplingGroup is the primary physics coupling being solved.
 That is it contains physics modules, such as an aerodynamic or structural solver,
 and potentially modules that transfer or interpolate between the physics modules, such as a load or displacement transfer schemes.</p>
@@ -60,9 +62,9 @@ and potentially modules that transfer or interpolate between the physics modules
 Within the Scenario group, the coupling group will have the name ‘coupling’.
 The scenario-specific coupling group will have a default nonlinear and linear solvers,
 but these can be overwritten with the optional arguments to <a class="reference internal" href="#mphys.multipoint.Multipoint.mphys_add_scenario" title="mphys.multipoint.Multipoint.mphys_add_scenario"><code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_scenario()</span></code></a>.</p>
-</div>
-<div class="section" id="scenario-groups">
-<span id="id2"></span><h2>Scenario Groups<a class="headerlink" href="#scenario-groups" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="scenario-groups">
+<span id="id2"></span><h2>Scenario Groups<a class="headerlink" href="#scenario-groups" title="Permalink to this heading">¶</a></h2>
 <p>The scenario level is an OpenMDAO group that represents a specific condition in a multipoint optimization.
 For example, a scenario could be a cruise flight condition that requires a coupling group to determine the lift and drag.
 The scenario group contains a coupling group and any scenario-specific computation that needs to occur before or after the associated coupled problem is solved.
@@ -70,9 +72,9 @@ For example, a sonic boom propagator requires the flow solution as an input but 
 <p>Mphys provides a library of these Scenario groups designed for specific type problems.
 See <a class="reference internal" href="../index.html#scenario-library"><span class="std std-ref">Mphys Scenario Library</span></a> for details about specific standardized scenarios.
 If a particular multiphysics problem is not covered by the Mphys library, new scenarios and coupling groups can be created by subclassing the <a class="reference internal" href="../developers/mphys_group.html#mphys.mphys_group.MphysGroup" title="mphys.mphys_group.MphysGroup"><code class="xref py py-class docutils literal notranslate"><span class="pre">MphysGroup</span></code></a>.</p>
-</div>
-<div class="section" id="multipoint-groups">
-<h2>Multipoint Groups<a class="headerlink" href="#multipoint-groups" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="multipoint-groups">
+<h2>Multipoint Groups<a class="headerlink" href="#multipoint-groups" title="Permalink to this heading">¶</a></h2>
 <p>There are two versions of the multipoint group:</p>
 <ol class="arabic simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">Multipoint</span></code> is derived from the standard OpenMDAO <code class="docutils literal notranslate"><span class="pre">Group</span></code></p></li>
@@ -80,8 +82,8 @@ If a particular multiphysics problem is not covered by the Mphys library, new sc
 </ol>
 <p>For both versions have a function,  <a class="reference internal" href="#mphys.multipoint.Multipoint.mphys_add_scenario" title="mphys.multipoint.Multipoint.mphys_add_scenario"><code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_scenario()</span></code></a>, is used to populate
 the lower levels of the model hierarchy.</p>
-<div class="section" id="multipoint">
-<h3>Multipoint<a class="headerlink" href="#multipoint" title="Permalink to this headline">¶</a></h3>
+<section id="multipoint">
+<h3>Multipoint<a class="headerlink" href="#multipoint" title="Permalink to this heading">¶</a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">Multipoint</span></code> group will sequentially evaluate the scenario groups.
 The <code class="docutils literal notranslate"><span class="pre">Multipoint</span></code> group can be the top group of the OpenMDAO model or a subsystem.</p>
 <p>In the <code class="docutils literal notranslate"><span class="pre">setup</span></code> method of the Multipoint group, the following steps must be done:</p>
@@ -142,9 +144,9 @@ The source and target variable names are assumed to be <cite>‘x_{discipline}0�
 
 </dd></dl>
 
-</div>
-<div class="section" id="multipointparallel">
-<h3>MultipointParallel<a class="headerlink" href="#multipointparallel" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="multipointparallel">
+<h3>MultipointParallel<a class="headerlink" href="#multipointparallel" title="Permalink to this heading">¶</a></h3>
 <p>If given a number of MPI ranks greater than or equal to the number of scenarios, the <code class="docutils literal notranslate"><span class="pre">MultipointParallel</span></code> group will simultaneously evaluate the scenario groups.
 Unlike the sequential Multipoint group, the MPI communicators are different for each scenario in MultipointParallel, so the scenarios will call the builder’s initialize method.</p>
 <p>In the <code class="docutils literal notranslate"><span class="pre">setup</span></code> method of the <code class="docutils literal notranslate"><span class="pre">MultipointParallel</span></code> group, the following steps must be done:</p>
@@ -182,9 +184,9 @@ For simultaneous evaluations of the Mphys scenarios.</p>
 
 </dd></dl>
 
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
 
 
             <div class="clearer"></div>
@@ -241,7 +243,7 @@ For simultaneous evaluations of the Mphys scenarios.</p>
     </form>
     </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -267,7 +269,7 @@ For simultaneous evaluations of the Mphys scenarios.</p>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2022, NASA.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.0.1.
     </div>
   </body>
 </html>
