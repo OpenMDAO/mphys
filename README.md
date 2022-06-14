@@ -15,7 +15,7 @@ To install the latest release version of mphys:
 pip install mphys
 ```
 
-For developers version, clone the mphys repository then in the root directory do:
+For developers, clone the mphys repository then in the root directory do:
 ```bash
 pip install -e .
 ```
