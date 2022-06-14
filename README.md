@@ -1,15 +1,21 @@
 # MPHYS
 [![Unit Tests and Docs](https://github.com/OpenMDAO/mphys/actions/workflows/unit_tests_and_docs.yml/badge.svg)](https://github.com/OpenMDAO/mphys/actions/workflows/unit_tests_and_docs.yml)
 
-MPHYS is a framework for coupling high-fidelity physics though OpenMDAO
+Mphys is a package that standardizes high-fidelity multiphysics problems in OpenMDAO.
+Mphys eases the problem set up, provides straightforward extension to new disciplines, and has a library of OpenMDAO groups for multidisciplinary problems addressed by its standard.
 
+While Mphys does provide these conventions, it is not absolutely necessary to follow these guidelines in order to solve these types of problems with OpenMDAO given its very general coupling capability.
+However, by following the Mphys conventions, the usage of OpenMDAO for multiphysics analysis will be modular across developer groups.
+This eases technology transfer and collaboration in this area of research.
+The standardization strives for modularity of multiphysics problems with large parallel physics codes.
 
 ## Install
-Because MPHYS is written in pure python to install simply execute the following in the MPHYS root directory
+To install the latest release version of mphys:
 ```bash
-pip install .
+pip install mphys
 ```
-or for a development version
+
+For developers version, clone the mphys repository then in the root directory do:
 ```bash
 pip install -e .
 ```
