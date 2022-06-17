@@ -265,8 +265,7 @@ div.quotebar {
     padding: 2px 7px;
     border: 1px solid #ccc;
 }
-
-div.topic, aside.topic {
+div.topic {
     background-color: #f8f8f8;
 }
 

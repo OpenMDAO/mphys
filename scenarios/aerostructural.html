@@ -4,8 +4,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Aerostructural Scenario &#8212; Mphys  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/style.css" />
@@ -44,7 +43,7 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <section id="aerostructural-scenario">
+  <div class="section" id="aerostructural-scenario">
 <h1>Aerostructural Scenario<a class="headerlink" href="#aerostructural-scenario" title="Permalink to this heading">¶</a></h1>
 <p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">ScenarioAeroStructural</span></code> is for static fluid structure interaction problems.
 The primary physics modules required for this problem are:
@@ -53,24 +52,24 @@ The primary physics modules required for this problem are:
 3. The displacement transfer which projects the structural displacements to the aerodynamic surface mesh
 4. The load transfer which computes the loads on the structure from the aerodynamic output.</p>
 <p>Mphys will add a <code class="xref py py-class docutils literal notranslate"><span class="pre">GeoDisp</span></code> subsystem to compute the displaced aerodynamic coordinates given the undeformed surface coordinates and the displacements.</p>
-<section id="builder-requirements">
+<div class="section" id="builder-requirements">
 <h2>Builder Requirements<a class="headerlink" href="#builder-requirements" title="Permalink to this heading">¶</a></h2>
-<section id="load-and-displacement-transfer-builder">
+<div class="section" id="load-and-displacement-transfer-builder">
 <h3>Load and Displacement Transfer Builder<a class="headerlink" href="#load-and-displacement-transfer-builder" title="Permalink to this heading">¶</a></h3>
 <p>Because the load and displacement transfers are typically tied together by the principle of virtual work, but are not adjacent in the coupling loop,
 the load and displacement Builder’s <code class="xref py py-meth docutils literal notranslate"><span class="pre">get_coupling_group_subsystem()</span></code> must return both the displacement transfer and load tranfer subsystems as a tuple.</p>
-</section>
-<section id="structural-solver-builder">
+</div>
+<div class="section" id="structural-solver-builder">
 <h3>Structural Solver Builder<a class="headerlink" href="#structural-solver-builder" title="Permalink to this heading">¶</a></h3>
 <p>The structural solver builder must implement the <code class="docutils literal notranslate"><span class="pre">get_ndof</span></code> method in order for the displacement transfer to know if it needs to slice the displacements from the full structural state vector.
 For example, the structural state vector for linear shell elements includes linearized rotation degrees of freedom at each node in addition to the translational displacements.</p>
-</section>
-</section>
-<section id="default-solvers">
+</div>
+</div>
+<div class="section" id="default-solvers">
 <h2>Default Solvers<a class="headerlink" href="#default-solvers" title="Permalink to this heading">¶</a></h2>
 <p>The default solvers are NonlinearBlockGS and LinearBlockGS with <code class="docutils literal notranslate"><span class="pre">use_aitken=True</span></code>.</p>
-</section>
-<section id="options">
+</div>
+<div class="section" id="options">
 <h2>Options<a class="headerlink" href="#options" title="Permalink to this heading">¶</a></h2>
 <table class="docutils align-default">
 <colgroup>
@@ -127,17 +126,17 @@ For example, the structural state vector for linear shell elements includes line
 </tr>
 </tbody>
 </table>
-</section>
-<section id="n2-basic">
+</div>
+<div class="section" id="n2-basic">
 <h2>N2: Basic<a class="headerlink" href="#n2-basic" title="Permalink to this heading">¶</a></h2>
-<iframe width='1200' height='700' style='border: 1px solid lightgray; resize: both;' src='../TestScenarioAeroStructural.html'></iframe></section>
-<section id="n2-in-multipointparallel">
+<iframe width='1200' height='700' style='border: 1px solid lightgray; resize: both;' src='../TestScenarioAeroStructural.html'></iframe></div>
+<div class="section" id="n2-in-multipointparallel">
 <h2>N2: in_MultipointParallel<a class="headerlink" href="#n2-in-multipointparallel" title="Permalink to this heading">¶</a></h2>
-<iframe width='1200' height='700' style='border: 1px solid lightgray; resize: both;' src='../TestScenarioAeroStructuralParallel.html'></iframe></section>
-<section id="n2-in-multipointparallel-with-geometry-builder">
+<iframe width='1200' height='700' style='border: 1px solid lightgray; resize: both;' src='../TestScenarioAeroStructuralParallel.html'></iframe></div>
+<div class="section" id="n2-in-multipointparallel-with-geometry-builder">
 <h2>N2: in_MultipointParallel with geometry_builder<a class="headerlink" href="#n2-in-multipointparallel-with-geometry-builder" title="Permalink to this heading">¶</a></h2>
-<iframe width='1200' height='700' style='border: 1px solid lightgray; resize: both;' src='../TestScenarioAeroStructuralParallelWithGeometry.html'></iframe></section>
-</section>
+<iframe width='1200' height='700' style='border: 1px solid lightgray; resize: both;' src='../TestScenarioAeroStructuralParallelWithGeometry.html'></iframe></div>
+</div>
 
 
             <div class="clearer"></div>
@@ -223,7 +222,7 @@ For example, the structural state vector for linear shell elements includes line
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2022, NASA.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.0.1.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.0.2.
     </div>
   </body>
 </html>
