@@ -1,3 +1,4 @@
+import os
 from setuptools import setup, find_packages
 
 __package_name__ = "mphys"
