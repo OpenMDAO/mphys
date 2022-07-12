@@ -1,3 +1,4 @@
+import numpy as np
 import openmdao.api as om
 
 
@@ -129,6 +130,12 @@ class UnmaskedConverter(om.ExplicitComponent):
         if isinstance(input, list):
             if len(input) != len(mask):
                 raise ValueError("Input length and mask length not equal")
+
+            for i in range(len(input)-1):
+                for j in range(i+1, len(input)):
+                    if (np.any(np.logical_and(mask[i], mask[j]))):
+                        raise RuntimeWarning("Overlapping masking arrays, values will conflict.")
+
             for i in range(len(input)):
                 self.add_input(input[i].name, shape=input[i].shape, tags=input[i].tags, distributed=distributed)
         else:
