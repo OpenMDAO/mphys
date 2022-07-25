@@ -45,6 +45,11 @@ however, they are still included in order to provide more illustrations of how m
 
 # For developers
 
+## Telecons
+
+Mphys development is discussed in biweekly telecons that occur Mondays at 11AM Eastern Time.
+If you would like to participate, contact Kevin Jacobson (kevin.e.jacobson@nasa.gov).
+
 ## Signed Commits
 The mphys `main` branch requires verified commits. See the instructions on how to sign commits [here](https://openmdao.org/newdocs/versions/latest/other_useful_docs/developer_docs/signing_commits.html).
 
