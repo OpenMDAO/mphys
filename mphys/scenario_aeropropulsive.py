@@ -10,6 +10,8 @@ class ScenarioAeropropulsive(Scenario):
         The Scenario will add the aerodynamic and propulsion builders' precoupling subsystem,
         the coupling subsystem, and the postcoupling subsystem.
         """
+        super().initialize()
+
         self.options.declare("aero_builder", recordable=False, desc="The Mphys builder for the aerodynamic solver")
         self.options.declare("prop_builder", recordable=False, desc="The Mphys builder for the propulsion model")
         self.options.declare(

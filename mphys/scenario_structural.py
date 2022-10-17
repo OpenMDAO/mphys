@@ -8,6 +8,7 @@ class ScenarioStructural(Scenario):
         The Scenario will add the structural builder's precoupling subsystem,
         the coupling subsystem, and the postcoupling subsystem.
         """
+        super().initialize()
         self.options.declare('struct_builder', recordable=False,
                              desc='The Mphys builder for the structural solver')
         self.options.declare('in_MultipointParallel', default=False, types=bool,
