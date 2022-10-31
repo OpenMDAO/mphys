@@ -30,10 +30,10 @@ class CouplingAeroThermal(CouplingGroup):
 
         # geo_disp = GeoDisp(number_of_nodes=aero_builder.get_number_of_nodes())
 
+        self.mphys_add_subsystem('thermal', thermal)
         self.mphys_add_subsystem('temp_xfer', temp_xfer)
         self.mphys_add_subsystem('aero', aero)
         self.mphys_add_subsystem('heat_xfer', heat_xfer)
-        self.mphys_add_subsystem('thermal', thermal)
 
         # add the defualt iterative solvers
         self.nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2,
