@@ -36,9 +36,9 @@ class ScenarioAeroStructural(Scenario):
             self._mphys_add_mesh_and_geometry_subsystems(aero_builder, struct_builder,
                                                          geometry_builder)
 
-        self.mphys_add_pre_coupling_subsystem('aero', aero_builder, self.name)
-        self.mphys_add_pre_coupling_subsystem('struct', struct_builder, self.name)
-        self.mphys_add_pre_coupling_subsystem('ldxfer', ldxfer_builder, self.name)
+        self._mphys_add_pre_coupling_subsystem_from_builder('aero', aero_builder, self.name)
+        self._mphys_add_pre_coupling_subsystem_from_builder('struct', struct_builder, self.name)
+        self._mphys_add_pre_coupling_subsystem_from_builder('ldxfer', ldxfer_builder, self.name)
 
         coupling_group = CouplingAeroStructural(aero_builder=aero_builder,
                                                 struct_builder=struct_builder,
@@ -46,9 +46,9 @@ class ScenarioAeroStructural(Scenario):
                                                 scenario_name=self.name)
         self.mphys_add_subsystem('coupling', coupling_group)
 
-        self.mphys_add_post_coupling_subsystem('ldxfer', ldxfer_builder, self.name)
-        self.mphys_add_post_coupling_subsystem('aero', aero_builder, self.name)
-        self.mphys_add_post_coupling_subsystem('struct', struct_builder, self.name)
+        self._mphys_add_post_coupling_subsystem_from_builder('ldxfer', ldxfer_builder, self.name)
+        self._mphys_add_post_coupling_subsystem_from_builder('aero', aero_builder, self.name)
+        self._mphys_add_post_coupling_subsystem_from_builder('struct', struct_builder, self.name)
 
     def _mphys_initialize_builders(self, aero_builder, struct_builder,
                                    ldxfer_builder, geometry_builder):

@@ -9,12 +9,17 @@ class Scenario(MphysGroup):
     To make a Scenario for a particular type of multiphysics problem, subclass
     the Scenario, and implement the `initialize` and `setup` phases of the Group.
     """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self._post_subsystems = []
+
     def initialize(self):
         self.options.declare('run_directory', default='', types=str)
 
-    def mphys_add_pre_coupling_subsystem(self, name, builder, scenario_name=None):
+    def _mphys_add_pre_coupling_subsystem_from_builder(self, name, builder, scenario_name=None):
         """
-        If the builder has a precoupling subsystem add it to the model.
+        If the builder has a precoupling subsystem, add it to the model.
         It is expected that is method is called during this scenario's`setup` phase.
 
         Parameters
@@ -30,9 +35,9 @@ class Scenario(MphysGroup):
         if subsystem is not None:
             self.mphys_add_subsystem(name+'_pre', subsystem)
 
-    def mphys_add_post_coupling_subsystem(self, name, builder, scenario_name=None):
+    def _mphys_add_post_coupling_subsystem_from_builder(self, name, builder, scenario_name=None):
         """
-        If the builder has a postcoupling subsystem add it to the model.
+        If the builder has a postcoupling subsystem, add it to the model.
         It is expected that is method is called during this scenario's`setup` phase.
 
         Parameters
@@ -48,6 +53,7 @@ class Scenario(MphysGroup):
         if subsystem is not None:
             self.mphys_add_subsystem(name+'_post', subsystem)
 
+<<<<<<< HEAD
     def _solve_nonlinear(self):
         with cd(self.options['run_directory']):
             return super()._solve_nonlinear()
@@ -63,3 +69,34 @@ class Scenario(MphysGroup):
     def _apply_linear(self, jac, rel_systems, mode, scope_out=None, scope_in=None):
         with cd(self.options['run_directory']):
             return super()._apply_linear(jac, rel_systems, mode, scope_out, scope_in)
+=======
+    def mphys_add_post_subsystem(self, name, subsystem, promotes=None):
+        """
+        Add a user-defined subsystem at the end of a Scenario.
+        Tag variables with mphys tags to promote or use the optional promotes argument.
+
+        Parameters
+        ----------
+        name: str
+            Name of the subsystem
+        subsystem: <System>
+            The
+        promotes: iter of (str or tuple), optional
+            If None, variables will be promoted using mphys_* tags,
+            else variables will be promoted by this input
+        """
+
+        # we hold onto these until configure() b/c we want the scenario's
+        # setup() to add the builder subsystems before adding these
+        self._post_subsystems.append((name, subsystem, promotes))
+
+    def configure(self):
+        for name, subsystem, promotes in self._post_subsystems:
+            if promotes is None:
+                self.mphys_add_subsystem(name, subsystem)
+            else:
+                self.add_subsystem(name, subsystem, promotes=promotes)
+
+        # tagged promotion
+        super().configure()
+>>>>>>> b6cc948 (Add user post scenario subsystem)
