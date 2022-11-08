@@ -7,77 +7,8 @@ from mpi4py import MPI
 from mphys import Builder
 from mphys.scenario_aerodynamic import ScenarioAerodynamic
 from common_methods import CommonMethods
-
-num_nodes = 3
-
-
-class MeshComp(om.IndepVarComp):
-    def setup(self):
-        self.add_output('x_aero0', val=np.ones(num_nodes*3), tags=['mphys_coordinates'])
-
-
-class PreCouplingComp(om.IndepVarComp):
-    def setup(self):
-        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_output('prestate_aero', tags=['mphys_coupling'])
-
-    def compute(self, inputs, outputs):
-        outputs['prestate_aero'] = np.sum(inputs['x_aero'])
-
-
-class CouplingComp(om.ExplicitComponent):
-    def setup(self):
-        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_input('prestate_aero', tags=['mphys_coupling'])
-        self.add_output('f_aero', shape=num_nodes*3, tags=['mphys_coupling'])
-
-    def compute(self, inputs, outputs):
-        outputs['f_aero'] = inputs['x_aero'] + inputs['prestate_aero']
-
-
-class PostCouplingComp(om.IndepVarComp):
-    def setup(self):
-        self.add_input('prestate_aero', tags=['mphys_coupling'])
-        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_input('f_aero', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_output('func_aero', val=1.0, tags=['mphys_result'])
-
-    def compute(self, inputs, outputs):
-        outputs['func_aero'] = np.sum(inputs['f_aero'] + inputs['prestate_aero'] + inputs['x_aero'])
-
-
-class AeroBuilder(Builder):
-    def get_number_of_nodes(self):
-        return num_nodes
-
-    def get_ndof(self):
-        return 3
-
-    def get_mesh_coordinate_subsystem(self, scenario_name=None):
-        return MeshComp()
-
-    def get_pre_coupling_subsystem(self, scenario_name=None):
-        return PreCouplingComp()
-
-    def get_coupling_group_subsystem(self, scenario_name=None):
-        return CouplingComp()
-
-    def get_post_coupling_subsystem(self, scenario_name=None):
-        return PostCouplingComp()
-
-
-class Geometry(om.ExplicitComponent):
-    def setup(self):
-        self.add_input('x_aero_in', shape_by_conn=True)
-        self.add_output('x_aero0', shape=3*num_nodes, tags=['mphys_coordinates'])
-
-    def compute(self, inputs, outputs):
-        outputs['x_aero0'] = inputs['x_aero_in']
-
-
-class GeometryBuilder(Builder):
-    def get_mesh_coordinate_subsystem(self, scenario_name=None):
-        return Geometry()
+from fake_aero import AeroBuilder, AeroMeshComp, AeroPreCouplingComp, AeroCouplingComp, AeroPostCouplingComp
+from fake_geometry import Geometry, GeometryBuilder
 
 
 class TestScenarioAerodynamic(unittest.TestCase):
@@ -92,9 +23,9 @@ class TestScenarioAerodynamic(unittest.TestCase):
         self.prob.setup()
 
     def test_mphys_components_were_added(self):
-        self.assertIsInstance(self.prob.model.scenario.aero_pre, PreCouplingComp)
-        self.assertIsInstance(self.prob.model.scenario.coupling, CouplingComp)
-        self.assertIsInstance(self.prob.model.scenario.aero_post, PostCouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.aero_pre, AeroPreCouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.coupling, AeroCouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.aero_post, AeroPostCouplingComp)
 
     def test_run_model(self):
         self.common.test_run_model(self)
@@ -117,10 +48,10 @@ class TestScenarioAerodynamicParallel(unittest.TestCase):
         self.prob.setup()
 
     def test_mphys_components_were_added(self):
-        self.assertIsInstance(self.prob.model.scenario.mesh, MeshComp)
-        self.assertIsInstance(self.prob.model.scenario.aero_pre, PreCouplingComp)
-        self.assertIsInstance(self.prob.model.scenario.coupling, CouplingComp)
-        self.assertIsInstance(self.prob.model.scenario.aero_post, PostCouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.mesh, AeroMeshComp)
+        self.assertIsInstance(self.prob.model.scenario.aero_pre, AeroPreCouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.coupling, AeroCouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.aero_post, AeroPostCouplingComp)
 
     def test_run_model(self):
         self.common.test_run_model(self)
@@ -138,18 +69,18 @@ class TestScenarioAerodynamicParallelWithGeometry(unittest.TestCase):
         self.common = CommonMethods()
         self.prob = om.Problem()
         builder = AeroBuilder()
-        geom_builder = GeometryBuilder()
+        geom_builder = GeometryBuilder(['aero'], [builder])
         self.prob.model.add_subsystem('scenario', ScenarioAerodynamic(aero_builder=builder,
                                                                       geometry_builder=geom_builder,
                                                                       in_MultipointParallel=True))
         self.prob.setup()
 
     def test_mphys_components_were_added(self):
-        self.assertIsInstance(self.prob.model.scenario.mesh, MeshComp)
+        self.assertIsInstance(self.prob.model.scenario.mesh, AeroMeshComp)
         self.assertIsInstance(self.prob.model.scenario.geometry, Geometry)
-        self.assertIsInstance(self.prob.model.scenario.aero_pre, PreCouplingComp)
-        self.assertIsInstance(self.prob.model.scenario.coupling, CouplingComp)
-        self.assertIsInstance(self.prob.model.scenario.aero_post, PostCouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.aero_pre, AeroPreCouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.coupling, AeroCouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.aero_post, AeroPostCouplingComp)
 
     def test_run_model(self):
         self.common.test_run_model(self)
