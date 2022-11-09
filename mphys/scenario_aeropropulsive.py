@@ -26,7 +26,7 @@ class ScenarioAeropropulsive(Scenario):
             "geometry_builder", default=None, recordable=False, desc="The optional Mphys builder for the geometry"
         )
 
-    def setup(self):
+    def _mphys_scenario_setup(self):
         aero_builder = self.options["aero_builder"]
         prop_builder = self.options["prop_builder"]
         balance_builder = self.options["balance_builder"]

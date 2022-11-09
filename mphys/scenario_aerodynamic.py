@@ -16,7 +16,7 @@ class ScenarioAerodynamic(Scenario):
         self.options.declare('geometry_builder', default=None, recordable=False,
                              desc='The optional Mphys builder for the geometry')
 
-    def setup(self):
+    def _mphys_scenario_setup(self):
         aero_builder = self.options['aero_builder']
         geometry_builder = self.options['geometry_builder']
 

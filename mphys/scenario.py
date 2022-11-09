@@ -54,6 +54,7 @@ class Scenario(MphysGroup):
             self.mphys_add_subsystem(name+'_post', subsystem)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     def _solve_nonlinear(self):
         with cd(self.options['run_directory']):
             return super()._solve_nonlinear()
@@ -71,6 +72,12 @@ class Scenario(MphysGroup):
             return super()._apply_linear(jac, rel_systems, mode, scope_out, scope_in)
 =======
     def mphys_add_post_subsystem(self, name, subsystem, promotes=None):
+=======
+    def mphys_add_post_subsystem(self, name, subsystem,
+                                 promotes_inputs=None,
+                                 promotes_outputs=None,
+                                 promotes=None):
+>>>>>>> a4f64e0 (Change how scenarios use setup() so that the base class can do stuff before and/or after the builder components are added)
         """
         Add a user-defined subsystem at the end of a Scenario.
         Tag variables with mphys tags to promote or use the optional promotes argument.
@@ -88,15 +95,36 @@ class Scenario(MphysGroup):
 
         # we hold onto these until configure() b/c we want the scenario's
         # setup() to add the builder subsystems before adding these
-        self._post_subsystems.append((name, subsystem, promotes))
+        self._post_subsystems.append((name, subsystem, promotes_inputs, promotes_outputs, promotes))
 
-    def configure(self):
-        for name, subsystem, promotes in self._post_subsystems:
-            if promotes is None:
+    def _mphys_scenario_setup(self):
+        """
+        This function is where specific scenarios populate pre-coupling, coupling,
+        and post-coupling subsystems from builders
+        """
+        pass
+
+    def setup(self):
+        """
+        The main setup call for all scenarios.
+        Adds the builder subsystems, then adds user-defined post subsystems
+        Adds user defined components
+        """
+        self._mphys_scenario_setup()
+        self._add_post_subsystems()
+
+
+    def _add_post_subsystems(self):
+        for name, subsystem, promotes_inputs, promotes_outputs, promotes in self._post_subsystems:
+            if self._no_promotes_specified(promotes_inputs, promotes_outputs, promotes):
                 self.mphys_add_subsystem(name, subsystem)
             else:
-                self.add_subsystem(name, subsystem, promotes=promotes)
+                self.add_subsystem(name, subsystem,
+                                   promotes_inputs=promotes_inputs,
+                                   promotes_outputs=promotes_outputs,
+                                   promotes=promotes)
 
-        # tagged promotion
-        super().configure()
->>>>>>> b6cc948 (Add user post scenario subsystem)
+    def _no_promotes_specified(self, promotes_inputs, promotes_outputs, promotes):
+        return (promotes_inputs is None and
+                promotes_outputs is None and
+                promotes is None)
