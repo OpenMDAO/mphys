@@ -15,7 +15,11 @@ class Scenario(MphysGroup):
         self._post_subsystems = []
 
     def initialize(self):
-        self.options.declare('run_directory', default='', types=str)
+        self.options.declare('run_directory',
+                             default='',
+                             types=str,
+                             desc='Path in which to execute subsystems in this scenario group.' +
+                                  ' The default of empty string will not change the directory.')
 
     def _mphys_add_pre_coupling_subsystem_from_builder(self, name, builder, scenario_name=None):
         """
