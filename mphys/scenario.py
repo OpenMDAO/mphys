@@ -10,7 +10,11 @@ class Scenario(MphysGroup):
     the Scenario, and implement the `initialize` and `setup` phases of the Group.
     """
     def initialize(self):
-        self.options.declare('run_directory', default='', types=str)
+        self.options.declare('run_directory',
+                             default='',
+                             types=str,
+                             desc='Path in which to execute subsystems in this scenario group.' +
+                                  ' The default of empty string will not change the directory.')
 
     def mphys_add_pre_coupling_subsystem(self, name, builder, scenario_name=None):
         """
