@@ -93,7 +93,7 @@ class Scenario(MphysGroup):
             else variables will be promoted by this input
         """
 
-        # we hold onto these until configure() b/c we want the scenario's
+        # we hold onto these until the end of setup() b/c we want the scenario's
         # setup() to add the builder subsystems before adding these
         self._post_subsystems.append((name, subsystem, promotes_inputs, promotes_outputs, promotes))
 
@@ -106,9 +106,9 @@ class Scenario(MphysGroup):
 
     def setup(self):
         """
-        The main setup call for all scenarios.
-        Adds the builder subsystems, then adds user-defined post subsystems
-        Adds user defined components
+        The main setup call for all multiphysics scenarios.
+        Multiphysics scenarios should implement setup-type operations in _mphys_scenario_setup().
+        Adds the builder subsystems, then adds user-defined post subsystems.
         """
         self._mphys_scenario_setup()
         self._add_post_subsystems()
