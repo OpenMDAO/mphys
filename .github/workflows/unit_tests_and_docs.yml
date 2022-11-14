@@ -45,8 +45,7 @@ jobs:
           echo "=============================================================";
           echo "Install PETSc";
           echo "=============================================================";
-          conda install -c anaconda mpi4py -q -y;
-          conda install -c conda-forge petsc=3.12 petsc4py -q -y;
+          conda install -c conda-forge mpi4py petsc4py -q -y;
           echo "============================================================="
           echo "Pre-install jupyter dependencies"
           echo "============================================================="
