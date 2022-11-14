@@ -47,6 +47,10 @@ jobs:
           echo "=============================================================";
           conda install -c anaconda mpi4py -q -y;
           conda install -c conda-forge petsc=3.12 petsc4py -q -y;
+          echo "============================================================="
+          echo "Pre-install jupyter dependencies"
+          echo "============================================================="
+          python -m pip install git+https://github.com/executablebooks/jupyter-book
           echo "=============================================================";
           echo "Install OpenMDAO";
           echo "=============================================================";
