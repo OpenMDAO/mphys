@@ -28,6 +28,9 @@ dist/
 # input files
 tests/input_files/*.xyz
 
+# testflo
+_html
+
 .ropeproject
 
 # n2s that might be generated under examples
@@ -35,6 +38,7 @@ examples/**/*.html
 
 # n2s that are generated under tests for the documentation
 tests/**/*.html
+docs/_n2html/*
 
 # FFD files for adflow examples
 examples/aero_only/mach_tutorial_wing/adflow/*.xyz

@@ -14,7 +14,7 @@ class ScenarioAerodynamic(Scenario):
         self.options.declare('geometry_builder', default=None, recordable=False,
                              desc='The optional Mphys builder for the geometry')
 
-    def setup(self):
+    def _mphys_scenario_setup(self):
         aero_builder = self.options['aero_builder']
         geometry_builder = self.options['geometry_builder']
 
@@ -30,6 +30,6 @@ class ScenarioAerodynamic(Scenario):
                 self.mphys_add_subsystem('mesh',aero_builder.get_mesh_coordinate_subsystem(self.name))
             self.connect('x_aero0','x_aero')
 
-        self.mphys_add_pre_coupling_subsystem('aero', aero_builder, self.name)
+        self._mphys_add_pre_coupling_subsystem_from_builder('aero', aero_builder, self.name)
         self.mphys_add_subsystem('coupling',aero_builder.get_coupling_group_subsystem(self.name))
-        self.mphys_add_post_coupling_subsystem('aero', aero_builder, self.name)
+        self._mphys_add_post_coupling_subsystem_from_builder('aero', aero_builder, self.name)

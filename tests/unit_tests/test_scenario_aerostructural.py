@@ -1,181 +1,17 @@
 import unittest
-import numpy as np
 
 import openmdao.api as om
 from mpi4py import MPI
 
-from mphys import Builder
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 from mphys.coupling_aerostructural import CouplingAeroStructural
 from mphys.geo_disp import GeoDisp
+
 from common_methods import CommonMethods
-
-num_nodes = 3
-
-
-class AeroMeshComp(om.IndepVarComp):
-    def setup(self):
-        self.add_output('x_aero0', val=np.ones(num_nodes*3), tags=['mphys_coordinates'])
-
-
-class AeroPreCouplingComp(om.IndepVarComp):
-    def setup(self):
-        self.add_input('x_aero0', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_output('prestate_aero', tags=['mphys_coupling'])
-
-    def compute(self, inputs, outputs):
-        outputs['prestate_aero'] = np.sum(inputs['x_aero0'])
-
-
-class AeroCouplingComp(om.ExplicitComponent):
-    def setup(self):
-        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_input('prestate_aero', tags=['mphys_coupling'])
-        self.add_output('f_aero', shape=num_nodes*3, tags=['mphys_coupling'])
-
-    def compute(self, inputs, outputs):
-        outputs['f_aero'] = inputs['x_aero'] + inputs['prestate_aero']
-
-
-class AeroPostCouplingComp(om.IndepVarComp):
-    def setup(self):
-        self.add_input('prestate_aero', tags=['mphys_coupling'])
-        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_input('f_aero', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_output('func_aero', val=1.0, tags=['mphys_result'])
-
-    def compute(self, inputs, outputs):
-        outputs['func_aero'] = np.sum(inputs['f_aero'] + inputs['prestate_aero'] + inputs['x_aero'])
-
-
-class AeroBuilder(Builder):
-    def get_number_of_nodes(self):
-        return num_nodes
-
-    def get_ndof(self):
-        return 3
-
-    def get_mesh_coordinate_subsystem(self, scenario_name=None):
-        return AeroMeshComp()
-
-    def get_pre_coupling_subsystem(self, scenario_name=None):
-        return AeroPreCouplingComp()
-
-    def get_coupling_group_subsystem(self, scenario_name=None):
-        return AeroCouplingComp()
-
-    def get_post_coupling_subsystem(self, scenario_name=None):
-        return AeroPostCouplingComp()
-
-
-class StructMeshComp(om.IndepVarComp):
-    def setup(self):
-        self.add_output('x_struct0', val=np.ones(num_nodes*3), tags=['mphys_coordinates'])
-
-
-class StructPreCouplingComp(om.IndepVarComp):
-    def setup(self):
-        self.add_input('x_struct0', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_output('prestate_struct', tags=['mphys_coupling'])
-
-    def compute(self, inputs, outputs):
-        outputs['prestate_struct'] = np.sum(inputs['x_struct0'])
-
-
-class StructCouplingComp(om.ExplicitComponent):
-    def setup(self):
-        self.add_input('x_struct0', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_input('prestate_struct', tags=['mphys_coupling'])
-        self.add_input('f_struct', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_output('u_struct', shape=num_nodes*3, tags=['mphys_coupling'])
-
-    def compute(self, inputs, outputs):
-        outputs['u_struct'] = inputs['x_struct0'] + inputs['prestate_struct']
-
-
-class StructPostCouplingComp(om.IndepVarComp):
-    def setup(self):
-        self.add_input('prestate_struct', tags=['mphys_coupling'])
-        self.add_input('x_struct0', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_input('u_struct', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_output('func_struct', val=1.0, tags=['mphys_result'])
-
-    def compute(self, inputs, outputs):
-        outputs['func_struct'] = np.sum(
-            inputs['u_struct'] + inputs['prestate_struct'] + inputs['x_struct0'])
-
-
-class StructBuilder(Builder):
-    def get_number_of_nodes(self):
-        return num_nodes
-
-    def get_ndof(self):
-        return 3
-
-    def get_mesh_coordinate_subsystem(self, scenario_name=None):
-        return StructMeshComp()
-
-    def get_pre_coupling_subsystem(self, scenario_name=None):
-        return StructPreCouplingComp()
-
-    def get_coupling_group_subsystem(self, scenario_name=None):
-        return StructCouplingComp()
-
-    def get_post_coupling_subsystem(self, scenario_name=None):
-        return StructPostCouplingComp()
-
-
-class DispXferComp(om.ExplicitComponent):
-    def setup(self):
-        self.add_input('x_struct0', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_input('x_aero0', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_input('u_struct', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_output('u_aero', shape=num_nodes*3, tags=['mphys_coupling'])
-
-    def compute(self, inputs, outputs):
-        outputs['u_aero'] = inputs['u_struct']
-
-
-class LoadXferComp(om.ExplicitComponent):
-    def setup(self):
-        self.add_input('x_struct0', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_input('x_aero0', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_input('u_struct', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_input('f_aero', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_output('f_struct', shape=num_nodes*3, tags=['mphys_coupling'])
-
-    def compute(self, inputs, outputs):
-        outputs['f_struct'] = inputs['f_aero']
-
-
-class LDXferBuilder(Builder):
-    def get_number_of_nodes(self):
-        return num_nodes
-
-    def get_ndof(self):
-        return 3
-
-    def get_coupling_group_subsystem(self, scenario_name=None):
-        return DispXferComp(), LoadXferComp()
-
-
-class Geometry(om.ExplicitComponent):
-    def setup(self):
-        self.add_input('x_aero_in', shape_by_conn=True)
-        self.add_output('x_aero0', shape=3*num_nodes, tags=['mphys_coordinates'])
-
-        self.add_input('x_struct_in', shape_by_conn=True)
-        self.add_output('x_struct0', shape=3*num_nodes, tags=['mphys_coordinates'])
-
-    def compute(self, inputs, outputs):
-        outputs['x_aero0'] = inputs['x_aero_in']
-        outputs['x_struct0'] = inputs['x_struct_in']
-
-
-class GeometryBuilder(Builder):
-    def get_mesh_coordinate_subsystem(self, scenario_name=None):
-        return Geometry()
-
+from fake_aero import AeroBuilder, AeroMeshComp, AeroPreCouplingComp, AeroCouplingComp, AeroPostCouplingComp
+from fake_struct import StructBuilder, StructMeshComp, StructPreCouplingComp, StructCouplingComp, StructPostCouplingComp
+from fake_geometry import GeometryBuilder, Geometry
+from fake_ldxfer import LDXferBuilder, LoadXferComp, DispXferComp
 
 class TestScenarioAeroStructural(unittest.TestCase):
     def setUp(self):
@@ -184,7 +20,7 @@ class TestScenarioAeroStructural(unittest.TestCase):
 
         aero_builder = AeroBuilder()
         struct_builder = StructBuilder()
-        ldxfer_builder = LDXferBuilder()
+        ldxfer_builder = LDXferBuilder(aero_builder, struct_builder)
 
         aero_builder.initialize(MPI.COMM_WORLD)
         struct_builder.initialize(MPI.COMM_WORLD)
@@ -235,7 +71,7 @@ class TestScenarioAeroStructuralParallel(unittest.TestCase):
 
         aero_builder = AeroBuilder()
         struct_builder = StructBuilder()
-        ldxfer_builder = LDXferBuilder()
+        ldxfer_builder = LDXferBuilder(aero_builder, struct_builder)
 
         self.prob.model.add_subsystem('scenario', ScenarioAeroStructural(aero_builder=aero_builder,
                                                                   struct_builder=struct_builder,
@@ -282,8 +118,8 @@ class TestScenarioAeroStructuralParallelWithGeometry(unittest.TestCase):
 
         aero_builder = AeroBuilder()
         struct_builder = StructBuilder()
-        ldxfer_builder = LDXferBuilder()
-        geometry_builder = GeometryBuilder()
+        ldxfer_builder = LDXferBuilder(aero_builder, struct_builder)
+        geometry_builder = GeometryBuilder(['aero','struct'], [aero_builder, struct_builder])
 
         self.prob.model.add_subsystem('scenario', ScenarioAeroStructural(aero_builder=aero_builder,
                                                                   struct_builder=struct_builder,
