@@ -13,6 +13,7 @@
     <script src="../_static/underscore.js"></script>
     <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="prev" title="The MphysGroup" href="mphys_group.html" /> 
@@ -73,9 +74,9 @@ Otherwise the developer is free to add options specific to the scenario type.</p
 <p>The basic pattern for the scenario group’s setup method is:</p>
 <ol class="arabic simple" start="0">
 <li><p>If <code class="docutils literal notranslate"><span class="pre">in_MultipointParallel</span></code>, initialize all the builders</p></li>
-<li><p>Call <a class="reference internal" href="#mphys.scenario.Scenario.mphys_add_pre_coupling_subsystem" title="mphys.scenario.Scenario.mphys_add_pre_coupling_subsystem"><code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_pre_coupling_subsystem()</span></code></a> for each builder.</p></li>
+<li><p>Call <code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_pre_coupling_subsystem()</span></code> for each builder.</p></li>
 <li><p>Instantiate the associated <a class="reference internal" href="#mphys.coupling_group.CouplingGroup" title="mphys.coupling_group.CouplingGroup"><code class="xref py py-class docutils literal notranslate"><span class="pre">CouplingGroup</span></code></a>.</p></li>
-<li><p>Call <a class="reference internal" href="#mphys.scenario.Scenario.mphys_add_post_coupling_subsystem" title="mphys.scenario.Scenario.mphys_add_post_coupling_subsystem"><code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_post_coupling_subsystem()</span></code></a> for each builder.</p></li>
+<li><p>Call <code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_post_coupling_subsystem()</span></code> for each builder.</p></li>
 </ol>
 <span class="target" id="module-mphys.scenario"></span><dl class="py class">
 <dt class="sig sig-object py" id="mphys.scenario.Scenario">
@@ -86,18 +87,19 @@ multipoint groups.</p>
 the Scenario, and implement the <cite>initialize</cite> and <cite>setup</cite> phases of the Group.</p>
 <p>Set the solvers to nonlinear and linear block Gauss–Seidel by default.</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="mphys.scenario.Scenario.mphys_add_pre_coupling_subsystem">
-<span class="sig-name descname"><span class="pre">mphys_add_pre_coupling_subsystem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">builder</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scenario_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/scenario.html#Scenario.mphys_add_pre_coupling_subsystem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.scenario.Scenario.mphys_add_pre_coupling_subsystem" title="Permalink to this definition">¶</a></dt>
-<dd><p>If the builder has a precoupling subsystem add it to the model.
-It is expected that is method is called during this scenario’s`setup` phase.</p>
-<dl class="field-list">
+<dt class="sig sig-object py" id="mphys.scenario.Scenario.mphys_add_post_subsystem">
+<span class="sig-name descname"><span class="pre">mphys_add_post_subsystem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subsystem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promotes_inputs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promotes_outputs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promotes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/scenario.html#Scenario.mphys_add_post_subsystem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.scenario.Scenario.mphys_add_post_subsystem" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a user-defined subsystem at the end of a Scenario.
+Tag variables with mphys tags to promote or use the optional promotes argument.</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><dl>
-<dt><strong>name: str</strong></dt><dd><p>Name of the discipline</p>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>name: str</strong></dt><dd><p>Name of the subsystem</p>
 </dd>
-<dt><strong>builder:</strong><span class="classifier">class:<cite>~mphys.builder.Builder</cite></span></dt><dd><p>The discipline’s builder object</p>
+<dt><strong>subsystem: &lt;System&gt;</strong></dt><dd><p>The</p>
 </dd>
-<dt><strong>scenario_name: str or None</strong></dt><dd><p>Name of the scenario being setup (optional)</p>
+<dt><strong>promotes: iter of (str or tuple), optional</strong></dt><dd><p>If None, variables will be promoted using mphys_* tags,
+else variables will be promoted by this input</p>
 </dd>
 </dl>
 </dd>
@@ -105,22 +107,11 @@ It is expected that is method is called during this scenario’s`setup` phase.</
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="mphys.scenario.Scenario.mphys_add_post_coupling_subsystem">
-<span class="sig-name descname"><span class="pre">mphys_add_post_coupling_subsystem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">builder</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scenario_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/scenario.html#Scenario.mphys_add_post_coupling_subsystem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.scenario.Scenario.mphys_add_post_coupling_subsystem" title="Permalink to this definition">¶</a></dt>
-<dd><p>If the builder has a postcoupling subsystem add it to the model.
-It is expected that is method is called during this scenario’s`setup` phase.</p>
-<dl class="field-list">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><dl>
-<dt><strong>name: str</strong></dt><dd><p>Name of the discipline</p>
-</dd>
-<dt><strong>builder:</strong><span class="classifier">class:<cite>~mphys.builder.Builder</cite></span></dt><dd><p>The discipline’s builder object</p>
-</dd>
-<dt><strong>scenario_name: str or None</strong></dt><dd><p>Name of the scenario being setup (optional)</p>
-</dd>
-</dl>
-</dd>
-</dl>
+<dt class="sig sig-object py" id="mphys.scenario.Scenario.setup">
+<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/scenario.html#Scenario.setup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.scenario.Scenario.setup" title="Permalink to this definition">¶</a></dt>
+<dd><p>The main setup call for all multiphysics scenarios.
+Multiphysics scenarios should implement setup-type operations in _mphys_scenario_setup().
+Adds the builder subsystems, then adds user-defined post subsystems.</p>
 </dd></dl>
 
 </dd></dl>
@@ -140,10 +131,20 @@ It is expected that is method is called during this scenario’s`setup` phase.</
     <h3><a href="../index.html">Table of Contents</a></h3>
     <ul>
 <li><a class="reference internal" href="#">Extending the Scenario Library</a><ul>
-<li><a class="reference internal" href="#coupling-groups">Coupling Groups</a></li>
+<li><a class="reference internal" href="#coupling-groups">Coupling Groups</a><ul>
+<li><a class="reference internal" href="#mphys.coupling_group.CouplingGroup"><code class="docutils literal notranslate"><span class="pre">CouplingGroup</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#scenarios">Scenarios</a><ul>
 <li><a class="reference internal" href="#initialize">Initialize</a></li>
-<li><a class="reference internal" href="#setup">Setup</a></li>
+<li><a class="reference internal" href="#setup">Setup</a><ul>
+<li><a class="reference internal" href="#mphys.scenario.Scenario"><code class="docutils literal notranslate"><span class="pre">Scenario</span></code></a><ul>
+<li><a class="reference internal" href="#mphys.scenario.Scenario.mphys_add_post_subsystem"><code class="docutils literal notranslate"><span class="pre">Scenario.mphys_add_post_subsystem()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.scenario.Scenario.setup"><code class="docutils literal notranslate"><span class="pre">Scenario.setup()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -206,7 +207,7 @@ It is expected that is method is called during this scenario’s`setup` phase.</
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2022, NASA.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.1.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
     </div>
   </body>
 </html>

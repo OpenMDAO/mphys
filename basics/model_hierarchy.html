@@ -13,6 +13,7 @@
     <script src="../_static/underscore.js"></script>
     <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Tagged Promotion" href="tagged_promotion.html" />
@@ -105,12 +106,12 @@ For sequential evaluations of the Mphys scenarios.</p>
 <dt class="sig sig-object py" id="mphys.multipoint.Multipoint.mphys_add_scenario">
 <span class="sig-name descname"><span class="pre">mphys_add_scenario</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scenario</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coupling_nonlinear_solver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coupling_linear_solver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/multipoint.html#Multipoint.mphys_add_scenario"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.multipoint.Multipoint.mphys_add_scenario" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add an Mphys scenario</p>
-<dl class="field-list">
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><dl>
+<dd class="field-odd"><dl class="simple">
 <dt><strong>name</strong><span class="classifier">str</span></dt><dd><p>The name of the scenario</p>
 </dd>
-<dt><strong>Scenario:</strong><span class="classifier">class:<cite>~mphys.scenario.Scenario</cite></span></dt><dd><p>The scenario object</p>
+<dt><strong>Scenario: :class:`~mphys.scenario.Scenario`</strong></dt><dd><p>The scenario object</p>
 </dd>
 <dt><strong>coupling_nonlinear_solver: openmdao.solvers.solver.NonlinearSolver</strong></dt><dd><p>The nonlinear solver to assign to the coupling group primal problem</p>
 </dd>
@@ -165,12 +166,12 @@ For simultaneous evaluations of the Mphys scenarios.</p>
 <dt class="sig sig-object py" id="mphys.multipoint.MultipointParallel.mphys_add_scenario">
 <span class="sig-name descname"><span class="pre">mphys_add_scenario</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scenario</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coupling_nonlinear_solver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coupling_linear_solver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/multipoint.html#MultipointParallel.mphys_add_scenario"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.multipoint.MultipointParallel.mphys_add_scenario" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add an Mphys scenario</p>
-<dl class="field-list">
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><dl>
+<dd class="field-odd"><dl class="simple">
 <dt><strong>name</strong><span class="classifier">str</span></dt><dd><p>The name of the scenario</p>
 </dd>
-<dt><strong>Scenario:</strong><span class="classifier">class:<cite>~mphys.scenario.Scenario</cite></span></dt><dd><p>The scenario object</p>
+<dt><strong>Scenario: :class:`~mphys.scenario.Scenario`</strong></dt><dd><p>The scenario object</p>
 </dd>
 <dt><strong>coupling_nonlinear_solver: openmdao.solvers.solver.NonlinearSolver</strong></dt><dd><p>The nonlinear solver to assign to the coupling group primal problem</p>
 </dd>
@@ -201,8 +202,21 @@ For simultaneous evaluations of the Mphys scenarios.</p>
 <li><a class="reference internal" href="#coupling-groups">Coupling Groups</a></li>
 <li><a class="reference internal" href="#scenario-groups">Scenario Groups</a></li>
 <li><a class="reference internal" href="#multipoint-groups">Multipoint Groups</a><ul>
-<li><a class="reference internal" href="#multipoint">Multipoint</a></li>
-<li><a class="reference internal" href="#multipointparallel">MultipointParallel</a></li>
+<li><a class="reference internal" href="#multipoint">Multipoint</a><ul>
+<li><a class="reference internal" href="#mphys.multipoint.Multipoint"><code class="docutils literal notranslate"><span class="pre">Multipoint</span></code></a><ul>
+<li><a class="reference internal" href="#mphys.multipoint.Multipoint.mphys_add_scenario"><code class="docutils literal notranslate"><span class="pre">Multipoint.mphys_add_scenario()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.multipoint.Multipoint.mphys_connect_scenario_coordinate_source"><code class="docutils literal notranslate"><span class="pre">Multipoint.mphys_connect_scenario_coordinate_source()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#multipointparallel">MultipointParallel</a><ul>
+<li><a class="reference internal" href="#mphys.multipoint.MultipointParallel"><code class="docutils literal notranslate"><span class="pre">MultipointParallel</span></code></a><ul>
+<li><a class="reference internal" href="#mphys.multipoint.MultipointParallel.mphys_add_scenario"><code class="docutils literal notranslate"><span class="pre">MultipointParallel.mphys_add_scenario()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -268,7 +282,7 @@ For simultaneous evaluations of the Mphys scenarios.</p>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2022, NASA.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.1.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
     </div>
   </body>
 </html>
