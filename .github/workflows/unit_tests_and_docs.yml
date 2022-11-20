@@ -62,10 +62,16 @@ jobs:
           cd ../mphys;
           pip install -e .
           echo "=============================================================";
+          echo "Install TACS (complex)";
+          echo "=============================================================";
+          conda install -c conda-forge -c smdogroup -c "smdogroup/label/complex" tacs;
+          echo "=============================================================";
           echo "List installed packages/versions";
           echo "=============================================================";
           conda list;
           cd tests/unit_tests
           testflo
+          cd ../integration_tests
+          testflo test_tacs_derivs.py
           cd ../../docs
           make html
