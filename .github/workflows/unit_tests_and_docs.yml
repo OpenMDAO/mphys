@@ -64,7 +64,7 @@ jobs:
           echo "=============================================================";
           echo "Install TACS (complex)";
           echo "=============================================================";
-          conda install -c conda-forge -c smdogroup -c "smdogroup/label/complex" tacs;
+          conda install -c conda-forge -c "smdogroup/label/complex" -c smdogroup tacs;
           echo "=============================================================";
           echo "List installed packages/versions";
           echo "=============================================================";
