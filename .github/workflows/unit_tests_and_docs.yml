@@ -81,7 +81,7 @@ jobs:
           chmod +x get-input-files.sh
           ./get-input-files.sh
           cd ../integration_tests
-          testflo test_tacs_derivs.py
+          testflo test_tacs_*
           echo "=============================================================";
           echo "Making docs";
           echo "=============================================================";
