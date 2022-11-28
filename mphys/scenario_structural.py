@@ -16,7 +16,7 @@ class ScenarioStructural(Scenario):
         self.options.declare('geometry_builder', default=None, recordable=False,
                              desc='The optional Mphys builder for the geometry')
 
-    def setup(self):
+    def _mphys_scenario_setup(self):
         struct_builder = self.options['struct_builder']
         geometry_builder = self.options['geometry_builder']
 
@@ -31,6 +31,6 @@ class ScenarioStructural(Scenario):
             else:
                 self.mphys_add_subsystem('mesh',struct_builder.get_mesh_coordinate_subsystem(self.name))
 
-        self.mphys_add_pre_coupling_subsystem('struct', struct_builder, self.name)
+        self._mphys_add_pre_coupling_subsystem_from_builder('struct', struct_builder, self.name)
         self.mphys_add_subsystem('coupling',struct_builder.get_coupling_group_subsystem(self.name))
-        self.mphys_add_post_coupling_subsystem('struct', struct_builder, self.name)
+        self._mphys_add_post_coupling_subsystem_from_builder('struct', struct_builder, self.name)

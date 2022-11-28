@@ -26,7 +26,7 @@ class ScenarioAeropropulsive(Scenario):
             "geometry_builder", default=None, recordable=False, desc="The optional Mphys builder for the geometry"
         )
 
-    def setup(self):
+    def _mphys_scenario_setup(self):
         aero_builder = self.options["aero_builder"]
         prop_builder = self.options["prop_builder"]
         balance_builder = self.options["balance_builder"]
@@ -36,16 +36,16 @@ class ScenarioAeropropulsive(Scenario):
             self._mphys_initialize_builders(aero_builder, prop_builder, geometry_builder)
             self._mphys_add_mesh_and_geometry_subsystems(aero_builder, prop_builder, geometry_builder)
 
-        self.mphys_add_pre_coupling_subsystem("aero", aero_builder, self.name)
-        self.mphys_add_pre_coupling_subsystem("prop", prop_builder, self.name)
+        self._mphys_add_pre_coupling_subsystem_from_builder("aero", aero_builder, self.name)
+        self._mphys_add_pre_coupling_subsystem_from_builder("prop", prop_builder, self.name)
 
         coupling_group = CouplingAeropropulsive(
             aero_builder=aero_builder, prop_builder=prop_builder, balance_builder=balance_builder, scenario_name=self.name
         )
         self.mphys_add_subsystem("coupling", coupling_group)
 
-        self.mphys_add_post_coupling_subsystem("aero", aero_builder, self.name)
-        self.mphys_add_post_coupling_subsystem("prop", prop_builder, self.name)
+        self._mphys_add_post_coupling_subsystem_from_builder("aero", aero_builder, self.name)
+        self._mphys_add_post_coupling_subsystem_from_builder("prop", prop_builder, self.name)
 
     def _mphys_initialize_builders(self, aero_builder, prop_builder, geometry_builder):
         aero_builder.initialize(self.comm)
