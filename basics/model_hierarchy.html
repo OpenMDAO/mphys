@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Model Hierarchy &#8212; Mphys  documentation</title>
+    <title>Model Hierarchy &#8212; MPhys  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/style.css" />
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
@@ -17,7 +17,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Tagged Promotion" href="tagged_promotion.html" />
-    <link rel="prev" title="Documentation for Mphys" href="../index.html" /> 
+    <link rel="prev" title="Documentation for MPhys" href="../index.html" /> 
   </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
@@ -32,9 +32,9 @@
           <a href="tagged_promotion.html" title="Tagged Promotion"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="../index.html" title="Documentation for Mphys"
+          <a href="../index.html" title="Documentation for MPhys"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Mphys  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">MPhys  documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Model Hierarchy</a></li> 
       </ul>
     </div>  
@@ -46,8 +46,8 @@
             
   <div class="section" id="model-hierarchy">
 <h1>Model Hierarchy<a class="headerlink" href="#model-hierarchy" title="Permalink to this heading">¶</a></h1>
-<p>Mphys uses a pattern to build multiphysics optimization problems.
-Each level of the pattern is a different type of group that Mphys provides.</p>
+<p>MPhys uses a pattern to build multiphysics optimization problems.
+Each level of the pattern is a different type of group that MPhys provides.</p>
 <p>The highest level of the model is the multipoint group.
 The multipoint group consist of scenarios which represent different conditions and/or types of multiphysics analyses to performed.
 Within the scenario is the coupling group which represents the primary multiphysics problem for the scenario.</p>
@@ -69,9 +69,9 @@ but these can be overwritten with the optional arguments to <a class="reference 
 For example, a scenario could be a cruise flight condition that requires a coupling group to determine the lift and drag.
 The scenario group contains a coupling group and any scenario-specific computation that needs to occur before or after the associated coupled problem is solved.
 For example, a sonic boom propagator requires the flow solution as an input but this one-way coupling does not require it to be in the coupling group; therefore, it should be put in the scenario group to be solved after the coupling group converges.</p>
-<p>Mphys provides a library of these Scenario groups designed for specific type problems.
-See <a class="reference internal" href="../index.html#scenario-library"><span class="std std-ref">Mphys Scenario Library</span></a> for details about specific standardized scenarios.
-If a particular multiphysics problem is not covered by the Mphys library, new scenarios and coupling groups can be created by subclassing the <a class="reference internal" href="../developers/mphys_group.html#mphys.mphys_group.MphysGroup" title="mphys.mphys_group.MphysGroup"><code class="xref py py-class docutils literal notranslate"><span class="pre">MphysGroup</span></code></a>.</p>
+<p>MPhys provides a library of these Scenario groups designed for specific type problems.
+See <a class="reference internal" href="../index.html#scenario-library"><span class="std std-ref">MPhys Scenario Library</span></a> for details about specific standardized scenarios.
+If a particular multiphysics problem is not covered by the MPhys library, new scenarios and coupling groups can be created by subclassing the <a class="reference internal" href="../developers/mphys_group.html#mphys.mphys_group.MphysGroup" title="mphys.mphys_group.MphysGroup"><code class="xref py py-class docutils literal notranslate"><span class="pre">MphysGroup</span></code></a>.</p>
 </div>
 <div class="section" id="multipoint-groups">
 <h2>Multipoint Groups<a class="headerlink" href="#multipoint-groups" title="Permalink to this heading">¶</a></h2>
@@ -100,12 +100,12 @@ These extra subsystem can then be connected to the scenarios by the user.</p>
 <dt class="sig sig-object py" id="mphys.multipoint.Multipoint">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mphys.multipoint.</span></span><span class="sig-name descname"><span class="pre">Multipoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/multipoint.html#Multipoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.multipoint.Multipoint" title="Permalink to this definition">¶</a></dt>
 <dd><p>An extension of the standard OpenMDAO group that adds the <a class="reference internal" href="#mphys.multipoint.Multipoint.mphys_add_scenario" title="mphys.multipoint.Multipoint.mphys_add_scenario"><code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_scenario()</span></code></a> method.
-For sequential evaluations of the Mphys scenarios.</p>
+For sequential evaluations of the MPhys scenarios.</p>
 <p>Set the solvers to nonlinear and linear block Gauss–Seidel by default.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="mphys.multipoint.Multipoint.mphys_add_scenario">
 <span class="sig-name descname"><span class="pre">mphys_add_scenario</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scenario</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coupling_nonlinear_solver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coupling_linear_solver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/multipoint.html#Multipoint.mphys_add_scenario"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.multipoint.Multipoint.mphys_add_scenario" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add an Mphys scenario</p>
+<dd><p>Add an MPhys scenario</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><dl class="simple">
@@ -160,12 +160,12 @@ These extra subsystem should be added to a higher level of the model and then co
 <dt class="sig sig-object py" id="mphys.multipoint.MultipointParallel">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mphys.multipoint.</span></span><span class="sig-name descname"><span class="pre">MultipointParallel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/multipoint.html#MultipointParallel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.multipoint.MultipointParallel" title="Permalink to this definition">¶</a></dt>
 <dd><p>An OpenMDAO parallel group that adds the <a class="reference internal" href="#mphys.multipoint.MultipointParallel.mphys_add_scenario" title="mphys.multipoint.MultipointParallel.mphys_add_scenario"><code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_scenario()</span></code></a> method.
-For simultaneous evaluations of the Mphys scenarios.</p>
+For simultaneous evaluations of the MPhys scenarios.</p>
 <p>Set the mpi_proc_allocator option to ‘parallel’.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="mphys.multipoint.MultipointParallel.mphys_add_scenario">
 <span class="sig-name descname"><span class="pre">mphys_add_scenario</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scenario</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coupling_nonlinear_solver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coupling_linear_solver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/multipoint.html#MultipointParallel.mphys_add_scenario"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.multipoint.MultipointParallel.mphys_add_scenario" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add an Mphys scenario</p>
+<dd><p>Add an MPhys scenario</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><dl class="simple">
@@ -225,7 +225,7 @@ For simultaneous evaluations of the Mphys scenarios.</p>
 
   </div>
 <h3><a href="../index.html">Table of Contents</a></h3>
-<p class="caption" role="heading"><span class="caption-text">Mphys Basics</span></p>
+<p class="caption" role="heading"><span class="caption-text">MPhys Basics</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Model Hierarchy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tagged_promotion.html">Tagged Promotion</a></li>
@@ -274,9 +274,9 @@ For simultaneous evaluations of the Mphys scenarios.</p>
           <a href="tagged_promotion.html" title="Tagged Promotion"
              >next</a> |</li>
         <li class="right" >
-          <a href="../index.html" title="Documentation for Mphys"
+          <a href="../index.html" title="Documentation for MPhys"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Mphys  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">MPhys  documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Model Hierarchy</a></li> 
       </ul>
     </div>

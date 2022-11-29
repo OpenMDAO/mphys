@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tagged Promotion &#8212; Mphys  documentation</title>
+    <title>Tagged Promotion &#8212; MPhys  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/style.css" />
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
@@ -34,7 +34,7 @@
         <li class="right" >
           <a href="model_hierarchy.html" title="Model Hierarchy"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Mphys  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">MPhys  documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Tagged Promotion</a></li> 
       </ul>
     </div>  
@@ -46,15 +46,15 @@
             
   <div class="section" id="tagged-promotion">
 <span id="id1"></span><h1>Tagged Promotion<a class="headerlink" href="#tagged-promotion" title="Permalink to this heading">¶</a></h1>
-<p>Mphys uses tags to selectively promote variables to the level of scenario.
-There are four types of tags in Mphys that represent different types of data.</p>
+<p>MPhys uses tags to selectively promote variables to the level of scenario.
+There are four types of tags in MPhys that represent different types of data.</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">mphys_coupling</span></code>: Coupling variables are states that need to be shared among subsystems in the scenario.  Both inputs and outputs with this tag are promoted.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">mphys_coordinates</span></code>: These are the coordinates of the mesh of a particular discipline. Both inputs and outputs with this tag are promoted.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">mphys_input</span></code>: Inputs are any variable like design variables that come from outside the scenario. The user will need to manually connect the source to <code class="docutils literal notranslate"><span class="pre">{scenario_name}.{input_name}</span></code>. Only inputs with this tag are promoted.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">mphys_result</span></code>: Results are any other output from components that you wish to promote to the level of the scenario. The <code class="docutils literal notranslate"><span class="pre">{scenario_name}.{result_name}</span></code> can be accessed as an objective or constraint, or they can be connected to other subsystems for further computation. Only outputs with this tag are promoted.</p></li>
 </ul>
-<p>Behind the curtain, the <code class="docutils literal notranslate"><span class="pre">configure</span></code> method of the Mphys Scenario and CouplingGroup automates the promotion tagged variables.</p>
+<p>Behind the curtain, the <code class="docutils literal notranslate"><span class="pre">configure</span></code> method of the MPhys Scenario and CouplingGroup automates the promotion tagged variables.</p>
 </div>
 
 
@@ -65,7 +65,7 @@ There are four types of tags in Mphys that represent different types of data.</p
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
 <h3><a href="../index.html">Table of Contents</a></h3>
-<p class="caption" role="heading"><span class="caption-text">Mphys Basics</span></p>
+<p class="caption" role="heading"><span class="caption-text">MPhys Basics</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="model_hierarchy.html">Model Hierarchy</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Tagged Promotion</a></li>
@@ -116,7 +116,7 @@ There are four types of tags in Mphys that represent different types of data.</p
         <li class="right" >
           <a href="model_hierarchy.html" title="Model Hierarchy"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Mphys  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">MPhys  documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Tagged Promotion</a></li> 
       </ul>
     </div>

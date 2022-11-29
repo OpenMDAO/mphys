@@ -9,7 +9,7 @@ The primary physics modules required for this problem are:
 3. The displacement transfer which projects the structural displacements to the aerodynamic surface mesh
 4. The load transfer which computes the loads on the structure from the aerodynamic output.
 
-Mphys will add a :class:`~mphy.geo_disp.GeoDisp` subsystem to compute the displaced aerodynamic coordinates given the undeformed surface coordinates and the displacements.
+MPhys will add a :class:`~mphy.geo_disp.GeoDisp` subsystem to compute the displaced aerodynamic coordinates given the undeformed surface coordinates and the displacements.
 
 Builder Requirements
 ====================
