@@ -10,10 +10,10 @@ class ScenarioAeropropulsive(Scenario):
         The Scenario will add the aerodynamic and propulsion builders' precoupling subsystem,
         the coupling subsystem, and the postcoupling subsystem.
         """
-        self.options.declare("aero_builder", recordable=False, desc="The Mphys builder for the aerodynamic solver")
-        self.options.declare("prop_builder", recordable=False, desc="The Mphys builder for the propulsion model")
+        self.options.declare("aero_builder", recordable=False, desc="The MPhys builder for the aerodynamic solver")
+        self.options.declare("prop_builder", recordable=False, desc="The MPhys builder for the propulsion model")
         self.options.declare(
-            "balance_builder", recordable=False, desc="The Mphys builder for the balance group", default=None
+            "balance_builder", recordable=False, desc="The MPhys builder for the balance group", default=None
         )
         self.options.declare(
             "in_MultipointParallel",
@@ -21,7 +21,7 @@ class ScenarioAeropropulsive(Scenario):
             desc="Set to `True` if adding this scenario inside a MultipointParallel Group.",
         )
         self.options.declare(
-            "geometry_builder", default=None, recordable=False, desc="The optional Mphys builder for the geometry"
+            "geometry_builder", default=None, recordable=False, desc="The optional MPhys builder for the geometry"
         )
 
     def _mphys_scenario_setup(self):

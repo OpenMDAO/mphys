@@ -2,8 +2,8 @@
 Model Hierarchy
 ***************
 
-Mphys uses a pattern to build multiphysics optimization problems.
-Each level of the pattern is a different type of group that Mphys provides.
+MPhys uses a pattern to build multiphysics optimization problems.
+Each level of the pattern is a different type of group that MPhys provides.
 
 The highest level of the model is the multipoint group.
 The multipoint group consist of scenarios which represent different conditions and/or types of multiphysics analyses to performed.
@@ -38,9 +38,9 @@ For example, a scenario could be a cruise flight condition that requires a coupl
 The scenario group contains a coupling group and any scenario-specific computation that needs to occur before or after the associated coupled problem is solved.
 For example, a sonic boom propagator requires the flow solution as an input but this one-way coupling does not require it to be in the coupling group; therefore, it should be put in the scenario group to be solved after the coupling group converges.
 
-Mphys provides a library of these Scenario groups designed for specific type problems.
+MPhys provides a library of these Scenario groups designed for specific type problems.
 See :ref:`scenario_library` for details about specific standardized scenarios.
-If a particular multiphysics problem is not covered by the Mphys library, new scenarios and coupling groups can be created by subclassing the :class:`~mphys.mphys_group.MphysGroup`.
+If a particular multiphysics problem is not covered by the MPhys library, new scenarios and coupling groups can be created by subclassing the :class:`~mphys.mphys_group.MphysGroup`.
 
 
 =================
