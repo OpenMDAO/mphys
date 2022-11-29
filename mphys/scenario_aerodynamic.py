@@ -10,11 +10,11 @@ class ScenarioAerodynamic(Scenario):
         super().initialize()
 
         self.options.declare('aero_builder', recordable=False,
-                             desc='The Mphys builder for the aerodynamic solver')
+                             desc='The MPhys builder for the aerodynamic solver')
         self.options.declare('in_MultipointParallel', default=False, types=bool,
                              desc='Set to `True` if adding this scenario inside a MultipointParallel Group.')
         self.options.declare('geometry_builder', default=None, recordable=False,
-                             desc='The optional Mphys builder for the geometry')
+                             desc='The optional MPhys builder for the geometry')
 
     def _mphys_scenario_setup(self):
         aero_builder = self.options['aero_builder']

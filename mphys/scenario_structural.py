@@ -10,11 +10,11 @@ class ScenarioStructural(Scenario):
         """
         super().initialize()
         self.options.declare('struct_builder', recordable=False,
-                             desc='The Mphys builder for the structural solver')
+                             desc='The MPhys builder for the structural solver')
         self.options.declare('in_MultipointParallel', default=False, types=bool,
                              desc='Set to `True` if adding this scenario inside a MultipointParallel Group.')
         self.options.declare('geometry_builder', default=None, recordable=False,
-                             desc='The optional Mphys builder for the geometry')
+                             desc='The optional MPhys builder for the geometry')
 
     def _mphys_scenario_setup(self):
         struct_builder = self.options['struct_builder']

@@ -19,7 +19,7 @@ def set_coupling_algorithms_in_scenarios(multipoint_group):
 class Multipoint(om.Group):
     """
     An extension of the standard OpenMDAO group that adds the :func:`~mphys_add_scenario` method.
-    For sequential evaluations of the Mphys scenarios.
+    For sequential evaluations of the MPhys scenarios.
     """
 
     def __init__(self, **kwargs):
@@ -29,7 +29,7 @@ class Multipoint(om.Group):
     def mphys_add_scenario(self, name, scenario, coupling_nonlinear_solver=None,
                            coupling_linear_solver=None):
         """
-        Add an Mphys scenario
+        Add an MPhys scenario
 
         Parameters
         ----------
@@ -78,7 +78,7 @@ class Multipoint(om.Group):
 class MultipointParallel(om.ParallelGroup):
     """
     An OpenMDAO parallel group that adds the :func:`~mphys_add_scenario` method.
-    For simultaneous evaluations of the Mphys scenarios.
+    For simultaneous evaluations of the MPhys scenarios.
     """
 
     def __init__(self, **kwargs):
@@ -88,7 +88,7 @@ class MultipointParallel(om.ParallelGroup):
     def mphys_add_scenario(self, name, scenario, coupling_nonlinear_solver=None,
                            coupling_linear_solver=None):
         """
-        Add an Mphys scenario
+        Add an MPhys scenario
 
         Parameters
         ----------
