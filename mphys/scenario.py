@@ -2,7 +2,7 @@ from .mphys_group import MphysGroup
 
 class Scenario(MphysGroup):
     """
-    A group to represent a specific analysis condition or point of the Mphys
+    A group to represent a specific analysis condition or point of the MPhys
     multipoint groups.
 
     To make a Scenario for a particular type of multiphysics problem, subclass
