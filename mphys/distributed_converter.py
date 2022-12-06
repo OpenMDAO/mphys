@@ -19,7 +19,7 @@ class DistributedVariableDescription:
 class DistributedConverter(om.ExplicitComponent):
     """
     An ExplicitComponent to convert from distributed to serial and serial to distributed variables.
-    Mphys requires the coupling inputs and outputs to be distributed variables, so this
+    MPhys requires the coupling inputs and outputs to be distributed variables, so this
     class is provided to help with those conversions.
     For each mphys variable, a {variable}_serial version is created for the nonparallel solver to connect to and the
     distributed version will have the full vector on the root processor and zero length on the other processors.

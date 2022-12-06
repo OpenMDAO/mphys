@@ -2,7 +2,7 @@
 The MphysGroup
 **************
 
-The purpose of the MphysGroup is to implement the mechananics of promoting the Mphys variables by tags.
+The purpose of the MphysGroup is to implement the mechananics of promoting the MPhys variables by tags.
 Subsystems with tagged variables that will be promoted are added with the :func:`~mphys.mphys_group.MphysGroup.mphys_add_subsystem` method.
 Subsystems that have variables that should not be promoted can still be added with ``add_subsystem``
 The automated promotion of tagged variables is done during the configure phase of OpenMDAO setup.

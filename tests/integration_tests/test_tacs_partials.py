@@ -1,13 +1,15 @@
-# complex step partial derivative check of MELD transfer components
-# must compile funtofem in complex mode
+# complex step partial derivative check of tacs
 import numpy as np
+import unittest
 
 import openmdao.api as om
-from tacs.mphys import TacsBuilder
+from openmdao.utils.assert_utils import assert_near_equal
+
 from mphys.multipoint import Multipoint
 from mphys.scenario_structural import ScenarioStructural
 
 from tacs import elements, constitutive, functions
+from tacs.mphys import TacsBuilder
 
 # Callback function used to setup TACS element objects and DVs
 def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
@@ -66,10 +68,32 @@ class Top(Multipoint):
         self.connect('mesh.x_struct0', 'analysis.x_struct0')
         self.connect('dv_struct', 'analysis.dv_struct')
 
+class TestTACS(unittest.TestCase):
+    N_PROCS=2
+    def setUp(self):
+        prob = om.Problem()
+        prob.model = Top()
 
-prob = om.Problem()
-prob.model = Top()
+        prob.setup(mode='rev', force_alloc_complex=True)
+        self.prob = prob
 
-prob.setup(mode='rev', force_alloc_complex=True)
-prob.run_model()
-prob.check_partials(method='cs', compact_print=True)
+    def test_run_model(self):
+        self.prob.run_model()
+
+    def test_derivatives(self):
+        self.prob.run_model()
+        print('----------------starting check totals--------------')
+        data = self.prob.check_partials(method='cs', step=1e-50, compact_print=True)
+        for var, err in data.items():
+            for out_var, in_var in err:
+                with self.subTest(partial_pair=(out_var, in_var)):
+                    # If fd check magnitude is exactly zero, use abs tol
+                    if err[out_var, in_var]['magnitude'].fd == 0.0:
+                        check_error = err[out_var, in_var]['abs error']
+                    else:
+                        check_error = err[out_var, in_var]['rel error']
+                    assert_near_equal(check_error.reverse, 0.0, 1e-7)
+
+
+if __name__ == '__main__':
+    unittest.main()
