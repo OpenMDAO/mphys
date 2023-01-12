@@ -93,7 +93,7 @@ class Top(Multipoint):
         self.add_subsystem('mesh', struct_builder.get_mesh_coordinate_subsystem())
 
         # add the geometry component, we dont need a builder because we do it here.
-        self.add_subsystem("geometry", OM_DVGEOCOMP(ffd_file=ffd_file))
+        self.add_subsystem("geometry", OM_DVGEOCOMP(file=ffd_file, type="ffd"))
         self.geometry.nom_add_discipline_coords("struct")
 
         self.mphys_add_scenario('tip_shear', ScenarioStructural(struct_builder=struct_builder))
@@ -110,7 +110,7 @@ class Top(Multipoint):
             for i in range(nRefAxPts):
                 geo.scale_y["centerline"].coef[i] = val[i]
 
-        self.geometry.nom_addGeoDVGlobal(dvName="depth", value=np.ones(nRefAxPts), func=depth)
+        self.geometry.nom_addGlobalDV(dvName="depth", value=np.ones(nRefAxPts), func=depth)
 
 
 ################################################################################
