@@ -4,14 +4,12 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
     <title>Variable Naming Conventions &#8212; MPhys  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/style.css" />
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-    <script src="../_static/jquery.js"></script>
-    <script src="../_static/underscore.js"></script>
-    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -44,17 +42,11 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <div class="section" id="variable-naming-conventions">
+  <section id="variable-naming-conventions">
 <h1>Variable Naming Conventions<a class="headerlink" href="#variable-naming-conventions" title="Permalink to this heading">¶</a></h1>
 <p>While it is possible to set up the same OpenMDAO multiphysics problem with different sets of variable names, it is preferable for codes solving the same physics to use the same variable names to be more easily interchangeable.
 This table provides the required names for coupling variables associated with a particular physics in MPhys.</p>
 <table class="docutils align-default">
-<colgroup>
-<col style="width: 16%" />
-<col style="width: 14%" />
-<col style="width: 14%" />
-<col style="width: 57%" />
-</colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Variable</p></th>
 <th class="head"><p>Associated Solver</p></th>
@@ -122,12 +114,6 @@ This table provides the required names for coupling variables associated with a 
 </table>
 <p>To make swapping solvers easier, it is also helpful to share noncoupling variable names if possible:</p>
 <table class="docutils align-default">
-<colgroup>
-<col style="width: 16%" />
-<col style="width: 13%" />
-<col style="width: 13%" />
-<col style="width: 57%" />
-</colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Variable</p></th>
 <th class="head"><p>Associated Solver</p></th>
@@ -163,7 +149,7 @@ This table provides the required names for coupling variables associated with a 
 </tr>
 </tbody>
 </table>
-</div>
+</section>
 
 
             <div class="clearer"></div>
@@ -230,7 +216,7 @@ This table provides the required names for coupling variables associated with a 
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2022, NASA.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
     </div>
   </body>
 </html>

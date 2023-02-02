@@ -321,7 +321,8 @@ function handleError(evt) {
     min-width: 200px;
     border-collapse: separate;
     border-spacing: 0;
-    width: fit-content;
+    /* width: fit-content; */
+    width: 100%;
     height: fit-content;
 }
 
@@ -526,14 +527,6 @@ function handleError(evt) {
     border-right: 1px solid #a0a0a0;
     padding: 3px;
     white-space: nowrap;
-}
-
-.window-theme-value-info .window-body table tbody tr.even td {
-    background-color:white;
-}
-
-.window-theme-value-info .window-body table tbody tr.odd td {
-    background-color: #e8ffe8;
 }
 
 .show_value_button {
@@ -1145,6 +1138,11 @@ p.help-text > span {
 
 
 /* ^^^^^^^^^^ End Child Select Window theme ^^^^^^^^^^ */
+
+.scrollable {
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
 
 </style>
 <style type="text/css">
@@ -2957,7 +2955,7 @@ return _;
 
 </head>
 <body>
-<div id="all-diagram-content" class="embedded-diagram" data-openmdao-version='3.21.1-dev'>
+<div id="all-diagram-content" class="embedded-diagram" data-openmdao-version='3.25.1-dev'>
     <div id="diagram-content">
         <!-- Toolbar -->
         <div id="toolbarLoc">
@@ -3257,7 +3255,7 @@ return _;
 </div>
 
 <script type="text/javascript">
-    var compressedModel = "eJztWetv0zAQ/1eqfAJpqtI9oOMb2gZCgjKB+DRVlutcW0NiR7YzVqb+75ydl9N0TTYY2oMvVXK+O9/d7x6Oex0YBRC8GVwHgib2IVBSmmBvEJhV2nhnMdXaEt4rmaWWAlepAq25FJYusjhGopAi5gKoIlrGl6CsxOTjm8GXb5PPk5OzYAsLkakplFwHPFVcGHwcrZG1perjpKGqjx5kQ8shmcVAvlOGpDmNNSA500AoNz9AeMScQBIuyJwyI+224XDkrdCremU0PKpXuOCG09hfDa0XTCapFCAMKYJaxEpnM73SBpKSHizK2HJNUqpoHEPs2caWPI6UM/eiRkwzEFRx6aNWqW5A97XgfAtKRiuU5+w/kA8HyAT0shtEC94n5DxBY26FXgdkheRWsQ6Ztv9VpHbEYDOYARcROJe2h+eKUHQ99CMkM5Nmbo+oJImIKkVXxb4R10yBAW9fJBnFZ5mByKPqJc3lXxzvvXTCSRpzxo2fZpgWDoIJ2m15Lql16AKzY2/Q72e6nqKcn9/bzVGZILbzEsRr5dHLWHybnJ69+zA5O63NcFtUfhTIlCYXr5goZIMUgWYe+vKnQ70UT1P/VcG82gifQ1dRYaE3Xyw4DV2Ue6yxcmoQFyATMGrVnefvPc6nk+PoSZ5WHWmOPcgPERf3led/Jal9hP+XqTOe8dRmlJW+CGxEgmljgYgsIUJGOcfBtFkmLgUw5/uNg3MFJzhvUO3imU6FR1orFiNDDbR8uI+KGd2lYp79wGJFYfWrxKdbhn0H11OrxHvwYdTpQ9O2+T9pDw93oG4bjVKbfhV5jpzPuSofcmI/6o7RrsrHZHwm2BM9dKxbwuWtUWSvjep60+7yy7WTWYalU9xxSTP4AkyqiKKIs12QT1lseCq5MOd1VRqVWSPKL9odSm5jkm12QRIdkSXVS0sch3Qc7R+MRiw8nIWvj8fj2avj19H4iB4cjQ73D62J2EqwX5ilhVeTGINlIzl1LUMIYG7jin4daMUC7+ZwWH5uDNvdYmG2cGJP3WB12XV3teUpq4/Winfew8r5DkUlckP/k/VGTVd/RRMG408VVf7vUmTvEncp2djIXje4JKUzvZ8qmbgszRuafdol16F2b0cMfNF6GNzoaQd7C6u+6ptJ50u1ErezEG4rPW+L1TlbtuQGBA1od2F+c1a1AxNux+kuvm3W5xbXbghFNZQaIhXVtcZI8fyUVQ+z05zkTzJstQn/RW3fCzZHCcyyBSn/VbiYrvN1osEYtLr6Csw/NflCkEuqnOg6/3DEI5iGihABHjcV2OOa/c+g2X29fdfr3wkY4jk=";
+    var compressedModel = "eJztWW1v2zYQ/iuGPm2AYdh5WZ1+K5KsGNB6QYd+CgKCEs82N4kUSCq1F+S/70i9UbYiKVkzZLW/BPLp7sh77u45hnoIjAII3o8eAkET+xAoKU0wHgVmmzZ+RzHV2go+KpmlVgKbVIHWXAorF1kco1BIEXMBVBEt43tQ1mLx6f3oy9fF74vL66BFhcjUFE4eAp4qLgw+zh5Rdc/Vp0XD1RA/qIY7hySMgfxJIxQtaawBxZkGQrn5C4QnzAUk4YIsaWSkXXY6mXlv6KZ+M5uc12+44IbT2H87tVFEMkmlAGFIAWqBlc5CvdUGklIerEpsuSYpVTSOIfb2Fq15zJTb7m2dMR2BoIpLP2uV60bq/ig0P4CSbIv2PDom8u0kMgG97k+iTd5n1LzEzTwrez0pKyxbzXps9uOvkOrAYBfMgAsGLqR2eDaEYuhTHyGZmTRza7BSJBhVim6LdRnXkQID3rooMoqHmQHmSfWa5vY/XYx/dsZJGvOIG7/MsCxcCha4b6tzT21At1gd49GwP3e5latKDJdHYB3e+vK83MrfWKOtenRTlKWV+P3SHp7KBLFMTjD/W09eYvt1cXX962+L66s6rHwTJS5FpksIip9YeGRHxEBHXjXJb66KSvM09X8qWFYL4fPUdei08Ju/LDQNXZVrPGIn1kWxApmAUdv+vvnoaf44PYOR5GXa0zZYRT5EXLxW37zJJvEr5kgj359GLD48tRXv/AcW4eCu8YKILCFCslzj9K7Zxq5EsSeHjb8bBZc4X9Ht6kCn4LGX3UZtzg01sIfJa3T07CUd/dY69X8/8KOi8YcxxY9LE0MH/5EpupniFTCZ9WLyurEu/xM6PJwDTttRRWozjIFuUPOQWeiQGu/IuJ0sdMhgZCI6HlIHsu2ucXnry+y1b81X2l1eOzoOM6Se4o5amtEXiKRiFE0cFoJ8zmLDU8mFualZzajMbqK8Qepw8pwt2WERJOycrKleW+F8Sufs5HQ2i6Zn4fTdxXwe/nLxjs3P6en57OzkzG4RqRj51qxtuWgSI1gW1ztHuUJA5Bau5A+BVlHg3fxPyn+fJ/tsuzItmjiTdlRdtb7cbXkqH+K10l0O2OWyw1GZuYl/pfOkp8138YRg/FtHVfxdjuy3gC4nOwvZ6z1XpDTUJ6mSiavSnHDtU5ddj9txBwa+aT38noy0R30vV0PdN4vOt9or3N5GeK71ct+srtmS4hspaKS2K+dPV9U+MNP2PL0ktt3+bAntCSiqIdcwqaSOGpni+Sm1Ho5XucifjEi1Cf+bWt4LdkcJhNmKlF8FHUlygdOHM8JA3+OZN4Q1vefuw13wjSqRZyI1RIMxGFh1sTB2txd8JQiaOe9WhMDgKVdDJWCAJ3oF9kRsPws2Cdrb2uPjP98EFt8=";
 </script>
 
 <script type="text/javascript">
@@ -3902,6 +3900,10 @@ class TreeNode {
 
         this.parent = parent;
 
+        // All nodes connected to this one as either a source or target
+        this.connSources = new Set();
+        this.connTargets = new Set();
+
         this.sourceParentSet = new Set();
         this.targetParentSet = new Set();
 
@@ -3995,11 +3997,16 @@ class TreeNode {
         return !(this.draw.hidden || this.draw.filtered);
     }
 
+    /** Return true if there are no children */
+    isLeaf() {
+        return (!this.hasChildren());
+    }
+
     /** True if node is not hidden and has no visible children */
     isVisibleLeaf() {
         if (this.draw.hidden || this.draw.filtered) return false; // Any explicitly hidden node
         if (this.isInputOrOutput()) return !this.draw.filtered; // Variable
-        if (!this.hasChildren()) return true; // Group w/out children
+        if (this.isLeaf()) return true; // Group w/out children
         return this.draw.minimized; // Collapsed non-variable
     }
 
@@ -4010,9 +4017,12 @@ class TreeNode {
 
     /**
      * Look for the supplied node in the set of child names.
+     * @param {TreeNode} compareNode The node to look for.
+     * @param {Boolean} includeSelf If true, return true if compareNode is us.
      * @returns {Boolean} True if a match is found, otherwise false.
      */
-    hasNodeInChildren(compareNode) {
+    hasNodeInChildren(compareNode, includeSelf = false) {
+        if (includeSelf && compareNode === this) return true;
         return this.childNames.has(compareNode.path);
     }
 
@@ -4021,7 +4031,8 @@ class TreeNode {
      * @param {TreeNode} [parentLimit = null] Stop searching at this common parent.
      * @returns {Boolean} True if the node is found, otherwise false.
      */
-    hasParent(compareNode, parentLimit = null) {
+    hasParent(compareNode, parentLimit = null, includeSelf = false) {
+        if (includeSelf && compareNode === this) return true;
         for (let obj = this.parent; obj != null && obj !== parentLimit; obj = obj.parent) {
             if (obj === compareNode) {
                 return true;
@@ -4092,13 +4103,14 @@ class TreeNode {
      * @returns {String} The HTML-safe id.
      */
     static pathToId(path) {
-        return path.replace(/[\.<> :]/g, function (c) {
+        return path.replace(/[\.<> :|]/g, function (c) {
             return {
                 ' ': '__',
                 '<': '_LT',
                 '>': '_GT',
                 '.': '_',
-                ':': '-'
+                ':': '-',
+                '|': '--'
             }[c];
         })
     }
@@ -4375,6 +4387,7 @@ class NodeConnection {
         this.conn = conn;
 
         this.srcObj = nodes[conn.src];
+        this.srcObj.connTargets.add(conn.tgt);
         const srcObjParents = [];
         if (!this.srcObj) {
             console.warn(`Cannot find connection source ${conn.src}.`);
@@ -4388,6 +4401,7 @@ class NodeConnection {
         }
 
         this.tgtObj = nodes[conn.tgt];
+        this.tgtObj.connSources.add(conn.src);
         const tgtObjParents = [];
         if (!this.tgtObj) {
             console.warn(`Cannot find connection target ${conn.tgt}.`);
@@ -6435,11 +6449,13 @@ class Window {
      * MutationObserver.
      * @returns {Window} Reference to this.
      */
-    sizeToContent(extraWidth = 0, extraHeight = 2) {
-        let contentWidth = this.body.node().scrollWidth + extraWidth,
-            contentHeight = this.body.node().scrollHeight,
-            headerHeight = this.header.node().offsetHeight,
-            footerHeight = this.hasFooter() ? this.footer.node().offsetHeight : 0;
+    sizeToContent(extraWidth = 0, extraHeight = 2, considerTitle = false) {
+        const bodyWidth = this.body.node().scrollWidth;
+        const titleWidth = this._title.node().scrollWidth + 60;
+        const contentWidth = ((!considerTitle || bodyWidth > titleWidth)? bodyWidth : titleWidth) + extraWidth;
+        const contentHeight = this.body.node().scrollHeight;
+        const headerHeight = this.header.node().offsetHeight
+        const footerHeight = this.hasFooter() ? this.footer.node().offsetHeight : 0;
 
         const totalHeight = contentHeight + headerHeight + footerHeight + extraHeight;
 
@@ -7576,7 +7592,7 @@ class InfoPropDefault {
     output(msg) { return msg; }
 
     /** Make sure the node has the property and it's got a value. */
-    canShow(node) { return (node.propExists(this.key) && node[this.key] != '') }
+    canShow(node) { return (node.propExists(this.key) && String(node[this.key]) != '') }
 
     /**
      * Add a table row with the supplied description and value.
@@ -7608,6 +7624,70 @@ class InfoPropDefault {
                 this.output(node[this.key]), this.capitalize)
         }
     }
+
+    /**
+     * Convert an element to a string that is human readable.
+     * @param {Object} element The scalar item to convert.
+     * @returns {String} The string representation of the element.
+     */
+     static elementToString(element) {
+        if (typeof element === 'number') {
+            if (Number.isInteger(element)) { return element.toString(); }
+            return this.floatFormatter(element); /* float */
+        }
+
+        if (element === 'nan') { return element; }
+        return JSON.stringify(element);
+    }
+
+    /**
+     * Convert a value to a string that is human readable.
+     * @param {Object} val The item to convert.
+     * @param {Number} level The level of nesting in the display.
+     * @returns {String} The string version of the converted array.
+     */
+    static valToString(val, level = 0) {
+        if (!Array.isArray(val)) { return this.elementToString(val); }
+
+        let indent = ' '.repeat(level);
+        let valStr = indent + '[';
+
+        for (const element of val) {
+            valStr += this.valToString(element, level + 1) + ' ';
+        }
+
+        return valStr.replace(/^(.+) $/, '$1]\n');
+    }
+
+    /**
+     * Convert a value to a string that can be used in Python code.
+     * @param {Object} val The value to convert.
+     * @returns {String} The string of the converted object.
+     */
+     static valToCopyString(val) {
+        if (!Array.isArray(val)) { return this.elementToString(val); }
+
+        let valStr = 'array([';
+        for (const element of val) {
+            valStr += this.valToCopyString(element) + ', ';
+        }
+
+        if (val.length > 0) {
+            return valStr.replace(/^(.+)(, )$/, '$1])');
+        }
+    }
+}
+/**
+ * Output a human-readable number.
+ * @typedef InfoPropNumber
+ */
+class InfoPropNumber extends InfoPropDefault {
+    constructor(key, desc) {
+        super(key, desc, false);
+    }
+
+    /** Truncate a possible float to something readable. */
+    output(val) { return InfoPropDefault.valToString(val); }
 }
 
 /**
@@ -7697,55 +7777,10 @@ class InfoPropArray extends InfoPropDefault {
         this.values = values;
     }
 
-    /**
-     * Convert an element to a string that is human readable.
-     * @param {Object} element The scalar item to convert.
-     * @returns {String} The string representation of the element.
-     */
-    static elementToString(element) {
-        if (typeof element === 'number') {
-            if (Number.isInteger(element)) { return element.toString(); }
-            return this.floatFormatter(element); /* float */
-        }
-
-        if (element === 'nan') { return element; }
-        return JSON.stringify(element);
-    }
-
-    /**
-     * Convert a value to a string that is human readable.
-     * @param {Object} val The item to convert.
-     * @param {Number} level The level of nesting in the display.
-     * @returns {String} The string version of the converted array.
-     */
-    static valToString(val, level = 0) {
-        if (!Array.isArray(val)) { return this.elementToString(val); }
-
-        let indent = ' '.repeat(level);
-        let valStr = indent + '[';
-
-        for (const element of val) {
-            valStr += this.valToString(element, level + 1) + ' ';
-        }
-
-        return valStr.replace(/^(.+) $/, '$1]\n');
-    }
-
-    /**
-     * Convert a value to a string that can be used in Python code.
-     * @param {Object} val The value to convert.
-     * @returns {String} The string of the converted object.
-     */
-    static valToCopyString(val) {
-        if (!Array.isArray(val)) { return this.elementToString(val); }
-
-        let valStr = 'array([';
-        for (const element of val) {
-            valStr += this.valToCopyString(element) + ', ';
-        }
-
-        if (val.length > 0) {
-            return valStr.replace(/^(.+)(, )$/, '$1])');
+    addRow(tbody, node) {
+        if (this.canShow(node)) {
+            InfoPropDefault.addRowWithVal(tbody, this.desc,
+                this.output(node[this.key], node))
         }
     }
 
@@ -7756,10 +7791,10 @@ class InfoPropArray extends InfoPropDefault {
      * @param {Array} array The array to display and save.
      * @returns {String} A string representation of the array.
      */
-    output(array) {
+    output(array, node) {
         if (array == null) { return 'Value too large to include in diagram'; }
 
-        const valStr = InfoPropArray.valToString(array);
+        const valStr = InfoPropDefault.valToString(array);
         const maxLen = ValueInfo.TRUNCATE_LIMIT;
         const isTruncated = valStr.length > maxLen;
 
@@ -7773,8 +7808,12 @@ class InfoPropArray extends InfoPropDefault {
         // Store the original value and formatted value so they can be passed if the panel is pinned.
         this.values[this.key] = {
             'val': array,
+            'min': node.val_min,
+            'min_idx': node.val_min_indices,
+            'max': node.val_max,
+            'max_idx': node.val_max_indices,
             'str': valStr,
-            'copyStr': InfoPropArray.valToCopyString(array),
+            'copyStr': InfoPropDefault.valToCopyString(array),
             'isTruncated': isTruncated
         }
 
@@ -7785,7 +7824,46 @@ class InfoPropArray extends InfoPropDefault {
     canShow(node) { return node.propExists(this.key); }
 }
 
-InfoPropArray.floatFormatter = d3.format('g');
+/** Display connections associated with a node */
+class InfoPropConns extends InfoPropDefault {
+    constructor(key, desc) {
+        super(key, desc, false);
+    }
+
+    addRow(tbody, node) {
+        tbody.append('tr').append('th').attr('colspan', '3')
+            .attr('class', 'options-header')
+            .text(this.desc);
+
+            /*
+        // TODO: Add children
+        for (const conn of node.connTargets) {
+            const newRow = tbody.append('tr');
+
+            newRow.append('td')
+                .attr('scope', 'row')
+                .text(node.path);
+
+            newRow.append('td').text(' --> ');
+    
+            newRow.append('td').text(conn);
+        }
+
+        for (const conn of node.connSources) {
+            const newRow = tbody.append('tr');
+    
+            newRow.append('td').text(conn);
+
+            newRow.append('td').text(' --> ');
+
+            newRow.append('td')
+                .attr('scope', 'row')
+                .text(node.path);
+        } */
+    }
+}
+
+InfoPropDefault.floatFormatter = d3.format('g');
 
 
 
@@ -7802,10 +7880,10 @@ class ValueInfo extends WindowResizable {
      * @param {PersistentNodeInfo} pnInfo The PersistentNodeInfo window to get data from.
      * @returns {ValueInfo} The newly constructed window.
      */
-    static add(name, val, pnInfo) {
+    static add(name, val, min, max, pnInfo) {
         if (!ValueInfo.existingValueWindows[name]) {
             ValueInfo.existingValueWindows[name] = true;
-            return new ValueInfo(name, val, pnInfo);
+            return new ValueInfo(name, val, min, max, pnInfo);
         }
     }
 
@@ -7821,12 +7899,18 @@ class ValueInfo extends WindowResizable {
      * references to the HTML elements.
      * @param {String} name Variable name.
      * @param {Number} val Variable value.
+     * @param {Number} min Min variable value.
+     * @param {Number} val Max variable value.
      * @param {PersistentNodeInfo} pnInfo The PersistentNodeInfo window to get data from.
      */
-    constructor(name, val, pnInfo) {
+    constructor(name, val, min, max, pnInfo) {
         super('valueInfo-' + uuidv4());
         this.name = name;
         this.val = val;
+        this.val_min = min;
+        this.val_max = max;
+        this.val_range = max - min;
+        this.val_mid = this.val_range / 2;
 
         this.table = this.body.append('table');
         this.tbody = this.table.append('tbody');
@@ -7881,24 +7965,50 @@ class ValueInfo extends WindowResizable {
             .text(function (d) { return d; });
 
         // Construct the table displaying the variable value
-        const evenOdd = ['even', 'odd'];
         const rows = this.tbody
             .selectAll('tr.array-row')
             .data(val)
             .enter()
             .append('tr')
-            // Style alternating rows differently:
-            .attr('class', function (d, i) { return `array-row ${evenOdd[i % 2]}`; });
+            .attr('class', 'array-row');
 
         // Insert the array index into the first column:
         rows.append('th').text(function (d, i) { return i; });
 
         // Add the contents of the array:
+        const self = this;
         rows.selectAll('td')
             .data(function (row) { return row; })
             .enter()
             .append('td')
-            .text(function (d) { return InfoPropArray.floatFormatter(d); });
+            .attr('style', d => {
+                // Since several CSS elements need to be computed at once,
+                // use the style attr instead of setting a single style.
+                let style = 'border: '
+                if ( d == self.val_min) style += '3px dashed #ff00ff; font-weight: bold';
+                else if ( d == self.val_max) style += '3px dashed yellow; font-weight: bold';
+                else style += 'none'
+
+                style += '; background-color: rgb(';
+                let percent = (d - self.val_min) / self.val_range;
+                let color = 'black';
+                if ( percent < 0.5 ) {
+                    const whiteness = 255 * percent * 2;
+                    style += `${whiteness},${whiteness},255`;
+                    if ( percent < 0.25 ) color = 'white';
+                }
+                else {
+                    if ( percent > 0.75 ) color = 'white';
+                    percent = (percent - 0.5) * 2;
+                    const whiteness = 255 * (1 - percent);
+                    style += `255,${whiteness},${whiteness}`;
+                }
+
+                style += `); color: ${color};`;
+
+                return style;
+            })
+            .text(function (d) { return InfoPropDefault.floatFormatter(d); });
 
         const pnInfoPos = pnInfo._getPos();
         this.sizeToContent(17, 17) // TODO: Properly find size of scrollbar + 2
@@ -8061,8 +8171,8 @@ class NodeInfo extends Window {
  * Make a persistent copy of the NodeInfo panel and handle its drag/close events
  * @typedef PersistentNodeInfo
  */
-class PersistentNodeInfo extends WindowDraggable {
-    constructor(nodeInfo) {
+class PersistentNodeInfo extends WindowResizable {
+    constructor(nodeInfo, startHeight = 0) {
         super('persistentNodeInfo-' + uuidv4(), '#' + nodeInfo.window.attr('id'));
 
         // Avoid just copying the reference because nodeInfo.values will be wiped:
@@ -8079,6 +8189,21 @@ class PersistentNodeInfo extends WindowDraggable {
             .on("mouseover", this.mouseOver.bind(this))
             .on("mouseleave", this.mouseLeave.bind(this))
             .on("mousemove", this.mouseMove.bind(this));
+
+        if (startHeight > 0) {
+            const pos = this._getPos();
+            if (pos.height > startHeight) {
+                pos.height = startHeight;
+                this._setPos(pos)
+                this.body.classed('scrollable', true);
+                const tableHeight = parseInt(this.body.select('table.node-info-table').style('height'));
+                const extraHeight = pos.height - parseInt(this.body.style('height'));
+                this.maxHeight = tableHeight + extraHeight;
+            }
+            else {
+                this.maxHeight = pos.height;
+            }
+        }
     }
 
     /** When the mouse enters the element, show the tool tip */
@@ -8108,7 +8233,8 @@ class PersistentNodeInfo extends WindowDraggable {
                 this.window
                     .select(`button#${valName}.show_value_button`)
                     .on('click', c => {
-                        ValueInfo.add(name, self.values[valName].val, self);
+                        const values = self.values[valName];
+                        ValueInfo.add(name, values.val, values.min, values.max, self);
                     })
             }
         }
@@ -8154,6 +8280,108 @@ class PersistentNodeInfo extends WindowDraggable {
                 .on("mousemove", null);
             super.close(e);
         }
+    }
+}
+
+/**
+ * Display all connections represented by the current off-diagonal cell.
+ * @typedef NodeConnectionInfo
+ */
+class NodeConnectionInfo extends NodeInfo {
+    /**
+     * Build a list of the properties we care about and set up
+     * references to the HTML elements.
+     */
+    constructor(ui) {
+        super(ui, false);
+        this.propList = [];
+    }
+
+    /**
+     * Find the best label for a connected node.
+     * @param {TreeNode} node The node to determine a name for.
+     * @returns The promoted name if it has one, otherwise the absolute path.
+     */
+    nodeName(node) {
+        let name = node.path;
+        if (node.path != node.promotedName) name += `<br><i>(${node.promotedName}</i>)`;
+        return name;
+    }
+
+    /**
+     * Gather all connections between the two cells that this one represents.
+     * @param {Array} connList The connections discovered so far.
+     * @param {TreeNode} srcNode The source node to search.
+     * @param {TreeNode} tgtNode The target node to search.
+     */
+    _getConnections(connList, srcNode, tgtNode) {
+        if (srcNode.hasChildren()) {
+            for (const child of srcNode.children) {
+                this._getConnections(connList, child, tgtNode)
+            }
+        }
+        else {
+            if (srcNode.parent === tgtNode.parent) {
+                const newConn = { 'src': this.nodeName(srcNode), 'tgt': this.nodeName(tgtNode) };
+                connList.push(newConn);
+            }
+            for (const tgt of srcNode.targetParentSet) {
+                if (tgt.isLeaf() && tgt.hasParent(tgtNode, null, true)) {
+                    const newConn = { 'src': this.nodeName(srcNode), 'tgt': this.nodeName(tgt) };
+                    connList.push(newConn);
+                }
+            }
+        }
+    }
+
+    /**
+     * Create a new persistent window by copying our contents. Set the
+     * max initial height of the window at 300px.
+     */
+    pin() {
+        if (this.tbody.html() == '') return; // Was already pinned so is empty
+
+        new PersistentNodeInfo(this, 300);
+        this.hidden = true;
+        this.clear();
+        return this;
+    }
+
+    /**
+     * Load the NodeInfo window with connection information for an off-diagonal cell.
+     * @param {Object} event Reference to the event that triggered the function.
+     * @param {MatrixCell} cell Reference to the cell that was hovered.
+     * @param {String} color The color of the title bar.
+     */
+    update(event, cell, color) {
+        if (!this.active) return;
+        this.clear();
+
+        this.name = cell.id;
+        this.ribbonColor(color);
+
+        const connList = [];
+        this._getConnections(connList, cell.srcObj, cell.tgtObj);
+        for (const conn of connList) {
+            const newRow = this.tbody.append('tr');
+
+            newRow.append('td')
+                .attr('scope', 'row')
+                .html(conn.src);
+
+            newRow.append('td').html(' &#x2501;&#x2501;&#x2501;&#x25ba; ');
+            newRow.append('td').html(conn.tgt);
+        }
+
+        let title = 'Connections';
+        if ( ! (cell.srcObj.isLeaf() || cell.tgtObj.isLeaf()) ) {
+            title += ` from ${cell.srcObj.path} to ${cell.tgtObj.path}`;
+        }
+
+        this.title(title)
+            .sizeToContent(0, 2, true)
+            .moveNearMouse(event)
+            .show();
     }
 }
 
@@ -8370,20 +8598,45 @@ class UserInterface {
     }
 
     /**
+     * Create a new node connection info window.
+     * @param {Selection} svgNodeGroup Placeholder for subclasses.
+     */
+    _newConnInfoBox(svgNodeGroup) { 
+        this.nodeInfoBox = new NodeConnectionInfo(this);
+    }
+
+    /**
      * If node info mode is active, create a new node info window, populate, and display it.
      * @param {Event} event The Event object created by the trigger.
      * @param {TreeNode} node The node associated with the HTML object.
      * @param {String} [color = null] The color of the titlebard. Autoselected if null.
+     * @param {Boolean} [isConnection = false] If true, make a connection info window.
      */
-    showInfoBox(event, node, color = null) {
+    showInfoBox(event, node, color = null, isConnection = false) {
         if (this.click.isNodeInfo) {
             const svgNodeGroup = d3.select(event.currentTarget);
             if (!color) color = svgNodeGroup.select('rect').style('fill');
 
-            this._newInfoBox(svgNodeGroup);
+            if (isConnection) {
+                this._newConnInfoBox(svgNodeGroup)
+            }
+            else this._newInfoBox(svgNodeGroup);
+
             this.nodeInfoBox.activate();
             this.click.update(this.nodeInfoBox);
             this.nodeInfoBox.update(event, node, color);
+        }
+    }
+
+    showCellInfoBox(event, cell, color = null) {
+        if (this.click.isNodeInfo) {
+            const svgNodeGroup = d3.select(event.currentTarget);
+            if (!color) color = svgNodeGroup.select('rect').style('fill');
+
+            this._newConnInfoBox(svgNodeGroup);
+            this.nodeInfoBox.activate();
+            this.click.update(this.nodeInfoBox);
+            this.nodeInfoBox.update(event, cell, color);
         }
     }
 
@@ -11042,16 +11295,15 @@ class MatrixCell {
      * Select the mouseover callback depending on whether we're on the diagonal.
      * TODO: Remove these globals
      */
-    mouseover() {
-        return (this.onDiagonal() ? n2MouseFuncs.overOnDiag :
-            n2MouseFuncs.overOffDiag);
+    getMouseoverFunc() {
+        return (this.onDiagonal() ? n2MouseFuncs.overOnDiag : n2MouseFuncs.overOffDiag);
     }
 
     /**
     * Select the mousemove callback depending on whether we're on the diagonal.
     * TODO: Remove these globals
     */
-    mousemove() {
+    getMousemoveFunc() {
         return (this.onDiagonal() ? n2MouseFuncs.moveOnDiag : null);
     }
 
@@ -11552,11 +11804,11 @@ class Matrix {
 
                 return `translate(${transX},${transY})`;
             })
-            .each(function (d) {
+            .each(function(d) {
                 // "this" refers to the element here, so leave it alone:
                 d.renderer.renderCurrent(this)
-                    .on('mouseover', d.mouseover())
-                    .on('mousemove', d.mousemove())
+                    .on('mouseover', d.getMouseoverFunc())
+                    .on('mousemove', d.getMousemoveFunc())
                     .on('mouseleave', n2MouseFuncs.out)
                     .on('click', (e,d) => n2MouseFuncs.click(d))
             });
@@ -11779,7 +12031,7 @@ class Matrix {
                             'tgtId': cell.tgtObj.id
                         },
                         'matrixSize': this.diagNodes.length,
-                        'label': offscreenNode.absPathName,
+                        'label': offscreenNode.path,
                         'offscreenId': offscreenNode.id
                     });
                 }
@@ -12598,7 +12850,7 @@ class Diagram {
     mouseOverOnDiagonal(e, cell) {
         if (this.matrix.cellExists(cell)) {
             this.matrix.mouseOverOnDiagonal(cell);
-            this.ui.showInfoBox(e, cell.obj, cell.color());
+            this.ui.showInfoBox(e, cell.obj, cell.color(), false);
         }
     }
 
@@ -12619,6 +12871,7 @@ class Diagram {
     mouseOverOffDiagonal(e, cell) {
         if (this.matrix.cellExists(cell)) {
             this.matrix.mouseOverOffDiagonal(cell);
+            this.ui.showCellInfoBox(e, cell, cell.color(), true);
         }
     }
 
@@ -13344,7 +13597,10 @@ class OmNodeInfo extends NodeInfo {
                                 'Non-local values are not available under MPI, showing initial value.'),
             new InfoPropYesNo('distributed', 'Distributed'),
             this.propList[3], // val
-
+            new InfoPropNumber('val_min', 'Minimum'),
+            new InfoPropDefault('val_min_indices', 'Minimum Indices'),
+            new InfoPropNumber('val_max', 'Maximum'),
+            new InfoPropDefault('val_max_indices', 'Maximum Indices'),
             new InfoPropDefault('subsystem_type', 'Subsystem Type', true),
             new InfoPropDefault('component_type', 'Component Type', true),
             new InfoPropYesNo('implicit', 'Implicit'),
@@ -14147,6 +14403,7 @@ class OmMatrix extends Matrix {
         if (cell.row > cell.col) {
             const src = this.diagNodes[cell.row],
                 tgt = this.diagNodes[cell.col];
+
             // Get an array of all the parents and children of the target with cycle arrows
             const relativesWithCycleArrows = tgt.getNodesWithCycleArrows();
 

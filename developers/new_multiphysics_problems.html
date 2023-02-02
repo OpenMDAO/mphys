@@ -4,14 +4,12 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
     <title>Extending the Scenario Library &#8212; MPhys  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/style.css" />
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-    <script src="../_static/jquery.js"></script>
-    <script src="../_static/underscore.js"></script>
-    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -40,9 +38,9 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <div class="section" id="extending-the-scenario-library">
+  <section id="extending-the-scenario-library">
 <h1>Extending the Scenario Library<a class="headerlink" href="#extending-the-scenario-library" title="Permalink to this heading">¶</a></h1>
-<div class="section" id="coupling-groups">
+<section id="coupling-groups">
 <span id="dev-coupling-group"></span><h2>Coupling Groups<a class="headerlink" href="#coupling-groups" title="Permalink to this heading">¶</a></h2>
 <p>In <code class="docutils literal notranslate"><span class="pre">initialize</span></code>, the coupling group needs to have the required builders declared as options.
 In the setup phase, <a class="reference internal" href="../basics/builders.html#mphys.builder.Builder.get_coupling_group_subsystem" title="mphys.builder.Builder.get_coupling_group_subsystem"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_coupling_group_subsystem()</span></code></a> is used to get subsystems from the builders,
@@ -57,19 +55,19 @@ method, you must call <code class="docutils literal notranslate"><span class="pr
 <dd><p>Set the solvers to nonlinear and linear block Gauss–Seidel by default.</p>
 </dd></dl>
 
-</div>
-<div class="section" id="scenarios">
+</section>
+<section id="scenarios">
 <span id="dev-scenario-group"></span><h2>Scenarios<a class="headerlink" href="#scenarios" title="Permalink to this heading">¶</a></h2>
 <p>Your custom Scenario should at least implement the <code class="docutils literal notranslate"><span class="pre">initialize</span></code> and <code class="docutils literal notranslate"><span class="pre">setup</span></code> methods.
 As with the <code class="docutils literal notranslate"><span class="pre">CouplingGroup</span></code>, you must call the <code class="docutils literal notranslate"><span class="pre">configure</span></code> method of the parent class if you implement a
 <code class="docutils literal notranslate"><span class="pre">configure</span></code> method in the Scenario.</p>
-<div class="section" id="initialize">
+<section id="initialize">
 <h3>Initialize<a class="headerlink" href="#initialize" title="Permalink to this heading">¶</a></h3>
 <p>The Scenario’s <code class="docutils literal notranslate"><span class="pre">initialize</span></code> method should declare the necessary builders as options.
 An <code class="docutils literal notranslate"><span class="pre">in_MultipointParallel</span></code> option should also be included if that mode of operation will be implemented.
 Otherwise the developer is free to add options specific to the scenario type.</p>
-</div>
-<div class="section" id="setup">
+</section>
+<section id="setup">
 <h3>Setup<a class="headerlink" href="#setup" title="Permalink to this heading">¶</a></h3>
 <p>The basic pattern for the scenario group’s setup method is:</p>
 <ol class="arabic simple" start="0">
@@ -92,7 +90,7 @@ the Scenario, and implement the <cite>initialize</cite> and <cite>setup</cite> p
 <dd><p>Add a user-defined subsystem at the end of a Scenario.
 Tag variables with mphys tags to promote or use the optional promotes argument.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl class="simple">
 <dt><strong>name: str</strong></dt><dd><p>Name of the subsystem</p>
 </dd>
@@ -116,9 +114,9 @@ Adds the builder subsystems, then adds user-defined post subsystems.</p>
 
 </dd></dl>
 
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
 
 
             <div class="clearer"></div>
@@ -207,7 +205,7 @@ Adds the builder subsystems, then adds user-defined post subsystems.</p>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2022, NASA.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
     </div>
   </body>
 </html>

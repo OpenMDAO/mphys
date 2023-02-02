@@ -9,9 +9,6 @@
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../_static/style.css" />
     <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-    <script src="../../_static/jquery.js"></script>
-    <script src="../../_static/underscore.js"></script>
-    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../../_static/doctools.js"></script>
     <script src="../../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -42,7 +39,7 @@
 
 
 <span class="k">def</span> <span class="nf">set_coupling_algorithms_in_scenarios</span><span class="p">(</span><span class="n">multipoint_group</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Set the stored linear and nonlinear solver into the coupling group if the</span>
 <span class="sd">    scenario exists on this proc.</span>
 <span class="sd">    Shared method between multipoint and multipoint parallel groups.</span>
@@ -57,7 +54,7 @@
 
 
 <div class="viewcode-block" id="Multipoint"><a class="viewcode-back" href="../../basics/model_hierarchy.html#mphys.multipoint.Multipoint">[docs]</a><span class="k">class</span> <span class="nc">Multipoint</span><span class="p">(</span><span class="n">om</span><span class="o">.</span><span class="n">Group</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    An extension of the standard OpenMDAO group that adds the :func:`~mphys_add_scenario` method.</span>
 <span class="sd">    For sequential evaluations of the MPhys scenarios.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -68,7 +65,7 @@
 
 <div class="viewcode-block" id="Multipoint.mphys_add_scenario"><a class="viewcode-back" href="../../basics/model_hierarchy.html#mphys.multipoint.Multipoint.mphys_add_scenario">[docs]</a>    <span class="k">def</span> <span class="nf">mphys_add_scenario</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">scenario</span><span class="p">,</span> <span class="n">coupling_nonlinear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                            <span class="n">coupling_linear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Add an MPhys scenario</span>
 
 <span class="sd">        Parameters</span>
@@ -87,7 +84,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_subsystem</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">scenario</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Multipoint.mphys_connect_scenario_coordinate_source"><a class="viewcode-back" href="../../basics/model_hierarchy.html#mphys.multipoint.Multipoint.mphys_connect_scenario_coordinate_source">[docs]</a>    <span class="k">def</span> <span class="nf">mphys_connect_scenario_coordinate_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">scenarios</span><span class="p">,</span> <span class="n">disciplines</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        A helper method to aid in connecting mesh coordinate sources to the scenarios</span>
 <span class="sd">        in this multipoint group.</span>
 <span class="sd">        The source and target variable names are assumed to be `&#39;x_{discipline}0&#39;`</span>
@@ -116,7 +113,7 @@
 
 
 <div class="viewcode-block" id="MultipointParallel"><a class="viewcode-back" href="../../basics/model_hierarchy.html#mphys.multipoint.MultipointParallel">[docs]</a><span class="k">class</span> <span class="nc">MultipointParallel</span><span class="p">(</span><span class="n">om</span><span class="o">.</span><span class="n">ParallelGroup</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    An OpenMDAO parallel group that adds the :func:`~mphys_add_scenario` method.</span>
 <span class="sd">    For simultaneous evaluations of the MPhys scenarios.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -127,7 +124,7 @@
 
 <div class="viewcode-block" id="MultipointParallel.mphys_add_scenario"><a class="viewcode-back" href="../../basics/model_hierarchy.html#mphys.multipoint.MultipointParallel.mphys_add_scenario">[docs]</a>    <span class="k">def</span> <span class="nf">mphys_add_scenario</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">scenario</span><span class="p">,</span> <span class="n">coupling_nonlinear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                            <span class="n">coupling_linear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Add an MPhys scenario</span>
 
 <span class="sd">        Parameters</span>
@@ -208,7 +205,7 @@
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2022, NASA.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
     </div>
   </body>
 </html>
