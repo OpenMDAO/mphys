@@ -21,6 +21,6 @@ setup(
     packages = find_packages(),
     install_requires=[
           'numpy',
-          'openmdao>=3.15,!=3.17'
+          'openmdao>=3.25'
     ],
 )
