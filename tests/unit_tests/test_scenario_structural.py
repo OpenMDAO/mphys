@@ -4,84 +4,32 @@ import numpy as np
 import openmdao.api as om
 from mpi4py import MPI
 
-from mphys import Builder
 from mphys.scenario_structural import ScenarioStructural
 from common_methods import CommonMethods
 
-num_nodes = 3
-
-
-class MeshComp(om.IndepVarComp):
-    def setup(self):
-        self.add_output('x_struct0', val=np.ones(num_nodes*3), tags=['mphys_coordinates'])
+from fake_struct import StructBuilder, StructMeshComp, StructPreCouplingComp, StructCouplingComp, StructPostCouplingComp, struct_num_nodes
+from fake_geometry import Geometry, GeometryBuilder
 
 
 class PreCouplingComp(om.IndepVarComp):
     def setup(self):
         self.add_input('x_struct0', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_output('f_struct', val=np.ones(num_nodes*3), tags=['mphys_coupling'])
+        self.add_output('f_struct', val=np.ones(struct_num_nodes*3), tags=['mphys_coupling'])
+        self.add_output('prestate_struct', tags=['mphys_coupling'])
 
     def compute(self, inputs, outputs):
         outputs['f_struct'] = inputs['x_struct0']
+        outputs['prestate_struct'] = np.sum(inputs['x_struct0'])
 
-
-class CouplingComp(om.ExplicitComponent):
-    def setup(self):
-        self.add_input('x_struct0', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_input('f_struct', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_output('u_struct', shape=num_nodes*3, tags=['mphys_coupling'])
-
-    def compute(self, inputs, outputs):
-        outputs['u_struct'] = inputs['f_struct']
-
-
-class PostCouplingComp(om.IndepVarComp):
-    def setup(self):
-        self.add_input('x_struct0', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_input('u_struct', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_input('f_struct', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_output('func_struct', val=1.0, tags=['mphys_result'])
-
-
-class StructBuilder(Builder):
-    def get_number_of_nodes(self):
-        return num_nodes
-
-    def get_ndof(self):
-        return 3
-
-    def get_mesh_coordinate_subsystem(self, scenario_name=None):
-        return MeshComp()
-
+class FakeStructBuilderWithLoads(StructBuilder):
     def get_pre_coupling_subsystem(self, scenario_name=None):
         return PreCouplingComp()
-
-    def get_coupling_group_subsystem(self, scenario_name=None):
-        return CouplingComp()
-
-    def get_post_coupling_subsystem(self, scenario_name=None):
-        return PostCouplingComp()
-
-
-class Geometry(om.ExplicitComponent):
-    def setup(self):
-        self.add_input('x_struct_in', shape_by_conn=True)
-        self.add_output('x_struct0', shape=3*num_nodes, tags=['mphys_coordinates'])
-
-    def compute(self, inputs, outputs):
-        outputs['x_struct0'] = inputs['x_struct_in']
-
-
-class GeometryBuilder(Builder):
-    def get_mesh_coordinate_subsystem(self, scenario_name=None):
-        return Geometry()
-
 
 class TestScenarioStructural(unittest.TestCase):
     def setUp(self):
         self.common = CommonMethods()
         self.prob = om.Problem()
-        builder = StructBuilder()
+        builder = FakeStructBuilderWithLoads()
         builder.initialize(MPI.COMM_WORLD)
         self.prob.model.add_subsystem('mesh', builder.get_mesh_coordinate_subsystem())
         self.prob.model.add_subsystem('scenario', ScenarioStructural(struct_builder=builder))
@@ -90,8 +38,8 @@ class TestScenarioStructural(unittest.TestCase):
 
     def test_mphys_components_were_added(self):
         self.assertIsInstance(self.prob.model.scenario.struct_pre, PreCouplingComp)
-        self.assertIsInstance(self.prob.model.scenario.coupling, CouplingComp)
-        self.assertIsInstance(self.prob.model.scenario.struct_post, PostCouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.coupling, StructCouplingComp)
+        self.assertIsInstance(self.prob.model.scenario.struct_post, StructPostCouplingComp)
 
     def test_run_model(self):
         self.common.test_run_model(self)
@@ -108,15 +56,15 @@ class TestScenarioStructuralParallel(unittest.TestCase):
     def setUp(self):
         self.common = CommonMethods()
         self.prob = om.Problem()
-        builder = StructBuilder()
+        builder = FakeStructBuilderWithLoads()
         self.prob.model = ScenarioStructural(struct_builder=builder, in_MultipointParallel=True)
         self.prob.setup()
 
     def test_mphys_components_were_added(self):
-        self.assertIsInstance(self.prob.model.mesh, MeshComp)
+        self.assertIsInstance(self.prob.model.mesh, StructMeshComp)
         self.assertIsInstance(self.prob.model.struct_pre, PreCouplingComp)
-        self.assertIsInstance(self.prob.model.coupling, CouplingComp)
-        self.assertIsInstance(self.prob.model.struct_post, PostCouplingComp)
+        self.assertIsInstance(self.prob.model.coupling, StructCouplingComp)
+        self.assertIsInstance(self.prob.model.struct_post, StructPostCouplingComp)
 
     def test_run_model(self):
         self.common.test_run_model(self)
@@ -133,18 +81,18 @@ class TestScenarioStructuralParallelWithGeometry(unittest.TestCase):
     def setUp(self):
         self.common = CommonMethods()
         self.prob = om.Problem()
-        builder = StructBuilder()
-        geom_builder = GeometryBuilder()
+        builder = FakeStructBuilderWithLoads()
+        geom_builder = GeometryBuilder(['struct'],[builder])
         self.prob.model = ScenarioStructural(struct_builder=builder, geometry_builder=geom_builder,
                                              in_MultipointParallel=True)
         self.prob.setup()
 
     def test_mphys_components_were_added(self):
-        self.assertIsInstance(self.prob.model.mesh, MeshComp)
+        self.assertIsInstance(self.prob.model.mesh, StructMeshComp)
         self.assertIsInstance(self.prob.model.geometry, Geometry)
         self.assertIsInstance(self.prob.model.struct_pre, PreCouplingComp)
-        self.assertIsInstance(self.prob.model.coupling, CouplingComp)
-        self.assertIsInstance(self.prob.model.struct_post, PostCouplingComp)
+        self.assertIsInstance(self.prob.model.coupling, StructCouplingComp)
+        self.assertIsInstance(self.prob.model.struct_post, StructPostCouplingComp)
 
     def test_run_model(self):
         self.common.test_run_model(self)

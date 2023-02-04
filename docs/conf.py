@@ -74,7 +74,7 @@ master_doc = 'index'
 
 # -- Project information -----------------------------------------------------
 
-project = 'Mphys'
+project = 'MPhys'
 copyright = '2022, NASA'
 author = 'NASA'
 

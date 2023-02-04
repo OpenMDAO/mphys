@@ -1,6 +1,5 @@
 {
-    "restructuredtext.confPath": "${workspaceFolder}/docs",
-    "python.formatting.provider": "black",
+    "python.formatting.provider": "autopep8",
     "python.formatting.autopep8Args": [
         "--max-line-length",
         "100",
@@ -16,5 +15,7 @@
     "python.testing.pytestEnabled": false,
     "python.testing.nosetestsEnabled": false,
     "python.testing.unittestEnabled": true,
-    "python.analysis.useImportHeuristic": true
+    "python.analysis.useImportHeuristic": true,
+    "esbonio.server.enabled": true,
+    "esbonio.sphinx.confDir": "${workspaceFolder}/docs"
 }

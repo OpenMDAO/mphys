@@ -1,11 +1,11 @@
-# MPHYS
+# MPhys
 [![Unit Tests and Docs](https://github.com/OpenMDAO/mphys/actions/workflows/unit_tests_and_docs.yml/badge.svg)](https://github.com/OpenMDAO/mphys/actions/workflows/unit_tests_and_docs.yml)
 
-Mphys is a package that standardizes high-fidelity multiphysics problems in OpenMDAO.
-Mphys eases the problem set up, provides straightforward extension to new disciplines, and has a library of OpenMDAO groups for multidisciplinary problems addressed by its standard.
+MPhys is a package that standardizes high-fidelity multiphysics problems in OpenMDAO.
+MPhys eases the problem set up, provides straightforward extension to new disciplines, and has a library of OpenMDAO groups for multidisciplinary problems addressed by its standard.
 
-While Mphys does provide these conventions, it is not absolutely necessary to follow these guidelines in order to solve these types of problems with OpenMDAO given its very general coupling capability.
-However, by following the Mphys conventions, the usage of OpenMDAO for multiphysics analysis will be modular across developer groups.
+While MPhys does provide these conventions, it is not absolutely necessary to follow these guidelines in order to solve these types of problems with OpenMDAO given its very general coupling capability.
+However, by following the MPhys conventions, the usage of OpenMDAO for multiphysics analysis will be modular across developer groups.
 This eases technology transfer and collaboration in this area of research.
 The standardization strives for modularity of multiphysics problems with large parallel physics codes.
 
@@ -47,7 +47,7 @@ however, they are still included in order to provide more illustrations of how m
 
 ## Telecons
 
-Mphys development is discussed in biweekly telecons that occur Mondays at 11AM Eastern Time.
+MPhys development is discussed in biweekly telecons that occur Mondays at 11AM Eastern Time.
 If you would like to participate, contact Kevin Jacobson (kevin.e.jacobson@nasa.gov).
 
 ## Signed Commits
@@ -83,8 +83,8 @@ testflo -v tests
 
 # Software Assurance Plan
 
-Mphys has been deemed as Class-E software, according to the [7120.5D Specification](https://www.nasa.gov/pdf/423715main_NPR_7120-5_HB_FINAL-02-25-10.pdf).
-To maintain software quality and assure functionality, Mphys includes a unit and integration test suite.
+MPhys has been deemed as Class-E software, according to the [7120.5D Specification](https://www.nasa.gov/pdf/423715main_NPR_7120-5_HB_FINAL-02-25-10.pdf).
+To maintain software quality and assure functionality, MPhys includes a unit and integration test suite.
 Before any pull requests are merged, all of those tests must pass.
 The tests are run as part of a continuous integration system, automatically upon pull request submission.
 

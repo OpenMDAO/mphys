@@ -10,7 +10,7 @@ from openmdao.utils.assert_utils import assert_near_equal
 
 
 class TestMaskConverterSingle(unittest.TestCase):
-    N_PROCS = 1  #TODO should be 2 or more but there is a bug in OM currently
+    N_PROCS = 2
 
     def setUp(self):
         self.common = CommonMethods()

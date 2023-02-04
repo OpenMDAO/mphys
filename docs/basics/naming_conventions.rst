@@ -3,10 +3,10 @@ Variable Naming Conventions
 ***************************
 
 While it is possible to set up the same OpenMDAO multiphysics problem with different sets of variable names, it is preferable for codes solving the same physics to use the same variable names to be more easily interchangeable.
-This table provides the required names for coupling variables associated with a particular physics in Mphys.
+This table provides the required names for coupling variables associated with a particular physics in MPhys.
 
 +----------------------+-------------------+-------------------+-------------------------------------------------------------------------------+
-| Variable             | Associated Solver | Mphys tag         | Variable description                                                          |
+| Variable             | Associated Solver | MPhys tag         | Variable description                                                          |
 +======================+===================+===================+===============================================================================+
 | :code:`x_aero0`      | Aerodynamic       | mphys_coordinates |  Aerodynamic surface coordinates (jig shape)                                  |
 +----------------------+-------------------+-------------------+-------------------------------------------------------------------------------+
@@ -34,7 +34,7 @@ This table provides the required names for coupling variables associated with a 
 To make swapping solvers easier, it is also helpful to share noncoupling variable names if possible:
 
 +----------------------+-------------------+-------------------+---------------------------------------------------------------------------------+
-| Variable             | Associated Solver | Mphys tag         | Variable description                                                            |
+| Variable             | Associated Solver | MPhys tag         | Variable description                                                            |
 +======================+===================+===================+=================================================================================+
 | :code:`aoa`          | Aerodynamic       | mphys_input       |  Angle of attack (please include units='deg' or 'rad' when declared)            |
 +----------------------+-------------------+-------------------+---------------------------------------------------------------------------------+

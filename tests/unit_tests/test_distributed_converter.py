@@ -10,7 +10,7 @@ from openmdao.utils.assert_utils import assert_near_equal
 
 
 class TestDistributedConverter(unittest.TestCase):
-    N_PROCS = 1  #TODO should be 2 or more but there is a bug in OM currently
+    N_PROCS = 2
 
     def setUp(self):
         self.common = CommonMethods()
@@ -55,15 +55,25 @@ class TestDistributedConverter(unittest.TestCase):
         partials = self.prob.check_partials(compact_print=True, method='cs')
         tol = 1e-9
         for in_var in ['in1', 'in2']:
-            rel_error = partials['converter'][(f'{in_var}_serial', in_var)]['rel error']
-            assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
-            assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
-            assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
+            err = partials['converter'][(f'{in_var}_serial', in_var)]
+            # If fd check magnitude is exactly zero, use abs tol
+            if err['magnitude'].fd == 0.0:
+                check_error = err['abs error']
+            else:
+                check_error = err['rel error']
+            assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
+            assert_near_equal(check_error.forward, 0.0, tolerance=tol)
+            assert_near_equal(check_error.forward_reverse, 0.0, tolerance=tol)
         for out_var in ['out1', 'out2']:
-            rel_error = partials['converter'][(out_var, f'{out_var}_serial')]['rel error']
-            assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
-            assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
-            assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
+            err = partials['converter'][(out_var, f'{out_var}_serial')]
+            # If fd check magnitude is exactly zero, use abs tol
+            if err['magnitude'].fd == 0.0:
+                check_error = err['abs error']
+            else:
+                check_error = err['rel error']
+            assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
+            assert_near_equal(check_error.forward, 0.0, tolerance=tol)
+            assert_near_equal(check_error.forward_reverse, 0.0, tolerance=tol)
 
 
 if __name__ == '__main__':
