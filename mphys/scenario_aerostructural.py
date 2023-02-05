@@ -11,6 +11,8 @@ class ScenarioAeroStructural(Scenario):
         The Scenario will add the aerodynamic builder's precoupling subsystem,
         the coupling subsystem, and the postcoupling subsystem.
         """
+        super().initialize()
+
         self.options.declare('aero_builder', recordable=False,
                               desc='The MPhys builder for the aerodynamic solver')
         self.options.declare('struct_builder', recordable=False,
