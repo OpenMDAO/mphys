@@ -85,6 +85,20 @@ multipoint groups.</p>
 the Scenario, and implement the <cite>initialize</cite> and <cite>setup</cite> phases of the Group.</p>
 <p>Set the solvers to nonlinear and linear block Gauss–Seidel by default.</p>
 <dl class="py method">
+<dt class="sig sig-object py" id="mphys.scenario.Scenario.initialize">
+<span class="sig-name descname"><span class="pre">initialize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/scenario.html#Scenario.initialize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.scenario.Scenario.initialize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform any one-time initialization run at instantiation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.scenario.Scenario.setup">
+<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/scenario.html#Scenario.setup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.scenario.Scenario.setup" title="Permalink to this definition">¶</a></dt>
+<dd><p>The main setup call for all multiphysics scenarios.
+Multiphysics scenarios should implement setup-type operations in _mphys_scenario_setup().
+Adds the builder subsystems, then adds user-defined post subsystems.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="mphys.scenario.Scenario.mphys_add_post_subsystem">
 <span class="sig-name descname"><span class="pre">mphys_add_post_subsystem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subsystem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promotes_inputs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promotes_outputs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promotes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/scenario.html#Scenario.mphys_add_post_subsystem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.scenario.Scenario.mphys_add_post_subsystem" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add a user-defined subsystem at the end of a Scenario.
@@ -102,14 +116,6 @@ else variables will be promoted by this input</p>
 </dl>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="mphys.scenario.Scenario.setup">
-<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/scenario.html#Scenario.setup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.scenario.Scenario.setup" title="Permalink to this definition">¶</a></dt>
-<dd><p>The main setup call for all multiphysics scenarios.
-Multiphysics scenarios should implement setup-type operations in _mphys_scenario_setup().
-Adds the builder subsystems, then adds user-defined post subsystems.</p>
 </dd></dl>
 
 </dd></dl>
@@ -137,8 +143,9 @@ Adds the builder subsystems, then adds user-defined post subsystems.</p>
 <li><a class="reference internal" href="#initialize">Initialize</a></li>
 <li><a class="reference internal" href="#setup">Setup</a><ul>
 <li><a class="reference internal" href="#mphys.scenario.Scenario"><code class="docutils literal notranslate"><span class="pre">Scenario</span></code></a><ul>
-<li><a class="reference internal" href="#mphys.scenario.Scenario.mphys_add_post_subsystem"><code class="docutils literal notranslate"><span class="pre">Scenario.mphys_add_post_subsystem()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.scenario.Scenario.initialize"><code class="docutils literal notranslate"><span class="pre">Scenario.initialize()</span></code></a></li>
 <li><a class="reference internal" href="#mphys.scenario.Scenario.setup"><code class="docutils literal notranslate"><span class="pre">Scenario.setup()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.scenario.Scenario.mphys_add_post_subsystem"><code class="docutils literal notranslate"><span class="pre">Scenario.mphys_add_post_subsystem()</span></code></a></li>
 </ul>
 </li>
 </ul>

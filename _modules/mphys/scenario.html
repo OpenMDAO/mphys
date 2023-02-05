@@ -36,6 +36,7 @@
             
   <h1>Source code for mphys.scenario</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">.mphys_group</span> <span class="kn">import</span> <span class="n">MphysGroup</span>
+<span class="kn">from</span> <span class="nn">.utils.directory_utils</span> <span class="kn">import</span> <span class="n">cd</span>
 
 <div class="viewcode-block" id="Scenario"><a class="viewcode-back" href="../../developers/new_multiphysics_problems.html#mphys.scenario.Scenario">[docs]</a><span class="k">class</span> <span class="nc">Scenario</span><span class="p">(</span><span class="n">MphysGroup</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -49,6 +50,68 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_post_subsystems</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="Scenario.initialize"><a class="viewcode-back" href="../../developers/new_multiphysics_problems.html#mphys.scenario.Scenario.initialize">[docs]</a>    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s1">&#39;run_directory&#39;</span><span class="p">,</span>
+                             <span class="n">default</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
+                             <span class="n">types</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+                             <span class="n">desc</span><span class="o">=</span><span class="s1">&#39;Path in which to execute subsystems in this scenario group.&#39;</span> <span class="o">+</span>
+                                  <span class="s1">&#39; The default of empty string will not change the directory.&#39;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_mphys_scenario_setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function is where specific scenarios populate pre-coupling, coupling,</span>
+<span class="sd">        and post-coupling subsystems from builders</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+<div class="viewcode-block" id="Scenario.setup"><a class="viewcode-back" href="../../developers/new_multiphysics_problems.html#mphys.scenario.Scenario.setup">[docs]</a>    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The main setup call for all multiphysics scenarios.</span>
+<span class="sd">        Multiphysics scenarios should implement setup-type operations in _mphys_scenario_setup().</span>
+<span class="sd">        Adds the builder subsystems, then adds user-defined post subsystems.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mphys_scenario_setup</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add_post_subsystems</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Scenario.mphys_add_post_subsystem"><a class="viewcode-back" href="../../developers/new_multiphysics_problems.html#mphys.scenario.Scenario.mphys_add_post_subsystem">[docs]</a>    <span class="k">def</span> <span class="nf">mphys_add_post_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">,</span>
+                                 <span class="n">promotes_inputs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                 <span class="n">promotes_outputs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                 <span class="n">promotes</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a user-defined subsystem at the end of a Scenario.</span>
+<span class="sd">        Tag variables with mphys tags to promote or use the optional promotes argument.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name: str</span>
+<span class="sd">            Name of the subsystem</span>
+<span class="sd">        subsystem: &lt;System&gt;</span>
+<span class="sd">            The</span>
+<span class="sd">        promotes: iter of (str or tuple), optional</span>
+<span class="sd">            If None, variables will be promoted using mphys_* tags,</span>
+<span class="sd">            else variables will be promoted by this input</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># we hold onto these until the end of setup() b/c we want the scenario&#39;s</span>
+        <span class="c1"># setup() to add the builder subsystems before adding these</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_post_subsystems</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">,</span> <span class="n">promotes_inputs</span><span class="p">,</span> <span class="n">promotes_outputs</span><span class="p">,</span> <span class="n">promotes</span><span class="p">))</span></div>
+
+    <span class="k">def</span> <span class="nf">_solve_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">cd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;run_directory&#39;</span><span class="p">]):</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_solve_nonlinear</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_solve_linear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">rel_systems</span><span class="p">,</span> <span class="n">scope_out</span><span class="o">=...</span><span class="p">,</span> <span class="n">scope_in</span><span class="o">=...</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">cd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;run_directory&#39;</span><span class="p">]):</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_solve_linear</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">rel_systems</span><span class="p">,</span> <span class="n">scope_out</span><span class="p">,</span> <span class="n">scope_in</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">cd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;run_directory&#39;</span><span class="p">]):</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_apply_linear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">jac</span><span class="p">,</span> <span class="n">rel_systems</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">scope_out</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">scope_in</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">cd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;run_directory&#39;</span><span class="p">]):</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_apply_linear</span><span class="p">(</span><span class="n">jac</span><span class="p">,</span> <span class="n">rel_systems</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">scope_out</span><span class="p">,</span> <span class="n">scope_in</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_mphys_add_pre_coupling_subsystem_from_builder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">builder</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -85,46 +148,6 @@
         <span class="n">subsystem</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">get_post_coupling_subsystem</span><span class="p">(</span><span class="n">scenario_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">subsystem</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">mphys_add_subsystem</span><span class="p">(</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_post&#39;</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">)</span>
-
-<div class="viewcode-block" id="Scenario.mphys_add_post_subsystem"><a class="viewcode-back" href="../../developers/new_multiphysics_problems.html#mphys.scenario.Scenario.mphys_add_post_subsystem">[docs]</a>    <span class="k">def</span> <span class="nf">mphys_add_post_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">,</span>
-                                 <span class="n">promotes_inputs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                                 <span class="n">promotes_outputs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                                 <span class="n">promotes</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Add a user-defined subsystem at the end of a Scenario.</span>
-<span class="sd">        Tag variables with mphys tags to promote or use the optional promotes argument.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        name: str</span>
-<span class="sd">            Name of the subsystem</span>
-<span class="sd">        subsystem: &lt;System&gt;</span>
-<span class="sd">            The</span>
-<span class="sd">        promotes: iter of (str or tuple), optional</span>
-<span class="sd">            If None, variables will be promoted using mphys_* tags,</span>
-<span class="sd">            else variables will be promoted by this input</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="c1"># we hold onto these until the end of setup() b/c we want the scenario&#39;s</span>
-        <span class="c1"># setup() to add the builder subsystems before adding these</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_post_subsystems</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">,</span> <span class="n">promotes_inputs</span><span class="p">,</span> <span class="n">promotes_outputs</span><span class="p">,</span> <span class="n">promotes</span><span class="p">))</span></div>
-
-    <span class="k">def</span> <span class="nf">_mphys_scenario_setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        This function is where specific scenarios populate pre-coupling, coupling,</span>
-<span class="sd">        and post-coupling subsystems from builders</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
-
-<div class="viewcode-block" id="Scenario.setup"><a class="viewcode-back" href="../../developers/new_multiphysics_problems.html#mphys.scenario.Scenario.setup">[docs]</a>    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        The main setup call for all multiphysics scenarios.</span>
-<span class="sd">        Multiphysics scenarios should implement setup-type operations in _mphys_scenario_setup().</span>
-<span class="sd">        Adds the builder subsystems, then adds user-defined post subsystems.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_mphys_scenario_setup</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_add_post_subsystems</span><span class="p">()</span></div>
-
 
     <span class="k">def</span> <span class="nf">_add_post_subsystems</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">,</span> <span class="n">promotes_inputs</span><span class="p">,</span> <span class="n">promotes_outputs</span><span class="p">,</span> <span class="n">promotes</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_subsystems</span><span class="p">:</span>
