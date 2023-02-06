@@ -71,7 +71,7 @@ class Top(Multipoint):
         self.add_subsystem("mesh", adflow_builder.get_mesh_coordinate_subsystem())
 
         # add the geometry component, we dont need a builder because we do it here.
-        self.add_subsystem("geometry", OM_DVGEOCOMP(ffd_file="ffd.xyz"))
+        self.add_subsystem("geometry", OM_DVGEOCOMP(file="ffd.xyz", type="ffd"))
 
         self.mphys_add_scenario("cruise", ScenarioAerodynamic(aero_builder=adflow_builder))
 
@@ -120,8 +120,8 @@ class Top(Multipoint):
             for i in range(1, nRefAxPts):
                 geo.rot_y["wing"].coef[i] = val[i - 1]
 
-        self.geometry.nom_addGeoDVGlobal(dvName="twist", value=np.array([0] * nTwist), func=twist)
-        nLocal = self.geometry.nom_addGeoDVLocal(dvName="thickness", axis="z")
+        self.geometry.nom_addGlobalDV(dvName="twist", value=np.array([0] * nTwist), func=twist)
+        nLocal = self.geometry.nom_addLocalDV(dvName="thickness", axis="z")
 
         if args.level == "L3":
             # we need to offset the projected points a bit further in the wing because this mesh is too coarse
