@@ -176,17 +176,19 @@ class Top(Multipoint):
             """
             # Add TACS Functions
             # Only include mass from elements that belong to pytacs components (i.e. skip concentrated masses)
-            problem.addFunction('mass', functions.StructuralMass)
-            problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
+            problem.addFunction("mass", functions.StructuralMass)
+            problem.addFunction("ks_vmfailure", functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
 
             # Add gravity load
             g = np.array([0.0, 0.0, -9.81])  # m/s^2
             problem.addInertialLoad(g)
 
         # TACS Setup
-        tacs_options = {'element_callback' : element_callback,
-                        "problem_setup": problem_setup,
-                        'mesh_file': '../input_files/wingbox.bdf'}
+        tacs_options = {
+            "element_callback": element_callback,
+            "problem_setup": problem_setup,
+            "mesh_file": "../input_files/wingbox.bdf",
+        }
 
         struct_builder = TacsBuilder(tacs_options)
         struct_builder.initialize(self.comm)
@@ -207,7 +209,7 @@ class Top(Multipoint):
         dvs = self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
 
         # add the geometry component, we dont need a builder because we do it here.
-        self.add_subsystem("geometry", OM_DVGEOCOMP(ffd_file="FFD/wingFFD.xyz"))
+        self.add_subsystem("geometry", OM_DVGEOCOMP(file="FFD/wingFFD.xyz", type="ffd"))
 
         nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-8, atol=1e-8)
         linear_solver = om.LinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-8, atol=1e-8)
@@ -277,7 +279,7 @@ class Top(Multipoint):
                 "cl": 0.3196186044913372,
                 "cd": 0.0121836189015169,
                 "mass": 2165.4853211276463,
-                "ks_vmfailure" : 0.5578983727565848,
+                "ks_vmfailure": 0.5578983727565848,
             },
         },
     ]
@@ -332,6 +334,7 @@ class TestAeroStructSolve(unittest.TestCase):
                 self.ref_vals["ks_vmfailure"],
                 1e-6,
             )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -46,9 +46,7 @@ class Top(om.Group):
         # geometry parametrization with FFD and general geometric constraints
         self.add_subsystem(
             "geo",
-            OM_DVGEOCOMP(
-                ffd_file=os.path.join(baseDir, "../input_files/ffd.xyz"),
-            ),
+            OM_DVGEOCOMP(file=os.path.join(baseDir, "../input_files/ffd.xyz"), type="ffd"),
         )
 
         # # create the multiphysics multipoint group.
@@ -137,12 +135,12 @@ class Top(om.Group):
             for i in range(1, nRefAxPts):
                 geo.rot_y["wing"].coef[i] = val[i - 1]
 
-        self.geo.nom_addGeoDVGlobal(dvName="twist", value=np.zeros(nTwist), func=twist)
+        self.geo.nom_addGlobalDV(dvName="twist", value=np.zeros(nTwist), func=twist)
         self.dvs.add_output("twist", val=np.array([0] * nTwist))
         self.connect("twist", "geo.twist")
 
         # # shape DVs
-        n_dv = self.geo.nom_addGeoDVLocal(dvName="local", axis="z")
+        n_dv = self.geo.nom_addLocalDV(dvName="local", axis="z")
         self.dvs.add_output("local", val=np.array([0] * n_dv))
         self.connect("local", "geo.local")
 
