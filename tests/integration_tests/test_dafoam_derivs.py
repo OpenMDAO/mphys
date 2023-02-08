@@ -32,7 +32,7 @@ for dir in inputDirs:
 
 class Top(Multipoint):
     def setup(self):
-        from dafoam.mphys_dafoam import DAFoamBuilder
+        from dafoam.mphys import DAFoamBuilder
         from pygeo.mphys import OM_DVGEOCOMP
 
         self.U0 = 10.0
@@ -120,7 +120,7 @@ class Top(Multipoint):
         self.connect("geometry.x_aero0", "cruise.x_aero")
 
     def configure(self):
-        self.cruise.aero_post.mphys_add_funcs(["CD", "CL"])
+        self.cruise.aero_post.mphys_add_funcs()
 
         # create geometric DV setup
         points = self.mesh.mphys_get_surface_mesh()

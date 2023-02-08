@@ -24,7 +24,7 @@ from mphys.multipoint import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 
 # these imports will be from the respective codes' repos rather than mphys
-from dafoam.mphys_dafoam import DAFoamBuilder
+from dafoam.mphys import DAFoamBuilder
 from tacs.mphys import TacsBuilder
 from funtofem.mphys import MeldBuilder
 from pygeo.mphys import OM_DVGEOCOMP
@@ -187,7 +187,7 @@ class Top(Multipoint):
         tacs_options = {
             "element_callback": element_callback,
             "problem_setup": problem_setup,
-            "mesh_file": "../input_files/wingbox.bdf",
+            "mesh_file": "wingbox.bdf",
         }
 
         struct_builder = TacsBuilder(tacs_options)
@@ -222,9 +222,10 @@ class Top(Multipoint):
             linear_solver,
         )
 
-        for discipline in ["aero", "struct"]:
+        for discipline in ["aero"]:
+            self.connect("geometry.x_%s0" % discipline, "cruise.x_%s0_masked" % discipline)
+        for discipline in ["struct"]:
             self.connect("geometry.x_%s0" % discipline, "cruise.x_%s0" % discipline)
-
         # add the structural thickness DVs
         ndv_struct = struct_builder.get_ndv()
         dvs.add_output("dv_struct", np.array(ndv_struct * [0.01]))
@@ -236,7 +237,7 @@ class Top(Multipoint):
     def configure(self):
         super().configure()
 
-        self.cruise.aero_post.mphys_add_funcs(["CD", "CL"])
+        self.cruise.aero_post.mphys_add_funcs()
 
         # create geometric DV setup
         points = self.mesh_aero.mphys_get_surface_mesh()
