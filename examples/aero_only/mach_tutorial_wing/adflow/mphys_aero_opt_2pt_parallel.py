@@ -140,7 +140,7 @@ class Top(om.Group):
         # Set up global design variables
         # def twist(val, geo):
         #     for i in range(1, nRefAxPts):
-        #         geo.rot_z["wing"].coef[i] = val[i - 1]
+        #         geo.rot_y["wing"].coef[i] = val[i - 1]
 
         # self.geometry.nom_addGeoDVGlobal(dvName="twist", value=np.array([0] * nTwist), func=twist)
 
