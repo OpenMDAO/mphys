@@ -72,7 +72,7 @@ class Top(Multipoint):
         self.add_subsystem("mesh", adflow_builder.get_mesh_coordinate_subsystem())
 
         # add the geometry component, we dont need a builder because we do it here.
-        self.add_subsystem("geometry", OM_DVGEOCOMP(ffd_file="ffd.xyz"))
+        self.add_subsystem("geometry", OM_DVGEOCOMP(file="ffd.xyz", type="ffd"))
 
         self.mphys_add_scenario("cruise0", ScenarioAerodynamic(aero_builder=adflow_builder))
         self.mphys_add_scenario("cruise1", ScenarioAerodynamic(aero_builder=adflow_builder))
@@ -132,7 +132,7 @@ class Top(Multipoint):
             for i in range(1, nRefAxPts):
                 geo.rot_y["wing"].coef[i] = val[i - 1]
 
-        self.geometry.nom_addGeoDVGlobal(dvName="twist", value=np.array([0] * nTwist), func=twist)
+        self.geometry.nom_addGlobalDV(dvName="twist", value=np.array([0] * nTwist), func=twist)
 
         # add dvs to ivc and connect
         self.dvs.add_output("aoa0", val=aoa, units="deg")

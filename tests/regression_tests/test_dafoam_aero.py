@@ -35,7 +35,7 @@ for dir in inputDirs:
 
 class Top(Multipoint):
     def setup(self):
-        from dafoam.mphys_dafoam import DAFoamBuilder
+        from dafoam.mphys import DAFoamBuilder
         from pygeo.mphys import OM_DVGEOCOMP
 
         self.U0 = 10.0
@@ -115,7 +115,7 @@ class Top(Multipoint):
         self.add_subsystem("mesh", dafoam_builder.get_mesh_coordinate_subsystem())
 
         # add the geometry component, we dont need a builder because we do it here.
-        self.add_subsystem("geometry", OM_DVGEOCOMP(ffd_file="FFD/wingFFD.xyz"))
+        self.add_subsystem("geometry", OM_DVGEOCOMP(file="FFD/wingFFD.xyz", type="ffd"))
 
         self.mphys_add_scenario("cruise", ScenarioAerodynamic(aero_builder=dafoam_builder))
 
@@ -125,7 +125,7 @@ class Top(Multipoint):
     def configure(self):
         super().configure()
 
-        self.cruise.aero_post.mphys_add_funcs(["CD", "CL"])
+        self.cruise.aero_post.mphys_add_funcs()
 
         # create geometric DV setup
         points = self.mesh.mphys_get_surface_mesh()
@@ -158,8 +158,8 @@ class Top(Multipoint):
         self.cruise.coupling.solver.add_dv_func("aoa", aoa)
         self.cruise.aero_post.add_dv_func("aoa", aoa)
 
-        self.geometry.nom_addGeoDVGlobal(dvName="twist", value=np.array([0] * (nRefAxPts - 1)), func=twist)
-        nShapes = self.geometry.nom_addGeoDVLocal(dvName="shape")
+        self.geometry.nom_addGlobalDV(dvName="twist", value=np.array([0] * (nRefAxPts - 1)), func=twist)
+        nShapes = self.geometry.nom_addLocalDV(dvName="shape")
 
         leList = [[0.1, 0, 0.01], [7.5, 0, 13.9]]
         teList = [[4.9, 0, 0.01], [8.9, 0, 13.9]]

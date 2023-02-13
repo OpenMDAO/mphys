@@ -46,6 +46,7 @@ class BuilderB(Builder):
 class FakeScenario(Scenario):
     def initialize(self):
         self.options.declare('builders')
+        super().initialize()
 
     def _mphys_scenario_setup(self):
         for builder in self.options['builders']:
