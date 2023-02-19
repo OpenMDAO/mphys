@@ -69,11 +69,8 @@ class Multipoint(om.Group):
             for discipline in disciplines_list:
                 src = f'{source}.x_{discipline}0'
                 target = f'{scenario}.x_{discipline}0'
-                print(f'Connecting {src} to {target}')
                 self.connect(src, target)
-        
-        import pdb
-        pdb.set_trace()
+       
 
     def configure(self):
         return set_coupling_algorithms_in_scenarios(self)
