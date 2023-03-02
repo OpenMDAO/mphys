@@ -34,9 +34,9 @@ class ScenarioAeroThermal(Scenario):
             self._mphys_add_mesh_and_geometry_subsystems(aero_builder, thermal_builder,
                                                          geometry_builder)
 
-        self.mphys_add_pre_coupling_subsystem('aero', aero_builder, self.name)
-        self.mphys_add_pre_coupling_subsystem('thermal', thermal_builder, self.name)
-        self.mphys_add_pre_coupling_subsystem('thermalxfer', thermalxfer_builder, self.name)
+        self._mphys_add_pre_coupling_subsystem_from_builder('aero', aero_builder, self.name)
+        self._mphys_add_pre_coupling_subsystem_from_builder('thermal', thermal_builder, self.name)
+        self._mphys_add_pre_coupling_subsystem_from_builder('thermalxfer', thermalxfer_builder, self.name)
 
         coupling_group = CouplingAeroThermal(aero_builder=aero_builder,
                                                 thermal_builder=thermal_builder,
@@ -44,9 +44,9 @@ class ScenarioAeroThermal(Scenario):
                                                 scenario_name=self.name)
         self.mphys_add_subsystem('coupling', coupling_group)
 
-        self.mphys_add_post_coupling_subsystem('thermalxfer', thermalxfer_builder, self.name)
-        self.mphys_add_post_coupling_subsystem('aero', aero_builder, self.name)
-        self.mphys_add_post_coupling_subsystem('thermal', thermal_builder, self.name)
+        self._mphys_add_post_coupling_subsystem_from_builder('thermalxfer', thermalxfer_builder, self.name)
+        self._mphys_add_post_coupling_subsystem_from_builder('aero', aero_builder, self.name)
+        self._mphys_add_post_coupling_subsystem_from_builder('thermal', thermal_builder, self.name)
 
     def _mphys_initialize_builders(self, aero_builder, thermal_builder,
                                    thermalxfer_builder, geometry_builder):
