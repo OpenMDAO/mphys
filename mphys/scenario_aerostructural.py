@@ -40,8 +40,8 @@ class ScenarioAeroStructural(Scenario):
         )
         self.options.declare(
             "coupling_group_type",
-            default="aerostructural",
-            desc='Limited flexibility for coupling group type to accomodate flutter about jig shape or DLM where coupling group can be skipped: ["aerostructural", "aerodynamics_only", None]',
+            default="full_coupling",
+            desc='Limited flexibility for coupling group type to accomodate flutter about jig shape or DLM where coupling group can be skipped: ["full_coupling", "aerodynamics_only", None]',
         )
 
     def _mphys_scenario_setup(self):
@@ -68,7 +68,7 @@ class ScenarioAeroStructural(Scenario):
             "ldxfer", ldxfer_builder, self.name
         )
 
-        if self.options["coupling_group_type"] == "aerostructural":
+        if self.options["coupling_group_type"] == "full_coupling":
             coupling_group = CouplingAeroStructural(
                 aero_builder=aero_builder,
                 struct_builder=struct_builder,
