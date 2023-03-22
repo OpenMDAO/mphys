@@ -11,6 +11,8 @@ class ScenarioAeroThermal(Scenario):
         The Scenario will add the aerodynamic builder's precoupling subsystem,
         the coupling subsystem, and the postcoupling subsystem.
         """
+        super().initialize()
+        
         self.options.declare('aero_builder', recordable=False,
                               desc='The Mphys builder for the aerodynamic solver')
         self.options.declare('thermal_builder', recordable=False,
