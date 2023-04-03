@@ -107,7 +107,7 @@ class Top(Multipoint):
         dvs.add_output('v', vel, units='m/s')
         dvs.add_output('reynolds', re, units="1/m")
 
-        aero_builder = AeroBuilder([surface])
+        aero_builder = AeroBuilder([surface], options={"write_solution": False})
         aero_builder.initialize(self.comm)
 
         self.add_subsystem('mesh_aero', aero_builder.get_mesh_coordinate_subsystem())
