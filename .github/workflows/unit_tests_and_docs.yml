@@ -58,9 +58,11 @@ jobs:
           cd ../mphys;
           pip install -e .
           echo "=============================================================";
-          echo "Install TACS (complex)";
+          echo "Install optional dependencies";
           echo "=============================================================";
-          conda install -c conda-forge -c "smdogroup/label/complex" -c smdogroup tacs;
+          conda install -c conda-forge mamba -q -y;
+          mamba install -c "smdogroup/label/complex" -c smdogroup -c conda-forge tacs funtofem -q -y;
+          pip install openaerostruct;
           echo "=============================================================";
           echo "List installed packages/versions";
           echo "=============================================================";
@@ -77,7 +79,7 @@ jobs:
           chmod +x get-input-files.sh
           ./get-input-files.sh
           cd ../integration_tests
-          testflo test_tacs_*
+          testflo test_tacs_* test_meld_* test_oas_*
           echo "=============================================================";
           echo "Making docs";
           echo "=============================================================";
