@@ -30,14 +30,15 @@ Then go into the `docs` directory and run `make html`.
 # Solvers compatible with mphys
 Open-source codes with builders and components compatible with mphys:
 
-| Code                                                       | Analysis Type                  | Notes                                                                                              |
-|------------------------------------------------------------|--------------------------------|----------------------------------------------------------------------------------------------------|
-|[ADflow](https://github.com/mdolab/adflow)                  | Aerodynamics                   | Structured multi-block and overset CFD.                                                            |
-|[DAfoam](https://github.com/mdolab/dafoam)                  | Aerodynamics                   | Discrete Adjoint with OpenFOAM.                                                                    |
-|[MELD](https://github.com/smdogroup/funtofem)               | Load and Displacement Transfer | Point cloud based transfer scheme. Part of the FUNtoFEM package.                                   |
-|[pyCycle](https://github.com/OpenMDAO/pyCycle)              | Propulsion                     | Thermodynamic cycle modeling library for engines.                                                  |
-|[pyGeo](https://github.com/mdolab/pygeo)                    | Geometric Parameterization     | Wrapper for ESP, OpenVSP, and a free-form deformation parameterization.                            |
-|[TACS](https://github.com/smdogroup/tacs)                   | Structures                     | Parallel Finite Element Analysis.                                                                  |
+| Code                                                       | Analysis Type                  | Notes                                                                   |
+|------------------------------------------------------------|--------------------------------|-------------------------------------------------------------------------|
+| [ADflow](https://github.com/mdolab/adflow)                 | Aerodynamics                   | Structured multi-block and overset CFD.                                 |
+| [DAfoam](https://github.com/mdolab/dafoam)                 | Aerodynamics                   | Discrete Adjoint with OpenFOAM.                                         |
+| [OpenAeroStruct](https://github.com/mdolab/openaerostruct) | Aerodynamics                   | Vortex lattice aerodynamics written using OpenMDAO.                     |
+| [MELD](https://github.com/smdogroup/funtofem)              | Load and Displacement Transfer | Point cloud based transfer scheme. Part of the FUNtoFEM package.        |
+| [pyCycle](https://github.com/OpenMDAO/pyCycle)             | Propulsion                     | Thermodynamic cycle modeling library for engines.                       |
+| [pyGeo](https://github.com/mdolab/pygeo)                   | Geometric Parameterization     | Wrapper for ESP, OpenVSP, and a free-form deformation parameterization. |
+| [TACS](https://github.com/smdogroup/tacs)                  | Structures                     | Parallel Finite Element Analysis.                                       |
 
 # Examples
 As noted their README.md files, some of the examples use codes that are not widely available;
