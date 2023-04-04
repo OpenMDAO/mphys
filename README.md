@@ -67,6 +67,7 @@ tacs
 funtofem
 testflo
 paramerized
+openaerostruct
 ```
 and these input files. They can be obtained by running `get-input-files.sh`
 ```
