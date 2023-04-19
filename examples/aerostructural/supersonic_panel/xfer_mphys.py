@@ -83,7 +83,8 @@ class XferBuilder(Builder):
     def initialize(self, comm): 
         self.solver = Xfer(
             aero = self.aero_builder.solver,
-            struct = self.struct_builder.solver
+            struct = self.struct_builder.solver,
+            comm = comm
         )
 
     def get_coupling_group_subsystem(self, scenario_name=None):

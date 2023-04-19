@@ -232,7 +232,8 @@ class StructBuilder(Builder):
         self.solver = Beam(
             panel_chord=self.options['panel_chord'], 
             panel_width=self.options['panel_width'], 
-            N_el=self.options['N_el']
+            N_el=self.options['N_el'],
+            comm=comm
         )
 
     def get_mesh_coordinate_subsystem(self, scenario_name=None):

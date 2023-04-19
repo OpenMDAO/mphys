@@ -34,6 +34,7 @@ class AeroSolver(om.ImplicitComponent):
             self.add_output('pressure', np.zeros(0), distributed=True, tags=['mphys_coupling'])
 
     def solve_nonlinear(self,inputs,outputs):
+
         self.solver.xyz = inputs['x_aero']
         self.solver.aoa = inputs['aoa']
         self.solver.qdyn = inputs['qdyn']
@@ -177,7 +178,8 @@ class AeroBuilder(Builder):
         self.solver = PistonTheory(
             panel_chord=self.options['panel_chord'],
             panel_width=self.options['panel_width'],
-            N_el=self.options['N_el']
+            N_el=self.options['N_el'],
+            comm=comm
         )
 
     def get_mesh_coordinate_subsystem(self, scenario_name=None):

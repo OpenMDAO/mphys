@@ -71,8 +71,8 @@ class Model(Multipoint):
         self.add_subsystem('aero_mesh', aero_builder.get_mesh_coordinate_subsystem())
         self.add_subsystem('geometry', geometry_builder.get_mesh_coordinate_subsystem(), promotes=['*'])
 
-        self.connect('struct_mesh.x_struct0', 'x_struct0_in')
-        self.connect('aero_mesh.x_aero0', 'x_aero0_in')
+        self.connect('struct_mesh.x_struct0', 'x_struct_in')
+        self.connect('aero_mesh.x_aero0', 'x_aero_in')
  
         # aerostructural analysis
         nonlinear_solver = om.NonlinearBlockGS(maxiter=100, iprint=2, use_aitken=True, aitken_initial_factor=0.5)
