@@ -53,7 +53,7 @@ def problem_setup(scenario_name, fea_assembler, problem):
     # Add TACS Functions
     problem.addFunction('mass', functions.StructuralMass)
     problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
-                       ksWeight=100.0)
+                        ksWeight=100.0)
 
     # Add forces to static problem
     F = fea_assembler.createVec()

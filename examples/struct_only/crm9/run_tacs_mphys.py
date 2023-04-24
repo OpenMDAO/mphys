@@ -47,10 +47,10 @@ model = prob.model
 model.add_design_var('dv_struct', lower=0.002, upper=0.2, scaler=1000.0)
 model.add_objective('analysis.mass', index=0, scaler=1.0 / 1000.0)
 model.add_constraint('analysis.ks_vmfailure', lower=0.0, upper=1.0, scaler=1.0)
-model.add_constraint('constraints.adjacency.LE_SPAR', lower=-0.001, upper=0.001, scaler=1e3)
-model.add_constraint('constraints.adjacency.TE_SPAR', lower=-0.001, upper=0.001, scaler=1e3)
-model.add_constraint('constraints.adjacency.U_SKIN', lower=-0.001, upper=0.001, scaler=1e3)
-model.add_constraint('constraints.adjacency.L_SKIN', lower=-0.001, upper=0.001, scaler=1e3)
+model.add_constraint('constraints.adjacency.LE_SPAR', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
+model.add_constraint('constraints.adjacency.TE_SPAR', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
+model.add_constraint('constraints.adjacency.U_SKIN', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
+model.add_constraint('constraints.adjacency.L_SKIN', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
 
 prob.driver = om.ScipyOptimizeDriver(debug_print=['objs', 'nl_cons'], maxiter=200)
 prob.driver.options['optimizer'] = 'SLSQP'
