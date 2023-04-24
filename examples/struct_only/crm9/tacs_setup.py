@@ -60,3 +60,21 @@ def problem_setup(scenario_name, fea_assembler, problem):
     ndof = fea_assembler.getVarsPerNode()
     F[2::ndof] = 100.0
     problem.addLoadToRHS(F)
+
+def constraint_setup(fea_assembler):
+    """
+    Helper function to setup tacs constraint classes
+    """
+    # Setup adjacency constraints for skin and spar panel thicknesses
+    constr = fea_assembler.createAdjacencyConstraint("adjacency")
+    compIDs = fea_assembler.selectCompIDs(include="U_SKIN")
+    constr.addConstraint("U_SKIN", compIDs=compIDs)
+    compIDs = fea_assembler.selectCompIDs(include="L_SKIN")
+    constr.addConstraint("L_SKIN", compIDs=compIDs)
+    compIDs = fea_assembler.selectCompIDs(include="LE_SPAR")
+    constr.addConstraint("LE_SPAR", compIDs=compIDs)
+    compIDs = fea_assembler.selectCompIDs(include="TE_SPAR")
+    constr.addConstraint("TE_SPAR", compIDs=compIDs)
+    constr_list = [constr]
+    return constr_list
+

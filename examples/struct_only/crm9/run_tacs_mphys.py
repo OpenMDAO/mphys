@@ -15,6 +15,7 @@ class Top(Multipoint):
     def setup(self):
         tacs_options = {'element_callback': tacs_setup.element_callback,
                         'problem_setup': tacs_setup.problem_setup,
+                        'constraint_setup': tacs_setup.constraint_setup,
                         'mesh_file': 'CRM_box_2nd.bdf'}
 
         struct_builder = TacsBuilder(tacs_options, coupled=False, check_partials=True)
@@ -28,7 +29,11 @@ class Top(Multipoint):
         self.mphys_add_scenario('analysis', ScenarioStructural(struct_builder=struct_builder))
         self.mphys_connect_scenario_coordinate_source('mesh', 'analysis', 'struct')
 
-        self.connect('dv_struct', 'analysis.dv_struct')
+        # Add group for computing adjacency constraints on DVs
+        con_group = struct_builder.get_constraint_subsystem()
+        self.add_subsystem('constraints', con_group)
+        self.connect('mesh.x_struct0', 'constraints.x_struct0')
+        self.connect('dv_struct', ['analysis.dv_struct', 'constraints.dv_struct'])
 
 
 ################################################################################
@@ -42,6 +47,10 @@ model = prob.model
 model.add_design_var('dv_struct', lower=0.002, upper=0.2, scaler=1000.0)
 model.add_objective('analysis.mass', index=0, scaler=1.0 / 1000.0)
 model.add_constraint('analysis.ks_vmfailure', lower=0.0, upper=1.0, scaler=1.0)
+model.add_constraint('constraints.adjacency.LE_SPAR', lower=-0.001, upper=0.001, scaler=1e3)
+model.add_constraint('constraints.adjacency.TE_SPAR', lower=-0.001, upper=0.001, scaler=1e3)
+model.add_constraint('constraints.adjacency.U_SKIN', lower=-0.001, upper=0.001, scaler=1e3)
+model.add_constraint('constraints.adjacency.L_SKIN', lower=-0.001, upper=0.001, scaler=1e3)
 
 prob.driver = om.ScipyOptimizeDriver(debug_print=['objs', 'nl_cons'], maxiter=200)
 prob.driver.options['optimizer'] = 'SLSQP'
