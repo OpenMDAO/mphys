@@ -41,7 +41,7 @@ prob.model = Top()
 model = prob.model
 
 model.add_design_var('dv_struct', lower=0.002, upper=0.2, scaler=1000.0)
-model.add_objective('analysis.mass', index=0, scaler=1.0 / 1000.0)
+model.add_objective('analysis.mass', scaler=1.0 / 1000.0)
 model.add_constraint('analysis.ks_vmfailure', lower=0.0, upper=1.0, scaler=1.0)
 model.add_constraint('analysis.adjacency.LE_SPAR', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
 model.add_constraint('analysis.adjacency.TE_SPAR', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
