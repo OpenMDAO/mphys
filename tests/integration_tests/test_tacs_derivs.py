@@ -109,20 +109,32 @@ class TestTACS(unittest.TestCase):
                                       step=1e-50, step_calc='rel')
         for var, err in data.items():
             rel_err = err['rel error']
-            assert_near_equal(rel_err.forward, 0.0, 1e-7)
+            if rel_err.forward is not None:
+                err_val = rel_err.forward
+            else:
+                err_val = rel_err.reverse
+            assert_near_equal(err_val, 0.0, 1e-7)
 
         data = self.prob.check_totals(of=['analysis.ks_vmfailure'], wrt='f_struct',
                                       method='cs', step=1e-50, step_calc='rel')
         for var, err in data.items():
             rel_err = err['rel error']
-            assert_near_equal(rel_err.forward, 0.0, 5e-8)
+            if rel_err.forward is not None:
+                err_val = rel_err.forward
+            else:
+                err_val = rel_err.reverse
+            assert_near_equal(err_val, 0.0, 5e-8)
 
         data = self.prob.check_totals(of=['analysis.ks_vmfailure', 'analysis.mass'],
                                       wrt='dv_struct', method='cs',
                                       step=1e-50, step_calc='rel')
         for var, err in data.items():
             rel_err = err['rel error']
-            assert_near_equal(rel_err.forward, 0.0, 1e-8)
+            if rel_err.forward is not None:
+                err_val = rel_err.forward
+            else:
+                err_val = rel_err.reverse
+            assert_near_equal(err_val, 0.0, 1e-8)
 
 
 if __name__ == '__main__':

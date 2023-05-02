@@ -169,7 +169,13 @@ class TestTACS(unittest.TestCase):
                 check_error = err['abs error']
             else:
                 check_error = err['rel error']
-            assert_near_equal(check_error.forward, 0.0, 1e-6)
+
+            if check_error.forward is not None:
+                err_val = check_error.forward
+            else:
+                err_val = check_error.reverse
+
+            assert_near_equal(err_val, 0.0, 1e-6)
 
 
 if __name__ == '__main__':
