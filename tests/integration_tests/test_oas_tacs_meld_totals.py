@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 import openmdao.api as om
-from openmdao.utils.assert_utils import assert_near_equal
+from openmdao.utils.assert_utils import assert_check_totals
 
 from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
@@ -164,12 +164,7 @@ class TestTACS(unittest.TestCase):
         data = self.prob.check_totals(of=['cruise.wing.CL', 'cruise.ks_vmfailure', 'cruise.mass'],
                                       wrt=['aoa', 'dv_struct'], method='fd', form='central',
                                       step=1e-5, step_calc='rel')
-        for var, err in data.items():
-            if err['magnitude'].fd == 0.0:
-                check_error = err['abs error']
-            else:
-                check_error = err['rel error']
-            assert_near_equal(check_error.forward, 0.0, 1e-6)
+        assert_check_totals(data, atol=1e99, rtol=1e-6)
 
 
 if __name__ == '__main__':
