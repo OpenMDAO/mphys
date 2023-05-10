@@ -39,6 +39,7 @@ Open-source codes with builders and components compatible with mphys:
 | [pyCycle](https://github.com/OpenMDAO/pyCycle)             | 4.2.1                | Propulsion                     | Thermodynamic cycle modeling library for engines.                       |
 | [pyGeo](https://github.com/mdolab/pygeo)                   | 1.12.3               | Geometric Parameterization     | Wrapper for ESP, OpenVSP, and a free-form deformation parameterization. |
 | [TACS](https://github.com/smdogroup/tacs)                  | 3.3.0                | Structures                     | Parallel Finite Element Analysis. |
+
 \* Recommended version to run mphys examples. Older versions may still be supported.
 
 # Examples
