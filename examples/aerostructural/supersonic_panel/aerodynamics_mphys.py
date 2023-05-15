@@ -1,6 +1,6 @@
 import numpy as np
 import openmdao.api as om
-from mphys import Builder
+from mphys import Builder, MPhysVariables
 from mpi4py import MPI
 
 from piston_theory import PistonTheory
@@ -10,7 +10,8 @@ class AeroMesh(om.IndepVarComp):
     def initialize(self):
         self.options.declare('x_aero0')
     def setup(self):
-        self.add_output('x_aero0', val=self.options['x_aero0'], distributed=True, tags=['mphys_coordinates'])
+        self.x_aero0_name = MPhysVariables.coordinates_initial_aerodynamic
+        self.add_output(self.x_aero0_name, val=self.options['x_aero0'], distributed=True, tags=['mphys_coordinates'])
 
 
 # IC which computes aero pressures
@@ -18,10 +19,12 @@ class AeroSolver(om.ImplicitComponent):
     def initialize(self):
         self.options.declare('solver')
 
+        self.x_aero_name = MPhysVariables.coordinates_deformed_aerodynamic
+
     def setup(self):
         self.solver = self.options['solver']
-       
-        self.add_input('x_aero', shape_by_conn=True, distributed=True, tags=['mphys_coordinates'])
+
+        self.add_input(self.x_aero_name, shape_by_conn=True, distributed=True, tags=['mphys_coordinates'])
         self.add_input('aoa', 0., units = 'deg', tags=['mphys_input'])
         self.add_input('qdyn', 0., tags=['mphys_input'])
         self.add_input('mach', 0., tags=['mphys_input'])
@@ -35,7 +38,7 @@ class AeroSolver(om.ImplicitComponent):
 
     def solve_nonlinear(self,inputs,outputs):
 
-        self.solver.xyz = inputs['x_aero']
+        self.solver.xyz = inputs[self.x_aero_name]
         self.solver.aoa = inputs['aoa']
         self.solver.qdyn = inputs['qdyn']
         self.solver.mach = inputs['mach']
@@ -43,7 +46,7 @@ class AeroSolver(om.ImplicitComponent):
         outputs['pressure'] = self.solver.compute_pressure()
 
     def apply_nonlinear(self,inputs,outputs,residuals):
-        self.solver.xyz = inputs['x_aero']
+        self.solver.xyz = inputs[self.x_aero_name]
         self.solver.aoa = inputs['aoa']
         self.solver.qdyn = inputs['qdyn']
         self.solver.mach = inputs['mach']
@@ -61,13 +64,13 @@ class AeroSolver(om.ImplicitComponent):
             if 'pressure' in d_residuals:
                 if 'pressure' in d_outputs:
                     d_outputs['pressure'] += d_residuals['pressure']
-                    
+
                 d_xa, d_aoa, d_qdyn, d_mach = self.solver.compute_pressure_derivatives(
                     adjoint=d_residuals['pressure']
                 )
 
-                if 'x_aero' in d_inputs:
-                    d_inputs['x_aero'] += d_xa
+                if self.x_aero_name in d_inputs:
+                    d_inputs[self.x_aero_name] += d_xa
                 if 'aoa' in d_inputs:
                     d_inputs['aoa'] += d_aoa
                 if 'qdyn' in d_inputs:
@@ -82,27 +85,30 @@ class AeroForces(om.ExplicitComponent):
         self.options.declare('solver')
 
     def setup(self):
+        self.x_aero_name = MPhysVariables.coordinates_deformed_aerodynamic
+        self.f_aero_name = MPhysVariables.loads_aerodynamic
+
         self.solver = self.options['solver']
 
-        self.add_input('x_aero', shape_by_conn=True, distributed=True, tags=['mphys_coordinates'])
+        self.add_input(self.x_aero_name, shape_by_conn=True, distributed=True, tags=['mphys_coordinates'])
         self.add_input('pressure', shape_by_conn=True, distributed=True, tags=['mphys_coupling'])
-        self.add_output('f_aero', np.zeros(self.solver.n_nodes*self.solver.n_dof), distributed=True, tags=['mphys_coupling'])
+        self.add_output(self.f_aero_name, np.zeros(self.solver.n_nodes*self.solver.n_dof), distributed=True, tags=['mphys_coupling'])
 
     def compute(self,inputs,outputs):
-        self.solver.xyz = inputs['x_aero']
-        self.solver.pressure = inputs['pressure'] 
+        self.solver.xyz = inputs[self.x_aero_name]
+        self.solver.pressure = inputs['pressure']
 
-        outputs['f_aero'] = self.solver.compute_force()
+        outputs[self.f_aero_name] = self.solver.compute_force()
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'rev':
-            if 'f_aero' in d_outputs:
+            if self.f_aero_name in d_outputs:
                 d_xa, d_p = self.solver.compute_force_derivatives(
-                    adjoint=d_outputs['f_aero']
+                    adjoint=d_outputs[self.f_aero_name]
                 )
 
-                if 'x_aero' in d_inputs:
-                    d_inputs['x_aero'] += d_xa
+                if self.x_aero_name in d_inputs:
+                    d_inputs[self.x_aero_name] += d_xa
                 if 'pressure' in d_inputs:
                     d_inputs['pressure'] += d_p
 
@@ -121,7 +127,7 @@ class AeroFunction(om.ExplicitComponent):
 
     def compute(self,inputs,outputs):
         self.solver.qdyn = inputs['qdyn']
-        self.solver.pressure = inputs['pressure'] 
+        self.solver.pressure = inputs['pressure']
 
         outputs['C_L'] = self.solver.compute_lift()
 
@@ -138,7 +144,7 @@ class AeroFunction(om.ExplicitComponent):
                     d_inputs['pressure'] += d_p
                 if 'qdyn' in d_inputs:
                     d_inputs['qdyn'] += d_qdyn
-                    
+
 
 # Group which holds the solver and force computation
 class AeroSolverGroup(om.Group):
@@ -154,7 +160,7 @@ class AeroSolverGroup(om.Group):
         self.add_subsystem('aero_forces', AeroForces(
             solver = self.options['solver']),
             promotes=['*']
-        )   
+        )
 
 
 # Group which holds the function computation
@@ -187,7 +193,7 @@ class AeroBuilder(Builder):
             x_aero0 = np.c_[self.solver.x,self.solver.y,self.solver.z].flatten(order='C')
         else:
             x_aero0 = np.zeros(0)
-        return AeroMesh(x_aero0=x_aero0) 
+        return AeroMesh(x_aero0=x_aero0)
 
     def get_coupling_group_subsystem(self, scenario_name=None):
         return AeroSolverGroup(solver=self.solver)
@@ -200,4 +206,3 @@ class AeroBuilder(Builder):
 
     def get_ndof(self):
         return self.soler.n_dof
-
