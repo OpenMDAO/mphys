@@ -77,4 +77,9 @@ def constraint_setup(scenario_name, fea_assembler, constraint_list):
         compIDs = fea_assembler.selectCompIDs(include="TE_SPAR")
         constr.addConstraint("TE_SPAR", compIDs=compIDs)
         constraint_list.append(constr)
+        # Add volume constraint
+        constr = fea_assembler.createVolumeConstraint("volume")
+        compIDs = fea_assembler.selectCompIDs(include=["U_SKIN", "L_SKIN", "LE_SPAR", "TE_SPAR", "RIB.00", "RIB.48"])
+        constr.addConstraint("fuel", compIDs=compIDs)
+        constraint_list.append(constr)
 
