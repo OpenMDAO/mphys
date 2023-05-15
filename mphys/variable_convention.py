@@ -1,19 +1,37 @@
 
 class MPhysVariables:
-    # coordinates
-    coordinates_initial_aerodynamic = 'x_aero0'
-    coordinates_initial_structural = 'x_struct0'
-    coordinates_deformed_aerodynamic = 'x_aero'
-    coordinates_deformed_structural = 'x_struct'
 
-    # aerostructural coupling states
-    displacements_aerodynamic = 'u_aero'
-    displacements_structural = 'u_struct'
-    loads_aerodynamic = 'f_aero'
-    loads_structural_from_aerodynamics = 'f_aero_struct'
+    class Aerodynamics:
+        #: Surface coordinates, jig shape (includes geometry changes)
+        coordinates_initial = 'x_aero0'
 
-    # thermal coupling states
-    temperature_conduction ='T_conduct'
-    heat_flow_conduction ='q_conduct'
-    temperature_convection ='T_convect'
-    heat_flow_convection ='q_convect'
+        #: Surface coordinates, deformed by geometry or structures
+        coordinates_deformed = 'x_aero'
+
+        #: Surface displacements
+        displacements = 'u_aero'
+
+        #: Surface forces
+        loads = 'f_aero'
+
+        #: Surface temperature distribution
+        temperature_convection ='T_convect'
+
+        #: Surface distribution of heat flux * local surface area
+        heat_flow_convection ='q_convect'
+
+    class Structures:
+        #: Coordinates, jig shape (including geometry changes)
+        coordinates_initial = 'x_struct0'
+
+        #: displacements at mesh nodes
+        displacements = 'u_struct'
+
+        #: loads at mesh nodes
+        loads_from_aerodynamics = 'f_aero_struct'
+
+        #: Temperature at mesh nodes
+        temperature_conduction ='T_conduct'
+
+        #: Heat flux * local surface area at mesh nodes
+        heat_flow_conduction ='q_conduct'
