@@ -1,6 +1,5 @@
-import openmdao.api as om
-from .scenario import Scenario
-from .coupling_aerostructural import CouplingAeroStructural
+from mphys.scenario import Scenario
+from mphys.coupling_aerostructural import CouplingAeroStructural
 
 
 class ScenarioAeroStructural(Scenario):
@@ -57,6 +56,8 @@ class ScenarioAeroStructural(Scenario):
         )
 
     def _mphys_scenario_setup(self):
+        self._mphys_check_coupling_order_inputs(self.options["pre_coupling_order"])
+        self._mphys_check_coupling_order_inputs(self.options["post_coupling_order"])
 
         if self.options["in_MultipointParallel"]:
             self._mphys_initialize_builders()
@@ -65,6 +66,21 @@ class ScenarioAeroStructural(Scenario):
         self._mphys_add_pre_coupling_subsystems()
         self._mphys_add_coupling_group()
         self._mphys_add_post_coupling_subsystems()
+
+    def _mphys_check_coupling_order_inputs(self, given_options):
+        valid_options = ["aero", "struct", "ldxfer"]
+
+        length = len(given_options)
+        if length > 3:
+            raise ValueError(
+                f"Specified too many items in the pre/post coupling order list, len={length}"
+            )
+
+        for option in given_options:
+            if option not in valid_options:
+                raise ValueError(
+                    f"""Unknown pre/post order option: {option}. valid options are ["{'", "'.join(valid_options)}"]"""
+                )
 
     def _mphys_add_pre_coupling_subsystems(self):
         for discipline in self.options["pre_coupling_order"]:

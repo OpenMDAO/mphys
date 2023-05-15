@@ -306,6 +306,16 @@ class TestScenarioAeroStructuralChangeOrderPreAndPostCoupling(unittest.TestCase)
         expected_order = ['struct_pre', 'aero_pre', 'coupling', 'struct_post', 'aero_post']
         self.common.test_subsystem_order(self, self.prob.model.scenario, expected_order)
 
+    def test_invalid_subsystem_order_spelling(self):
+        bad_spelling = ['struct', 'aero', 'xfer']
+        with self.assertRaises(ValueError):
+            self.prob.model.scenario._mphys_check_coupling_order_inputs(bad_spelling)
+
+    def test_subsystem_order_too_long(self):
+        too_long = ['struct', 'aero', 'ldxfer', 'aero']
+        with self.assertRaises(ValueError):
+            self.prob.model.scenario._mphys_check_coupling_order_inputs(too_long)
+
     def test_no_autoivcs(self):
         self.common.test_no_autoivcs(self)
 
