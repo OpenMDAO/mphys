@@ -138,3 +138,6 @@ om.n2(prob, show_browser=False, outfile='beam_opt_n2.html')
 
 # Run optimization
 prob.run_driver()
+
+# Write out optimized bdf file
+model.tip_shear.coupling.write_bdf("out.bdf")
