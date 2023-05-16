@@ -10,7 +10,7 @@ class AeroMesh(om.IndepVarComp):
     def initialize(self):
         self.options.declare('x_aero0')
     def setup(self):
-        self.x_aero0_name = MPhysVariables.Aerodynamics.coordinates_initial
+        self.x_aero0_name = MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL
         self.add_output(self.x_aero0_name, val=self.options['x_aero0'], distributed=True, tags=['mphys_coordinates'])
 
 
@@ -19,7 +19,7 @@ class AeroSolver(om.ImplicitComponent):
     def initialize(self):
         self.options.declare('solver')
 
-        self.x_aero_name = MPhysVariables.Aerodynamics.coordinates_deformed
+        self.x_aero_name = MPhysVariables.Aerodynamics.Surface.COORDINATES_DEFORMED
 
     def setup(self):
         self.solver = self.options['solver']
@@ -85,8 +85,8 @@ class AeroForces(om.ExplicitComponent):
         self.options.declare('solver')
 
     def setup(self):
-        self.x_aero_name = MPhysVariables.Aerodynamics.coordinates_deformed
-        self.f_aero_name = MPhysVariables.Aerodynamics.loads
+        self.x_aero_name = MPhysVariables.Aerodynamics.Surface.COORDINATES_DEFORMED
+        self.f_aero_name = MPhysVariables.Aerodynamics.Surface.LOADS
 
         self.solver = self.options['solver']
 

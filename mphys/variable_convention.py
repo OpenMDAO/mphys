@@ -1,37 +1,36 @@
-
 class MPhysVariables:
-
     class Aerodynamics:
-        #: Surface coordinates, jig shape (includes geometry changes)
-        coordinates_initial = 'x_aero0'
+        class Surface:
+            #: node coordinates, jig shape (includes geometry changes)
+            COORDINATES_INITIAL = "x_aero0"
 
-        #: Surface coordinates, deformed by geometry or structures
-        coordinates_deformed = 'x_aero'
+            #: node coordinates, deformed by geometry or structures
+            COORDINATES_DEFORMED = "x_aero"
 
-        #: Surface displacements
-        displacements = 'u_aero'
+            #: displacement distribution
+            DISPLACEMENTS = "u_aero"
 
-        #: Surface forces
-        loads = 'f_aero'
+            #: force distribution
+            LOADS = "f_aero"
 
-        #: Surface temperature distribution
-        temperature_convection ='T_convect'
+            #: temperature distribution
+            TEMPERATURE = "T_convect"
 
-        #: Surface distribution of heat flux * local surface area
-        heat_flow_convection ='q_convect'
+            #: distribution of heat flux * local surface area
+            HEAT_FLOW = "q_convect"
 
     class Structures:
         #: Coordinates, jig shape (including geometry changes)
-        coordinates_initial = 'x_struct0'
+        COORDINATES_INITIAL = "x_struct0"
 
         #: displacements at mesh nodes
-        displacements = 'u_struct'
+        DISPLACEMENTS = "u_struct"
 
         #: loads at mesh nodes
-        loads_from_aerodynamics = 'f_aero_struct'
+        LOADS_FROM_AERODYNAMICS = "f_aero_struct"
 
-        #: Temperature at mesh nodes
-        temperature_conduction ='T_conduct'
+        #: temperature at mesh nodes
+        TEMPERATURE = "T_conduct"
 
-        #: Heat flux * local surface area at mesh nodes
-        heat_flow_conduction ='q_conduct'
+        #: heat flux * local surface area at mesh nodes
+        HEAT_FLOW = "q_conduct"
