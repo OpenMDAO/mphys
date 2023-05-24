@@ -1,4 +1,5 @@
-# MPhys
+<img src="docs/logo/mphys_logo_no_background.png" alt= “MPhys” width="250">
+
 [![Unit Tests and Docs](https://github.com/OpenMDAO/mphys/actions/workflows/unit_tests_and_docs.yml/badge.svg)](https://github.com/OpenMDAO/mphys/actions/workflows/unit_tests_and_docs.yml)
 
 MPhys is a package that standardizes high-fidelity multiphysics problems in OpenMDAO.
@@ -27,7 +28,7 @@ Online documentation is available at [https://openmdao.github.io/mphys/](https:/
 The documentation includes N2 diagrams from the unit tests. Before building the docs, go into `tests/unit_tests` and run `python -m unittest`.
 Then go into the `docs` directory and run `make html`.
 
-# Solvers compatible with mphys
+# Solvers compatible with MPhys
 Open-source codes with builders and components compatible with mphys:
 
 | Code                                                       | Recommended Version* | Analysis Type                  | Notes                                                                   |
@@ -54,7 +55,7 @@ MPhys development is discussed in biweekly telecons that occur Mondays at 11AM E
 If you would like to participate, contact Kevin Jacobson (kevin.e.jacobson@nasa.gov).
 
 ## Signed Commits
-The mphys `main` branch requires verified commits. See the instructions on how to sign commits [here](https://openmdao.org/newdocs/versions/latest/other_useful_docs/developer_docs/signing_commits.html).
+The MPhys `main` branch requires verified commits. See the instructions on how to sign commits [here](https://openmdao.org/newdocs/versions/latest/other_useful_docs/developer_docs/signing_commits.html).
 
 ## Tests
 The test are written to use the testflo framework because it allows us to run tests with multiple cores.
