@@ -9,7 +9,7 @@ from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 from openaerostruct.mphys.aero_builder import AeroBuilder
 from tacs.mphys import TacsBuilder
-from funtofem.mphys import MeldBuilder
+from pyfuntofem import MeldBuilder
 
 from tacs import elements, constitutive, functions
 
