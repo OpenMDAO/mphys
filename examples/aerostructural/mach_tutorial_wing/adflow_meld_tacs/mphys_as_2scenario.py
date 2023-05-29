@@ -8,7 +8,7 @@ from mphys.scenario_aerostructural import ScenarioAeroStructural
 from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
 from tacs.mphys import TacsBuilder
-from pyfuntofem import MeldBuilder
+from pyfuntofem.mphys import MeldBuilder
 # TODO RLT needs to be updated with the new tacs wrapper
 # from rlt.mphys import RltBuilder
 

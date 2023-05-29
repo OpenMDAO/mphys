@@ -19,7 +19,7 @@ import openmdao.api as om
 from openmdao.utils.assert_utils import assert_near_equal
 
 from mphys import Builder
-from pyfuntofem import MeldBuilder
+from pyfuntofem.mphys import MeldBuilder
 
 
 isym = 1

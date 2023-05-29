@@ -9,7 +9,7 @@ from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 from sfe.mphys import Fun3dSfeBuilder
 from tacs.mphys import TacsBuilder
-from pyfuntofem import MeldBuilder
+from pyfuntofem.mphys import MeldBuilder
 
 import tacs_setup
 from structural_patches_component import LumpPatches

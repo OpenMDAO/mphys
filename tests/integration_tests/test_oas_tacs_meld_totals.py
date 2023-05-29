@@ -8,7 +8,7 @@ from openmdao.utils.assert_utils import assert_check_totals
 from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 from openaerostruct.mphys import AeroBuilder
-from pyfuntofem import MeldBuilder
+from pyfuntofem.mphys import MeldBuilder
 
 from tacs import elements, constitutive, functions
 from tacs.mphys import TacsBuilder
