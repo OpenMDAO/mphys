@@ -9,9 +9,10 @@ from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 from openaerostruct.mphys.aero_builder import AeroBuilder
 from tacs.mphys import TacsBuilder
+from funtofem import TransferScheme
 from funtofem.mphys import MeldBuilder
 
-from tacs import elements, constitutive, functions
+from tacs import elements, constitutive, functions, TACS
 
 # Callback function used to setup TACS element objects and DVs
 def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
@@ -161,6 +162,8 @@ class TestOAS(unittest.TestCase):
     def test_run_model(self):
         self.prob.run_model()
 
+    @unittest.skipUnless(TACS.dtype == complex and TransferScheme.dtype == complex,
+                         "TACS/FunToFem must be compiled in complex mode.")
     def test_derivatives(self):
         self.prob.run_model()
         print('----------------starting check totals--------------')
