@@ -5,8 +5,6 @@ import numpy as np
 from pbs4py import PBS
 from mphys.network.zeromq_server_manager import MPhysZeroMQServerManager
 
-var_naming_dot_replacement = ':'
-
 class RemoteGroup(om.Group):
     def __init__(self,
                  run_server_filename,
@@ -15,7 +13,8 @@ class RemoteGroup(om.Group):
                  acceptable_port_range=[5080,6000],
                  time_estimate_multiplier=2.,
                  reboot_only_on_function_call=True,
-                 dump_json=False
+                 dump_json=False,
+                 var_naming_dot_replacement=':'
                  ):
         super().__init__()
         self.run_server_filename = run_server_filename
@@ -25,6 +24,7 @@ class RemoteGroup(om.Group):
         self.time_estimate_multiplier = time_estimate_multiplier
         self.reboot_only_on_function_call = reboot_only_on_function_call
         self.dump_json = dump_json
+        self.var_naming_dot_replacement = var_naming_dot_replacement
 
     def setup(self):
         if self.comm.size>1:
@@ -36,7 +36,8 @@ class RemoteGroup(om.Group):
                                         acceptable_port_range=self.acceptable_port_range,
                                         time_estimate_multiplier=self.time_estimate_multiplier,
                                         reboot_only_on_function_call=self.reboot_only_on_function_call,
-                                        dump_json=self.dump_json
+                                        dump_json=self.dump_json,
+                                        var_naming_dot_replacement=self.var_naming_dot_replacement
                                     ), promotes=['*'])
 
     def stop_server(self):
@@ -53,11 +54,13 @@ class RemoteComp(om.ExplicitComponent):
         self.options.declare('reboot_only_on_function_call') # only allows server reboot before function call, not gradient call
                                                              # avoids having to rerun forward solution on next job, but shortens current job time
         self.options.declare('dump_json') # dump input/output json file in client
+        self.options.declare('var_naming_dot_replacement') # what to replace "." with in dv/response names
 
     def setup(self):
         self.time_estimate_multiplier = self.options['time_estimate_multiplier']
         self.reboot_only_on_function_call = self.options['reboot_only_on_function_call']
         self.dump_json = self.options['dump_json']
+        self.var_naming_dot_replacement = self.options['var_naming_dot_replacement']
 
         # setup the server
         self.server_manager = MPhysZeroMQServerManager(pbs=self.options['pbs'],
@@ -70,35 +73,35 @@ class RemoteComp(om.ExplicitComponent):
         self.times_gradient = np.array([])
 
         # get baseline model
-        print('CLIENT: Running model from setup to get variable sizes', flush=True)
+        print('CLIENT: Running model from setup to get design problem info', flush=True)
         output_dict = self.evaluate_model(command='initialize')
 
         # add inputs
         for dv in output_dict['design_vars'].keys():
-            self.add_input(dv.replace('.',var_naming_dot_replacement), output_dict['design_vars'][dv]['val'])
-            self.add_design_var(dv.replace('.',var_naming_dot_replacement), ref=output_dict['design_vars'][dv]['ref'],
+            self.add_input(dv.replace('.',self.var_naming_dot_replacement), output_dict['design_vars'][dv]['val'])
+            self.add_design_var(dv.replace('.',self.var_naming_dot_replacement), ref=output_dict['design_vars'][dv]['ref'],
                                                                             lower=output_dict['design_vars'][dv]['lower'],
                                                                             upper=output_dict['design_vars'][dv]['upper'])
 
         # add outputs
         for obj in output_dict['objective'].keys():
-            self.add_output(obj.replace('.',var_naming_dot_replacement), output_dict['objective'][obj]['val'])
-            self.add_objective(obj.replace('.',var_naming_dot_replacement), ref=output_dict['objective'][obj]['ref'])
+            self.add_output(obj.replace('.',self.var_naming_dot_replacement), output_dict['objective'][obj]['val'])
+            self.add_objective(obj.replace('.',self.var_naming_dot_replacement), ref=output_dict['objective'][obj]['ref'])
         for con in output_dict['constraints'].keys():
-            self.add_output(con.replace('.',var_naming_dot_replacement), output_dict['constraints'][con]['val'])
+            self.add_output(con.replace('.',self.var_naming_dot_replacement), output_dict['constraints'][con]['val'])
             if output_dict['constraints'][con]['equals'] is not None: # equality constraint
-                self.add_constraint(con.replace('.',var_naming_dot_replacement), ref=output_dict['constraints'][con]['ref'],
+                self.add_constraint(con.replace('.',self.var_naming_dot_replacement), ref=output_dict['constraints'][con]['ref'],
                                                                                  equals=output_dict['constraints'][con]['equals'])
             else:
                 if output_dict['constraints'][con]['lower']>-1e20 and output_dict['constraints'][con]['upper']<1e20: # enforce lower and upper bounds
-                    self.add_constraint(con.replace('.',var_naming_dot_replacement), ref=output_dict['constraints'][con]['ref'],
+                    self.add_constraint(con.replace('.',self.var_naming_dot_replacement), ref=output_dict['constraints'][con]['ref'],
                                                                                      lower=output_dict['constraints'][con]['lower'],
                                                                                      upper=output_dict['constraints'][con]['upper'])
                 elif output_dict['constraints'][con]['lower']>-1e20: # enforce lower bound
-                    self.add_constraint(con.replace('.',var_naming_dot_replacement), ref=output_dict['constraints'][con]['ref'],
+                    self.add_constraint(con.replace('.',self.var_naming_dot_replacement), ref=output_dict['constraints'][con]['ref'],
                                                                                      lower=output_dict['constraints'][con]['lower'])
                 else: # enforce upper bound
-                    self.add_constraint(con.replace('.',var_naming_dot_replacement), ref=output_dict['constraints'][con]['ref'],
+                    self.add_constraint(con.replace('.',self.var_naming_dot_replacement), ref=output_dict['constraints'][con]['ref'],
                                                                                      upper=output_dict['constraints'][con]['upper'])
 
         # save keys for later
@@ -116,9 +119,9 @@ class RemoteComp(om.ExplicitComponent):
 
         # assign outputs
         for obj in output_dict['objective'].keys():
-            outputs[obj.replace('.',var_naming_dot_replacement)] = output_dict['objective'][obj]['val']
+            outputs[obj.replace('.',self.var_naming_dot_replacement)] = output_dict['objective'][obj]['val']
         for con in output_dict['constraints'].keys():
-            outputs[con.replace('.',var_naming_dot_replacement)] = output_dict['constraints'][con]['val']
+            outputs[con.replace('.',self.var_naming_dot_replacement)] = output_dict['constraints'][con]['val']
 
     def compute_partials(self, inputs, partials):
         # NOTE: this will not use of and wrt inputs, if given in outer script's compute_totals/check_totals
@@ -129,15 +132,15 @@ class RemoteComp(om.ExplicitComponent):
         # assign derivatives
         for obj in output_dict['objective'].keys():
             for dv in output_dict['design_vars'].keys():
-                partials[( obj.replace('.',var_naming_dot_replacement), dv.replace('.',var_naming_dot_replacement) )] = output_dict['objective'][obj]['derivatives'][dv]
+                partials[( obj.replace('.',self.var_naming_dot_replacement), dv.replace('.',self.var_naming_dot_replacement) )] = output_dict['objective'][obj]['derivatives'][dv]
         for con in output_dict['constraints'].keys():
             for dv in output_dict['design_vars'].keys():
-                partials[( con.replace('.',var_naming_dot_replacement), dv.replace('.',var_naming_dot_replacement) )] = output_dict['constraints'][con]['derivatives'][dv]
+                partials[( con.replace('.',self.var_naming_dot_replacement), dv.replace('.',self.var_naming_dot_replacement) )] = output_dict['constraints'][con]['derivatives'][dv]
 
     def _assign_input_dict_for_server(self, inputs):
         input_dict = {'design_vars': {}}
         for dv in self.design_vars:
-            input_dict['design_vars'][dv.replace('.',var_naming_dot_replacement)] = {'val': inputs[dv.replace('.',var_naming_dot_replacement)].tolist()}
+            input_dict['design_vars'][dv.replace('.',self.var_naming_dot_replacement)] = {'val': inputs[dv.replace('.',self.var_naming_dot_replacement)].tolist()}
         return input_dict
 
     def _doing_derivative_evaluation(self, command: str):

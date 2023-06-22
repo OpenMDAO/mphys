@@ -64,7 +64,7 @@ class MPhysZeroMQServerManager:
         print('CLIENT: Launching new server', flush=True)
         python_command = (f"python {self.run_server_filename} --port {self.port}")
         python_mpi_command = self.pbs.create_mpi_command(python_command, output_root_name='mphys_server')
-        jobid = self.pbs.launch('MPhys_server', [python_mpi_command], blocking=False)
+        jobid = self.pbs.launch(f'MPhys{self.port}', [python_mpi_command], blocking=False)
         self.job = PBSJob(jobid)
         self._wait_for_job_to_start()
         self._setup_ssh()

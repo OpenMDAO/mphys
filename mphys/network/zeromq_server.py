@@ -168,7 +168,10 @@ class MPhysZeroMQServer:
             if command=='initialize': # evaluate baseline model for RemoteComp setup
                 if self.rank==0:
                     print('SERVER: Initialization requested... using baseline design', flush=True)
-                if not self.current_design_has_been_evaluated:
+                if self.current_design_has_been_evaluated:
+                    if self.rank==0:
+                        print('SERVER: Design already evaluated, skipping run_model', flush=True)
+                else:
                     self._run_model()
             else:
                 design_changed = self._set_design_variables_into_the_server_problem(input_dict)
