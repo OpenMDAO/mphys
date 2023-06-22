@@ -12,6 +12,10 @@ class MPhysZeroMQServer:
         self.ignore_runtime_warnings = ignore_runtime_warnings
         self.rerun_initial_design = rerun_initial_design
 
+        self.current_design_has_been_evaluated = False
+        self.current_derivatives_have_been_evaluated = False
+        self.derivatives = None
+
         self._load_the_model()
         self._setup_zeromq_socket(port)
 
@@ -30,9 +34,6 @@ class MPhysZeroMQServer:
             if self.rank==0:
                 print('SERVER: Evaluating baseline design', flush=True)
             self._run_model()
-            self.baseline_design_complete = True
-        else:
-            self.baseline_design_complete = False
 
     def _setup_zeromq_socket(self, port):
         if self.rank==0:
@@ -65,26 +66,28 @@ class MPhysZeroMQServer:
                 self.prob.run_model()
         else:
             self.prob.run_model()
+        self.current_design_has_been_evaluated = True
+        self.derivatives = None
 
     def _compute_totals(self):
         if self.ignore_runtime_warnings:
             with warnings.catch_warnings(record=True) as w:
-                derivatives = self.prob.compute_totals()
+                self.derivatives = self.prob.compute_totals()
         else:
-            derivatives = self.prob.compute_totals()
-        return derivatives
+            self.derivatives = self.prob.compute_totals()
+        self.current_derivatives_have_been_evaluated = True
 
-    def _gather_inputs_and_outputs_from_om_problem(self, derivatives):
+    def _gather_inputs_and_outputs_from_om_problem(self):
 
         # save inputs (TODO: may want to get adder, scaler, etc.)
         design_vars = self.prob.model._design_vars
         output_dict = {'design_vars':{}}
         for dv in design_vars.keys():
             output_dict['design_vars'][dv] = {'val': self.prob.get_val(dv),
-                                            'ref': design_vars[dv]['ref'],
-                                            'lower': design_vars[dv]['lower'],
-                                            'upper': design_vars[dv]['upper'],
-                                            'units': design_vars[dv]['units']}
+                                              'ref': design_vars[dv]['ref'],
+                                              'lower': design_vars[dv]['lower'],
+                                              'upper': design_vars[dv]['upper'],
+                                              'units': design_vars[dv]['units']}
 
             # apply reference value
             if output_dict['design_vars'][dv]['ref'] is None:
@@ -108,12 +111,12 @@ class MPhysZeroMQServer:
                 response_type = 'constraints'
 
             output_dict[response_type][r] = {'val': self.prob.get_val(r, get_remote=True),
-                                            'ref': responses[r]['ref']}
+                                             'ref': responses[r]['ref']}
 
             if response_type=='constraints': # get constraint bounds
                 output_dict[response_type][r].update({'lower': responses[r]['lower'],
-                                                    'upper': responses[r]['upper'],
-                                                    'equals': responses[r]['equals']})
+                                                      'upper': responses[r]['upper'],
+                                                      'equals': responses[r]['equals']})
 
                 # apply reference value
                 if output_dict[response_type][r]['ref'] is None:
@@ -131,10 +134,10 @@ class MPhysZeroMQServer:
                 if hasattr(output_dict[response_type][r][key], 'tolist'):
                     output_dict[response_type][r][key] = output_dict[response_type][r][key].tolist()
 
-            if derivatives is not None: # save derivatives
+            if self.derivatives is not None: # save derivatives
                 output_dict[response_type][r]['derivatives'] = {}
                 for dv in design_vars.keys():
-                    deriv = derivatives[(responses[r]['source'], design_vars[dv]['source'])]
+                    deriv = self.derivatives[(responses[r]['source'], design_vars[dv]['source'])]
                     if hasattr(deriv,'tolist'):
                         deriv = deriv.tolist()
                     output_dict[response_type][r]['derivatives'][dv] = deriv
@@ -162,7 +165,6 @@ class MPhysZeroMQServer:
                     print('SERVER: Received signal to shutdown', flush=True)
                 break
 
-            derivatives = None
             if command=='initialize': # evaluate baseline model for RemoteComp setup
                 if self.rank==0:
                     print('SERVER: Inputs not given... using baseline design', flush=True)
@@ -170,27 +172,34 @@ class MPhysZeroMQServer:
             else:
                 design_changed = self._set_design_variables_into_the_server_problem(input_dict)
 
+            if design_changed: # can no longer reuse existing solution
+                self.current_design_has_been_evaluated = False
+                self.current_derivatives_have_been_evaluated = False
+
             if command=='evaluate derivatives': # compute derivatives
-                if design_changed:
+                if self.current_derivatives_have_been_evaluated:
                     if self.rank==0:
-                        print('SERVER: Derivative needed, but design has changed... evaluating forward solution first', flush=True)
-                    self._run_model()
-                if self.rank==0:
-                    print('SERVER: Evaluating derivatives', flush=True)
-                derivatives = self._compute_totals()
+                        print('SERVER: Derivatives already evaluated, skipping compute_totals', flush=True)
+                else:
+                    if not self.current_design_has_been_evaluated:
+                        if self.rank==0:
+                            print('SERVER: Derivative needed, but design has changed... evaluating forward solution first', flush=True)
+                        self._run_model()
+                    if self.rank==0:
+                        print('SERVER: Evaluating derivatives', flush=True)
+                    self._compute_totals()
 
             elif command=='evaluate': # run model
-                if self.baseline_design_complete: # avoids duplicate baseline eval when rerun_initial_design=True
+                if self.current_design_has_been_evaluated:
                     if self.rank==0:
-                        print('SERVER: Baseline design already evaluated, skipping run_model', flush=True)
-                    self.baseline_design_complete = False
+                        print('SERVER: Design already evaluated, skipping run_model', flush=True)
                 else:
                     if self.rank==0:
                         print('SERVER: Evaluating design', flush=True)
                     self._run_model()
 
             # gather/return outputs
-            output_dict = self._gather_inputs_and_outputs_from_om_problem(derivatives)
+            output_dict = self._gather_inputs_and_outputs_from_om_problem()
             self._send_outputs_to_client(output_dict)
 
             # write current n2 with values

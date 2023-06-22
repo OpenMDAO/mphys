@@ -175,7 +175,10 @@ class RemoteComp(om.ExplicitComponent):
             json.dump(output_dict, f, indent=4)
 
     def _send_inputs_to_server(self, input_dict, command: str):
-        print('CLIENT: Sending new design to server', flush=True)
+        if self._doing_derivative_evaluation(command):
+            print('CLIENT: Requesting derivative call from server', flush=True)
+        else:
+            print('CLIENT: Requesting function call from server', flush=True)
         input_str = f"{command}|{str(json.dumps(input_dict))}"
         self.server_manager.socket.send(input_str.encode())
 

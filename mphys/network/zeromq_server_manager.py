@@ -71,13 +71,14 @@ class MPhysZeroMQServerManager:
 
     def _wait_for_job_to_start(self):
         print('CLIENT: Waiting for job to start', flush=True)
+        job_submission_time = time.time()
         self._setup_placeholder_ssh()
         while self.job.state=='Q':
             time.sleep(queue_time_delay)
             self.job.update_job_state()
         self._stop_placeholder_ssh()
         self.job_start_time = time.time()
-        print('CLIENT: Job started', flush=True)
+        print(f'CLIENT: Job started (queue wait time: {(time.time()-job_submission_time)/3600} hours)', flush=True)
 
     def _setup_ssh(self):
         ssh_command = f'ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L {self.port}:localhost:{self.port} {self.job.hostname} &'
