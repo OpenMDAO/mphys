@@ -167,14 +167,14 @@ class MPhysZeroMQServer:
 
             if command=='initialize': # evaluate baseline model for RemoteComp setup
                 if self.rank==0:
-                    print('SERVER: Inputs not given... using baseline design', flush=True)
-                design_changed = False
+                    print('SERVER: Initialization requested... using baseline design', flush=True)
+                if not self.current_design_has_been_evaluated:
+                    self._run_model()
             else:
                 design_changed = self._set_design_variables_into_the_server_problem(input_dict)
-
-            if design_changed: # can no longer reuse existing solution
-                self.current_design_has_been_evaluated = False
-                self.current_derivatives_have_been_evaluated = False
+                if design_changed:
+                    self.current_design_has_been_evaluated = False
+                    self.current_derivatives_have_been_evaluated = False
 
             if command=='evaluate derivatives': # compute derivatives
                 if self.current_derivatives_have_been_evaluated:
