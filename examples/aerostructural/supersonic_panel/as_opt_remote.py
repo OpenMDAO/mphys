@@ -1,5 +1,5 @@
 import openmdao.api as om
-from mphys.network.remote_group import RemoteGroup
+from mphys.network.zmq_pbs import RemoteZeroMQComp
 from pbs4py import PBS
 
 check_totals = False # True=check objective/constraint derivatives, False=run optimization
@@ -11,7 +11,7 @@ pbs._requested_number_of_nodes = 1
 
 # define model as remote group
 prob = om.Problem()
-prob.model = RemoteGroup(run_server_filename='mphys_server.py', pbs=pbs)
+prob.model.add_subsystem('remote', RemoteZeroMQComp(run_server_filename='mphys_server.py', pbs=pbs))
 
 if check_totals:
     prob.setup(mode='rev')
@@ -21,7 +21,7 @@ if check_totals:
                         compact_print=True,
                         directional=False,
                         show_progress=True)
-    prob.model.stop_server()
+    prob.model.remote.stop_server()
 
 else:
 
@@ -44,7 +44,7 @@ else:
     # run the optimization
     prob.setup(mode='rev')
     prob.run_driver()
-    prob.model.stop_server()
+    prob.model.remote.stop_server()
     prob.cleanup()
 
     # write out data
@@ -56,34 +56,32 @@ else:
     dvs = case.get_design_vars()
     objs = case.get_objectives()
 
-    f = open("optimization_history.dat","w+")
+    with open("optimization_history.dat","w+") as f:
 
-    for i, k in enumerate(objs.keys()):
-        f.write('objective: ' + k + '\n')
-        for j, case_id in enumerate(driver_cases):
-            f.write(str(j) + ' ' + str(cr.get_case(case_id).get_objectives(scaled=False)[k][0]) + '\n')
+        for i, k in enumerate(objs.keys()):
+            f.write('objective: ' + k + '\n')
+            for j, case_id in enumerate(driver_cases):
+                f.write(str(j) + ' ' + str(cr.get_case(case_id).get_objectives(scaled=False)[k][0]) + '\n')
+            f.write(' ' + '\n')
+
+        for i, k in enumerate(cons.keys()):
+            f.write('constraint: ' + k + '\n')
+            for j, case_id in enumerate(driver_cases):
+                f.write(str(j) + ' ' + ' '.join(map(str,cr.get_case(case_id).get_constraints(scaled=False)[k])) + '\n')
+            f.write(' ' + '\n')
+
+        for i, k in enumerate(dvs.keys()):
+            f.write('DV: ' + k + '\n')
+            for j, case_id in enumerate(driver_cases):
+                f.write(str(j) + ' ' + ' '.join(map(str,cr.get_case(case_id).get_design_vars(scaled=False)[k])) + '\n')
+            f.write(' ' + '\n')
+
+        f.write('run times, function\n')
+        for i in range(len(prob.model.remote.times_function)):
+            f.write(f'{prob.model.remote.times_function[i]}\n')
         f.write(' ' + '\n')
 
-    for i, k in enumerate(cons.keys()):
-        f.write('constraint: ' + k + '\n')
-        for j, case_id in enumerate(driver_cases):
-            f.write(str(j) + ' ' + ' '.join(map(str,cr.get_case(case_id).get_constraints(scaled=False)[k])) + '\n')
+        f.write('run times, gradient\n')
+        for i in range(len(prob.model.remote.times_gradient)):
+            f.write(f'{prob.model.remote.times_gradient[i]}\n')
         f.write(' ' + '\n')
-
-    for i, k in enumerate(dvs.keys()):
-        f.write('DV: ' + k + '\n')
-        for j, case_id in enumerate(driver_cases):
-            f.write(str(j) + ' ' + ' '.join(map(str,cr.get_case(case_id).get_design_vars(scaled=False)[k])) + '\n')
-        f.write(' ' + '\n')
-
-    f.write('run times, function\n')
-    for i in range(len(prob.model.mphys_analysis.times_function)):
-        f.write(f'{prob.model.mphys_analysis.times_function[i]}\n')
-    f.write(' ' + '\n')
-
-    f.write('run times, gradient\n')
-    for i in range(len(prob.model.mphys_analysis.times_gradient)):
-        f.write(f'{prob.model.mphys_analysis.times_gradient[i]}\n')
-    f.write(' ' + '\n')
-
-    f.close()

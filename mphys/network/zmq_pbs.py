@@ -1,12 +1,39 @@
+import argparse
+import json
+import socket
+import subprocess
+import time
 import zmq
-import subprocess, time, socket
 
 from pbs4py import PBS
 from pbs4py.job import PBSJob
+from mphys.network import RemoteComp, Server, ServerManager
 
-queue_time_delay = 5 # seconds to wait before rechecking if a job has started
+class RemoteZeroMQComp(RemoteComp):
+    def initialize(self):
+        self.options.declare('pbs', "pbs4py Launcher object")
+        self.options.declare('port', default=5081, desc="port number for server/client communication")
+        self.options.declare('acceptable_port_range', default=[5081,6000], desc="port range to look through if 'port' is currently busy")
+        super().initialize()
 
-class MPhysZeroMQServerManager:
+    def _send_inputs_to_server(self, remote_input_dict, command: str):
+        if self._doing_derivative_evaluation(command):
+            print('CLIENT: Requesting derivative call from server', flush=True)
+        else:
+            print('CLIENT: Requesting function call from server', flush=True)
+        input_str = f"{command}|{str(json.dumps(remote_input_dict))}"
+        self.server_manager.socket.send(input_str.encode())
+
+    def _receive_outputs_from_server(self):
+        return json.loads(self.server_manager.socket.recv().decode())
+
+    def _setup_server_manager(self):
+        self.server_manager = MPhysZeroMQServerManager(pbs=self.options['pbs'],
+                                                       run_server_filename=self.options['run_server_filename'],
+                                                       port=self.options['port'],
+                                                       acceptable_port_range=self.options['acceptable_port_range'])
+
+class MPhysZeroMQServerManager(ServerManager):
     def __init__(self,
                  pbs: PBS,
                  run_server_filename: str,
@@ -17,6 +44,7 @@ class MPhysZeroMQServerManager:
         self.run_server_filename = run_server_filename
         self.port = port
         self.acceptable_port_range = acceptable_port_range
+        self.queue_time_delay = 5 # seconds to wait before rechecking if a job has started
         self.start_server()
 
     def start_server(self):
@@ -24,15 +52,9 @@ class MPhysZeroMQServerManager:
         self._launch_job()
 
     def stop_server(self):
-        print('CLIENT: Stopping the MPhys analysis server', flush=True)
-
-        # send shutdown signal to server
+        print('CLIENT: Stopping the remote analysis server', flush=True)
         self.socket.send('shutdown|null'.encode())
-
-        # close ssh connection
         self._shutdown_server()
-
-        # close zeromq socket
         self.socket.close()
 
     def enough_time_is_remaining(self, estimated_model_time):
@@ -44,7 +66,6 @@ class MPhysZeroMQServerManager:
             return s.connect_ex(('localhost', port))==0
 
     def _initialize_connection(self):
-        # first check if port is in use
         if self._port_is_in_use(self.port):
             print(f'CLIENT: Port {self.port} is already in use... finding first available port in the range {self.acceptable_port_range}', flush=True)
 
@@ -55,7 +76,9 @@ class MPhysZeroMQServerManager:
             else:
                 raise RuntimeError('CLIENT: Could not find open port')
 
-        # initialize zmq socket
+        self._initialize_zmq_socket()
+
+    def _initialize_zmq_socket(self):
         context = zmq.Context()
         self.socket = context.socket(zmq.REQ)
         self.socket.connect(f"tcp://localhost:{self.port}")
@@ -74,7 +97,7 @@ class MPhysZeroMQServerManager:
         job_submission_time = time.time()
         self._setup_placeholder_ssh()
         while self.job.state=='Q':
-            time.sleep(queue_time_delay)
+            time.sleep(self.queue_time_delay)
             self.job.update_job_state()
         self._stop_placeholder_ssh()
         self.job_start_time = time.time()
@@ -99,3 +122,41 @@ class MPhysZeroMQServerManager:
 
     def _stop_placeholder_ssh(self):
         self.ssh_proc.kill()
+
+class MPhysZeroMQServer(Server):
+    def __init__(self, port, get_om_group_function_pointer,
+                 ignore_setup_warnings = False,
+                 ignore_runtime_warnings = False,
+                 rerun_initial_design = False):
+
+        super().__init__(get_om_group_function_pointer, ignore_setup_warnings,
+                         ignore_runtime_warnings, rerun_initial_design)
+        self._setup_zeromq_socket(port)
+
+    def _setup_zeromq_socket(self, port):
+        if self.rank==0:
+            context = zmq.Context()
+            self.socket = context.socket(zmq.REP)
+            self.socket.bind(f"tcp://*:{port}")
+
+    def _parse_incoming_message(self):
+        inputs = None
+        if self.rank==0:
+            inputs = self.socket.recv().decode()
+        inputs = self.prob.model.comm.bcast(inputs)
+
+        command, input_dict = inputs.split("|")
+        if 'evaluate' in command:
+            input_dict = json.loads(input_dict)
+        return command, input_dict
+
+
+    def _send_outputs_to_client(self, output_dict: dict):
+        if self.rank==0:
+            self.socket.send(str(json.dumps(output_dict)).encode())
+
+def get_default_zmq_pbs_argparser():
+    parser = argparse.ArgumentParser('Python script for launching mphys analysis server',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--port', type=int, help='tcp port number for zeromq socket')
+    return parser

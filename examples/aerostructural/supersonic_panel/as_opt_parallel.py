@@ -125,6 +125,9 @@ class Model(om.Group):
         self.add_constraint('multipoint.aerostructural1.C_L', lower=0.15, ref=0.1, parallel_deriv_color='lift_cons') # run C_L derivatives in parallel
         self.add_constraint('multipoint.aerostructural2.C_L', lower=0.45, ref=0.1, parallel_deriv_color='lift_cons')
 
+def get_model():
+    return Model()
+
 # run model and check derivatives
 if __name__ == "__main__":
 

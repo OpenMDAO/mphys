@@ -1,8 +1,8 @@
 import openmdao.api as om
-import zmq, json, warnings
+import warnings
 
-class MPhysZeroMQServer:
-    def __init__(self, port, get_om_group_function_pointer,
+class Server:
+    def __init__(self, get_om_group_function_pointer,
                  ignore_setup_warnings = False,
                  ignore_runtime_warnings = False,
                  rerun_initial_design = False):
@@ -17,7 +17,12 @@ class MPhysZeroMQServer:
         self.derivatives = None
 
         self._load_the_model()
-        self._setup_zeromq_socket(port)
+
+    def _parse_incoming_message(self):
+        raise NotImplementedError
+
+    def _send_outputs_to_client(self):
+        raise NotImplementedError
 
     def _load_the_model(self):
         self.prob = om.Problem()
@@ -34,31 +39,6 @@ class MPhysZeroMQServer:
             if self.rank==0:
                 print('SERVER: Evaluating baseline design', flush=True)
             self._run_model()
-
-    def _setup_zeromq_socket(self, port):
-        if self.rank==0:
-            context = zmq.Context()
-            self.socket = context.socket(zmq.REP)
-            self.socket.bind(f"tcp://*:{port}")
-
-    def _parse_incoming_message(self):
-        inputs = None
-        if self.rank==0:
-            inputs = self.socket.recv().decode()
-        inputs = self.prob.model.comm.bcast(inputs)
-
-        command, input_dict = inputs.split("|")
-        if 'evaluate' in command:
-            input_dict = json.loads(input_dict)
-        return command, input_dict
-
-    def _set_design_variables_into_the_server_problem(self, input_dict):
-        design_changed = False
-        for key in input_dict['design_vars'].keys():
-            if (self.prob.get_val(key)!=input_dict['design_vars'][key]['val']).any():
-                design_changed = True
-            self.prob.set_val(key, input_dict['design_vars'][key]['val'])
-        return design_changed
 
     def _run_model(self):
         if self.ignore_runtime_warnings:
@@ -77,32 +57,31 @@ class MPhysZeroMQServer:
             self.derivatives = self.prob.compute_totals()
         self.current_derivatives_have_been_evaluated = True
 
-    def _gather_inputs_and_outputs_from_om_problem(self):
-
-        # save inputs (TODO: may want to get adder, scaler, etc.)
+    def _gather_inputs_from_om_problem(self, remote_output_dict = {}):
         design_vars = self.prob.model._design_vars
-        output_dict = {'design_vars':{}}
+        remote_output_dict['design_vars'] = {}
         for dv in design_vars.keys():
-            output_dict['design_vars'][dv] = {'val': self.prob.get_val(dv),
+            remote_output_dict['design_vars'][dv] = {'val': self.prob.get_val(dv),
                                               'ref': design_vars[dv]['ref'],
                                               'lower': design_vars[dv]['lower'],
                                               'upper': design_vars[dv]['upper'],
                                               'units': design_vars[dv]['units']}
 
             # apply reference value
-            if output_dict['design_vars'][dv]['ref'] is None:
-                output_dict['design_vars'][dv]['ref'] = 1.0
-            output_dict['design_vars'][dv]['lower'] *= output_dict['design_vars'][dv]['ref']
-            output_dict['design_vars'][dv]['upper'] *= output_dict['design_vars'][dv]['ref']
+            if remote_output_dict['design_vars'][dv]['ref'] is None:
+                remote_output_dict['design_vars'][dv]['ref'] = 1.0
+            remote_output_dict['design_vars'][dv]['lower'] *= remote_output_dict['design_vars'][dv]['ref']
+            remote_output_dict['design_vars'][dv]['upper'] *= remote_output_dict['design_vars'][dv]['ref']
 
             # convert to lists for json input/output
-            for key in output_dict['design_vars'][dv].keys():
-                if hasattr(output_dict['design_vars'][dv][key], 'tolist'):
-                    output_dict['design_vars'][dv][key] = output_dict['design_vars'][dv][key].tolist()
+            for key in remote_output_dict['design_vars'][dv].keys():
+                if hasattr(remote_output_dict['design_vars'][dv][key], 'tolist'):
+                    remote_output_dict['design_vars'][dv][key] = remote_output_dict['design_vars'][dv][key].tolist()
+        return remote_output_dict
 
-        # save outputs
+    def _gather_outputs_from_om_problem(self, remote_output_dict = {}):
         responses = self.prob.model._responses
-        output_dict.update({'objective':{}, 'constraints':{}})
+        remote_output_dict.update({'objective':{}, 'constraints':{}})
         for r in responses.keys():
 
             if responses[r]['type']=='obj':
@@ -110,49 +89,66 @@ class MPhysZeroMQServer:
             elif responses[r]['type']=='con':
                 response_type = 'constraints'
 
-            output_dict[response_type][r] = {'val': self.prob.get_val(r, get_remote=True),
+            remote_output_dict[response_type][r] = {'val': self.prob.get_val(r, get_remote=True),
                                              'ref': responses[r]['ref']}
 
             if response_type=='constraints': # get constraint bounds
-                output_dict[response_type][r].update({'lower': responses[r]['lower'],
+                remote_output_dict[response_type][r].update({'lower': responses[r]['lower'],
                                                       'upper': responses[r]['upper'],
                                                       'equals': responses[r]['equals']})
 
                 # apply reference value
-                if output_dict[response_type][r]['ref'] is None:
-                    output_dict[response_type][r]['ref'] = 1.0
-                if output_dict[response_type][r]['equals'] is not None: # equality constraint
-                    output_dict[response_type][r]['equals'] *= output_dict[response_type][r]['ref']
+                if remote_output_dict[response_type][r]['ref'] is None:
+                    remote_output_dict[response_type][r]['ref'] = 1.0
+                if remote_output_dict[response_type][r]['equals'] is not None: # equality constraint
+                    remote_output_dict[response_type][r]['equals'] *= remote_output_dict[response_type][r]['ref']
                 else:
-                    if output_dict[response_type][r]['lower']>-1e20:
-                        output_dict[response_type][r]['lower'] *= output_dict[response_type][r]['ref']
-                    if output_dict[response_type][r]['upper']<1e20:
-                        output_dict[response_type][r]['upper'] *= output_dict[response_type][r]['ref']
+                    if remote_output_dict[response_type][r]['lower']>-1e20:
+                        remote_output_dict[response_type][r]['lower'] *= remote_output_dict[response_type][r]['ref']
+                    if remote_output_dict[response_type][r]['upper']<1e20:
+                        remote_output_dict[response_type][r]['upper'] *= remote_output_dict[response_type][r]['ref']
 
             # convert to lists for json input/output
-            for key in output_dict[response_type][r].keys():
-                if hasattr(output_dict[response_type][r][key], 'tolist'):
-                    output_dict[response_type][r][key] = output_dict[response_type][r][key].tolist()
+            for key in remote_output_dict[response_type][r].keys():
+                if hasattr(remote_output_dict[response_type][r][key], 'tolist'):
+                    remote_output_dict[response_type][r][key] = remote_output_dict[response_type][r][key].tolist()
 
-            if self.derivatives is not None: # save derivatives
-                output_dict[response_type][r]['derivatives'] = {}
-                for dv in design_vars.keys():
-                    deriv = self.derivatives[(responses[r]['source'], design_vars[dv]['source'])]
-                    if hasattr(deriv,'tolist'):
-                        deriv = deriv.tolist()
-                    output_dict[response_type][r]['derivatives'][dv] = deriv
+    def _gather_derivatives_from_om_problem(self, remote_output_dict):
+        design_vars = self.prob.model._design_vars
+        responses = self.prob.model._responses
+        for r in responses.keys():
 
-        return output_dict
+            if responses[r]['type']=='obj':
+                response_type = 'objective'
+            elif responses[r]['type']=='con':
+                response_type = 'constraints'
 
-    def _send_outputs_to_client(self, output_dict: dict):
-        if self.rank==0:
-            self.socket.send(str(json.dumps(output_dict)).encode())
+            remote_output_dict[response_type][r]['derivatives'] = {}
+            for dv in design_vars.keys():
+                deriv = self.derivatives[(responses[r]['source'], design_vars[dv]['source'])]
+                if hasattr(deriv,'tolist'):
+                    deriv = deriv.tolist()
+                remote_output_dict[response_type][r]['derivatives'][dv] = deriv
+        return remote_output_dict
+
+    def _gather_inputs_and_outputs_from_om_problem(self):
+        remote_output_dict = self._gather_inputs_from_om_problem()
+        remote_output_dict = self._gather_outputs_from_om_problem(remote_output_dict)
+        if self.derivatives is not None:
+            remote_output_dict = self._gather_derivatives_from_om_problem(remote_output_dict)
+        return remote_output_dict
+
+
+    def _set_design_variables_into_the_server_problem(self, input_dict):
+        design_changed = False
+        for key in input_dict['design_vars'].keys():
+            if (self.prob.get_val(key)!=input_dict['design_vars'][key]['val']).any():
+                design_changed = True
+            self.prob.set_val(key, input_dict['design_vars'][key]['val'])
+        return design_changed
 
     def run(self):
-
-        # loop through and wait for new designs to evaluate
-        while 1:
-
+        while True:
             if self.rank==0:
                 print('SERVER: Waiting for new design...', flush=True)
 
