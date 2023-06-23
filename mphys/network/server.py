@@ -112,6 +112,7 @@ class Server:
             for key in remote_output_dict[response_type][r].keys():
                 if hasattr(remote_output_dict[response_type][r][key], 'tolist'):
                     remote_output_dict[response_type][r][key] = remote_output_dict[response_type][r][key].tolist()
+        return remote_output_dict
 
     def _gather_derivatives_from_om_problem(self, remote_output_dict):
         design_vars = self.prob.model._design_vars
