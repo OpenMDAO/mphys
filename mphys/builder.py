@@ -112,3 +112,15 @@ class Builder:
             number of degrees of freedom of each node in the domain
         """
         return -1
+
+    def get_tags(self):
+        """
+        Method that returns boundary ID information for coupling different sets of boundaries
+
+        Returns
+        -------
+        grid_boundary_tags : array type or None
+            list of boundary numbers for each grid node on the current rank
+
+        """
+        return None
