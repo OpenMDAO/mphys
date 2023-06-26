@@ -91,6 +91,7 @@ class Scenario(MphysGroup):
             Name of the scenario being setup (optional)
         """
         subsystem = builder.get_pre_coupling_subsystem(scenario_name)
+        print('ADD subsystem', subsystem, builder)
         if subsystem is not None:
             self.mphys_add_subsystem(name+'_pre', subsystem)
 
