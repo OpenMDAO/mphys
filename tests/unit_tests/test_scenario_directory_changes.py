@@ -2,7 +2,7 @@ from pathlib import Path
 import shutil
 import unittest
 import numpy as np
-import os
+import subprocess
 
 import openmdao.api as om
 from mpi4py import MPI
@@ -99,6 +99,7 @@ class TestScenarioAerodynamic(unittest.TestCase):
     def setUp(self):
         self.scenarios = ['cruise', 'maneuver']
         for scenario in self.scenarios:
+            print('MAKE_DIR')
             make_dir(scenario)
         self.common = CommonMethods()
         self.prob = om.Problem()
@@ -116,12 +117,12 @@ class TestScenarioAerodynamic(unittest.TestCase):
 
     def testRunModel(self):
         self.common.test_run_model(self)
-        for scenario in ['cruise', 'maneuver']:
+        for scenario in self.scenarios:
             for expected_file in ['precoupling_compute', 'coupling_compute', 'postcoupling_compute']:
-                os.system('ls')
+                print('LS', subprocess.check_output(['ls']).decode('utf-8'))
                 path =f'{scenario}/{expected_file}'
                 print(f' PATH {path}')
-                os.system(f'ls {scenario}')
+                print('LS', subprocess.check_output([f'ls {scenario}']).decode('utf-8'))
                 self.assertTrue(Path(f'{scenario}/{expected_file}').exists())
 
 
