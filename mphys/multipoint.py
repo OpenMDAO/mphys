@@ -70,6 +70,7 @@ class Multipoint(om.Group):
                 src = f'{source}.x_{discipline}0'
                 target = f'{scenario}.x_{discipline}0'
                 self.connect(src, target)
+       
 
     def configure(self):
         return set_coupling_algorithms_in_scenarios(self)
