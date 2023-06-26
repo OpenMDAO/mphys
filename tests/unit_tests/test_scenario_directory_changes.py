@@ -92,6 +92,9 @@ def make_dir(dir_name):
 
 
 class TestScenarioAerodynamic(unittest.TestCase):
+    # don't want multiple procs to get out of sync since using file creation/removal
+    N_PROCS = 1
+
     def setUp(self):
         self.scenarios = ['cruise', 'maneuver']
         for scenario in self.scenarios:
@@ -109,6 +112,7 @@ class TestScenarioAerodynamic(unittest.TestCase):
     def tearDown(self):
         for scenario in self.scenarios:
             remove_dir(scenario)
+
     def test_run_model(self):
         self.common.test_run_model(self)
         for scenario in ['cruise', 'maneuver']:
