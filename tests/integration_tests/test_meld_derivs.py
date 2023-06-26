@@ -19,6 +19,7 @@ import openmdao.api as om
 from openmdao.utils.assert_utils import assert_near_equal
 
 from mphys import Builder
+from funtofem import TransferScheme
 from funtofem.mphys import MeldBuilder
 
 
@@ -118,6 +119,8 @@ class TestXferClasses(unittest.TestCase):
     def test_run_model(self):
         self.prob.run_model()
 
+    @unittest.skipUnless(TransferScheme.dtype == complex,
+                         "FunToFem must be compiled in complex mode.")
     def test_derivatives(self):
         self.prob.run_model()
         data = self.prob.check_partials(compact_print=True, method='cs')
