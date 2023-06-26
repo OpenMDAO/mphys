@@ -15,6 +15,8 @@ class Server:
         self.current_design_has_been_evaluated = False
         self.current_derivatives_have_been_evaluated = False
         self.derivatives = None
+        self.additional_inputs = None
+        self.additional_outputs = None
 
         self._load_the_model()
 
@@ -50,22 +52,36 @@ class Server:
         self.derivatives = None
 
     def _compute_totals(self):
+        of, wrt = self._get_derivative_inputs_outputs()
         if self.ignore_runtime_warnings:
             with warnings.catch_warnings(record=True) as w:
-                self.derivatives = self.prob.compute_totals()
+                self.derivatives = self.prob.compute_totals(of=of, wrt=wrt)
         else:
-            self.derivatives = self.prob.compute_totals()
+            self.derivatives = self.prob.compute_totals(of=of, wrt=wrt)
         self.current_derivatives_have_been_evaluated = True
 
-    def _gather_inputs_from_om_problem(self, remote_output_dict = {}):
+    def _get_derivative_inputs_outputs(self):
+        of = []
+        for r in self.prob.model._responses.keys():
+            of += [self.prob.model._responses[r]['source']]
+        of += self.additional_outputs
+
+        wrt = []
+        for dv in self.prob.model._design_vars.keys():
+            wrt += [self.prob.model._design_vars[dv]['source']]
+        wrt += self.additional_inputs
+
+        return of, wrt
+
+    def _gather_design_inputs_from_om_problem(self, remote_output_dict = {}):
         design_vars = self.prob.model._design_vars
         remote_output_dict['design_vars'] = {}
         for dv in design_vars.keys():
             remote_output_dict['design_vars'][dv] = {'val': self.prob.get_val(dv),
-                                              'ref': design_vars[dv]['ref'],
-                                              'lower': design_vars[dv]['lower'],
-                                              'upper': design_vars[dv]['upper'],
-                                              'units': design_vars[dv]['units']}
+                                                     'ref': design_vars[dv]['ref'],
+                                                     'lower': design_vars[dv]['lower'],
+                                                     'upper': design_vars[dv]['upper'],
+                                                     'units': design_vars[dv]['units']}
 
             # apply reference value
             if remote_output_dict['design_vars'][dv]['ref'] is None:
@@ -79,7 +95,15 @@ class Server:
                     remote_output_dict['design_vars'][dv][key] = remote_output_dict['design_vars'][dv][key].tolist()
         return remote_output_dict
 
-    def _gather_outputs_from_om_problem(self, remote_output_dict = {}):
+    def _gather_additional_inputs_from_om_problem(self, remote_output_dict = {}):
+        remote_output_dict['additional_inputs'] = {}
+        for input in self.additional_inputs:
+            remote_output_dict['additional_inputs'][input] = {'val': self.prob.get_val(input)}
+            if hasattr(remote_output_dict['additional_inputs'][input]['val'], 'tolist'):
+                remote_output_dict['additional_inputs'][input]['val'] = remote_output_dict['additional_inputs'][input]['val'].tolist()
+        return remote_output_dict
+
+    def _gather_design_outputs_from_om_problem(self, remote_output_dict = {}):
         responses = self.prob.model._responses
         remote_output_dict.update({'objective':{}, 'constraints':{}})
         for r in responses.keys():
@@ -90,12 +114,12 @@ class Server:
                 response_type = 'constraints'
 
             remote_output_dict[response_type][r] = {'val': self.prob.get_val(r, get_remote=True),
-                                             'ref': responses[r]['ref']}
+                                                    'ref': responses[r]['ref']}
 
             if response_type=='constraints': # get constraint bounds
                 remote_output_dict[response_type][r].update({'lower': responses[r]['lower'],
-                                                      'upper': responses[r]['upper'],
-                                                      'equals': responses[r]['equals']})
+                                                             'upper': responses[r]['upper'],
+                                                             'equals': responses[r]['equals']})
 
                 # apply reference value
                 if remote_output_dict[response_type][r]['ref'] is None:
@@ -114,7 +138,15 @@ class Server:
                     remote_output_dict[response_type][r][key] = remote_output_dict[response_type][r][key].tolist()
         return remote_output_dict
 
-    def _gather_derivatives_from_om_problem(self, remote_output_dict):
+    def _gather_additional_outputs_from_om_problem(self, remote_output_dict = {}):
+        remote_output_dict['additional_outputs'] = {}
+        for output in self.additional_outputs:
+            remote_output_dict['additional_outputs'][output] = {'val': self.prob.get_val(output)}
+            if hasattr(remote_output_dict['additional_outputs'][output]['val'], 'tolist'):
+                remote_output_dict['additional_outputs'][output]['val'] = remote_output_dict['additional_outputs'][output]['val'].tolist()
+        return remote_output_dict
+
+    def _gather_design_derivatives_from_om_problem(self, remote_output_dict):
         design_vars = self.prob.model._design_vars
         responses = self.prob.model._responses
         for r in responses.keys():
@@ -132,13 +164,54 @@ class Server:
                 remote_output_dict[response_type][r]['derivatives'][dv] = deriv
         return remote_output_dict
 
-    def _gather_inputs_and_outputs_from_om_problem(self):
-        remote_output_dict = self._gather_inputs_from_om_problem()
-        remote_output_dict = self._gather_outputs_from_om_problem(remote_output_dict)
-        if self.derivatives is not None:
-            remote_output_dict = self._gather_derivatives_from_om_problem(remote_output_dict)
+    def _gather_additional_output_derivatives_from_om_problem(self, remote_output_dict):
+        for output in self.additional_outputs:
+            remote_output_dict['additional_outputs'][output]['derivatives'] = {}
+
+            # wrt design vars
+            for dv in self.prob.model._design_vars.keys():
+                deriv = self.derivatives[( output , self.prob.model._design_vars[dv]['source'] )]
+                if hasattr(deriv,'tolist'):
+                    deriv = deriv.tolist()
+                print(output,dv)
+                remote_output_dict['additional_outputs'][output]['derivatives'][dv] = deriv
+
+            # wrt additional_inputs
+            for dv in self.additional_inputs:
+                deriv = self.derivatives[( output , dv )]
+                if hasattr(deriv,'tolist'):
+                    deriv = deriv.tolist()
+                print(output,dv)
+                remote_output_dict['additional_outputs'][output]['derivatives'][dv] = deriv
+
         return remote_output_dict
 
+    def _gather_additional_input_derivatives_from_om_problem(self, remote_output_dict):
+        responses = self.prob.model._responses
+        for r in responses.keys():
+
+            if responses[r]['type']=='obj':
+                response_type = 'objective'
+            elif responses[r]['type']=='con':
+                response_type = 'constraints'
+
+            for dv in self.additional_inputs:
+                deriv = self.derivatives[( responses[r]['source'] , dv )]
+                if hasattr(deriv,'tolist'):
+                    deriv = deriv.tolist()
+                remote_output_dict[response_type][r]['derivatives'][dv] = deriv
+        return remote_output_dict
+
+    def _gather_inputs_and_outputs_from_om_problem(self):
+        remote_output_dict = self._gather_design_inputs_from_om_problem()
+        remote_output_dict = self._gather_design_outputs_from_om_problem(remote_output_dict)
+        remote_output_dict = self._gather_additional_inputs_from_om_problem(remote_output_dict)
+        remote_output_dict = self._gather_additional_outputs_from_om_problem(remote_output_dict)
+        if self.derivatives is not None:
+            remote_output_dict = self._gather_design_derivatives_from_om_problem(remote_output_dict)
+            remote_output_dict = self._gather_additional_output_derivatives_from_om_problem(remote_output_dict)
+            remote_output_dict = self._gather_additional_input_derivatives_from_om_problem(remote_output_dict)
+        return remote_output_dict
 
     def _set_design_variables_into_the_server_problem(self, input_dict):
         design_changed = False
@@ -148,8 +221,16 @@ class Server:
             self.prob.set_val(key, input_dict['design_vars'][key]['val'])
         return design_changed
 
+    def _set_additional_inputs_into_the_server_problem(self, input_dict, design_changed):
+        for key in input_dict['additional_inputs'].keys():
+            if (self.prob.get_val(key)!=input_dict['additional_inputs'][key]['val']).any():
+                design_changed = True
+            self.prob.set_val(key, input_dict['additional_inputs'][key]['val'])
+        return design_changed
+
     def run(self):
         while True:
+
             if self.rank==0:
                 print('SERVER: Waiting for new design...', flush=True)
 
@@ -170,8 +251,11 @@ class Server:
                         print('SERVER: Design already evaluated, skipping run_model', flush=True)
                 else:
                     self._run_model()
+                self.additional_inputs = input_dict['additional_inputs']
+                self.additional_outputs = input_dict['additional_outputs']
             else:
                 design_changed = self._set_design_variables_into_the_server_problem(input_dict)
+                design_changed = self._set_additional_inputs_into_the_server_problem(input_dict, design_changed)
                 if design_changed:
                     self.current_design_has_been_evaluated = False
                     self.current_derivatives_have_been_evaluated = False

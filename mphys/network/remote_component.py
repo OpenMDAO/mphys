@@ -8,12 +8,14 @@ class RemoteComp(om.ExplicitComponent):
         self.server_manager.stop_server()
 
     def initialize(self):
-        self.options.declare('run_server_filename',"file that will launch MPhysZeroMQServer, with --port arg")
+        self.options.declare('run_server_filename', desc="python file that will launch the Server class")
         self.options.declare('time_estimate_multiplier', default=2.0, desc="when determining whether to reboot the server, estimate model run time as this times max prior run time")
         self.options.declare('reboot_only_on_function_call', default=True, desc="only allows server reboot before function call, not gradient call. "
                                                                                 +"Avoids having to rerun forward solution on next job, but shortens current job time")
         self.options.declare('dump_json', default=False, desc="dump input/output json file in client")
         self.options.declare('var_naming_dot_replacement', default=":", desc="what to replace '.' within dv/response name trees")
+        self.options.declare('additional_remote_inputs', default=[], types=list, desc="additional inputs not defined as design vars in the remote component")
+        self.options.declare('additional_remote_outputs', default=[], types=list, desc="additional outputs not defined as objective/constraints in the remote component")
 
     def setup(self):
         if self.comm.size>1:
@@ -22,6 +24,8 @@ class RemoteComp(om.ExplicitComponent):
         self.reboot_only_on_function_call = self.options['reboot_only_on_function_call']
         self.dump_json = self.options['dump_json']
         self.var_naming_dot_replacement = self.options['var_naming_dot_replacement']
+        self.additional_remote_inputs = self.options['additional_remote_inputs']
+        self.additional_remote_outputs = self.options['additional_remote_outputs']
 
         self._setup_server_manager()
 
@@ -31,12 +35,17 @@ class RemoteComp(om.ExplicitComponent):
 
         # get baseline model
         print('CLIENT: Running model from setup to get design problem info', flush=True)
-        output_dict = self.evaluate_model(command='initialize')
+        output_dict = self.evaluate_model(command='initialize',
+                                          remote_input_dict={'additional_inputs': self.additional_remote_inputs,
+                                                             'additional_outputs': self.additional_remote_outputs})
 
         #TODO support scalers, adders.
-        self._add_inputs_from_baseline_model(output_dict)
+        self._add_design_inputs_from_baseline_model(output_dict)
         self._add_objectives_from_baseline_model(output_dict)
         self._add_constraints_from_baseline_model(output_dict)
+
+        self._add_additional_inputs_from_baseline_model(output_dict)
+        self._add_additional_outputs_from_baseline_model(output_dict)
 
         self.declare_partials('*', '*')
 
@@ -46,6 +55,7 @@ class RemoteComp(om.ExplicitComponent):
 
         self._assign_objectives_from_remote_output(remote_dict, outputs)
         self._assign_constraints_from_remote_output(remote_dict, outputs)
+        self._assign_additional_outputs_from_remote_output(remote_dict, outputs)
 
     def compute_partials(self, inputs, partials):
         # NOTE: this will not use of and wrt inputs, if given in outer script's compute_totals/check_totals
@@ -55,6 +65,7 @@ class RemoteComp(om.ExplicitComponent):
 
         self._assign_objective_partials_from_remote_output(remote_dict, partials)
         self._assign_constraint_partials_from_remote_output(remote_dict, partials)
+        self._assign_additional_partials_from_remote_output(remote_dict, partials)
 
     def evaluate_model(self, remote_input_dict=None, command='initialize'):
         if self._need_to_restart_server(command):
@@ -83,16 +94,29 @@ class RemoteComp(om.ExplicitComponent):
         for obj in remote_dict['objective'].keys():
             for dv in remote_dict['design_vars'].keys():
                 partials[( obj.replace('.',self.var_naming_dot_replacement), dv.replace('.',self.var_naming_dot_replacement) )] = remote_dict['objective'][obj]['derivatives'][dv]
+            for inp in remote_dict['additional_inputs'].keys():
+                partials[( obj.replace('.',self.var_naming_dot_replacement), inp.replace('.',self.var_naming_dot_replacement) )] = remote_dict['objective'][obj]['derivatives'][inp]
 
     def _assign_constraint_partials_from_remote_output(self, remote_dict, partials):
         for con in remote_dict['constraints'].keys():
             for dv in remote_dict['design_vars'].keys():
                 partials[( con.replace('.',self.var_naming_dot_replacement), dv.replace('.',self.var_naming_dot_replacement) )] = remote_dict['constraints'][con]['derivatives'][dv]
+            for inp in remote_dict['additional_inputs'].keys():
+                partials[( con.replace('.',self.var_naming_dot_replacement), inp.replace('.',self.var_naming_dot_replacement) )] = remote_dict['constraints'][con]['derivatives'][inp]
+
+    def _assign_additional_partials_from_remote_output(self, remote_dict, partials):
+        for output in remote_dict['additional_outputs'].keys():
+            for dv in remote_dict['design_vars'].keys():
+                partials[( output.replace('.',self.var_naming_dot_replacement), dv.replace('.',self.var_naming_dot_replacement) )] = remote_dict['additional_outputs'][output]['derivatives'][dv]
+            for inp in remote_dict['additional_inputs'].keys():
+                partials[( output.replace('.',self.var_naming_dot_replacement), inp.replace('.',self.var_naming_dot_replacement) )] = remote_dict['additional_outputs'][output]['derivatives'][inp]
 
     def _create_input_dict_for_server(self, inputs):
-        input_dict = {'design_vars': {}}
+        input_dict = {'design_vars': {}, 'additional_inputs': {}}
         for dv in self.design_var_keys:
             input_dict['design_vars'][dv.replace('.',self.var_naming_dot_replacement)] = {'val': inputs[dv.replace('.',self.var_naming_dot_replacement)].tolist()}
+        for input in self.additional_remote_inputs:
+            input_dict['additional_inputs'][input.replace('.',self.var_naming_dot_replacement)] = {'val': inputs[input.replace('.',self.var_naming_dot_replacement)].tolist()}
         return input_dict
 
     def _doing_derivative_evaluation(self, command: str):
@@ -122,20 +146,30 @@ class RemoteComp(om.ExplicitComponent):
         return not self.server_manager.enough_time_is_remaining(estimated_model_time)
 
     def _dump_input_json(self, remote_input_dict: dict):
-        with open('batch_inputs.json', 'w') as f:
+        with open('remote_inputs.json', 'w') as f:
             json.dump(remote_input_dict, f, indent=4)
 
     def _dump_output_json(self, remote_output_dict: dict):
-        with open('batch_outputs.json', 'w') as f:
+        with open('remote_outputs.json', 'w') as f:
             json.dump(remote_output_dict, f, indent=4)
 
-    def _add_inputs_from_baseline_model(self, output_dict):
+    def _add_design_inputs_from_baseline_model(self, output_dict):
         self.design_var_keys = output_dict['design_vars'].keys()
         for dv in self.design_var_keys:
             self.add_input(dv.replace('.',self.var_naming_dot_replacement), output_dict['design_vars'][dv]['val'])
             self.add_design_var(dv.replace('.',self.var_naming_dot_replacement), ref=output_dict['design_vars'][dv]['ref'],
-                                                                            lower=output_dict['design_vars'][dv]['lower'],
-                                                                            upper=output_dict['design_vars'][dv]['upper'])
+                                                                                 lower=output_dict['design_vars'][dv]['lower'],
+                                                                                 upper=output_dict['design_vars'][dv]['upper'])
+
+    def _add_additional_inputs_from_baseline_model(self, output_dict):
+        self.additional_remote_inputs = output_dict['additional_inputs'].keys()
+        for input in self.additional_remote_inputs:
+            self.add_input(input.replace('.',self.var_naming_dot_replacement), output_dict['additional_inputs'][input]['val'])
+
+    def _add_additional_outputs_from_baseline_model(self, output_dict):
+        self.additional_remote_outputs = output_dict['additional_outputs'].keys()
+        for output in self.additional_remote_outputs:
+            self.add_output(output.replace('.',self.var_naming_dot_replacement), output_dict['additional_outputs'][output]['val'])
 
     def _add_objectives_from_baseline_model(self, output_dict):
         for obj in output_dict['objective'].keys():
@@ -147,18 +181,18 @@ class RemoteComp(om.ExplicitComponent):
             self.add_output(con.replace('.',self.var_naming_dot_replacement), output_dict['constraints'][con]['val'])
             if output_dict['constraints'][con]['equals'] is not None: # equality constraint
                 self.add_constraint(con.replace('.',self.var_naming_dot_replacement), ref=output_dict['constraints'][con]['ref'],
-                                                                                 equals=output_dict['constraints'][con]['equals'])
+                                                                                      equals=output_dict['constraints'][con]['equals'])
             else:
                 if output_dict['constraints'][con]['lower']>-1e20 and output_dict['constraints'][con]['upper']<1e20: # enforce lower and upper bounds
                     self.add_constraint(con.replace('.',self.var_naming_dot_replacement), ref=output_dict['constraints'][con]['ref'],
-                                                                                     lower=output_dict['constraints'][con]['lower'],
-                                                                                     upper=output_dict['constraints'][con]['upper'])
+                                                                                          lower=output_dict['constraints'][con]['lower'],
+                                                                                          upper=output_dict['constraints'][con]['upper'])
                 elif output_dict['constraints'][con]['lower']>-1e20: # enforce lower bound
                     self.add_constraint(con.replace('.',self.var_naming_dot_replacement), ref=output_dict['constraints'][con]['ref'],
-                                                                                     lower=output_dict['constraints'][con]['lower'])
+                                                                                          lower=output_dict['constraints'][con]['lower'])
                 else: # enforce upper bound
                     self.add_constraint(con.replace('.',self.var_naming_dot_replacement), ref=output_dict['constraints'][con]['ref'],
-                                                                                     upper=output_dict['constraints'][con]['upper'])
+                                                                                          upper=output_dict['constraints'][con]['upper'])
 
     def _assign_objectives_from_remote_output(self, remote_dict, outputs):
         for obj in remote_dict['objective'].keys():
@@ -167,6 +201,10 @@ class RemoteComp(om.ExplicitComponent):
     def _assign_constraints_from_remote_output(self, remote_dict, outputs):
         for con in remote_dict['constraints'].keys():
             outputs[con.replace('.',self.var_naming_dot_replacement)] = remote_dict['constraints'][con]['val']
+
+    def _assign_additional_outputs_from_remote_output(self, remote_dict, outputs):
+        for output in remote_dict['additional_outputs'].keys():
+            outputs[output.replace('.',self.var_naming_dot_replacement)] = remote_dict['additional_outputs'][output]['val']
 
     def _send_inputs_to_server(self, remote_input_dict, command: str):
         raise NotImplementedError

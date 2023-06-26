@@ -96,9 +96,12 @@ class MPhysZeroMQServerManager(ServerManager):
         print('CLIENT: Waiting for job to start', flush=True)
         job_submission_time = time.time()
         self._setup_placeholder_ssh()
-        while self.job.state=='Q':
+        while self.job.state!='R':
             time.sleep(self.queue_time_delay)
-            self.job.update_job_state()
+            try:
+                self.job.update_job_state()
+            except:
+                print('CLIENT: Job state update failed... retrying after a delay', flush=True)
         self._stop_placeholder_ssh()
         self.job_start_time = time.time()
         print(f'CLIENT: Job started (queue wait time: {(time.time()-job_submission_time)/3600} hours)', flush=True)
@@ -146,10 +149,9 @@ class MPhysZeroMQServer(Server):
         inputs = self.prob.model.comm.bcast(inputs)
 
         command, input_dict = inputs.split("|")
-        if 'evaluate' in command:
+        if command!='shutdown':
             input_dict = json.loads(input_dict)
         return command, input_dict
-
 
     def _send_outputs_to_client(self, output_dict: dict):
         if self.rank==0:
