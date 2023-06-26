@@ -3,6 +3,7 @@ import shutil
 import unittest
 import numpy as np
 import subprocess
+import os
 
 import openmdao.api as om
 from mpi4py import MPI
@@ -25,6 +26,7 @@ class PreCouplingComp(om.IndepVarComp):
         self.add_output('prestate_aero', tags=['mphys_coupling'])
 
     def compute(self, inputs, outputs):
+        print('TOUCH',self.name, os.getcwd())
         Path('precoupling_compute').touch()
         outputs['prestate_aero'] = np.sum(inputs['x_aero'])
 
@@ -36,6 +38,7 @@ class CouplingComp(om.ExplicitComponent):
         self.add_output('f_aero', shape=num_nodes*3, tags=['mphys_coupling'])
 
     def compute(self, inputs, outputs):
+        print('TOUCH',self.name, os.getcwd())
         Path('coupling_compute').touch()
         outputs['f_aero'] = inputs['x_aero'] + inputs['prestate_aero']
 
@@ -48,6 +51,7 @@ class PostCouplingComp(om.IndepVarComp):
         self.add_output('func_aero', val=1.0, tags=['mphys_result'])
 
     def compute(self, inputs, outputs):
+        print('TOUCH',self.name, os.getcwd())
         Path('postcoupling_compute').touch()
         outputs['func_aero'] = np.sum(inputs['f_aero'] + inputs['prestate_aero'] + inputs['x_aero'])
 
@@ -122,7 +126,7 @@ class TestScenarioAerodynamic(unittest.TestCase):
                 print('LS', subprocess.check_output(['ls']).decode('utf-8'))
                 path =f'{scenario}/{expected_file}'
                 print(f' PATH {path}')
-                print('LS', subprocess.check_output([f'ls {scenario}']).decode('utf-8'))
+                print('LS', subprocess.check_output(['ls',scenario]).decode('utf-8'))
                 self.assertTrue(Path(f'{scenario}/{expected_file}').exists())
 
 
