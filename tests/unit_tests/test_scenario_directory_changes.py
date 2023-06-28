@@ -24,6 +24,7 @@ class PreCouplingComp(om.IndepVarComp):
     def setup(self):
         self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
         self.add_output('prestate_aero', tags=['mphys_coupling'])
+        print('SETUP PreCoupling')
 
     def compute(self, inputs, outputs):
         print('TOUCH',self.name, os.getcwd())
@@ -36,6 +37,7 @@ class CouplingComp(om.ExplicitComponent):
         self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
         self.add_input('prestate_aero', tags=['mphys_coupling'])
         self.add_output('f_aero', shape=num_nodes*3, tags=['mphys_coupling'])
+        print('SETUP Coupling')
 
     def compute(self, inputs, outputs):
         print('TOUCH',self.name, os.getcwd())
@@ -49,6 +51,7 @@ class PostCouplingComp(om.IndepVarComp):
         self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
         self.add_input('f_aero', shape_by_conn=True, tags=['mphys_coupling'])
         self.add_output('func_aero', val=1.0, tags=['mphys_result'])
+        print('SETUP PostCoupling')
 
     def compute(self, inputs, outputs):
         print('TOUCH',self.name, os.getcwd())
@@ -121,6 +124,7 @@ class TestScenarioAerodynamic(unittest.TestCase):
 
     def testRunModel(self):
         self.common.test_run_model(self)
+        MPI.COMM_WORLD.barrier()
         for scenario in self.scenarios:
             for expected_file in ['precoupling_compute', 'coupling_compute', 'postcoupling_compute']:
                 print('LS', subprocess.check_output(['ls']).decode('utf-8'))
