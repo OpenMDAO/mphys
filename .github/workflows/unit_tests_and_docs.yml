@@ -71,7 +71,6 @@ jobs:
           echo "Running unit tests";
           echo "=============================================================";
           cd tests/unit_tests
-          python test_scenario_directory_changes.py -v
           testflo
           echo "=============================================================";
           echo "Running integration tests";
