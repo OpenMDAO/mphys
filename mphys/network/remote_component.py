@@ -112,11 +112,11 @@ class RemoteComp(om.ExplicitComponent):
                 partials[( output.replace('.',self.var_naming_dot_replacement), inp.replace('.',self.var_naming_dot_replacement) )] = remote_dict['additional_outputs'][output]['derivatives'][inp]
 
     def _create_input_dict_for_server(self, inputs):
-        input_dict = {'design_vars': {}, 'additional_inputs': {}}
+        input_dict = {'design_vars': {}, 'additional_inputs': {}, 'additional_outputs': self.additional_remote_outputs}
         for dv in self.design_var_keys:
             input_dict['design_vars'][dv.replace('.',self.var_naming_dot_replacement)] = {'val': inputs[dv.replace('.',self.var_naming_dot_replacement)].tolist()}
         for input in self.additional_remote_inputs:
-            input_dict['additional_inputs'][input.replace('.',self.var_naming_dot_replacement)] = {'val': inputs[input.replace('.',self.var_naming_dot_replacement)].tolist()}
+            input_dict['additional_inputs'][input] = {'val': inputs[input.replace('.',self.var_naming_dot_replacement)].tolist()}
         return input_dict
 
     def _doing_derivative_evaluation(self, command: str):
@@ -162,12 +162,12 @@ class RemoteComp(om.ExplicitComponent):
                                                                                  upper=output_dict['design_vars'][dv]['upper'])
 
     def _add_additional_inputs_from_baseline_model(self, output_dict):
-        self.additional_remote_inputs = output_dict['additional_inputs'].keys()
+        self.additional_remote_inputs = list(output_dict['additional_inputs'].keys())
         for input in self.additional_remote_inputs:
             self.add_input(input.replace('.',self.var_naming_dot_replacement), output_dict['additional_inputs'][input]['val'])
 
     def _add_additional_outputs_from_baseline_model(self, output_dict):
-        self.additional_remote_outputs = output_dict['additional_outputs'].keys()
+        self.additional_remote_outputs = list(output_dict['additional_outputs'].keys())
         for output in self.additional_remote_outputs:
             self.add_output(output.replace('.',self.var_naming_dot_replacement), output_dict['additional_outputs'][output]['val'])
 

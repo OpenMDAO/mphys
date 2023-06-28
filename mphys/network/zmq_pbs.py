@@ -59,7 +59,10 @@ class MPhysZeroMQServerManager(ServerManager):
 
     def enough_time_is_remaining(self, estimated_model_time):
         self.job.update_job_state()
-        return estimated_model_time < self.job.walltime_remaining
+        if self.job.walltime_remaining is None:
+            return False
+        else:
+            return estimated_model_time < self.job.walltime_remaining
 
     def _port_is_in_use(self, port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

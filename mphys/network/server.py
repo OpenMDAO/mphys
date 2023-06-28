@@ -141,7 +141,7 @@ class Server:
     def _gather_additional_outputs_from_om_problem(self, remote_output_dict = {}):
         remote_output_dict['additional_outputs'] = {}
         for output in self.additional_outputs:
-            remote_output_dict['additional_outputs'][output] = {'val': self.prob.get_val(output)}
+            remote_output_dict['additional_outputs'][output] = {'val': self.prob.get_val(output, get_remote=True)}
             if hasattr(remote_output_dict['additional_outputs'][output]['val'], 'tolist'):
                 remote_output_dict['additional_outputs'][output]['val'] = remote_output_dict['additional_outputs'][output]['val'].tolist()
         return remote_output_dict
@@ -228,13 +228,18 @@ class Server:
             self.prob.set_val(key, input_dict['additional_inputs'][key]['val'])
         return design_changed
 
+    def _save_additional_variable_names(self, input_dict):
+        self.additional_inputs = input_dict['additional_inputs']
+        self.additional_outputs = input_dict['additional_outputs']
+        if hasattr(self.additional_inputs,'keys'):
+            self.additional_inputs = list(self.additional_inputs.keys())
+
     def run(self):
         while True:
 
             if self.rank==0:
                 print('SERVER: Waiting for new design...', flush=True)
 
-            # get inputs from client
             command, input_dict = self._parse_incoming_message()
 
             # interpret command (options are "shutdown", "initialize", "evaluate", or "evaluate derivatives")
@@ -242,6 +247,8 @@ class Server:
                 if self.rank==0:
                     print('SERVER: Received signal to shutdown', flush=True)
                 break
+
+            self._save_additional_variable_names(input_dict)
 
             if command=='initialize': # evaluate baseline model for RemoteComp setup
                 if self.rank==0:
@@ -251,8 +258,6 @@ class Server:
                         print('SERVER: Design already evaluated, skipping run_model', flush=True)
                 else:
                     self._run_model()
-                self.additional_inputs = input_dict['additional_inputs']
-                self.additional_outputs = input_dict['additional_outputs']
             else:
                 design_changed = self._set_design_variables_into_the_server_problem(input_dict)
                 design_changed = self._set_additional_inputs_into_the_server_problem(input_dict, design_changed)
