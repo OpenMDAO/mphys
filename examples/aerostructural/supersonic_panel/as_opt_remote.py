@@ -9,7 +9,7 @@ pbs = PBS.k4(time=1)
 pbs.mpiexec = 'mpirun'
 pbs._requested_number_of_nodes = 1
 
-# define model as remote group
+# add remote component to the model
 prob = om.Problem()
 prob.model.add_subsystem('remote', RemoteZeroMQComp(run_server_filename='mphys_server.py', pbs=pbs))
 

@@ -101,10 +101,7 @@ class MPhysZeroMQServerManager(ServerManager):
         self._setup_placeholder_ssh()
         while self.job.state!='R':
             time.sleep(self.queue_time_delay)
-            try:
-                self.job.update_job_state()
-            except:
-                print('CLIENT: Job state update failed... retrying after a delay', flush=True)
+            self.job.update_job_state()
         self._stop_placeholder_ssh()
         self.job_start_time = time.time()
         print(f'CLIENT: Job started (queue wait time: {(time.time()-job_submission_time)/3600} hours)', flush=True)
