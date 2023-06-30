@@ -112,3 +112,18 @@ class Builder:
             number of degrees of freedom of each node in the domain
         """
         return -1
+
+    def get_tagged_indices(self, tags):
+        """
+        Method that returns grid IDs for a list of body/boundary tags.
+
+        Parameters
+        ----------
+        tags : list of integers or strings
+
+        Returns
+        -------
+        grid_ids : list
+            list of grid IDs that correspond to given body/boundary tags
+        """
+        return None
