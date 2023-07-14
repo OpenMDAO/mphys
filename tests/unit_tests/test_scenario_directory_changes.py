@@ -18,7 +18,7 @@ class MeshComp(om.IndepVarComp):
         self.add_output('x_aero0', val=np.ones(num_nodes*3), tags=['mphys_coordinates'])
 
 
-class PreCouplingComp(om.IndepVarComp):
+class PreCouplingComp(om.ExplicitComponent):
     def setup(self):
         self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
         self.add_output('prestate_aero', tags=['mphys_coupling'])
@@ -39,7 +39,7 @@ class CouplingComp(om.ExplicitComponent):
         outputs['f_aero'] = inputs['x_aero'] + inputs['prestate_aero']
 
 
-class PostCouplingComp(om.IndepVarComp):
+class PostCouplingComp(om.ExplicitComponent):
     def setup(self):
         self.add_input('prestate_aero', tags=['mphys_coupling'])
         self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
@@ -92,6 +92,9 @@ def make_dir(dir_name):
 
 
 class TestScenarioAerodynamic(unittest.TestCase):
+    # don't want multiple procs to get out of sync since using file creation/removal
+    N_PROCS = 1
+
     def setUp(self):
         self.scenarios = ['cruise', 'maneuver']
         for scenario in self.scenarios:
@@ -109,9 +112,10 @@ class TestScenarioAerodynamic(unittest.TestCase):
     def tearDown(self):
         for scenario in self.scenarios:
             remove_dir(scenario)
+
     def test_run_model(self):
         self.common.test_run_model(self)
-        for scenario in ['cruise', 'maneuver']:
+        for scenario in self.scenarios:
             for expected_file in ['precoupling_compute', 'coupling_compute', 'postcoupling_compute']:
                 self.assertTrue(Path(f'{scenario}/{expected_file}').exists())
 

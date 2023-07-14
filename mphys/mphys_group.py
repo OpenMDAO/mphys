@@ -31,14 +31,12 @@ class MphysGroup(Group):
     def _mphys_promote_by_tag(self, iotype, tag):
         for subsystem in self.mphys_subsystems:
             promoted = []
-            print(f'promoting from {subsystem.name}')
             tagged_variables = subsystem.get_io_metadata(iotypes=iotype,
                                                          metadata_keys=['tags'],
                                                          tags=tag)
             for val in tagged_variables.values():
                 variable = val['prom_name']
                 if variable not in promoted:
-                    print('promoting var:', variable)
                     self.promotes(subsystem.name, any=[variable])
                     promoted.append(variable)
 

@@ -11,22 +11,22 @@ class PreComp(om.IndepVarComp):
     def setup(self):
         self.add_output('out_pre', val=1.0, tags=['mphys_coupling'])
 
-class PostComp(om.IndepVarComp):
+class PostComp(om.ExplicitComponent):
     def setup(self):
         self.add_input('out_pre', tags=['mphys_coupling'])
         self.add_output('out_post', val=1.0, tags=['mphys_coupling'])
 
-class UserPostCompPromoteInputsAndOutputs(om.IndepVarComp):
+class UserPostCompPromoteInputsAndOutputs(om.ExplicitComponent):
     def setup(self):
         self.add_input('out_post')
         self.add_output('out_user', val=1.0)
 
-class UserPostCompMphysPromote(om.IndepVarComp):
+class UserPostCompMphysPromote(om.ExplicitComponent):
     def setup(self):
         self.add_input('out_post', tags=['mphys_coupling'])
         self.add_output('out_user2', val=2.0, tags=['mphys_result'])
 
-class UserPostCompUseGeneralPromotes(om.IndepVarComp):
+class UserPostCompUseGeneralPromotes(om.ExplicitComponent):
     def setup(self):
         self.add_input('out_post')
         self.add_output('out_user3', val=3.0)

@@ -10,7 +10,7 @@ class StructMeshComp(om.IndepVarComp):
         self.add_output('x_struct0', val=np.ones(struct_num_nodes*3), tags=['mphys_coordinates'])
 
 
-class StructPreCouplingComp(om.IndepVarComp):
+class StructPreCouplingComp(om.ExplicitComponent):
     def setup(self):
         self.add_input('x_struct0', shape_by_conn=True, tags=['mphys_coordinates'])
         self.add_output('prestate_struct', tags=['mphys_coupling'])
@@ -30,7 +30,7 @@ class StructCouplingComp(om.ExplicitComponent):
         outputs['u_struct'] = inputs['x_struct0'] + inputs['prestate_struct']
 
 
-class StructPostCouplingComp(om.IndepVarComp):
+class StructPostCouplingComp(om.ExplicitComponent):
     def setup(self):
         self.add_input('prestate_struct', tags=['mphys_coupling'])
         self.add_input('x_struct0', shape_by_conn=True, tags=['mphys_coordinates'])
