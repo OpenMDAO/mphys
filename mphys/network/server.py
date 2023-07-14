@@ -2,6 +2,26 @@ import openmdao.api as om
 import warnings
 
 class Server:
+    """
+    A class that serves as an OpenMDAO model analysis server. Launched
+    by a server run file by the ServerManager and runs on an HPC job,
+    awaiting design variables to evaluate and sending back resulting
+    function or derivative information.
+
+    To make a particular derived class, implement the _parse_incoming_message
+    and _send_outputs_to_client functions.
+
+    Parameters
+    ----------
+    get_om_group_function_pointer : function pointer
+        Pointer to the OpenMDAO/MPhys group to evaluate on the server
+    ignore_setup_warnings : bool
+        Whether to ignore OpenMDAO setup warnings
+    ignore_runtime_warnings : bool
+        Whether to ignore OpenMDAO runtime warnings
+    rerun_initial_design : bool
+        Whether to evaluate the baseline design upon starup
+    """
     def __init__(self, get_om_group_function_pointer,
                  ignore_setup_warnings = False,
                  ignore_runtime_warnings = False,

@@ -10,6 +10,10 @@ from pbs4py.job import PBSJob
 from mphys.network import RemoteComp, Server, ServerManager
 
 class RemoteZeroMQComp(RemoteComp):
+    """
+    A derived RemoteComp class that uses pbs4py for HPC job management
+    and ZeroMQ for network communication.
+    """
     def initialize(self):
         self.options.declare('pbs', "pbs4py Launcher object")
         self.options.declare('port', default=5081, desc="port number for server/client communication")
@@ -34,6 +38,10 @@ class RemoteZeroMQComp(RemoteComp):
                                                        acceptable_port_range=self.options['acceptable_port_range'])
 
 class MPhysZeroMQServerManager(ServerManager):
+    """
+    A derived ServerManager class that uses pbs4py for HPC job management
+    and ZeroMQ for network communication.
+    """
     def __init__(self,
                  pbs: PBS,
                  run_server_filename: str,
@@ -127,6 +135,9 @@ class MPhysZeroMQServerManager(ServerManager):
         self.ssh_proc.kill()
 
 class MPhysZeroMQServer(Server):
+    """
+    A derived Server class that uses ZeroMQ for network communication.
+    """
     def __init__(self, port, get_om_group_function_pointer,
                  ignore_setup_warnings = False,
                  ignore_runtime_warnings = False,

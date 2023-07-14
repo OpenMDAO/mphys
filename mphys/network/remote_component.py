@@ -3,6 +3,14 @@ import json, time
 import numpy as np
 
 class RemoteComp(om.ExplicitComponent):
+    """
+    A component used for network communication between top-level OpenMDAO
+    problem and remote problem evaluated on an HPC job. Serves as the
+    top-level component on the client side.
+
+    To make a particular derived class, implement the _setup_server_manager,
+    _send_inputs_to_server, and _receive_outputs_from_server functions.
+    """
     def stop_server(self):
         # shortcut for stopping server from top level
         self.server_manager.stop_server()
