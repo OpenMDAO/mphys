@@ -9,7 +9,7 @@ class AeroMeshComp(om.IndepVarComp):
         self.add_output('x_aero0', val=np.ones(aero_num_nodes*3), tags=['mphys_coordinates'])
 
 
-class AeroPreCouplingComp(om.IndepVarComp):
+class AeroPreCouplingComp(om.ExplicitComponent):
     def setup(self):
         self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
         self.add_output('prestate_aero', tags=['mphys_coupling'])
