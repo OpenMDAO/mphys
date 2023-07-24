@@ -24,7 +24,7 @@ class ScenarioAeroThermal(Scenario):
         self.options.declare('geometry_builder', default=None, recordable=False,
                              desc='The optional Mphys builder for the geometry')
 
-    def setup(self):
+    def _mphys_scenario_setup(self):
         aero_builder = self.options['aero_builder']
         thermal_builder = self.options['thermal_builder']
         thermalxfer_builder = self.options['thermalxfer_builder']
