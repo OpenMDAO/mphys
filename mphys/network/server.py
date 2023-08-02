@@ -255,6 +255,9 @@ class Server:
             self.additional_inputs = list(self.additional_inputs.keys())
 
     def run(self):
+        """
+        Run the server.
+        """
         while True:
 
             if self.rank==0:

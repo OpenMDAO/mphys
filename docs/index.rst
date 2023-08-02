@@ -23,6 +23,7 @@ These are descriptions of how MPhys works and how it interfaces with solvers and
   basics/tagged_promotion.rst
   basics/builders.rst
   basics/naming_conventions.rst
+  basics/remote_components.rst
 
 .. _scenario_library:
 

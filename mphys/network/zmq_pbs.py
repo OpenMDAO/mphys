@@ -41,6 +41,17 @@ class MPhysZeroMQServerManager(ServerManager):
     """
     A derived ServerManager class that uses pbs4py for HPC job management
     and ZeroMQ for network communication.
+
+    Parameters
+    ----------
+    pbs : :class:`~pbs4py.PBS`
+        pbs4py launcher used for HPC job management
+    run_server_filename : str
+        Python filename that initializes and runs the :class:`~mphys.network.zmq_pbs.MPhysZeroMQServer` server
+    port : int
+        Desired port number for ssh port forwarding
+    acceptable_port_range : list
+        Range of alternative port numbers if specified port is already in use
     """
     def __init__(self,
                  pbs: PBS,
