@@ -37,6 +37,7 @@ class Server:
         self.derivatives = None
         self.additional_inputs = None
         self.additional_outputs = None
+        self.design_counter = 0 # more debugging info for client side json dumping
 
         self._load_the_model()
 
@@ -70,6 +71,7 @@ class Server:
             self.prob.run_model()
         self.current_design_has_been_evaluated = True
         self.derivatives = None
+        self.design_counter += 1
 
     def _compute_totals(self):
         of, wrt = self._get_derivative_inputs_outputs()
@@ -99,15 +101,12 @@ class Server:
         for dv in design_vars.keys():
             remote_output_dict['design_vars'][dv] = {'val': self.prob.get_val(dv),
                                                      'ref': design_vars[dv]['ref'],
+                                                     'ref0': design_vars[dv]['ref0'],
                                                      'lower': design_vars[dv]['lower'],
                                                      'upper': design_vars[dv]['upper'],
                                                      'units': design_vars[dv]['units']}
-
-            # apply reference value
-            if remote_output_dict['design_vars'][dv]['ref'] is None:
-                remote_output_dict['design_vars'][dv]['ref'] = 1.0
-            remote_output_dict['design_vars'][dv]['lower'] *= remote_output_dict['design_vars'][dv]['ref']
-            remote_output_dict['design_vars'][dv]['upper'] *= remote_output_dict['design_vars'][dv]['ref']
+            remote_output_dict['design_vars'][dv] = self._set_reference_vals(remote_output_dict['design_vars'][dv], design_vars[dv])
+            remote_output_dict['design_vars'][dv] = self._apply_reference_vals_to_desvar_bounds(remote_output_dict['design_vars'][dv])
 
             # convert to lists for json input/output
             for key in remote_output_dict['design_vars'][dv].keys():
@@ -134,29 +133,66 @@ class Server:
                 response_type = 'constraints'
 
             remote_output_dict[response_type][r] = {'val': self.prob.get_val(r, get_remote=True),
-                                                    'ref': responses[r]['ref']}
+                                                    'ref': responses[r]['ref'],
+                                                    'ref0': responses[r]['ref0']}
+            remote_output_dict[response_type][r] = self._set_reference_vals(remote_output_dict[response_type][r], responses[r])
 
             if response_type=='constraints': # get constraint bounds
                 remote_output_dict[response_type][r].update({'lower': responses[r]['lower'],
                                                              'upper': responses[r]['upper'],
                                                              'equals': responses[r]['equals']})
-
-                # apply reference value
-                if remote_output_dict[response_type][r]['ref'] is None:
-                    remote_output_dict[response_type][r]['ref'] = 1.0
-                if remote_output_dict[response_type][r]['equals'] is not None: # equality constraint
-                    remote_output_dict[response_type][r]['equals'] *= remote_output_dict[response_type][r]['ref']
-                else:
-                    if remote_output_dict[response_type][r]['lower']>-1e20:
-                        remote_output_dict[response_type][r]['lower'] *= remote_output_dict[response_type][r]['ref']
-                    if remote_output_dict[response_type][r]['upper']<1e20:
-                        remote_output_dict[response_type][r]['upper'] *= remote_output_dict[response_type][r]['ref']
+                remote_output_dict[response_type][r] = self._apply_reference_vals_to_constraint_bounds(remote_output_dict[response_type][r])
 
             # convert to lists for json input/output
             for key in remote_output_dict[response_type][r].keys():
                 if hasattr(remote_output_dict[response_type][r][key], 'tolist'):
                     remote_output_dict[response_type][r][key] = remote_output_dict[response_type][r][key].tolist()
         return remote_output_dict
+
+    def _set_reference_vals(self, remote_dict, om_dict):
+        if remote_dict['ref'] is not None or remote_dict['ref0'] is not None: # using ref/ref0
+            remote_dict.update({'scaler': None,
+                                'adder': None})
+            if remote_dict['ref'] is None:
+                remote_dict['ref'] = 1.0
+            if remote_dict['ref0'] is None:
+                remote_dict['ref0'] = 0.0
+        else: # using adder/scaler
+            remote_dict.update({'scaler': om_dict['scaler'],
+                                'adder': om_dict['adder']})
+            if remote_dict['scaler'] is None:
+                remote_dict['scaler'] = 1.0
+            if remote_dict['adder'] is None:
+                remote_dict['adder'] = 0.0
+        return remote_dict
+
+    def _apply_reference_vals_to_desvar_bounds(self, desvar_dict):
+        if desvar_dict['adder'] is None and desvar_dict['scaler'] is None: # using ref/ref0
+            desvar_dict['lower'] = desvar_dict['lower']*(desvar_dict['ref']-desvar_dict['ref0']) + desvar_dict['ref0']
+            desvar_dict['upper'] = desvar_dict['upper']*(desvar_dict['ref']-desvar_dict['ref0']) + desvar_dict['ref0']
+        else: # using adder/scaler
+            desvar_dict['lower'] = desvar_dict['lower']/desvar_dict['scaler'] - desvar_dict['adder']
+            desvar_dict['upper'] = desvar_dict['upper']/desvar_dict['scaler'] - desvar_dict['adder']
+        return desvar_dict
+
+    def _apply_reference_vals_to_constraint_bounds(self, constraint_dict):
+        if constraint_dict['adder'] is None and constraint_dict['scaler'] is None: # using ref/ref0
+            if constraint_dict['equals'] is not None: # equality constraint
+                constraint_dict['equals'] = constraint_dict['equals']*(constraint_dict['ref']-constraint_dict['ref0']) + constraint_dict['ref0']
+            else:
+                if constraint_dict['lower']>-1e20:
+                    constraint_dict['lower'] = constraint_dict['lower']*(constraint_dict['ref']-constraint_dict['ref0']) + constraint_dict['ref0']
+                if constraint_dict['upper']<1e20:
+                    constraint_dict['upper'] = constraint_dict['upper']*(constraint_dict['ref']-constraint_dict['ref0']) + constraint_dict['ref0']
+        else: # using adder/scaler
+            if constraint_dict['equals'] is not None: # equality constraint
+                constraint_dict['equals'] = constraint_dict['equals']/constraint_dict['scaler'] - constraint_dict['adder']
+            else:
+                if constraint_dict['lower']>-1e20:
+                    constraint_dict['lower'] = constraint_dict['lower']/constraint_dict['scaler'] - constraint_dict['adder']
+                if constraint_dict['upper']<1e20:
+                    constraint_dict['upper'] = constraint_dict['upper']/constraint_dict['scaler'] - constraint_dict['adder']
+        return constraint_dict
 
     def _gather_additional_outputs_from_om_problem(self, remote_output_dict = {}):
         remote_output_dict['additional_outputs'] = {}
@@ -231,6 +267,7 @@ class Server:
             remote_output_dict = self._gather_design_derivatives_from_om_problem(remote_output_dict)
             remote_output_dict = self._gather_additional_output_derivatives_from_om_problem(remote_output_dict)
             remote_output_dict = self._gather_additional_input_derivatives_from_om_problem(remote_output_dict)
+        remote_output_dict['design_counter'] = self.design_counter
         return remote_output_dict
 
     def _set_design_variables_into_the_server_problem(self, input_dict):
