@@ -49,7 +49,6 @@ class RemoteComp(om.ExplicitComponent):
                                           remote_input_dict={'additional_inputs': self.additional_remote_inputs,
                                                              'additional_outputs': self.additional_remote_outputs})
 
-        #TODO support scalers, adders.
         self._add_design_inputs_from_baseline_model(output_dict)
         self._add_objectives_from_baseline_model(output_dict)
         self._add_constraints_from_baseline_model(output_dict)
