@@ -44,7 +44,7 @@ class EmbedOptionsDirective(Directive):
         lines = ViewList()
 
         n = 0
-        for line in options.__rst__():
+        for line in options.__rst__().split('\n'):
             lines.append(line, "options table", n)
             n += 1
 
