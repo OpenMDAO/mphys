@@ -164,11 +164,11 @@ class RemoteComp(om.ExplicitComponent):
             dict_type = 'inputs'
         if self.dump_separate_json:
             if self._doing_derivative_evaluation(command):
-                filename = f'remote_{dict_type}_derivative{len(self.times_gradient)}.json'
+                filename = f'{self.name}_{dict_type}_derivative{len(self.times_gradient)}.json'
             else:
-                filename = f'remote_{dict_type}_function{len(self.times_function)}.json'
+                filename = f'{self.name}_{dict_type}_function{len(self.times_function)}.json'
         else:
-            filename = f'remote_{dict_type}.json'
+            filename = f'{self.name}_{dict_type}.json'
         with open(filename, 'w') as f:
             json.dump(remote_dict, f, indent=4)
 
