@@ -64,10 +64,12 @@ class MPhysZeroMQServerManager(ServerManager):
         self.port = port
         self.acceptable_port_range = acceptable_port_range
         self.queue_time_delay = 5 # seconds to wait before rechecking if a job has started
+        self.server_counter = 0 # for saving output of each server to different files
         self.start_server()
 
     def start_server(self):
         self._initialize_connection()
+        self.server_counter += 1
         self._launch_job()
 
     def stop_server(self):
@@ -108,7 +110,7 @@ class MPhysZeroMQServerManager(ServerManager):
     def _launch_job(self):
         print('CLIENT: Launching new server', flush=True)
         python_command = (f"python {self.run_server_filename} --port {self.port}")
-        python_mpi_command = self.pbs.create_mpi_command(python_command, output_root_name='mphys_server')
+        python_mpi_command = self.pbs.create_mpi_command(python_command, output_root_name=f'mphys_server{self.server_counter}')
         jobid = self.pbs.launch(f'MPhys{self.port}', [python_mpi_command], blocking=False)
         self.job = PBSJob(jobid)
         self._wait_for_job_to_start()

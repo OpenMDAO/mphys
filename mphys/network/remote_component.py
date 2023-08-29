@@ -1,5 +1,5 @@
 import openmdao.api as om
-import json, time
+import json, time, os
 import numpy as np
 
 class RemoteComp(om.ExplicitComponent):
@@ -162,10 +162,13 @@ class RemoteComp(om.ExplicitComponent):
         else:
             dict_type = 'inputs'
         if self.dump_separate_json:
+            save_dir = 'remote_json_files'
+            if not os.path.isdir(save_dir):
+                os.mkdir(save_dir)
             if self._doing_derivative_evaluation(command):
-                filename = f'{self.name}_{dict_type}_derivative{len(self.times_gradient)}.json'
+                filename = f'{save_dir}/{self.name}_{dict_type}_derivative{len(self.times_gradient)}.json'
             else:
-                filename = f'{self.name}_{dict_type}_function{len(self.times_function)}.json'
+                filename = f'{save_dir}/{self.name}_{dict_type}_function{len(self.times_function)}.json'
         else:
             filename = f'{self.name}_{dict_type}.json'
         with open(filename, 'w') as f:
