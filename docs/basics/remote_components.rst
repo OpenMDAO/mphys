@@ -7,12 +7,13 @@ Remote Components
 The purpose of remote components is to provide a means of adding a remote physics analysis to a local OpenMDAO problem.
 One situation in which this may be desirable is when the time to carry out a full optimization exceeds an HPC job time limit.
 Such a situation, without remote components, may normally require manual restarts of the optimization, and would thus limit one to optimizers with this capability.
-Using remote components, one can keep a serial OpenMDAO optimization running continuously on a login node while the parallel physics analyses are evaluated across several HPC jobs.
+Using remote components, one can keep a serial OpenMDAO optimization running continuously on a login node (e.g., using the nohup or screen Linux commands) while the parallel physics analyses are evaluated across several HPC jobs.
 Another situation where these components may be advantageous is when the OpenMDAO problem contains components not streamlined for massively parallel environments.
 
 In general, remote components use nested OpenMDAO problems in a server-client arrangement.
 The outer, client-side OpenMDAO model serves as the overarching analysis/optimization problem while the inner, server-side model serves as the isolated high-fidelity analysis.
 The server inside the HPC job remains open to evaluate function or gradient calls.
+Wall times for function and gradient calls are saved, and when the maximum previous time multiplied by a scale factor exceeds the remaining job time, the server will be relaunched.
 
 Three general base classes are used to achieve this.
 
@@ -45,7 +46,7 @@ On the client side, any "." characters in these input and output names will be r
 Troubleshooting
 ===============
 The :code:`dump_json` option for :code:`RemoteZeroMQComp` will make the component write input and output JSON files, which contain all data sent to and received from the server.
-The one exception is the :code:`wall_time` entry (given in seconds) in the output JSON file, which is added on the client-side.
+An exception is the :code:`wall_time` entry (given in seconds) in the output JSON file, which is added on the client-side after the server has completed the design evaluation.
 Another entry that is only provided for informational purposes is :code:`design_counter`, which keeps track of how many different designs have been evaluated on the current server.
 If :code:`dump_separate_json` is also set to True, then separate files will be written for each design evaluation.
 On the server side, an n2 file titled :code:`n2_inner_analysis.html` will be written after each evaluation.
@@ -53,7 +54,9 @@ On the server side, an n2 file titled :code:`n2_inner_analysis.html` will be wri
 Current Limitations
 ===================
 * A pbs4py Launcher must be implemented for your HPC environment
-* On the client side, :code:`RemoteZeroMQComp.stop_server()` should be added after your analysis/optimization; the HPC job and/or ssh port forwarding may otherwise need to be halted manually.
+* On the client side, :code:`RemoteZeroMQComp.stop_server()` should be added after your analysis/optimization to stop the HPC job and ssh port forwarding, which the server manager starts as a background process.
+* If :code:`stop_server` is not called or the server stops unexpectedly, stopping the port forwarding manually is difficult, as it involves finding the ssh process associated with the run's port number. This must be done on the same login node that the server was launched from.
+* Stopping the HPC job is somewhat easier as the job name will be :code:`MPhys` followed by the port number; however, if runs are launched from multiple login nodes then one may have multiple jobs with the same name.
 * Currently, the :code:`of` and :code:`wrt` inputs for :code:`check_totals` are not used by the remote component; on the server side, :code:`compute_totals` will be evaluated for all design variables and responses.
 
 .. autoclass:: mphys.network.remote_component.RemoteComp
