@@ -58,6 +58,7 @@ Current Limitations
 * If :code:`stop_server` is not called or the server stops unexpectedly, stopping the port forwarding manually is difficult, as it involves finding the ssh process associated with the run's port number. This must be done on the same login node that the server was launched from.
 * Stopping the HPC job is somewhat easier as the job name will be :code:`MPhys` followed by the port number; however, if runs are launched from multiple login nodes then one may have multiple jobs with the same name.
 * Currently, the :code:`of` option (as well as :code:`wrt`) for :code:`check_totals` or :code:`compute_totals` is not used by the remote component; on the server side, :code:`compute_totals` will be evaluated for all responses (objectives, constraints, and :code:`additional_remote_outputs`). Depending on how many :code:`of` responses are desired, this may be more costly than not using remote components.
+* The HPC environment must allow ssh port forwarding from the login node to a compute node.
 
 .. autoclass:: mphys.network.remote_component.RemoteComp
     :members:
