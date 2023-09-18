@@ -11,8 +11,7 @@ with open(os.path.join(mphys_root, 'README.md'), encoding='utf-8') as f:
 optional_dependencies = {
     'remote': [
         'pbs4py',
-        'zmq',
-        'json'
+        'zmq'
     ],
     'test': [
         'testflo'
@@ -20,8 +19,7 @@ optional_dependencies = {
     'docs': [
         'sphinx',
         'pbs4py',
-        'zmq',
-        'json'
+        'zmq'
     ]
 }
 
@@ -31,7 +29,6 @@ optional_dependencies['all'] = sorted([
     for dependencies in optional_dependencies.values()
     for dependency in dependencies
 ])
-optional_dependencies['develop'] = optional_dependencies['all']
 
 setup(
     name=__package_name__,
