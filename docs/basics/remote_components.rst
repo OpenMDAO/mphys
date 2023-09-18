@@ -43,6 +43,15 @@ By default, any design variables, objectives, and constraints defined in the gro
 Any other desired inputs or outputs must be added in the :code:`additional_remote_inputs` or :code:`additional_remote_outputs` options.
 On the client side, any "." characters in these input and output names will be replaced by :code:`var_naming_dot_replacement`.
 
+Example
+=======
+An example is provided for the `supersonic panel aerostructural example <https://github.com/OpenMDAO/mphys/tree/main/examples/aerostructural/supersonic_panel>`_.
+In this case, :code:`as_opt_parallel.py` provides the top-level OpenMDAO group, :code:`Model`.
+The file :code:`mphys_server.py` points to this group when initializing the :code:`MPhysZeroMQServer` instance.
+The file :code:`as_opt_remote.py` is the top-level code that contains the remote component by initializing the :code:`RemoteZeroMQComp` instance with a :code:`run_server_filename` input of "mphys_server.py".
+The remote component uses a :code:`K4` pbs4py Launcher object, which will launch, monitor, and stop jobs using the K4 queue of the NASA K-cluster.
+A different Launcher object will be needed to run this example on a different HPC.
+
 Troubleshooting
 ===============
 The :code:`dump_json` option for :code:`RemoteZeroMQComp` will make the component write input and output JSON files, which contain all data sent to and received from the server.

@@ -21,24 +21,24 @@ N_el_aero = 7
 
 # Mphys parallel multipoint scenarios
 class AerostructParallel(MultipointParallel):
-    def __init__(self, aero_builder=None, struct_builder=None, xfer_builder=None, geometry_builder=None, scenario_names=None):
-        super().__init__()
-        self.aero_builder = aero_builder
-        self.struct_builder = struct_builder
-        self.xfer_builder = xfer_builder
-        self.geometry_builder = geometry_builder
-        self.scenario_names = scenario_names
+
+    def initialize(self):
+        self.options.declare('aero_builder')
+        self.options.declare('struct_builder')
+        self.options.declare('xfer_builder')
+        self.options.declare('geometry_builder')
+        self.options.declare('scenario_names')
 
     def setup(self):
-        for i in range(len(self.scenario_names)):
+        for i in range(len(self.options['scenario_names'])):
             nonlinear_solver = om.NonlinearBlockGS(maxiter=100, iprint=2, use_aitken=True, aitken_initial_factor=0.5)
             linear_solver = om.LinearBlockGS(maxiter=40, iprint=2, use_aitken=True, aitken_initial_factor=0.5)
-            self.mphys_add_scenario(self.scenario_names[i],
+            self.mphys_add_scenario(self.options['scenario_names'][i],
                                     ScenarioAeroStructural(
-                                        aero_builder=self.aero_builder,
-                                        struct_builder=self.struct_builder,
-                                        ldxfer_builder=self.xfer_builder,
-                                        geometry_builder=self.geometry_builder,
+                                        aero_builder=self.options['aero_builder'],
+                                        struct_builder=self.options['struct_builder'],
+                                        ldxfer_builder=self.options['xfer_builder'],
+                                        geometry_builder=self.options['geometry_builder'],
                                         in_MultipointParallel=True),
                                     coupling_nonlinear_solver=nonlinear_solver,
                                     coupling_linear_solver=linear_solver)
