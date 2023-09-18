@@ -31,6 +31,7 @@ optional_dependencies['all'] = sorted([
     for dependencies in optional_dependencies.values()
     for dependency in dependencies
 ])
+optional_dependencies['develop'] = optional_dependencies['all']
 
 setup(
     name=__package_name__,
