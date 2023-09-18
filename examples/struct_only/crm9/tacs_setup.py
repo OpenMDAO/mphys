@@ -53,10 +53,33 @@ def problem_setup(scenario_name, fea_assembler, problem):
     # Add TACS Functions
     problem.addFunction('mass', functions.StructuralMass)
     problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
-                       ksWeight=100.0)
+                        ksWeight=100.0)
 
     # Add forces to static problem
     F = fea_assembler.createVec()
     ndof = fea_assembler.getVarsPerNode()
     F[2::ndof] = 100.0
     problem.addLoadToRHS(F)
+
+def constraint_setup(scenario_name, fea_assembler, constraint_list):
+    """
+    Helper function to setup tacs constraint classes
+    """
+    if scenario_name == "analysis":
+        # Setup adjacency constraints for skin and spar panel thicknesses
+        constr = fea_assembler.createAdjacencyConstraint("adjacency")
+        compIDs = fea_assembler.selectCompIDs(include="U_SKIN")
+        constr.addConstraint("U_SKIN", compIDs=compIDs)
+        compIDs = fea_assembler.selectCompIDs(include="L_SKIN")
+        constr.addConstraint("L_SKIN", compIDs=compIDs)
+        compIDs = fea_assembler.selectCompIDs(include="LE_SPAR")
+        constr.addConstraint("LE_SPAR", compIDs=compIDs)
+        compIDs = fea_assembler.selectCompIDs(include="TE_SPAR")
+        constr.addConstraint("TE_SPAR", compIDs=compIDs)
+        constraint_list.append(constr)
+        # Add volume constraint
+        constr = fea_assembler.createVolumeConstraint("volume")
+        compIDs = fea_assembler.selectCompIDs(include=["U_SKIN", "L_SKIN", "LE_SPAR", "TE_SPAR", "RIB.00", "RIB.48"])
+        constr.addConstraint("fuel", compIDs=compIDs)
+        constraint_list.append(constr)
+

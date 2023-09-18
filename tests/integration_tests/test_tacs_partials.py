@@ -8,7 +8,7 @@ from openmdao.utils.assert_utils import assert_near_equal
 from mphys.multipoint import Multipoint
 from mphys.scenario_structural import ScenarioStructural
 
-from tacs import elements, constitutive, functions
+from tacs import elements, constitutive, functions, TACS
 from tacs.mphys import TacsBuilder
 
 # Callback function used to setup TACS element objects and DVs
@@ -80,6 +80,7 @@ class TestTACS(unittest.TestCase):
     def test_run_model(self):
         self.prob.run_model()
 
+    @unittest.skipUnless(TACS.dtype == complex, "TACS must be compiled in complex mode.")
     def test_derivatives(self):
         self.prob.run_model()
         print('----------------starting check totals--------------')

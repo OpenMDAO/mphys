@@ -14,12 +14,12 @@ import numpy as np
 
 # === Extension modules ===
 import openmdao.api as om
-from openmdao.utils.assert_utils import assert_near_equal
+from openmdao.utils.assert_utils import assert_check_totals
 
 from mphys.multipoint import Multipoint
 from mphys.scenario_structural import ScenarioStructural
 
-from tacs import elements, constitutive, functions
+from tacs import elements, constitutive, functions, TACS
 from tacs.mphys import TacsBuilder
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
@@ -101,28 +101,23 @@ class TestTACS(unittest.TestCase):
     def test_run_model(self):
         self.prob.run_model()
 
+    @unittest.skipUnless(TACS.dtype == complex, "TACS must be compiled in complex mode.")
     def test_derivatives(self):
         self.prob.run_model()
         print('----------------starting check totals--------------')
         data = self.prob.check_totals(of=['analysis.ks_vmfailure', 'analysis.mass'],
                                       wrt='mesh.fea_mesh.x_struct0', method='cs',
                                       step=1e-50, step_calc='rel')
-        for var, err in data.items():
-            rel_err = err['rel error']
-            assert_near_equal(rel_err.forward, 0.0, 1e-7)
+        assert_check_totals(data, atol=1e99, rtol=1e-7)
 
         data = self.prob.check_totals(of=['analysis.ks_vmfailure'], wrt='f_struct',
                                       method='cs', step=1e-50, step_calc='rel')
-        for var, err in data.items():
-            rel_err = err['rel error']
-            assert_near_equal(rel_err.forward, 0.0, 5e-8)
+        assert_check_totals(data, atol=1e99, rtol=5e-8)
 
         data = self.prob.check_totals(of=['analysis.ks_vmfailure', 'analysis.mass'],
                                       wrt='dv_struct', method='cs',
                                       step=1e-50, step_calc='rel')
-        for var, err in data.items():
-            rel_err = err['rel error']
-            assert_near_equal(rel_err.forward, 0.0, 1e-8)
+        assert_check_totals(data, atol=1e99, rtol=1e-8)
 
 
 if __name__ == '__main__':
