@@ -42,11 +42,14 @@ Within this file, the :code:`MPhysZeroMQServer` class's :code:`get_om_group_func
 By default, any design variables, objectives, and constraints defined in the group will be added on the client side.
 Any other desired inputs or outputs must be added in the :code:`additional_remote_inputs` or :code:`additional_remote_outputs` options.
 On the client side, any "." characters in these input and output names will be replaced by :code:`var_naming_dot_replacement`.
+The screen output from a particular remote component's Nth server will be sent to :code:`mphys_<component name>_serverN.out`, where :code:`component name` is the subsystem name of the :code:`RemoteZeroMQComp` instance.
+The HPC job for the component's server is named :code:`MPhys<port number>`.
+Note that running the remote component in parallel is not supported, and a SystemError will be triggered otherwise.
 
 Example
 =======
-An example is provided for the `supersonic panel aerostructural example <https://github.com/OpenMDAO/mphys/tree/main/examples/aerostructural/supersonic_panel>`_.
-In this case, :code:`as_opt_parallel.py` provides the top-level OpenMDAO group, :code:`Model`.
+An example is provided for the `supersonic panel aerostructural case <https://github.com/OpenMDAO/mphys/tree/main/examples/aerostructural/supersonic_panel>`_.
+In this case, :code:`as_opt_parallel.py` provides the top-level OpenMDAO group, :code:`Model`, which is a :code:`MultipointParallel` class and thus evaluates MPhys aerostructural scenarios in parallel.
 The file :code:`mphys_server.py` points to this group when initializing the :code:`MPhysZeroMQServer` instance.
 The file :code:`as_opt_remote.py` is the top-level code that contains the remote component by initializing the :code:`RemoteZeroMQComp` instance with a :code:`run_server_filename` input of "mphys_server.py".
 The remote component uses a :code:`K4` pbs4py Launcher object, which will launch, monitor, and stop jobs using the K4 queue of the NASA K-cluster.
@@ -57,14 +60,14 @@ Troubleshooting
 The :code:`dump_json` option for :code:`RemoteZeroMQComp` will make the component write input and output JSON files, which contain all data sent to and received from the server.
 An exception is the :code:`wall_time` entry (given in seconds) in the output JSON file, which is added on the client-side after the server has completed the design evaluation.
 Another entry that is only provided for informational purposes is :code:`design_counter`, which keeps track of how many different designs have been evaluated on the current server.
-If :code:`dump_separate_json` is also set to True, then separate files will be written for each design evaluation.
+If :code:`dump_separate_json` is set to True, then separate files will be written for each design evaluation.
 On the server side, an n2 file titled :code:`n2_inner_analysis.html` will be written after each evaluation.
 
 Current Limitations
 ===================
 * A pbs4py Launcher must be implemented for your HPC environment
 * On the client side, :code:`RemoteZeroMQComp.stop_server()` should be added after your analysis/optimization to stop the HPC job and ssh port forwarding, which the server manager starts as a background process.
-* If :code:`stop_server` is not called or the server stops unexpectedly, stopping the port forwarding manually is difficult, as it involves finding the ssh process associated with the run's port number. This must be done on the same login node that the server was launched from.
+* If :code:`stop_server` is not called or the server stops unexpectedly, stopping the port forwarding manually is difficult, as it involves finding the ssh process associated with the remote server's port number. This must be done on the same login node that the server was launched from.
 * Stopping the HPC job is somewhat easier as the job name will be :code:`MPhys` followed by the port number; however, if runs are launched from multiple login nodes then one may have multiple jobs with the same name.
 * Currently, the :code:`of` option (as well as :code:`wrt`) for :code:`check_totals` or :code:`compute_totals` is not used by the remote component; on the server side, :code:`compute_totals` will be evaluated for all responses (objectives, constraints, and :code:`additional_remote_outputs`). Depending on how many :code:`of` responses are desired, this may be more costly than not using remote components.
 * The HPC environment must allow ssh port forwarding from the login node to a compute node.

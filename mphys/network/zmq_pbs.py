@@ -22,9 +22,9 @@ class RemoteZeroMQComp(RemoteComp):
 
     def _send_inputs_to_server(self, remote_input_dict, command: str):
         if self._doing_derivative_evaluation(command):
-            print('CLIENT: Requesting derivative call from server', flush=True)
+            print(f'CLIENT (subsystem {self.name}): Requesting derivative call from server', flush=True)
         else:
-            print('CLIENT: Requesting function call from server', flush=True)
+            print(f'CLIENT (subsystem {self.name}): Requesting function call from server', flush=True)
         input_str = f"{command}|{str(json.dumps(remote_input_dict))}"
         self.server_manager.socket.send(input_str.encode())
 
@@ -34,6 +34,7 @@ class RemoteZeroMQComp(RemoteComp):
     def _setup_server_manager(self):
         self.server_manager = MPhysZeroMQServerManager(pbs=self.options['pbs'],
                                                        run_server_filename=self.options['run_server_filename'],
+                                                       component_name=self.name,
                                                        port=self.options['port'],
                                                        acceptable_port_range=self.options['acceptable_port_range'])
 
@@ -48,6 +49,8 @@ class MPhysZeroMQServerManager(ServerManager):
         pbs4py launcher used for HPC job management
     run_server_filename : str
         Python filename that initializes and runs the :class:`~mphys.network.zmq_pbs.MPhysZeroMQServer` server
+    component_name : str
+        Name of the remote component, for capturing output from separate remote components to mphys_{component_name}_server{server_number}.out
     port : int
         Desired port number for ssh port forwarding
     acceptable_port_range : list
@@ -56,11 +59,13 @@ class MPhysZeroMQServerManager(ServerManager):
     def __init__(self,
                  pbs: PBS,
                  run_server_filename: str,
-                 port=5080,
-                 acceptable_port_range=[5080,6000]
+                 component_name: str,
+                 port=5081,
+                 acceptable_port_range=[5081,6000],
                  ):
         self.pbs = pbs
         self.run_server_filename = run_server_filename
+        self.component_name = component_name
         self.port = port
         self.acceptable_port_range = acceptable_port_range
         self.queue_time_delay = 5 # seconds to wait before rechecking if a job has started
@@ -73,7 +78,7 @@ class MPhysZeroMQServerManager(ServerManager):
         self._launch_job()
 
     def stop_server(self):
-        print('CLIENT: Stopping the remote analysis server', flush=True)
+        print(f'CLIENT (subsystem {self.component_name}): Stopping the remote analysis server', flush=True)
         self.socket.send('shutdown|null'.encode())
         self._shutdown_server()
         self.socket.close()
@@ -91,14 +96,14 @@ class MPhysZeroMQServerManager(ServerManager):
 
     def _initialize_connection(self):
         if self._port_is_in_use(self.port):
-            print(f'CLIENT: Port {self.port} is already in use... finding first available port in the range {self.acceptable_port_range}', flush=True)
+            print(f'CLIENT (subsystem {self.component_name}): Port {self.port} is already in use... finding first available port in the range {self.acceptable_port_range}', flush=True)
 
             for port in range(self.acceptable_port_range[0],self.acceptable_port_range[1]+1):
                 if not self._port_is_in_use(port):
                     self.port = port
                     break
             else:
-                raise RuntimeError('CLIENT: Could not find open port')
+                raise RuntimeError(f'CLIENT (subsystem {self.component_name}): Could not find open port')
 
         self._initialize_zmq_socket()
 
@@ -108,16 +113,16 @@ class MPhysZeroMQServerManager(ServerManager):
         self.socket.connect(f"tcp://localhost:{self.port}")
 
     def _launch_job(self):
-        print('CLIENT: Launching new server', flush=True)
+        print(f'CLIENT (subsystem {self.component_name}): Launching new server', flush=True)
         python_command = (f"python {self.run_server_filename} --port {self.port}")
-        python_mpi_command = self.pbs.create_mpi_command(python_command, output_root_name=f'mphys_server{self.server_counter}')
+        python_mpi_command = self.pbs.create_mpi_command(python_command, output_root_name=f'mphys_{self.component_name}_server{self.server_counter}')
         jobid = self.pbs.launch(f'MPhys{self.port}', [python_mpi_command], blocking=False)
         self.job = PBSJob(jobid)
         self._wait_for_job_to_start()
         self._setup_ssh()
 
     def _wait_for_job_to_start(self):
-        print('CLIENT: Waiting for job to start', flush=True)
+        print(f'CLIENT (subsystem {self.component_name}): Waiting for job to start', flush=True)
         job_submission_time = time.time()
         self._setup_placeholder_ssh()
         while self.job.state!='R':
@@ -125,7 +130,7 @@ class MPhysZeroMQServerManager(ServerManager):
             self.job.update_job_state()
         self._stop_placeholder_ssh()
         self.job_start_time = time.time()
-        print(f'CLIENT: Job started (queue wait time: {(time.time()-job_submission_time)/3600} hours)', flush=True)
+        print(f'CLIENT (subsystem {self.component_name}): Job started (queue wait time: {(time.time()-job_submission_time)/3600} hours)', flush=True)
 
     def _setup_ssh(self):
         ssh_command = f'ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L {self.port}:localhost:{self.port} {self.job.hostname} &'
@@ -138,7 +143,7 @@ class MPhysZeroMQServerManager(ServerManager):
         self.job.qdel()
 
     def _setup_placeholder_ssh(self):
-        print(f'CLIENT: Starting placeholder process to hold port {self.port} while in queue', flush=True)
+        print(f'CLIENT (subsystem {self.component_name}): Starting placeholder process to hold port {self.port} while in queue', flush=True)
         ssh_command = f'ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L {self.port}:localhost:{self.port} {socket.gethostname()} &'
         self.ssh_proc = subprocess.Popen(ssh_command.split(),
                                          stdout=subprocess.DEVNULL,

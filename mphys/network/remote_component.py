@@ -36,6 +36,8 @@ class RemoteComp(om.ExplicitComponent):
         self.var_naming_dot_replacement = self.options['var_naming_dot_replacement']
         self.additional_remote_inputs = self.options['additional_remote_inputs']
         self.additional_remote_outputs = self.options['additional_remote_outputs']
+        if self.dump_separate_json:
+            self.dump_json = True
 
         self._setup_server_manager()
 
@@ -44,7 +46,7 @@ class RemoteComp(om.ExplicitComponent):
         self.times_gradient = np.array([])
 
         # get baseline model
-        print('CLIENT: Running model from setup to get design problem info', flush=True)
+        print(f'CLIENT (subsystem {self.name}): Running model from setup to get design problem info', flush=True)
         output_dict = self.evaluate_model(command='initialize',
                                           remote_input_dict={'additional_inputs': self.additional_remote_inputs,
                                                              'additional_outputs': self.additional_remote_outputs})
