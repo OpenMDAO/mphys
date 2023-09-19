@@ -42,7 +42,9 @@ Within this file, the :code:`MPhysZeroMQServer` class's :code:`get_om_group_func
 By default, any design variables, objectives, and constraints defined in the group will be added on the client side.
 Any other desired inputs or outputs must be added in the :code:`additional_remote_inputs` or :code:`additional_remote_outputs` options.
 On the client side, any "." characters in these input and output names will be replaced by :code:`var_naming_dot_replacement`.
+
 The screen output from a particular remote component's Nth server will be sent to :code:`mphys_<component name>_serverN.out`, where :code:`component name` is the subsystem name of the :code:`RemoteZeroMQComp` instance.
+Searching for the keyword "SERVER" will display what the server is currently doing; the keyword "CLIENT" will do the same on the client-side.
 The HPC job for the component's server is named :code:`MPhys<port number>`; the pbs4py-generated job submission script is the same followed by ".pbs".
 Note that running the remote component in parallel is not supported, and a SystemError will be triggered otherwise.
 
