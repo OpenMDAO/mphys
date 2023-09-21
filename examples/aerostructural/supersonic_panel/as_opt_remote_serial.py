@@ -11,7 +11,7 @@ pbs._requested_number_of_nodes = 1
 
 # add remote component to the model
 prob = om.Problem()
-prob.model.add_subsystem('remote', RemoteZeroMQComp(run_server_filename='mphys_server.py', pbs=pbs))
+prob.model.add_subsystem('remote', RemoteZeroMQComp(run_server_filename='mphys_server_parallel_multipoint.py', pbs=pbs))
 
 if check_totals:
     prob.setup(mode='rev')

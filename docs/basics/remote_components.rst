@@ -50,12 +50,13 @@ Note that running the remote component in parallel is not supported, and a Syste
 
 Example
 =======
-An example is provided for the `supersonic panel aerostructural case <https://github.com/OpenMDAO/mphys/tree/main/examples/aerostructural/supersonic_panel>`_.
-In this case, :code:`as_opt_parallel.py` provides the top-level OpenMDAO group, :code:`Model`, which is a :code:`MultipointParallel` class and thus evaluates MPhys aerostructural scenarios in parallel.
-The file :code:`mphys_server.py` points to this group when initializing the :code:`MPhysZeroMQServer` instance.
-The file :code:`as_opt_remote.py` is the top-level code that contains the remote component by initializing the :code:`RemoteZeroMQComp` instance with a :code:`run_server_filename` input of "mphys_server.py".
+Two examples are provided for the `supersonic panel aerostructural case <https://github.com/OpenMDAO/mphys/tree/main/examples/aerostructural/supersonic_panel>`_.
+In one example, :code:`as_opt_parallel.py` provides the OpenMDAO group to be evaluated on the server, :code:`Model`, which is a :code:`MultipointParallel` class and thus evaluates MPhys aerostructural scenarios in parallel.
+The server file :code:`mphys_server_parallel_multipoint.py` points to this group when initializing the :code:`MPhysZeroMQServer` instance.
+The file :code:`as_opt_remote_serial.py` is the top-level code that contains the remote component by initializing the :code:`RemoteZeroMQComp` instance with a :code:`run_server_filename` input of "mphys_server_parallel_multipoint.py".
 The remote component uses a :code:`K4` pbs4py Launcher object, which will launch, monitor, and stop jobs using the K4 queue of the NASA K-cluster.
-A different Launcher object will be needed to run this example on a different HPC.
+The second example, :code:`as_opt_remote_parallel.py`, when ran with 2 processors, runs two parallel servers using the :code:`mphys_server_single_scenario.py` server, which points to :code:`run.py`.
+Both examples, :code:`as_opt_remote_serial.py` and :code:`as_opt_remote_parallel.py`, solve the same optimization problem given in :code:`as_opt_parallel.py`.
 
 Troubleshooting
 ===============
@@ -63,7 +64,7 @@ The :code:`dump_json` option for :code:`RemoteZeroMQComp` will make the componen
 An exception is the :code:`wall_time` entry (given in seconds) in the output JSON file, which is added on the client-side after the server has completed the design evaluation.
 Another entry that is only provided for informational purposes is :code:`design_counter`, which keeps track of how many different designs have been evaluated on the current server.
 If :code:`dump_separate_json` is set to True, then separate files will be written for each design evaluation.
-On the server side, an n2 file titled :code:`n2_inner_analysis.html` will be written after each evaluation.
+On the server side, an n2 file titled :code:`n2_inner_analysis_<component name>.html` will be written after each evaluation.
 
 Current Limitations
 ===================

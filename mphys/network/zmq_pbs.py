@@ -19,6 +19,7 @@ class RemoteZeroMQComp(RemoteComp):
         self.options.declare('port', default=5081, desc="port number for server/client communication")
         self.options.declare('acceptable_port_range', default=[5081,6000], desc="port range to look through if 'port' is currently busy")
         super().initialize()
+        self.server_manager = None # for avoiding reinitialization due to multiple setup calls
 
     def _send_inputs_to_server(self, remote_input_dict, command: str):
         if self._doing_derivative_evaluation(command):
@@ -32,11 +33,12 @@ class RemoteZeroMQComp(RemoteComp):
         return json.loads(self.server_manager.socket.recv().decode())
 
     def _setup_server_manager(self):
-        self.server_manager = MPhysZeroMQServerManager(pbs=self.options['pbs'],
-                                                       run_server_filename=self.options['run_server_filename'],
-                                                       component_name=self.name,
-                                                       port=self.options['port'],
-                                                       acceptable_port_range=self.options['acceptable_port_range'])
+        if self.server_manager is None:
+            self.server_manager = MPhysZeroMQServerManager(pbs=self.options['pbs'],
+                                                           run_server_filename=self.options['run_server_filename'],
+                                                           component_name=self.name,
+                                                           port=self.options['port'],
+                                                           acceptable_port_range=self.options['acceptable_port_range'])
 
 class MPhysZeroMQServerManager(ServerManager):
     """

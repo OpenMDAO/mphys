@@ -352,4 +352,4 @@ class Server:
             self._send_outputs_to_client(output_dict)
 
             # write current n2 with values
-            om.n2(self.prob, show_browser=False, outfile='n2_inner_analysis.html')
+            om.n2(self.prob, show_browser=False, outfile=f"n2_inner_analysis_{input_dict['component_name']}.html")

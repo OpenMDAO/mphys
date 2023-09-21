@@ -25,6 +25,7 @@ class RemoteComp(om.ExplicitComponent):
         self.options.declare('var_naming_dot_replacement', default=":", desc="what to replace '.' within dv/response name trees")
         self.options.declare('additional_remote_inputs', default=[], types=list, desc="additional inputs not defined as design vars in the remote component")
         self.options.declare('additional_remote_outputs', default=[], types=list, desc="additional outputs not defined as objective/constraints in the remote component")
+        self.options.declare('use_derivative_coloring', default=False, types=bool, desc="assign derivative coloring to objective/constraints. Only for cases with parallel servers")
 
     def setup(self):
         if self.comm.size>1:
@@ -36,6 +37,8 @@ class RemoteComp(om.ExplicitComponent):
         self.var_naming_dot_replacement = self.options['var_naming_dot_replacement']
         self.additional_remote_inputs = self.options['additional_remote_inputs']
         self.additional_remote_outputs = self.options['additional_remote_outputs']
+        self.use_derivative_coloring = self.options['use_derivative_coloring']
+        self.derivative_coloring_num = 0
         if self.dump_separate_json:
             self.dump_json = True
 
@@ -49,7 +52,8 @@ class RemoteComp(om.ExplicitComponent):
         print(f'CLIENT (subsystem {self.name}): Running model from setup to get design problem info', flush=True)
         output_dict = self.evaluate_model(command='initialize',
                                           remote_input_dict={'additional_inputs': self.additional_remote_inputs,
-                                                             'additional_outputs': self.additional_remote_outputs})
+                                                             'additional_outputs': self.additional_remote_outputs,
+                                                             'component_name': self.name})
 
         self._add_design_inputs_from_baseline_model(output_dict)
         self._add_objectives_from_baseline_model(output_dict)
@@ -125,7 +129,7 @@ class RemoteComp(om.ExplicitComponent):
                 partials[( output.replace('.',self.var_naming_dot_replacement), inp.replace('.',self.var_naming_dot_replacement) )] = remote_dict['additional_outputs'][output]['derivatives'][inp]
 
     def _create_input_dict_for_server(self, inputs):
-        input_dict = {'design_vars': {}, 'additional_inputs': {}, 'additional_outputs': self.additional_remote_outputs}
+        input_dict = {'design_vars': {}, 'additional_inputs': {}, 'additional_outputs': self.additional_remote_outputs, 'component_name': self.name}
         for dv in self.design_var_keys:
             input_dict['design_vars'][dv.replace('.',self.var_naming_dot_replacement)] = {'val': inputs[dv.replace('.',self.var_naming_dot_replacement)].tolist()}
         for input in self.additional_remote_inputs:
@@ -166,7 +170,9 @@ class RemoteComp(om.ExplicitComponent):
         if self.dump_separate_json:
             save_dir = 'remote_json_files'
             if not os.path.isdir(save_dir):
-                os.mkdir(save_dir)
+                try:
+                    os.mkdir(save_dir)
+                except: pass # may have been created by now, by a parallel server
             if self._doing_derivative_evaluation(command):
                 filename = f'{save_dir}/{self.name}_{dict_type}_derivative{len(self.times_gradient)}.json'
             else:
@@ -207,7 +213,9 @@ class RemoteComp(om.ExplicitComponent):
                                            ref=output_dict['objective'][obj]['ref'],
                                            ref0=output_dict['objective'][obj]['ref0'],
                                            scaler=output_dict['objective'][obj]['scaler'],
-                                           adder=output_dict['objective'][obj]['adder'])
+                                           adder=output_dict['objective'][obj]['adder'],
+                                           parallel_deriv_color=f'color{self.derivative_coloring_num}' if self.use_derivative_coloring else None)
+            self.derivative_coloring_num += 1
 
     def _add_constraints_from_baseline_model(self, output_dict):
         for con in output_dict['constraints'].keys():
@@ -218,7 +226,8 @@ class RemoteComp(om.ExplicitComponent):
                                     ref0=output_dict['constraints'][con]['ref0'],
                                     equals=output_dict['constraints'][con]['equals'],
                                     scaler=output_dict['constraints'][con]['scaler'],
-                                    adder=output_dict['constraints'][con]['adder'])
+                                    adder=output_dict['constraints'][con]['adder'],
+                                    parallel_deriv_color=f'color{self.derivative_coloring_num}' if self.use_derivative_coloring else None)
             else:
                 if output_dict['constraints'][con]['lower']>-1e20 and output_dict['constraints'][con]['upper']<1e20: # enforce lower and upper bounds
                     self.add_constraint(con.replace('.',self.var_naming_dot_replacement),
@@ -227,21 +236,25 @@ class RemoteComp(om.ExplicitComponent):
                                         lower=output_dict['constraints'][con]['lower'],
                                         upper=output_dict['constraints'][con]['upper'],
                                         scaler=output_dict['constraints'][con]['scaler'],
-                                        adder=output_dict['constraints'][con]['adder'])
+                                        adder=output_dict['constraints'][con]['adder'],
+                                    parallel_deriv_color=f'color{self.derivative_coloring_num}' if self.use_derivative_coloring else None)
                 elif output_dict['constraints'][con]['lower']>-1e20: # enforce lower bound
                     self.add_constraint(con.replace('.',self.var_naming_dot_replacement),
                                         ref=output_dict['constraints'][con]['ref'],
                                         ref0=output_dict['constraints'][con]['ref0'],
                                         lower=output_dict['constraints'][con]['lower'],
                                         scaler=output_dict['constraints'][con]['scaler'],
-                                        adder=output_dict['constraints'][con]['adder'])
+                                        adder=output_dict['constraints'][con]['adder'],
+                                        parallel_deriv_color=f'color{self.derivative_coloring_num}' if self.use_derivative_coloring else None)
                 else: # enforce upper bound
                     self.add_constraint(con.replace('.',self.var_naming_dot_replacement),
                                         ref=output_dict['constraints'][con]['ref'],
                                         ref0=output_dict['constraints'][con]['ref0'],
                                         upper=output_dict['constraints'][con]['upper'],
                                         scaler=output_dict['constraints'][con]['scaler'],
-                                        adder=output_dict['constraints'][con]['adder'])
+                                        adder=output_dict['constraints'][con]['adder'],
+                                        parallel_deriv_color=f'color{self.derivative_coloring_num}' if self.use_derivative_coloring else None)
+            self.derivative_coloring_num += 1
 
     def _assign_objectives_from_remote_output(self, remote_dict, outputs):
         for obj in remote_dict['objective'].keys():
