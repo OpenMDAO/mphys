@@ -229,7 +229,6 @@ class Server:
                 deriv = self.derivatives[( output , self.prob.model._design_vars[dv]['source'] )]
                 if hasattr(deriv,'tolist'):
                     deriv = deriv.tolist()
-                print(output,dv)
                 remote_output_dict['additional_outputs'][output]['derivatives'][dv] = deriv
 
             # wrt additional_inputs
@@ -237,7 +236,6 @@ class Server:
                 deriv = self.derivatives[( output , dv )]
                 if hasattr(deriv,'tolist'):
                     deriv = deriv.tolist()
-                print(output,dv)
                 remote_output_dict['additional_outputs'][output]['derivatives'][dv] = deriv
 
         return remote_output_dict
