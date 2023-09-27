@@ -16,7 +16,7 @@ class RemoteComp(om.ExplicitComponent):
         self.server_manager.stop_server()
 
     def initialize(self):
-        self.options.declare('run_server_filename', desc="python file that will launch the Server class")
+        self.options.declare('run_server_filename', default="mphys_server.py", desc="python file that will launch the Server class")
         self.options.declare('time_estimate_multiplier', default=2.0, desc="when determining whether to reboot the server, estimate model run time as this times max prior run time")
         self.options.declare('reboot_only_on_function_call', default=True, desc="only allows server reboot before function call, not gradient call. "
                                                                                 +"Avoids having to rerun forward solution on next job, but shortens current job time")

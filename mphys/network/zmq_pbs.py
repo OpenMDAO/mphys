@@ -18,6 +18,7 @@ class RemoteZeroMQComp(RemoteComp):
         self.options.declare('pbs', "pbs4py Launcher object")
         self.options.declare('port', default=5081, desc="port number for server/client communication")
         self.options.declare('acceptable_port_range', default=[5081,6000], desc="port range to look through if 'port' is currently busy")
+        self.options.declare('additional_server_args', default="", desc="Optional arguments to give server, in addition to --port <port number>")
         super().initialize()
         self.server_manager = None # for avoiding reinitialization due to multiple setup calls
 
@@ -38,7 +39,8 @@ class RemoteZeroMQComp(RemoteComp):
                                                            run_server_filename=self.options['run_server_filename'],
                                                            component_name=self.name,
                                                            port=self.options['port'],
-                                                           acceptable_port_range=self.options['acceptable_port_range'])
+                                                           acceptable_port_range=self.options['acceptable_port_range'],
+                                                           additional_server_args=self.options['additional_server_args'])
 
 class MPhysZeroMQServerManager(ServerManager):
     """
@@ -57,6 +59,8 @@ class MPhysZeroMQServerManager(ServerManager):
         Desired port number for ssh port forwarding
     acceptable_port_range : list
         Range of alternative port numbers if specified port is already in use
+    additional_server_args : str
+        Optional arguments to give server, in addition to --port <port number>
     """
     def __init__(self,
                  pbs: PBS,
@@ -64,12 +68,14 @@ class MPhysZeroMQServerManager(ServerManager):
                  component_name: str,
                  port=5081,
                  acceptable_port_range=[5081,6000],
+                 additional_server_args=''
                  ):
         self.pbs = pbs
         self.run_server_filename = run_server_filename
         self.component_name = component_name
         self.port = port
         self.acceptable_port_range = acceptable_port_range
+        self.additional_server_args = additional_server_args
         self.queue_time_delay = 5 # seconds to wait before rechecking if a job has started
         self.server_counter = 0 # for saving output of each server to different files
         self.start_server()
@@ -116,7 +122,7 @@ class MPhysZeroMQServerManager(ServerManager):
 
     def _launch_job(self):
         print(f'CLIENT (subsystem {self.component_name}): Launching new server', flush=True)
-        python_command = (f"python {self.run_server_filename} --port {self.port}")
+        python_command = (f"python {self.run_server_filename} --port {self.port} {self.additional_server_args}")
         python_mpi_command = self.pbs.create_mpi_command(python_command, output_root_name=f'mphys_{self.component_name}_server{self.server_counter}')
         jobid = self.pbs.launch(f'MPhys{self.port}', [python_mpi_command], blocking=False)
         self.job = PBSJob(jobid)
