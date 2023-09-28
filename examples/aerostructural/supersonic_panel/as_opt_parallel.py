@@ -1,5 +1,6 @@
 import numpy as np
 import openmdao.api as om
+import os
 
 from mphys import Multipoint, MultipointParallel
 from mphys.scenario_aerostructural import ScenarioAeroStructural
@@ -31,6 +32,13 @@ class AerostructParallel(MultipointParallel):
 
     def setup(self):
         for i in range(len(self.options['scenario_names'])):
+
+            # create the run directory
+            if self.comm.rank==0:
+                if not os.path.isdir(self.options['scenario_names'][i]):
+                    os.mkdir(self.options['scenario_names'][i])
+            self.comm.Barrier()
+
             nonlinear_solver = om.NonlinearBlockGS(maxiter=100, iprint=2, use_aitken=True, aitken_initial_factor=0.5)
             linear_solver = om.LinearBlockGS(maxiter=40, iprint=2, use_aitken=True, aitken_initial_factor=0.5)
             self.mphys_add_scenario(self.options['scenario_names'][i],
@@ -39,13 +47,18 @@ class AerostructParallel(MultipointParallel):
                                         struct_builder=self.options['struct_builder'],
                                         ldxfer_builder=self.options['xfer_builder'],
                                         geometry_builder=self.options['geometry_builder'],
-                                        in_MultipointParallel=True),
+                                        in_MultipointParallel=True,
+                                        run_directory=self.options['scenario_names'][i]),
                                     coupling_nonlinear_solver=nonlinear_solver,
                                     coupling_linear_solver=linear_solver)
 
 # OM group
 class Model(om.Group):
+    def initialize(self):
+        self.options.declare('scenario_names', default=['aerostructural1','aerostructural2'])
+
     def setup(self):
+        self.scenario_names = self.options['scenario_names']
 
         # ivc
         self.add_subsystem('ivc', om.IndepVarComp(), promotes=['*'])
@@ -54,7 +67,7 @@ class Model(om.Group):
         self.ivc.add_output('density', val=2800.)
         self.ivc.add_output('mach', val=[5.,3.])
         self.ivc.add_output('qdyn', val=[3E4,1E4])
-        #self.ivc.add_output('aoa', val=[3.,2.], units='deg') # TODO: doesn't work with coloring on more than 2 comms
+        #self.ivc.add_output('aoa', val=[3.,2.], units='deg') # derivatives are wrong when using vector aoa and coloring; see OpenMDAO issue 2919
         self.ivc.add_output('aoa1', val=3., units='deg')
         self.ivc.add_output('aoa2', val=2., units='deg')
         self.ivc.add_output('geometry_morph_param', val=1.)
@@ -85,31 +98,28 @@ class Model(om.Group):
         builders = {'struct': struct_builder, 'aero': aero_builder}
         geometry_builder = GeometryBuilder(builders)
 
-        # list of scenario names
-        scenario_names = ['aerostructural1','aerostructural2']
-
         # add parallel multipoint group
         self.add_subsystem('multipoint',AerostructParallel(
                                         aero_builder=aero_builder,
                                         struct_builder=struct_builder,
                                         xfer_builder=xfer_builder,
                                         geometry_builder=geometry_builder,
-                                        scenario_names=scenario_names))
+                                        scenario_names=self.scenario_names))
 
-        for i in range(len(scenario_names)):
+        for i in range(len(self.scenario_names)):
 
             # connect scalar inputs to the scenario
             for var in ['modulus', 'yield_stress', 'density', 'dv_struct']:
-                self.connect(var, 'multipoint.'+scenario_names[i]+'.'+var)
+                self.connect(var, 'multipoint.'+self.scenario_names[i]+'.'+var)
 
             # connect vector inputs
             for var in ['mach', 'qdyn']: #, 'aoa']:
-                self.connect(var, 'multipoint.'+scenario_names[i]+'.'+var, src_indices=[i])
+                self.connect(var, 'multipoint.'+self.scenario_names[i]+'.'+var, src_indices=[i])
 
-            self.connect(f'aoa{i+1}', 'multipoint.'+scenario_names[i]+'.aoa')
+            self.connect(f'aoa{i+1}', 'multipoint.'+self.scenario_names[i]+'.aoa')
 
             # connect top-level geom parameter
-            self.connect('geometry_morph_param', 'multipoint.'+scenario_names[i]+'.geometry.geometry_morph_param')
+            self.connect('geometry_morph_param', 'multipoint.'+self.scenario_names[i]+'.geometry.geometry_morph_param')
 
         # add design vars
         self.add_design_var('geometry_morph_param', lower=0.1, upper=10.0)
@@ -119,14 +129,14 @@ class Model(om.Group):
         self.add_design_var('aoa2', lower=-20., upper=20.)
 
         # add objective/constraints
-        self.add_objective('multipoint.aerostructural1.mass', ref=0.01)
-        self.add_constraint('multipoint.aerostructural1.func_struct', upper=1.0, parallel_deriv_color='struct_cons') # run func_struct derivatives in parallel
-        self.add_constraint('multipoint.aerostructural2.func_struct', upper=1.0, parallel_deriv_color='struct_cons')
-        self.add_constraint('multipoint.aerostructural1.C_L', lower=0.15, ref=0.1, parallel_deriv_color='lift_cons') # run C_L derivatives in parallel
-        self.add_constraint('multipoint.aerostructural2.C_L', lower=0.45, ref=0.1, parallel_deriv_color='lift_cons')
+        self.add_objective(f'multipoint.{self.scenario_names[0]}.mass', ref=0.01)
+        self.add_constraint(f'multipoint.{self.scenario_names[0]}.func_struct', upper=1.0, parallel_deriv_color='struct_cons') # run func_struct derivatives in parallel
+        self.add_constraint(f'multipoint.{self.scenario_names[1]}.func_struct', upper=1.0, parallel_deriv_color='struct_cons')
+        self.add_constraint(f'multipoint.{self.scenario_names[0]}.C_L', lower=0.15, ref=0.1, parallel_deriv_color='lift_cons') # run C_L derivatives in parallel
+        self.add_constraint(f'multipoint.{self.scenario_names[1]}.C_L', lower=0.45, ref=0.1, parallel_deriv_color='lift_cons')
 
-def get_model():
-    return Model()
+def get_model(options):
+    return Model(scenario_names=options['scenario_name'])
 
 # run model and check derivatives
 if __name__ == "__main__":

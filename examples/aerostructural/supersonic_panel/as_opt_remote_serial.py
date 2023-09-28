@@ -11,7 +11,13 @@ pbs._requested_number_of_nodes = 1
 
 # add remote component to the model
 prob = om.Problem()
-prob.model.add_subsystem('remote', RemoteZeroMQComp(run_server_filename='mphys_server_parallel_multipoint.py', pbs=pbs))
+prob.model.add_subsystem('remote',
+                        RemoteZeroMQComp(
+                            run_server_filename='mphys_server.py', # default server filename
+                            pbs=pbs,
+                            additional_server_args='--filename as_opt_parallel ' +
+                                                   '--scenario_name cruise pullup') # customizable options for server file
+                        )
 
 if check_totals:
     prob.setup(mode='rev')

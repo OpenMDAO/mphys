@@ -20,21 +20,23 @@ class ParallelRemoteGroup(om.ParallelGroup):
 
             # output functions of interest, which aren't already added as objective/constraints on server side
             if i==0:
-                additional_remote_outputs = ['aerostructural.mass', 'aerostructural.C_L', 'aerostructural.func_struct']
+                additional_remote_outputs = [f'aerostructural{i}.mass', f'aerostructural{i}.C_L', f'aerostructural{i}.func_struct']
             else: # exclude mass (which comes from first scenario), otherwise mass derivatives will be computed needlessly
-                additional_remote_outputs = ['aerostructural.C_L', 'aerostructural.func_struct']
+                additional_remote_outputs = [f'aerostructural{i}.C_L', f'aerostructural{i}.func_struct']
 
             # add the remote server component
             self.add_subsystem(f'remote_scenario{i}',
                             RemoteZeroMQComp(
-                                run_server_filename='mphys_server_single_scenario.py',
+                                run_server_filename='mphys_server.py',
                                 pbs=pbs_launcher,
                                 port=5054+i*4,
                                 acceptable_port_range=[5054+i*4, 5054+(i+1)*4-1],
                                 dump_separate_json=True,
                                 additional_remote_inputs=['mach', 'qdyn', 'aoa', 'geometry_morph_param', 'dv_struct'],
-                                additional_remote_outputs=additional_remote_outputs),
-                            )
+                                additional_remote_outputs=additional_remote_outputs,
+                                additional_server_args=f'--filename run --scenario_name aerostructural{i}'),
+                            promotes_inputs=['geometry_morph_param', 'dv_struct'], # non-distributed IVCs
+                            promotes_outputs=['*'])
 
 class TopLevelGroup(om.Group):
     def setup(self):
@@ -61,29 +63,27 @@ class TopLevelGroup(om.Group):
         self.add_design_var('aoa2', lower=-20., upper=20.)
 
         # add the parallel servers
-        self.add_subsystem('multipoint', ParallelRemoteGroup(num_scenarios=2))
+        self.add_subsystem('multipoint', ParallelRemoteGroup(num_scenarios=2), promotes=['*'])
 
-        # connect IVCs to servers
+        # connect distributed IVCs to servers, which are size (2,) and (1,) on client and server sides
         for i in range(2):
-            for var in ['geometry_morph_param', 'dv_struct']:
-                self.connect(var, f'multipoint.remote_scenario{i}.{var}')
             for var in ['mach', 'qdyn']: #, 'aoa']:
-                self.connect(var, f'multipoint.remote_scenario{i}.{var}', src_indices=[i])
-            self.connect(f'aoa{i+1}', f'multipoint.remote_scenario{i}.aoa')
-
-        # add objective
-        self.add_objective('multipoint.remote_scenario0.aerostructural:mass', ref=0.01)
+                self.connect(var, f'remote_scenario{i}.{var}', src_indices=[i])
+            self.connect(f'aoa{i+1}', f'remote_scenario{i}.aoa')
 
         # add CL and stress constraints
         min_CL = [0.15, 0.45]
         for i in range(2):
-            self.add_constraint(f'multipoint.remote_scenario{i}.aerostructural:C_L',
+            self.add_constraint(f'aerostructural{i}:C_L',
                                 lower=min_CL[i],
                                 ref=0.1,
                                 parallel_deriv_color='lift_cons')
-            self.add_constraint(f'multipoint.remote_scenario{i}.aerostructural:func_struct',
+            self.add_constraint(f'aerostructural{i}:func_struct',
                                 upper=1.0,
                                 parallel_deriv_color='struct_cons')
+
+        # add objective
+        self.add_objective('aerostructural0:mass', ref=0.01)
 
 # add remote component to the model
 prob = om.Problem()

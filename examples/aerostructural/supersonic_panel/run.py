@@ -1,13 +1,14 @@
 import numpy as np
 from mpi4py import MPI
 import openmdao.api as om
+import os
 
 from mphys import Multipoint
 from mphys.scenario_aerostructural import ScenarioAeroStructural
 
 from structures_mphys import StructBuilder
 from aerodynamics_mphys import AeroBuilder
-from xfer_mphys import XferBuilder 
+from xfer_mphys import XferBuilder
 
 from geometry_morph import GeometryBuilder
 
@@ -24,7 +25,11 @@ N_el_aero = 7
 
 # Mphys
 class Model(Multipoint):
+    def initialize(self):
+        self.options.declare('scenario_name', default='aerostructural')
+
     def setup(self):
+        self.scenario_name = self.options['scenario_name']
 
         # ivc
         self.add_subsystem('ivc', om.IndepVarComp(), promotes=['*'])
@@ -73,19 +78,30 @@ class Model(Multipoint):
 
         self.connect('struct_mesh.x_struct0', 'x_struct_in')
         self.connect('aero_mesh.x_aero0', 'x_aero_in')
- 
+
+        # create the run directory
+        if self.comm.rank==0:
+            if not os.path.isdir(self.scenario_name):
+                os.mkdir(self.scenario_name)
+        self.comm.Barrier()
+
         # aerostructural analysis
         nonlinear_solver = om.NonlinearBlockGS(maxiter=100, iprint=2, use_aitken=True, aitken_initial_factor=0.5)
         linear_solver = om.LinearBlockGS(maxiter=40, iprint=2, use_aitken=True, aitken_initial_factor=0.5)
-        self.mphys_add_scenario('aerostructural',
+        self.mphys_add_scenario(self.scenario_name,
                                 ScenarioAeroStructural(
-                                    aero_builder=aero_builder, struct_builder=struct_builder,
-                                    ldxfer_builder=xfer_builder),
+                                    aero_builder=aero_builder,
+                                    struct_builder=struct_builder,
+                                    ldxfer_builder=xfer_builder,
+                                    run_directory=self.scenario_name),
                                 coupling_nonlinear_solver=nonlinear_solver,
                                 coupling_linear_solver=linear_solver)
 
         for var in ['modulus', 'yield_stress', 'density', 'mach', 'qdyn', 'aoa', 'dv_struct', 'x_struct0', 'x_aero0']:
-            self.connect(var, 'aerostructural.'+var)
+            self.connect(var, self.scenario_name+'.'+var)
+
+def get_model(options):
+    return Model(scenario_name=options['scenario_name'][0])
 
 # run model and check derivatives
 if __name__ == "__main__":
@@ -95,24 +111,24 @@ if __name__ == "__main__":
     prob.setup(mode='rev')
 
     om.n2(prob, show_browser=False, outfile='n2.html')
-    
+
     prob.run_model()
     print('mass =        ' + str(prob['aerostructural.mass']))
     print('func_struct = ' + str(prob['aerostructural.func_struct']))
     print('C_L =         ' + str(prob['aerostructural.C_L']))
-    
+
     prob.check_totals(
         of=['aerostructural.mass',
             'aerostructural.func_struct',
-            'aerostructural.C_L'], 
+            'aerostructural.C_L'],
         wrt=['modulus',
              'yield_stress',
              'density',
              'mach',
              'qdyn',
-             'aoa', 
+             'aoa',
              'dv_struct',
-             'geometry_morph_param'],  
+             'geometry_morph_param'],
         step_calc='rel_avg',
         compact_print=True
     )
