@@ -135,8 +135,8 @@ class Model(om.Group):
         self.add_constraint(f'multipoint.{self.scenario_names[0]}.C_L', lower=0.15, ref=0.1, parallel_deriv_color='lift_cons') # run C_L derivatives in parallel
         self.add_constraint(f'multipoint.{self.scenario_names[1]}.C_L', lower=0.45, ref=0.1, parallel_deriv_color='lift_cons')
 
-def get_model(options):
-    return Model(scenario_names=options['scenario_name'])
+def get_model(scenario_names):
+    return Model(scenario_names=scenario_names)
 
 # run model and check derivatives
 if __name__ == "__main__":

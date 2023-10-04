@@ -25,14 +25,12 @@ class Server:
     def __init__(self, get_om_group_function_pointer,
                  ignore_setup_warnings = False,
                  ignore_runtime_warnings = False,
-                 rerun_initial_design = False,
-                 function_pointer_options_dict = {}):
+                 rerun_initial_design = False):
 
         self.get_om_group_function_pointer = get_om_group_function_pointer
         self.ignore_setup_warnings = ignore_setup_warnings
         self.ignore_runtime_warnings = ignore_runtime_warnings
         self.rerun_initial_design = rerun_initial_design
-        self.function_pointer_options_dict = function_pointer_options_dict
 
         self.current_design_has_been_evaluated = False
         self.current_derivatives_have_been_evaluated = False
@@ -51,7 +49,7 @@ class Server:
 
     def _load_the_model(self):
         self.prob = om.Problem()
-        self.prob.model = self.get_om_group_function_pointer(self.function_pointer_options_dict)
+        self.prob.model = self.get_om_group_function_pointer()
         if self.ignore_setup_warnings:
             with warnings.catch_warnings(record=True) as w:
                 self.prob.setup(mode='rev')

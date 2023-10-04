@@ -7,7 +7,7 @@ check_totals = False # True=check objective/constraint derivatives, False=run op
 # initialize pbs4py
 pbs = PBS.k4(time=1)
 pbs.mpiexec = 'mpirun'
-pbs._requested_number_of_nodes = 1
+pbs.requested_number_of_nodes = 1
 
 # add remote component to the model
 prob = om.Problem()
@@ -15,7 +15,7 @@ prob.model.add_subsystem('remote',
                         RemoteZeroMQComp(
                             run_server_filename='mphys_server.py', # default server filename
                             pbs=pbs,
-                            additional_server_args='--filename as_opt_parallel ' +
+                            additional_server_args='--model_filename as_opt_parallel ' +
                                                    '--scenario_name cruise pullup') # customizable options for server file
                         )
 

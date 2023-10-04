@@ -100,8 +100,12 @@ class Model(Multipoint):
         for var in ['modulus', 'yield_stress', 'density', 'mach', 'qdyn', 'aoa', 'dv_struct', 'x_struct0', 'x_aero0']:
             self.connect(var, self.scenario_name+'.'+var)
 
-def get_model(options):
-    return Model(scenario_name=options['scenario_name'][0])
+        # add design variables, to simplify remote setup
+        self.add_design_var('geometry_morph_param', lower=0.1, upper=10.0)
+        self.add_design_var('dv_struct', lower=1.e-4, upper=1.e-2, ref=1.e-3)
+
+def get_model(scenario_name):
+    return Model(scenario_name=scenario_name[0])
 
 # run model and check derivatives
 if __name__ == "__main__":

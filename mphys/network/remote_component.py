@@ -186,13 +186,14 @@ class RemoteComp(om.ExplicitComponent):
         self.design_var_keys = output_dict['design_vars'].keys()
         for dv in self.design_var_keys:
             self.add_input(dv.replace('.',self.var_naming_dot_replacement), output_dict['design_vars'][dv]['val'])
-            self.add_design_var(dv.replace('.',self.var_naming_dot_replacement),
-                                ref=output_dict['design_vars'][dv]['ref'],
-                                ref0=output_dict['design_vars'][dv]['ref0'],
-                                lower=output_dict['design_vars'][dv]['lower'],
-                                upper=output_dict['design_vars'][dv]['upper'],
-                                scaler=output_dict['design_vars'][dv]['scaler'],
-                                adder=output_dict['design_vars'][dv]['adder'])
+            if dv not in self._design_vars.keys():
+                self.add_design_var(dv.replace('.',self.var_naming_dot_replacement),
+                                    ref=output_dict['design_vars'][dv]['ref'],
+                                    ref0=output_dict['design_vars'][dv]['ref0'],
+                                    lower=output_dict['design_vars'][dv]['lower'],
+                                    upper=output_dict['design_vars'][dv]['upper'],
+                                    scaler=output_dict['design_vars'][dv]['scaler'],
+                                    adder=output_dict['design_vars'][dv]['adder'])
 
     def _add_additional_inputs_from_baseline_model(self, output_dict):
         self.additional_remote_inputs = list(output_dict['additional_inputs'].keys())

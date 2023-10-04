@@ -16,7 +16,7 @@ class ParallelRemoteGroup(om.ParallelGroup):
             # initialize pbs4py Launcher
             pbs_launcher = PBS.k4(time=1)
             pbs_launcher.mpiexec = 'mpirun'
-            pbs_launcher._requested_number_of_nodes = 1
+            pbs_launcher.requested_number_of_nodes = 1
 
             # output functions of interest, which aren't already added as objective/constraints on server side
             if i==0:
@@ -32,9 +32,9 @@ class ParallelRemoteGroup(om.ParallelGroup):
                                 port=5054+i*4,
                                 acceptable_port_range=[5054+i*4, 5054+(i+1)*4-1],
                                 dump_separate_json=True,
-                                additional_remote_inputs=['mach', 'qdyn', 'aoa', 'geometry_morph_param', 'dv_struct'],
+                                additional_remote_inputs=['mach', 'qdyn', 'aoa'],
                                 additional_remote_outputs=additional_remote_outputs,
-                                additional_server_args=f'--filename run --scenario_name aerostructural{i}'),
+                                additional_server_args=f'--model_filename run --scenario_name aerostructural{i}'),
                             promotes_inputs=['geometry_morph_param', 'dv_struct'], # non-distributed IVCs
                             promotes_outputs=['*'])
 
@@ -45,8 +45,6 @@ class TopLevelGroup(om.Group):
 
         # IVCs that feed into both parallel groups
         self.add_subsystem('ivc', om.IndepVarComp(), promotes=['*'])
-        self.ivc.add_output('geometry_morph_param', val=1.)
-        self.ivc.add_output('dv_struct', 0.001*np.ones(20))
 
         # distributed IVCs
         self.ivc.add_output('mach', [5., 3.])
@@ -55,9 +53,7 @@ class TopLevelGroup(om.Group):
         self.ivc.add_output('aoa1', 3.)
         self.ivc.add_output('aoa2', 2.)
 
-        # add design vars
-        self.add_design_var('geometry_morph_param', lower=0.1, upper=10.0)
-        self.add_design_var('dv_struct', lower=1.e-4, upper=1.e-2, ref=1.e-3)
+        # add distributed design vars
         #self.add_design_var('aoa', lower=-20., upper=20.)
         self.add_design_var('aoa1', lower=-20., upper=20.)
         self.add_design_var('aoa2', lower=-20., upper=20.)

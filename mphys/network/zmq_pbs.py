@@ -148,6 +148,7 @@ class MPhysZeroMQServerManager(ServerManager):
 
     def _shutdown_server(self):
         self.ssh_proc.kill()
+        time.sleep(0.1) # prevent full shutdown before job deletion?
         self.job.qdel()
 
     def _setup_placeholder_ssh(self):
@@ -167,12 +168,10 @@ class MPhysZeroMQServer(Server):
     def __init__(self, port, get_om_group_function_pointer,
                  ignore_setup_warnings = False,
                  ignore_runtime_warnings = False,
-                 rerun_initial_design = False,
-                 function_pointer_options_dict = {}):
+                 rerun_initial_design = False):
 
         super().__init__(get_om_group_function_pointer, ignore_setup_warnings,
-                         ignore_runtime_warnings, rerun_initial_design,
-                         function_pointer_options_dict)
+                         ignore_runtime_warnings, rerun_initial_design)
         self._setup_zeromq_socket(port)
 
     def _setup_zeromq_socket(self, port):

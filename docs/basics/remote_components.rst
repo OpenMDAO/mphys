@@ -50,13 +50,15 @@ Note that running the remote component in parallel is not supported, and a Syste
 
 Example
 =======
-Two examples are provided for the `supersonic panel aerostructural case <https://github.com/OpenMDAO/mphys/tree/main/examples/aerostructural/supersonic_panel>`_.
-In one example, :code:`as_opt_parallel.py` provides the OpenMDAO group to be evaluated on the server, :code:`Model`, which is a :code:`MultipointParallel` class and thus evaluates MPhys aerostructural scenarios in parallel.
-The server file :code:`mphys_server_parallel_multipoint.py` points to this group when initializing the :code:`MPhysZeroMQServer` instance.
-The file :code:`as_opt_remote_serial.py` is the top-level code that contains the remote component by initializing the :code:`RemoteZeroMQComp` instance with a :code:`run_server_filename` input of "mphys_server_parallel_multipoint.py".
-The remote component uses a :code:`K4` pbs4py Launcher object, which will launch, monitor, and stop jobs using the K4 queue of the NASA K-cluster.
-The second example, :code:`as_opt_remote_parallel.py`, when ran with 2 processors, runs two parallel servers using the :code:`mphys_server_single_scenario.py` server, which points to :code:`run.py`.
-Both examples, :code:`as_opt_remote_serial.py` and :code:`as_opt_remote_parallel.py`, solve the same optimization problem given in :code:`as_opt_parallel.py`.
+Two examples are provided for the `supersonic panel aerostructural case <https://github.com/OpenMDAO/mphys/tree/main/examples/aerostructural/supersonic_panel>`_: :code:`as_opt_remote_serial.py` and :code:`as_opt_remote_parallel.py`.
+Both run the optimization problem defined in :code:`as_opt_parallel.py`, which contains a :code:`MultipointParallel` class and thus evaluates two aerostructural scenarios in parallel.
+The serial remote example runs this group on one server.
+The parallel remote example, on the other hand, contains an OpenMDAO parallel group which runs two servers in parallel.
+Both examples use the same server file, :code:`mphys_server.py`, but point to either :code:`as_opt_parallel.py` or :code:`run.py` by sending the model's filename through the use of the :code:`RemoteZeroMQComp`'s :code:`additional_server_args` option.
+As demonstrated in this server file, additional configuration options may be sent to the server-side OpenMDAO group through the use of a functor (called :code:`GetModel` in this case) in combination with :code:`additional_server_args`.
+In this particular case, scenario name(s) are sent as :code:`additional_server_args` from the client side; on the server side, the :code:`GetModel` functor allows the scenario name(s) to be sent as OpenMDAO options to the server-side group.
+Using the scenario :code:`run_directory` option, the scenarios can then be evaluated in different directories.
+In both examples, the remote component(s) use a :code:`K4` pbs4py Launcher object, which will launch, monitor, and stop jobs using the K4 queue of the NASA K-cluster.
 
 Troubleshooting
 ===============
