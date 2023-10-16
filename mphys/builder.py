@@ -100,7 +100,7 @@ class Builder:
         number_of_nodes : int
             number of nodes in the computational domain
         """
-        return -1
+        raise NotImplementedError('Function get_number_of_nodes has not been implemented in the builder.')
 
     def get_ndof(self):
         """
@@ -111,4 +111,19 @@ class Builder:
         ndof : int
             number of degrees of freedom of each node in the domain
         """
-        return -1
+        raise NotImplementedError('Function get_ndof has not been implemented in the builder.')
+
+    def get_tagged_indices(self, tags):
+        """
+        Method that returns grid IDs for a list of body/boundary tags.
+
+        Parameters
+        ----------
+        tags : list of integers or strings
+
+        Returns
+        -------
+        grid_ids : list
+            list of grid IDs that correspond to given body/boundary tags
+        """
+        raise NotImplementedError('Function get_tagged_indices has not been implemented in the builder.')
