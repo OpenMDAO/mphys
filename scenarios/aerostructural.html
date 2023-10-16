@@ -91,49 +91,55 @@ For example, the structural state vector for linear shell elements includes line
 <td><p>N/A</p></td>
 <td><p>Linear solver(s) in this group or implicit component, if using an assembled jacobian, will use this type.</p></td>
 </tr>
-<tr class="row-even"><td><p>coupling_group_type</p></td>
+<tr class="row-even"><td><p>auto_order</p></td>
+<td><p>False</p></td>
+<td><p>[True, False]</p></td>
+<td><p>[‘bool’]</p></td>
+<td><p>If True the order of subsystems is determined automatically based on the dependency graph.  It will not break or reorder cycles.</p></td>
+</tr>
+<tr class="row-odd"><td><p>coupling_group_type</p></td>
 <td><p>full_coupling</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>Limited flexibility for coupling group type to accomodate flutter about jig shape or DLM where coupling group can be skipped: [“full_coupling”, “aerodynamics_only”, None]</p></td>
 </tr>
-<tr class="row-odd"><td><p>geometry_builder</p></td>
+<tr class="row-even"><td><p>geometry_builder</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>The optional MPhys builder for the geometry</p></td>
 </tr>
-<tr class="row-even"><td><p>in_MultipointParallel</p></td>
+<tr class="row-odd"><td><p>in_MultipointParallel</p></td>
 <td><p>False</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>Set to <cite>True</cite> if adding this scenario inside a MultipointParallel Group.</p></td>
 </tr>
-<tr class="row-odd"><td><p>ldxfer_builder</p></td>
+<tr class="row-even"><td><p>ldxfer_builder</p></td>
 <td><p><strong>Required</strong></p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>The MPhys builder for the load and displacement transfer</p></td>
 </tr>
-<tr class="row-even"><td><p>post_coupling_order</p></td>
+<tr class="row-odd"><td><p>post_coupling_order</p></td>
 <td><p>[‘ldxfer’, ‘aero’, ‘struct’]</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>The order of the post coupling subsystems</p></td>
 </tr>
-<tr class="row-odd"><td><p>pre_coupling_order</p></td>
+<tr class="row-even"><td><p>pre_coupling_order</p></td>
 <td><p>[‘aero’, ‘struct’, ‘ldxfer’]</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>The order of the pre coupling subsystems</p></td>
 </tr>
-<tr class="row-even"><td><p>run_directory</p></td>
+<tr class="row-odd"><td><p>run_directory</p></td>
 <td></td>
 <td><p>N/A</p></td>
 <td><p>[‘str’]</p></td>
 <td><p>Path in which to execute subsystems in this scenario group. The default of empty string will not change the directory.</p></td>
 </tr>
-<tr class="row-odd"><td><p>struct_builder</p></td>
+<tr class="row-even"><td><p>struct_builder</p></td>
 <td><p><strong>Required</strong></p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
@@ -200,6 +206,9 @@ For example, the structural state vector for linear shell elements includes line
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../developers/mphys_group.html">The MphysGroup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developers/new_multiphysics_problems.html">Extending the Scenario Library</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../references/papers_using_mphys.html">Papers Using MPhys</a></li>
 </ul>
 
 <div id="searchbox" style="display: none" role="search">
