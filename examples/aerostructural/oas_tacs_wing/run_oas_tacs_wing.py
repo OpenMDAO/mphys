@@ -15,8 +15,8 @@ import tacs_setup
 class Top(Multipoint):
     def setup(self):
         # Input files
-        vsp_file = os.path.join(os.path.dirname(__file__), "boeing777.vsp3")
-        bdf_file = os.path.join(os.path.dirname(__file__), "boeing-777-wing.bdf")
+        vsp_file = os.path.join(os.path.dirname(__file__), "twin_aisle_aircraft.vsp3")
+        bdf_file = os.path.join(os.path.dirname(__file__), "wingbox.bdf")
         # Read the geometry.
         # VSP components to include in VLM mesh
         vsp_comps = ["Wing"]
