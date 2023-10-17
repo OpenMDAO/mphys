@@ -42,7 +42,24 @@ def problem_setup(scenario_name, fea_assembler, problem):
     problem.addFunction('mass', functions.StructuralMass)
     problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
 
-    # Add gravity load
+    # Add 2.5G gravity load
     g = np.array([0.0, 0.0, -9.81])  # m/s^2
-    problem.addInertialLoad(g)
+    problem.addInertialLoad(2.5*g)
+
+def constraint_setup(scenario_name, fea_assembler, constraint_list):
+    """
+    Helper function to setup tacs constraint classes
+    """
+    if scenario_name == "maneuver":
+        # Setup adjacency constraints for skin and spar panel thicknesses
+        constr = fea_assembler.createAdjacencyConstraint("adjacency")
+        compIDs = fea_assembler.selectCompIDs(include="UPPER_SKIN")
+        constr.addConstraint("UPPER_SKIN", compIDs=compIDs)
+        compIDs = fea_assembler.selectCompIDs(include="LOWER_SKIN")
+        constr.addConstraint("LOWER_SKIN", compIDs=compIDs)
+        compIDs = fea_assembler.selectCompIDs(include="LE_SPAR")
+        constr.addConstraint("LE_SPAR", compIDs=compIDs)
+        compIDs = fea_assembler.selectCompIDs(include="TE_SPAR")
+        constr.addConstraint("TE_SPAR", compIDs=compIDs)
+        constraint_list.append(constr)
 

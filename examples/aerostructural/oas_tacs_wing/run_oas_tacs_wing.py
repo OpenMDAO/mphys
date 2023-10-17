@@ -46,11 +46,11 @@ class Top(Multipoint):
         for surface in surfaces:
             surface.update(default_dict)
 
-        mach = 0.85
+        mach = 0.6415
         aoa = 1.0
-        rho = 1.2
+        rho = 1.23
         yaw = 0.0
-        vel = 178.
+        vel = 220.
         re = 1e6
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
@@ -70,6 +70,7 @@ class Top(Multipoint):
         # TACS
         tacs_options = {'element_callback' : tacs_setup.element_callback,
                         'problem_setup': tacs_setup.problem_setup,
+                        'constraint_setup': tacs_setup.constraint_setup,
                         'mesh_file': bdf_file}
 
         struct_builder = TacsBuilder(tacs_options, coupled=True)
@@ -85,28 +86,37 @@ class Top(Multipoint):
         ldxfer_builder.initialize(self.comm)
 
         # Scenario
-        self.mphys_add_scenario('cruise', ScenarioAeroStructural(aero_builder=aero_builder,
+        self.mphys_add_scenario('maneuver', ScenarioAeroStructural(aero_builder=aero_builder,
                                                                  struct_builder=struct_builder,
                                                                  ldxfer_builder=ldxfer_builder))
 
         for discipline in ['aero', 'struct']:
             self.mphys_connect_scenario_coordinate_source(
-                'mesh_%s' % discipline, 'cruise', discipline)
+                'mesh_%s' % discipline, 'maneuver', discipline)
 
         for dv in ['aoa', 'yaw', 'rho', 'mach', 'v', 'reynolds']:
-            self.connect(dv, f'cruise.{dv}')
-        self.connect('dv_struct', 'cruise.dv_struct')
+            self.connect(dv, f'maneuver.{dv}')
+        self.connect('dv_struct', 'maneuver.dv_struct')
 
 prob = om.Problem()
 prob.model = Top()
 
 model = prob.model
 
+# Add wingbox panel thicknesses and angle of attack as design variables
 model.add_design_var('dv_struct', lower=0.002, upper=0.2, scaler=1000.0)
 model.add_design_var('aoa', lower=-10, upper=10.0, scaler=0.1)
-model.add_objective('cruise.mass', scaler=1.0/1000.0)
-model.add_constraint('cruise.ks_vmfailure', upper=1.0, scaler=1.0)
-model.add_constraint('cruise.CL', equals=0.5, scaler=1.0)
+# Structural mass of half wing
+model.add_objective('maneuver.mass', scaler=1.0/1000.0)
+# Max stress constraint
+model.add_constraint('maneuver.ks_vmfailure', upper=1.0, scaler=1.0)
+# Lift constraint
+model.add_constraint('maneuver.CL', equals=0.625, scaler=1.0)
+# Wingbox panel adjacency constraints
+model.add_constraint('maneuver.adjacency.LE_SPAR', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
+model.add_constraint('maneuver.adjacency.TE_SPAR', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
+model.add_constraint('maneuver.adjacency.UPPER_SKIN', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
+model.add_constraint('maneuver.adjacency.LOWER_SKIN', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
 
 prob.driver = om.ScipyOptimizeDriver(debug_print=['objs', 'nl_cons'], maxiter=200)
 prob.driver.options['optimizer'] = 'SLSQP'
