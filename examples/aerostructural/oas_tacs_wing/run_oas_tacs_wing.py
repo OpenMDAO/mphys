@@ -67,13 +67,10 @@ class Top(Multipoint):
 
         self.add_subsystem('mesh_aero', aero_builder.get_mesh_coordinate_subsystem())
 
-        # TACS
-        tacs_options = {'element_callback' : tacs_setup.element_callback,
-                        'problem_setup': tacs_setup.problem_setup,
-                        'constraint_setup': tacs_setup.constraint_setup,
-                        'mesh_file': bdf_file}
-
-        struct_builder = TacsBuilder(tacs_options, coupled=True)
+        # TACS setup
+        struct_builder = TacsBuilder(mesh_file=bdf_file, element_callback=tacs_setup.element_callback,
+                                     problem_setup=tacs_setup.problem_setup,
+                                     constraint_setup=tacs_setup.constraint_setup, coupled=True)
 
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
