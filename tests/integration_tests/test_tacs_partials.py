@@ -51,12 +51,9 @@ def problem_setup(scenario_name, fea_assembler, problem):
 class Top(Multipoint):
 
     def setup(self):
-
-        tacs_options = {'element_callback' : element_callback,
-                        'problem_setup': problem_setup,
-                        'mesh_file': '../input_files/debug.bdf'}
-
-        tacs_builder = TacsBuilder(tacs_options, check_partials=True, coupled=False, write_solution=False)
+        tacs_builder = TacsBuilder(mesh_file='../input_files/debug.bdf', element_callback=element_callback,
+                                   problem_setup=problem_setup, check_partials=True, coupled=False,
+                                   write_solution=False)
         tacs_builder.initialize(self.comm)
         ndv_struct = tacs_builder.get_ndv()
 

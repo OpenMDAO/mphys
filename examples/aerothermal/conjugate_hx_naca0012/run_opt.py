@@ -160,17 +160,8 @@ class Top(Multipoint):
         ################################################################################
         # TACS Setup
         ################################################################################
-        tacs_options = {
-            "element_callback": add_elements,
-            # 'get_funcs'   : get_funcs,
-            "mesh_file": "./meshes/n0012_hexa.bdf",
-            # "f5_writer": f5_writer,
-            # "surface_mapping": get_surface_mapping,
-            # "Conduction": True,
-            "outputDir": "./output",
-        }
-
-        thermal_builder = TacsBuilder(tacs_options, discipline="thermal", surface_mapper=get_surface_mapping)
+        thermal_builder = TacsBuilder(mesh_file="./meshes/n0012_hexa.bdf", element_callback=add_elements,
+                                      discipline="thermal", surface_mapper=get_surface_mapping)
         thermal_builder.initialize(self.comm)
         ndv_struct = thermal_builder.get_ndv()
 

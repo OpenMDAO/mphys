@@ -184,13 +184,8 @@ class Top(Multipoint):
             problem.addInertialLoad(g)
 
         # TACS Setup
-        tacs_options = {
-            "element_callback": element_callback,
-            "problem_setup": problem_setup,
-            "mesh_file": "wingbox.bdf",
-        }
-
-        struct_builder = TacsBuilder(tacs_options)
+        struct_builder = TacsBuilder(mesh_file="wingbox.bdf", element_callback=element_callback,
+                                     problem_setup=problem_setup)
         struct_builder.initialize(self.comm)
 
         self.add_subsystem("mesh_struct", struct_builder.get_mesh_coordinate_subsystem())
