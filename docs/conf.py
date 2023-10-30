@@ -37,6 +37,7 @@ needs_sphinx = '1.5'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'sphinxcontrib.bibtex',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.doctest',
@@ -55,6 +56,9 @@ extensions = [
     'embed_pregen_n2',
     'tags'
 ]
+
+bibtex_bibfiles=['references/papers_using_mphys.bib']
+bibtex_default_style='plain'
 
 numpydoc_show_class_members = False
 
