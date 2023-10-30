@@ -37,14 +37,9 @@ class Top(Multipoint):
 
         self.add_subsystem("mesh_aero", aero_builder.get_mesh_coordinate_subsystem())
 
-        # TACS
-        tacs_options = {
-            "element_callback": tacs_setup.element_callback,
-            "problem_setup": tacs_setup.problem_setup,
-            "mesh_file": "wingbox_Y_Z_flip.bdf",
-        }
-
-        struct_builder = TacsBuilder(tacs_options, coupled=True)
+        # TACS setup
+        struct_builder = TacsBuilder(mesh_file="wingbox_Y_Z_flip.bdf", element_callback=tacs_setup.element_callback,
+                                     problem_setup=tacs_setup.problem_setup, coupled=True)
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
 

@@ -32,7 +32,8 @@ class Top(Multipoint):
                         'problem_setup': problem_setup,
                         'constraint_setup': constraint_setup}
 
-        struct_builder = TacsBuilder(tacs_options, coupled=False)
+        struct_builder = TacsBuilder(mesh_file=bdf_file, problem_setup=problem_setup,
+                                     constraint_setup=constraint_setup, coupled=False)
         struct_builder.initialize(self.comm)
 
         # Add mesh component

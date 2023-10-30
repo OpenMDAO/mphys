@@ -13,12 +13,9 @@ import tacs_setup
 
 class Top(Multipoint):
     def setup(self):
-        tacs_options = {'element_callback': tacs_setup.element_callback,
-                        'problem_setup': tacs_setup.problem_setup,
-                        'constraint_setup': tacs_setup.constraint_setup,
-                        'mesh_file': 'CRM_box_2nd.bdf'}
-
-        struct_builder = TacsBuilder(tacs_options, coupled=False, check_partials=True)
+        struct_builder = TacsBuilder(mesh_file='CRM_box_2nd.bdf', element_callback=tacs_setup.element_callback,
+                                     problem_setup=tacs_setup.problem_setup,
+                                     constraint_setup=tacs_setup.constraint_setup, coupled=False)
         struct_builder.initialize(self.comm)
         dv_array = struct_builder.get_initial_dvs()
 
