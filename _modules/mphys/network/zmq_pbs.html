@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mphys.network.zmq_pbs &#8212; MPhys  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/style.css?v=90ca181f" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=b3ba4146"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">MPhys  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">mphys.network.zmq_pbs</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for mphys.network.zmq_pbs</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">socket</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">zmq</span>
+
+<span class="kn">from</span> <span class="nn">pbs4py</span> <span class="kn">import</span> <span class="n">PBS</span>
+<span class="kn">from</span> <span class="nn">pbs4py.job</span> <span class="kn">import</span> <span class="n">PBSJob</span>
+<span class="kn">from</span> <span class="nn">mphys.network</span> <span class="kn">import</span> <span class="n">RemoteComp</span><span class="p">,</span> <span class="n">Server</span><span class="p">,</span> <span class="n">ServerManager</span>
+
+<div class="viewcode-block" id="RemoteZeroMQComp"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.zmq_pbs.RemoteZeroMQComp">[docs]</a><span class="k">class</span> <span class="nc">RemoteZeroMQComp</span><span class="p">(</span><span class="n">RemoteComp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A derived RemoteComp class that uses pbs4py for HPC job management</span>
+<span class="sd">    and ZeroMQ for network communication.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="RemoteZeroMQComp.initialize"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.zmq_pbs.RemoteZeroMQComp.initialize">[docs]</a>    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s1">&#39;pbs&#39;</span><span class="p">,</span> <span class="s2">&quot;pbs4py Launcher object&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s1">&#39;port&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">5081</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;port number for server/client communication&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s1">&#39;acceptable_port_range&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="p">[</span><span class="mi">5081</span><span class="p">,</span><span class="mi">6000</span><span class="p">],</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;port range to look through if &#39;port&#39; is currently busy&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s1">&#39;additional_server_args&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Optional arguments to give server, in addition to --port &lt;port number&gt;&quot;</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># for avoiding reinitialization due to multiple setup calls</span></div>
+
+    <span class="k">def</span> <span class="nf">_send_inputs_to_server</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_input_dict</span><span class="p">,</span> <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_doing_derivative_evaluation</span><span class="p">(</span><span class="n">command</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">): Requesting derivative call from server&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">): Requesting function call from server&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">input_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s2">|</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">remote_input_dict</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">input_str</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">_receive_outputs_from_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">_setup_server_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span> <span class="o">=</span> <span class="n">MPhysZeroMQServerManager</span><span class="p">(</span><span class="n">pbs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;pbs&#39;</span><span class="p">],</span>
+                                                           <span class="n">run_server_filename</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;run_server_filename&#39;</span><span class="p">],</span>
+                                                           <span class="n">component_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                                                           <span class="n">port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;port&#39;</span><span class="p">],</span>
+                                                           <span class="n">acceptable_port_range</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;acceptable_port_range&#39;</span><span class="p">],</span>
+                                                           <span class="n">additional_server_args</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;additional_server_args&#39;</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="MPhysZeroMQServerManager"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.zmq_pbs.MPhysZeroMQServerManager">[docs]</a><span class="k">class</span> <span class="nc">MPhysZeroMQServerManager</span><span class="p">(</span><span class="n">ServerManager</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A derived ServerManager class that uses pbs4py for HPC job management</span>
+<span class="sd">    and ZeroMQ for network communication.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pbs : :class:`~pbs4py.PBS`</span>
+<span class="sd">        pbs4py launcher used for HPC job management</span>
+<span class="sd">    run_server_filename : str</span>
+<span class="sd">        Python filename that initializes and runs the :class:`~mphys.network.zmq_pbs.MPhysZeroMQServer` server</span>
+<span class="sd">    component_name : str</span>
+<span class="sd">        Name of the remote component, for capturing output from separate remote components to mphys_{component_name}_server{server_number}.out</span>
+<span class="sd">    port : int</span>
+<span class="sd">        Desired port number for ssh port forwarding</span>
+<span class="sd">    acceptable_port_range : list</span>
+<span class="sd">        Range of alternative port numbers if specified port is already in use</span>
+<span class="sd">    additional_server_args : str</span>
+<span class="sd">        Optional arguments to give server, in addition to --port &lt;port number&gt;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">pbs</span><span class="p">:</span> <span class="n">PBS</span><span class="p">,</span>
+                 <span class="n">run_server_filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="n">component_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="n">port</span><span class="o">=</span><span class="mi">5081</span><span class="p">,</span>
+                 <span class="n">acceptable_port_range</span><span class="o">=</span><span class="p">[</span><span class="mi">5081</span><span class="p">,</span><span class="mi">6000</span><span class="p">],</span>
+                 <span class="n">additional_server_args</span><span class="o">=</span><span class="s1">&#39;&#39;</span>
+                 <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pbs</span> <span class="o">=</span> <span class="n">pbs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">run_server_filename</span> <span class="o">=</span> <span class="n">run_server_filename</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">component_name</span> <span class="o">=</span> <span class="n">component_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">port</span> <span class="o">=</span> <span class="n">port</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acceptable_port_range</span> <span class="o">=</span> <span class="n">acceptable_port_range</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">additional_server_args</span> <span class="o">=</span> <span class="n">additional_server_args</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">queue_time_delay</span> <span class="o">=</span> <span class="mi">5</span> <span class="c1"># seconds to wait before rechecking if a job has started</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">server_counter</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1"># for saving output of each server to different files</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start_server</span><span class="p">()</span>
+
+<div class="viewcode-block" id="MPhysZeroMQServerManager.start_server"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.zmq_pbs.MPhysZeroMQServerManager.start_server">[docs]</a>    <span class="k">def</span> <span class="nf">start_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_connection</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">server_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_launch_job</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MPhysZeroMQServerManager.stop_server"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.zmq_pbs.MPhysZeroMQServerManager.stop_server">[docs]</a>    <span class="k">def</span> <span class="nf">stop_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s1">): Stopping the remote analysis server&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="s1">&#39;shutdown|null&#39;</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_server</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MPhysZeroMQServerManager.enough_time_is_remaining"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.zmq_pbs.MPhysZeroMQServerManager.enough_time_is_remaining">[docs]</a>    <span class="k">def</span> <span class="nf">enough_time_is_remaining</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">estimated_model_time</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">update_job_state</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">walltime_remaining</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">estimated_model_time</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">walltime_remaining</span></div>
+
+    <span class="k">def</span> <span class="nf">_port_is_in_use</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span> <span class="k">as</span> <span class="n">s</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">s</span><span class="o">.</span><span class="n">connect_ex</span><span class="p">((</span><span class="s1">&#39;localhost&#39;</span><span class="p">,</span> <span class="n">port</span><span class="p">))</span><span class="o">==</span><span class="mi">0</span>
+
+    <span class="k">def</span> <span class="nf">_initialize_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_port_is_in_use</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s1">): Port </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s1"> is already in use... finding first available port in the range </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">acceptable_port_range</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">port</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">acceptable_port_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">acceptable_port_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_port_is_in_use</span><span class="p">(</span><span class="n">port</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">port</span> <span class="o">=</span> <span class="n">port</span>
+                    <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s1">): Could not find open port&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_zmq_socket</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_initialize_zmq_socket</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="n">zmq</span><span class="o">.</span><span class="n">Context</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">socket</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">zmq</span><span class="o">.</span><span class="n">REQ</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tcp://localhost:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_launch_job</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s1">): Launching new server&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">python_command</span> <span class="o">=</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;python </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_server_filename</span><span class="si">}</span><span class="s2"> --port </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_server_args</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">python_mpi_command</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pbs</span><span class="o">.</span><span class="n">create_mpi_command</span><span class="p">(</span><span class="n">python_command</span><span class="p">,</span> <span class="n">output_root_name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;mphys_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s1">_server</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">server_counter</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">jobid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pbs</span><span class="o">.</span><span class="n">launch</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;MPhys</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">python_mpi_command</span><span class="p">],</span> <span class="n">blocking</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">job</span> <span class="o">=</span> <span class="n">PBSJob</span><span class="p">(</span><span class="n">jobid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_wait_for_job_to_start</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setup_ssh</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_wait_for_job_to_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s1">): Waiting for job to start&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">job_submission_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setup_placeholder_ssh</span><span class="p">()</span>
+        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state</span><span class="o">!=</span><span class="s1">&#39;R&#39;</span><span class="p">:</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_time_delay</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">update_job_state</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_placeholder_ssh</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">job_start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s1">): Job started (queue wait time: </span><span class="si">{</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">job_submission_time</span><span class="p">)</span><span class="o">/</span><span class="mi">3600</span><span class="si">}</span><span class="s1"> hours)&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_setup_ssh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">ssh_command</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s1">:localhost:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">hostname</span><span class="si">}</span><span class="s1"> &amp;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ssh_proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span><span class="n">ssh_command</span><span class="o">.</span><span class="n">split</span><span class="p">(),</span>
+                                         <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
+                                         <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_shutdown_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ssh_proc</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span> <span class="c1"># prevent full shutdown before job deletion?</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">qdel</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_setup_placeholder_ssh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s1">): Starting placeholder process to hold port </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s1"> while in queue&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">ssh_command</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s1">:localhost:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">socket</span><span class="o">.</span><span class="n">gethostname</span><span class="p">()</span><span class="si">}</span><span class="s1"> &amp;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ssh_proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span><span class="n">ssh_command</span><span class="o">.</span><span class="n">split</span><span class="p">(),</span>
+                                         <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
+                                         <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_stop_placeholder_ssh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ssh_proc</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MPhysZeroMQServer"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.zmq_pbs.MPhysZeroMQServer">[docs]</a><span class="k">class</span> <span class="nc">MPhysZeroMQServer</span><span class="p">(</span><span class="n">Server</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A derived Server class that uses ZeroMQ for network communication.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">get_om_group_function_pointer</span><span class="p">,</span>
+                 <span class="n">ignore_setup_warnings</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">ignore_runtime_warnings</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">rerun_initial_design</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">get_om_group_function_pointer</span><span class="p">,</span> <span class="n">ignore_setup_warnings</span><span class="p">,</span>
+                         <span class="n">ignore_runtime_warnings</span><span class="p">,</span> <span class="n">rerun_initial_design</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setup_zeromq_socket</span><span class="p">(</span><span class="n">port</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_setup_zeromq_socket</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span><span class="o">==</span><span class="mi">0</span><span class="p">:</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="n">zmq</span><span class="o">.</span><span class="n">Context</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">socket</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">zmq</span><span class="o">.</span><span class="n">REP</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tcp://*:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_parse_incoming_message</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span><span class="o">==</span><span class="mi">0</span><span class="p">:</span>
+            <span class="n">inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+
+        <span class="n">command</span><span class="p">,</span> <span class="n">input_dict</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;|&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">command</span><span class="o">!=</span><span class="s1">&#39;shutdown&#39;</span><span class="p">:</span>
+            <span class="n">input_dict</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">command</span><span class="p">,</span> <span class="n">input_dict</span>
+
+    <span class="k">def</span> <span class="nf">_send_outputs_to_client</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span><span class="o">==</span><span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">output_dict</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span></div>
+
+<span class="k">def</span> <span class="nf">get_default_zmq_pbs_argparser</span><span class="p">():</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="s1">&#39;Python script for launching mphys analysis server&#39;</span><span class="p">,</span>
+                                     <span class="n">formatter_class</span><span class="o">=</span><span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentDefaultsHelpFormatter</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--port&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;tcp port number for zeromq socket&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h3><a href="../../../index.html">Table of Contents</a></h3>
+<p class="caption" role="heading"><span class="caption-text">MPhys Basics</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/model_hierarchy.html">Model Hierarchy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/tagged_promotion.html">Tagged Promotion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/builders.html">Builders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/naming_conventions.html">Variable Naming Conventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/remote_components.html">Remote Components</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Multiphysics Scenarios</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../scenarios/aerostructural.html">Aerostructural Scenario</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Single Discipline Scenarios</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../scenarios/structural.html">Structural Scenario</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../scenarios/aerodynamic.html">Aerodynamic Scenario</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developers Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../developers/mphys_group.html">The MphysGroup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developers/new_multiphysics_problems.html">Extending the Scenario Library</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../references/papers_using_mphys.html">Papers Using MPhys</a></li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">MPhys  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">mphys.network.zmq_pbs</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2022, NASA.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.1.2.
+    </div>
+  </body>
+</html>

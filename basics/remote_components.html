@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>Remote Components &#8212; MPhys  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=90ca181f" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Aerostructural Scenario" href="../scenarios/aerostructural.html" />
+    <link rel="prev" title="Variable Naming Conventions" href="naming_conventions.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../scenarios/aerostructural.html" title="Aerostructural Scenario"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="naming_conventions.html" title="Variable Naming Conventions"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">MPhys  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Remote Components</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="remote-components">
+<span id="id1"></span><h1>Remote Components<a class="headerlink" href="#remote-components" title="Permalink to this heading">¶</a></h1>
+<p>The purpose of remote components is to provide a means of adding a remote physics analysis to a local OpenMDAO problem.
+One situation in which this may be desirable is when the time to carry out a full optimization exceeds an HPC job time limit.
+Such a situation, without remote components, may normally require manual restarts of the optimization, and would thus limit one to optimizers with this capability.
+Using remote components, one can keep a serial OpenMDAO optimization running continuously on a login node (e.g., using the nohup or screen Linux commands) while the parallel physics analyses are evaluated across several HPC jobs.
+Another situation where these components may be advantageous is when the OpenMDAO problem contains components not streamlined for massively parallel environments.</p>
+<p>In general, remote components use nested OpenMDAO problems in a server-client arrangement.
+The outer, client-side OpenMDAO model serves as the overarching analysis/optimization problem while the inner, server-side model serves as the isolated high-fidelity analysis.
+The server inside the HPC job remains open to evaluate function or gradient calls.
+Wall times for function and gradient calls are saved, and when the maximum previous time multiplied by a scale factor exceeds the remaining job time, the server will be relaunched.</p>
+<p>Three general base classes are used to achieve this.</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#mphys.network.remote_component.RemoteComp" title="mphys.network.remote_component.RemoteComp"><code class="xref py py-class docutils literal notranslate"><span class="pre">RemoteComp</span></code></a>: Explicit component that wraps communication with server, replicating inputs/outputs to/from server-side group and requesting new a server when estimated analysis time exceeds remaining job time.</p></li>
+<li><p><a class="reference internal" href="#mphys.network.server_manager.ServerManager" title="mphys.network.server_manager.ServerManager"><code class="xref py py-class docutils literal notranslate"><span class="pre">ServerManager</span></code></a>: Used by <code class="docutils literal notranslate"><span class="pre">RemoteComp</span></code> to control and communicate with the server.</p></li>
+<li><p><a class="reference internal" href="#mphys.network.server.Server" title="mphys.network.server.Server"><code class="xref py py-class docutils literal notranslate"><span class="pre">Server</span></code></a>: Loads the inner OpenMDAO problem and evaluates function or gradient calls as requested by the <code class="docutils literal notranslate"><span class="pre">ServerManager</span></code>.</p></li>
+</ul>
+<p>Currently, there is one derived class for each, which use pbs4py for HPC job control and ZeroMQ for network communication.</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#mphys.network.zmq_pbs.RemoteZeroMQComp" title="mphys.network.zmq_pbs.RemoteZeroMQComp"><code class="xref py py-class docutils literal notranslate"><span class="pre">RemoteZeroMQComp</span></code></a>: Through the use of <code class="docutils literal notranslate"><span class="pre">MPhysZeroMQServerManager</span></code>, uses encoded JSON dictionaries to send and receive necessary information to and from the server.</p></li>
+<li><p><a class="reference internal" href="#mphys.network.zmq_pbs.MPhysZeroMQServerManager" title="mphys.network.zmq_pbs.MPhysZeroMQServerManager"><code class="xref py py-class docutils literal notranslate"><span class="pre">MPhysZeroMQServerManager</span></code></a>: Uses ZeroMQ socket and ssh port forwarding from login to compute node to communicate with server, and pbs4py to start, stop, and check status of HPC jobs.</p></li>
+<li><p><a class="reference internal" href="#mphys.network.zmq_pbs.MPhysZeroMQServer" title="mphys.network.zmq_pbs.MPhysZeroMQServer"><code class="xref py py-class docutils literal notranslate"><span class="pre">MPhysZeroMQServer</span></code></a>: Uses ZeroMQ socket to send and receive encoded JSON dictionaries.</p></li>
+</ul>
+<section id="remotezeromqcomp-options">
+<h2>RemoteZeroMQComp Options<a class="headerlink" href="#remotezeromqcomp-options" title="Permalink to this heading">¶</a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Acceptable Values</p></th>
+<th class="head"><p>Acceptable Types</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>acceptable_port_range</p></td>
+<td><p>[5081, 6000]</p></td>
+<td><p>N/A</p></td>
+<td><p>N/A</p></td>
+<td><p>port range to look through if ‘port’ is currently busy</p></td>
+</tr>
+<tr class="row-odd"><td><p>additional_remote_inputs</p></td>
+<td><p>[]</p></td>
+<td><p>N/A</p></td>
+<td><p>[‘list’]</p></td>
+<td><p>additional inputs not defined as design vars in the remote component</p></td>
+</tr>
+<tr class="row-even"><td><p>additional_remote_outputs</p></td>
+<td><p>[]</p></td>
+<td><p>N/A</p></td>
+<td><p>[‘list’]</p></td>
+<td><p>additional outputs not defined as objective/constraints in the remote component</p></td>
+</tr>
+<tr class="row-odd"><td><p>additional_server_args</p></td>
+<td></td>
+<td><p>N/A</p></td>
+<td><p>N/A</p></td>
+<td><p>Optional arguments to give server, in addition to –port &lt;port number&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p>always_opt</p></td>
+<td><p>False</p></td>
+<td><p>[True, False]</p></td>
+<td><p>[‘bool’]</p></td>
+<td><p>If True, force this component to be included in the optimization loop if the Problem option “group_by_pre_opt_post” is True.</p></td>
+</tr>
+<tr class="row-odd"><td><p>distributed</p></td>
+<td><p>False</p></td>
+<td><p>[True, False]</p></td>
+<td><p>[‘bool’]</p></td>
+<td><p>If True, set all variables in this component as distributed across multiple processes</p></td>
+</tr>
+<tr class="row-even"><td><p>dump_json</p></td>
+<td><p>False</p></td>
+<td><p>N/A</p></td>
+<td><p>N/A</p></td>
+<td><p>dump input/output json file in client</p></td>
+</tr>
+<tr class="row-odd"><td><p>dump_separate_json</p></td>
+<td><p>False</p></td>
+<td><p>N/A</p></td>
+<td><p>N/A</p></td>
+<td><p>dump a separate input/output json file for each evaluation</p></td>
+</tr>
+<tr class="row-even"><td><p>pbs</p></td>
+<td><p>pbs4py Launcher object</p></td>
+<td><p>N/A</p></td>
+<td><p>N/A</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>port</p></td>
+<td><p>5081</p></td>
+<td><p>N/A</p></td>
+<td><p>N/A</p></td>
+<td><p>port number for server/client communication</p></td>
+</tr>
+<tr class="row-even"><td><p>reboot_only_on_function_call</p></td>
+<td><p>True</p></td>
+<td><p>N/A</p></td>
+<td><p>N/A</p></td>
+<td><p>only allows server reboot before function call, not gradient call. Avoids having to rerun forward solution on next job, but shortens current job time</p></td>
+</tr>
+<tr class="row-odd"><td><p>run_root_only</p></td>
+<td><p>False</p></td>
+<td><p>[True, False]</p></td>
+<td><p>[‘bool’]</p></td>
+<td><p>If True, call compute, compute_partials, linearize, apply_linear, apply_nonlinear, and compute_jacvec_product only on rank 0 and broadcast the results to the other ranks.</p></td>
+</tr>
+<tr class="row-even"><td><p>run_server_filename</p></td>
+<td><p>mphys_server.py</p></td>
+<td><p>N/A</p></td>
+<td><p>N/A</p></td>
+<td><p>python file that will launch the Server class</p></td>
+</tr>
+<tr class="row-odd"><td><p>time_estimate_multiplier</p></td>
+<td><p>2.0</p></td>
+<td><p>N/A</p></td>
+<td><p>N/A</p></td>
+<td><p>when determining whether to reboot the server, estimate model run time as this times max prior run time</p></td>
+</tr>
+<tr class="row-even"><td><p>use_derivative_coloring</p></td>
+<td><p>False</p></td>
+<td><p>[True, False]</p></td>
+<td><p>[‘bool’]</p></td>
+<td><p>assign derivative coloring to objective/constraints. Only for cases with parallel servers</p></td>
+</tr>
+<tr class="row-odd"><td><p>var_naming_dot_replacement</p></td>
+<td><p>:</p></td>
+<td><p>N/A</p></td>
+<td><p>N/A</p></td>
+<td><p>what to replace ‘.’ within dv/response name trees</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this heading">¶</a></h2>
+<p>When adding a <code class="code docutils literal notranslate"><span class="pre">RemoteZeroMQComp</span></code> component, the two required options are <code class="code docutils literal notranslate"><span class="pre">run_server_filename</span></code>, which is the server to be launched on an HPC job, and <code class="code docutils literal notranslate"><span class="pre">pbs</span></code>, which is the pbs4py Launcher object.
+The server file should accept port number as an argument to facilitate communication with the client.
+Within this file, the <code class="code docutils literal notranslate"><span class="pre">MPhysZeroMQServer</span></code> class’s <code class="code docutils literal notranslate"><span class="pre">get_om_group_function_pointer</span></code> option is the pointer to the OpenMDAO Group or Multipoint class to be evaluated.
+By default, any design variables, objectives, and constraints defined in the group will be added on the client side.
+Any other desired inputs or outputs must be added in the <code class="code docutils literal notranslate"><span class="pre">additional_remote_inputs</span></code> or <code class="code docutils literal notranslate"><span class="pre">additional_remote_outputs</span></code> options.
+On the client side, any “.” characters in these input and output names will be replaced by <code class="code docutils literal notranslate"><span class="pre">var_naming_dot_replacement</span></code>.</p>
+<p>The screen output from a particular remote component’s Nth server will be sent to <code class="code docutils literal notranslate"><span class="pre">mphys_&lt;component</span> <span class="pre">name&gt;_serverN.out</span></code>, where <code class="code docutils literal notranslate"><span class="pre">component</span> <span class="pre">name</span></code> is the subsystem name of the <code class="code docutils literal notranslate"><span class="pre">RemoteZeroMQComp</span></code> instance.
+Searching for the keyword “SERVER” will display what the server is currently doing; the keyword “CLIENT” will do the same on the client-side.
+The HPC job for the component’s server is named <code class="code docutils literal notranslate"><span class="pre">MPhys&lt;port</span> <span class="pre">number&gt;</span></code>; the pbs4py-generated job submission script is the same followed by “.pbs”.
+Note that running the remote component in parallel is not supported, and a SystemError will be triggered otherwise.</p>
+</section>
+<section id="example">
+<h2>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h2>
+<p>Two examples are provided for the <a class="reference external" href="https://github.com/OpenMDAO/mphys/tree/main/examples/aerostructural/supersonic_panel">supersonic panel aerostructural case</a>: <code class="code docutils literal notranslate"><span class="pre">as_opt_remote_serial.py</span></code> and <code class="code docutils literal notranslate"><span class="pre">as_opt_remote_parallel.py</span></code>.
+Both run the optimization problem defined in <code class="code docutils literal notranslate"><span class="pre">as_opt_parallel.py</span></code>, which contains a <code class="code docutils literal notranslate"><span class="pre">MultipointParallel</span></code> class and thus evaluates two aerostructural scenarios in parallel.
+The serial remote example runs this group on one server.
+The parallel remote example, on the other hand, contains an OpenMDAO parallel group which runs two servers in parallel.
+Both examples use the same server file, <code class="code docutils literal notranslate"><span class="pre">mphys_server.py</span></code>, but point to either <code class="code docutils literal notranslate"><span class="pre">as_opt_parallel.py</span></code> or <code class="code docutils literal notranslate"><span class="pre">run.py</span></code> by sending the model’s filename through the use of the <code class="code docutils literal notranslate"><span class="pre">RemoteZeroMQComp</span></code>’s <code class="code docutils literal notranslate"><span class="pre">additional_server_args</span></code> option.
+As demonstrated in this server file, additional configuration options may be sent to the server-side OpenMDAO group through the use of a functor (called <code class="code docutils literal notranslate"><span class="pre">GetModel</span></code> in this case) in combination with <code class="code docutils literal notranslate"><span class="pre">additional_server_args</span></code>.
+In this particular case, scenario name(s) are sent as <code class="code docutils literal notranslate"><span class="pre">additional_server_args</span></code> from the client side; on the server side, the <code class="code docutils literal notranslate"><span class="pre">GetModel</span></code> functor allows the scenario name(s) to be sent as OpenMDAO options to the server-side group.
+Using the scenario <code class="code docutils literal notranslate"><span class="pre">run_directory</span></code> option, the scenarios can then be evaluated in different directories.
+In both examples, the remote component(s) use a <code class="code docutils literal notranslate"><span class="pre">K4</span></code> pbs4py Launcher object, which will launch, monitor, and stop jobs using the K4 queue of the NASA K-cluster.</p>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permalink to this heading">¶</a></h2>
+<p>The <code class="code docutils literal notranslate"><span class="pre">dump_json</span></code> option for <code class="code docutils literal notranslate"><span class="pre">RemoteZeroMQComp</span></code> will make the component write input and output JSON files, which contain all data sent to and received from the server.
+An exception is the <code class="code docutils literal notranslate"><span class="pre">wall_time</span></code> entry (given in seconds) in the output JSON file, which is added on the client-side after the server has completed the design evaluation.
+Another entry that is only provided for informational purposes is <code class="code docutils literal notranslate"><span class="pre">design_counter</span></code>, which keeps track of how many different designs have been evaluated on the current server.
+If <code class="code docutils literal notranslate"><span class="pre">dump_separate_json</span></code> is set to True, then separate files will be written for each design evaluation.
+On the server side, an n2 file titled <code class="code docutils literal notranslate"><span class="pre">n2_inner_analysis_&lt;component</span> <span class="pre">name&gt;.html</span></code> will be written after each evaluation.</p>
+</section>
+<section id="current-limitations">
+<h2>Current Limitations<a class="headerlink" href="#current-limitations" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>A pbs4py Launcher must be implemented for your HPC environment</p></li>
+<li><p>On the client side, <code class="code docutils literal notranslate"><span class="pre">RemoteZeroMQComp.stop_server()</span></code> should be added after your analysis/optimization to stop the HPC job and ssh port forwarding, which the server manager starts as a background process.</p></li>
+<li><p>If <code class="code docutils literal notranslate"><span class="pre">stop_server</span></code> is not called or the server stops unexpectedly, stopping the port forwarding manually is difficult, as it involves finding the ssh process associated with the remote server’s port number. This must be done on the same login node that the server was launched from.</p></li>
+<li><p>Stopping the HPC job is somewhat easier as the job name will be <code class="code docutils literal notranslate"><span class="pre">MPhys</span></code> followed by the port number; however, if runs are launched from multiple login nodes then one may have multiple jobs with the same name.</p></li>
+<li><p>Currently, the <code class="code docutils literal notranslate"><span class="pre">of</span></code> option (as well as <code class="code docutils literal notranslate"><span class="pre">wrt</span></code>) for <code class="code docutils literal notranslate"><span class="pre">check_totals</span></code> or <code class="code docutils literal notranslate"><span class="pre">compute_totals</span></code> is not used by the remote component; on the server side, <code class="code docutils literal notranslate"><span class="pre">compute_totals</span></code> will be evaluated for all responses (objectives, constraints, and <code class="code docutils literal notranslate"><span class="pre">additional_remote_outputs</span></code>). Depending on how many <code class="code docutils literal notranslate"><span class="pre">of</span></code> responses are desired, this may be more costly than not using remote components.</p></li>
+<li><p>The HPC environment must allow ssh port forwarding from the login node to a compute node.</p></li>
+</ul>
+<dl class="py class">
+<dt class="sig sig-object py" id="mphys.network.remote_component.RemoteComp">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mphys.network.remote_component.</span></span><span class="sig-name descname"><span class="pre">RemoteComp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/remote_component.html#RemoteComp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.remote_component.RemoteComp" title="Permalink to this definition">¶</a></dt>
+<dd><p>A component used for network communication between top-level OpenMDAO
+problem and remote problem evaluated on an HPC job. Serves as the
+top-level component on the client side.</p>
+<p>To make a particular derived class, implement the _setup_server_manager,
+_send_inputs_to_server, and _receive_outputs_from_server functions.</p>
+<p>Store some bound methods so we can detect runtime overrides.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.network.remote_component.RemoteComp.initialize">
+<span class="sig-name descname"><span class="pre">initialize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/remote_component.html#RemoteComp.initialize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.remote_component.RemoteComp.initialize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform any one-time initialization run at instantiation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.network.remote_component.RemoteComp.setup">
+<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/remote_component.html#RemoteComp.setup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.remote_component.RemoteComp.setup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Declare inputs and outputs.</p>
+<dl class="simple">
+<dt>Available attributes:</dt><dd><p>name
+pathname
+comm
+options</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.network.remote_component.RemoteComp.compute">
+<span class="sig-name descname"><span class="pre">compute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/remote_component.html#RemoteComp.compute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.remote_component.RemoteComp.compute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute outputs given inputs. The model is assumed to be in an unscaled state.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>inputs</strong><span class="classifier">Vector</span></dt><dd><p>Unscaled, dimensional input variables read via inputs[key].</p>
+</dd>
+<dt><strong>outputs</strong><span class="classifier">Vector</span></dt><dd><p>Unscaled, dimensional output variables read via outputs[key].</p>
+</dd>
+<dt><strong>discrete_inputs</strong><span class="classifier">dict or None</span></dt><dd><p>If not None, dict containing discrete input values.</p>
+</dd>
+<dt><strong>discrete_outputs</strong><span class="classifier">dict or None</span></dt><dd><p>If not None, dict containing discrete output values.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.network.remote_component.RemoteComp.compute_partials">
+<span class="sig-name descname"><span class="pre">compute_partials</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">partials</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/remote_component.html#RemoteComp.compute_partials"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.remote_component.RemoteComp.compute_partials" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute sub-jacobian parts. The model is assumed to be in an unscaled state.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>inputs</strong><span class="classifier">Vector</span></dt><dd><p>Unscaled, dimensional input variables read via inputs[key].</p>
+</dd>
+<dt><strong>partials</strong><span class="classifier">Jacobian</span></dt><dd><p>Sub-jac components written to partials[output_name, input_name]..</p>
+</dd>
+<dt><strong>discrete_inputs</strong><span class="classifier">dict or None</span></dt><dd><p>If not None, dict containing discrete input values.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mphys.network.server_manager.ServerManager">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mphys.network.server_manager.</span></span><span class="sig-name descname"><span class="pre">ServerManager</span></span><a class="reference internal" href="../_modules/mphys/network/server_manager.html#ServerManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.server_manager.ServerManager" title="Permalink to this definition">¶</a></dt>
+<dd><p>A class used by the client-side RemoteComp to facilitate communication
+with the remote, server-side OpenMDAO problem.</p>
+<p>To make a particular derived class, implement the start_server,
+stop_server, and enough_time_is_remaining functions.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.network.server_manager.ServerManager.start_server">
+<span class="sig-name descname"><span class="pre">start_server</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/server_manager.html#ServerManager.start_server"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.server_manager.ServerManager.start_server" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start the server.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.network.server_manager.ServerManager.stop_server">
+<span class="sig-name descname"><span class="pre">stop_server</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/server_manager.html#ServerManager.stop_server"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.server_manager.ServerManager.stop_server" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop the server.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.network.server_manager.ServerManager.enough_time_is_remaining">
+<span class="sig-name descname"><span class="pre">enough_time_is_remaining</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">estimated_model_time</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/server_manager.html#ServerManager.enough_time_is_remaining"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.server_manager.ServerManager.enough_time_is_remaining" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if the current HPC job has enough time remaining
+to run the next analysis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>estimated_model_time</strong><span class="classifier">float</span></dt><dd><p>How much time the new analysis is estimated to take</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mphys.network.server.Server">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mphys.network.server.</span></span><span class="sig-name descname"><span class="pre">Server</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">get_om_group_function_pointer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ignore_setup_warnings</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ignore_runtime_warnings</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rerun_initial_design</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/server.html#Server"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.server.Server" title="Permalink to this definition">¶</a></dt>
+<dd><p>A class that serves as an OpenMDAO model analysis server. Launched
+by a server run file by the ServerManager and runs on an HPC job,
+awaiting design variables to evaluate and sending back resulting
+function or derivative information.</p>
+<p>To make a particular derived class, implement the _parse_incoming_message
+and _send_outputs_to_client functions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>get_om_group_function_pointer</strong><span class="classifier">function pointer</span></dt><dd><p>Pointer to the OpenMDAO/MPhys group to evaluate on the server</p>
+</dd>
+<dt><strong>ignore_setup_warnings</strong><span class="classifier">bool</span></dt><dd><p>Whether to ignore OpenMDAO setup warnings</p>
+</dd>
+<dt><strong>ignore_runtime_warnings</strong><span class="classifier">bool</span></dt><dd><p>Whether to ignore OpenMDAO runtime warnings</p>
+</dd>
+<dt><strong>rerun_initial_design</strong><span class="classifier">bool</span></dt><dd><p>Whether to evaluate the baseline design upon starup</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.network.server.Server.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/server.html#Server.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.server.Server.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run the server.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mphys.network.zmq_pbs.RemoteZeroMQComp">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mphys.network.zmq_pbs.</span></span><span class="sig-name descname"><span class="pre">RemoteZeroMQComp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/zmq_pbs.html#RemoteZeroMQComp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.zmq_pbs.RemoteZeroMQComp" title="Permalink to this definition">¶</a></dt>
+<dd><p>A derived RemoteComp class that uses pbs4py for HPC job management
+and ZeroMQ for network communication.</p>
+<p>Store some bound methods so we can detect runtime overrides.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.network.zmq_pbs.RemoteZeroMQComp.initialize">
+<span class="sig-name descname"><span class="pre">initialize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/zmq_pbs.html#RemoteZeroMQComp.initialize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.zmq_pbs.RemoteZeroMQComp.initialize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform any one-time initialization run at instantiation.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mphys.network.zmq_pbs.MPhysZeroMQServerManager">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mphys.network.zmq_pbs.</span></span><span class="sig-name descname"><span class="pre">MPhysZeroMQServerManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pbs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PBS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">run_server_filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">component_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5081</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acceptable_port_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[5081,</span> <span class="pre">6000]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">additional_server_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/zmq_pbs.html#MPhysZeroMQServerManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.zmq_pbs.MPhysZeroMQServerManager" title="Permalink to this definition">¶</a></dt>
+<dd><p>A derived ServerManager class that uses pbs4py for HPC job management
+and ZeroMQ for network communication.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>pbs</strong><span class="classifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">PBS</span></code></span></dt><dd><p>pbs4py launcher used for HPC job management</p>
+</dd>
+<dt><strong>run_server_filename</strong><span class="classifier">str</span></dt><dd><p>Python filename that initializes and runs the <a class="reference internal" href="#mphys.network.zmq_pbs.MPhysZeroMQServer" title="mphys.network.zmq_pbs.MPhysZeroMQServer"><code class="xref py py-class docutils literal notranslate"><span class="pre">MPhysZeroMQServer</span></code></a> server</p>
+</dd>
+<dt><strong>component_name</strong><span class="classifier">str</span></dt><dd><p>Name of the remote component, for capturing output from separate remote components to mphys_{component_name}_server{server_number}.out</p>
+</dd>
+<dt><strong>port</strong><span class="classifier">int</span></dt><dd><p>Desired port number for ssh port forwarding</p>
+</dd>
+<dt><strong>acceptable_port_range</strong><span class="classifier">list</span></dt><dd><p>Range of alternative port numbers if specified port is already in use</p>
+</dd>
+<dt><strong>additional_server_args</strong><span class="classifier">str</span></dt><dd><p>Optional arguments to give server, in addition to –port &lt;port number&gt;</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.network.zmq_pbs.MPhysZeroMQServerManager.start_server">
+<span class="sig-name descname"><span class="pre">start_server</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/zmq_pbs.html#MPhysZeroMQServerManager.start_server"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.zmq_pbs.MPhysZeroMQServerManager.start_server" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start the server.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.network.zmq_pbs.MPhysZeroMQServerManager.stop_server">
+<span class="sig-name descname"><span class="pre">stop_server</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/zmq_pbs.html#MPhysZeroMQServerManager.stop_server"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.zmq_pbs.MPhysZeroMQServerManager.stop_server" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop the server.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mphys.network.zmq_pbs.MPhysZeroMQServerManager.enough_time_is_remaining">
+<span class="sig-name descname"><span class="pre">enough_time_is_remaining</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">estimated_model_time</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/zmq_pbs.html#MPhysZeroMQServerManager.enough_time_is_remaining"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.zmq_pbs.MPhysZeroMQServerManager.enough_time_is_remaining" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if the current HPC job has enough time remaining
+to run the next analysis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>estimated_model_time</strong><span class="classifier">float</span></dt><dd><p>How much time the new analysis is estimated to take</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mphys.network.zmq_pbs.MPhysZeroMQServer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mphys.network.zmq_pbs.</span></span><span class="sig-name descname"><span class="pre">MPhysZeroMQServer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">port</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">get_om_group_function_pointer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ignore_setup_warnings</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ignore_runtime_warnings</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rerun_initial_design</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/zmq_pbs.html#MPhysZeroMQServer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.zmq_pbs.MPhysZeroMQServer" title="Permalink to this definition">¶</a></dt>
+<dd><p>A derived Server class that uses ZeroMQ for network communication.</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Remote Components</a><ul>
+<li><a class="reference internal" href="#remotezeromqcomp-options">RemoteZeroMQComp Options</a></li>
+<li><a class="reference internal" href="#usage">Usage</a></li>
+<li><a class="reference internal" href="#example">Example</a></li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+<li><a class="reference internal" href="#current-limitations">Current Limitations</a><ul>
+<li><a class="reference internal" href="#mphys.network.remote_component.RemoteComp"><code class="docutils literal notranslate"><span class="pre">RemoteComp</span></code></a><ul>
+<li><a class="reference internal" href="#mphys.network.remote_component.RemoteComp.initialize"><code class="docutils literal notranslate"><span class="pre">RemoteComp.initialize()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.network.remote_component.RemoteComp.setup"><code class="docutils literal notranslate"><span class="pre">RemoteComp.setup()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.network.remote_component.RemoteComp.compute"><code class="docutils literal notranslate"><span class="pre">RemoteComp.compute()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.network.remote_component.RemoteComp.compute_partials"><code class="docutils literal notranslate"><span class="pre">RemoteComp.compute_partials()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#mphys.network.server_manager.ServerManager"><code class="docutils literal notranslate"><span class="pre">ServerManager</span></code></a><ul>
+<li><a class="reference internal" href="#mphys.network.server_manager.ServerManager.start_server"><code class="docutils literal notranslate"><span class="pre">ServerManager.start_server()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.network.server_manager.ServerManager.stop_server"><code class="docutils literal notranslate"><span class="pre">ServerManager.stop_server()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.network.server_manager.ServerManager.enough_time_is_remaining"><code class="docutils literal notranslate"><span class="pre">ServerManager.enough_time_is_remaining()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#mphys.network.server.Server"><code class="docutils literal notranslate"><span class="pre">Server</span></code></a><ul>
+<li><a class="reference internal" href="#mphys.network.server.Server.run"><code class="docutils literal notranslate"><span class="pre">Server.run()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#mphys.network.zmq_pbs.RemoteZeroMQComp"><code class="docutils literal notranslate"><span class="pre">RemoteZeroMQComp</span></code></a><ul>
+<li><a class="reference internal" href="#mphys.network.zmq_pbs.RemoteZeroMQComp.initialize"><code class="docutils literal notranslate"><span class="pre">RemoteZeroMQComp.initialize()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#mphys.network.zmq_pbs.MPhysZeroMQServerManager"><code class="docutils literal notranslate"><span class="pre">MPhysZeroMQServerManager</span></code></a><ul>
+<li><a class="reference internal" href="#mphys.network.zmq_pbs.MPhysZeroMQServerManager.start_server"><code class="docutils literal notranslate"><span class="pre">MPhysZeroMQServerManager.start_server()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.network.zmq_pbs.MPhysZeroMQServerManager.stop_server"><code class="docutils literal notranslate"><span class="pre">MPhysZeroMQServerManager.stop_server()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.network.zmq_pbs.MPhysZeroMQServerManager.enough_time_is_remaining"><code class="docutils literal notranslate"><span class="pre">MPhysZeroMQServerManager.enough_time_is_remaining()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#mphys.network.zmq_pbs.MPhysZeroMQServer"><code class="docutils literal notranslate"><span class="pre">MPhysZeroMQServer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+<h3><a href="../index.html">Table of Contents</a></h3>
+<p class="caption" role="heading"><span class="caption-text">MPhys Basics</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="model_hierarchy.html">Model Hierarchy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tagged_promotion.html">Tagged Promotion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="builders.html">Builders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="naming_conventions.html">Variable Naming Conventions</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Remote Components</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Multiphysics Scenarios</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../scenarios/aerostructural.html">Aerostructural Scenario</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Single Discipline Scenarios</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../scenarios/structural.html">Structural Scenario</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../scenarios/aerodynamic.html">Aerodynamic Scenario</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developers Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../developers/mphys_group.html">The MphysGroup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developers/new_multiphysics_problems.html">Extending the Scenario Library</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../references/papers_using_mphys.html">Papers Using MPhys</a></li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../scenarios/aerostructural.html" title="Aerostructural Scenario"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="naming_conventions.html" title="Variable Naming Conventions"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">MPhys  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Remote Components</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2022, NASA.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.1.2.
+    </div>
+  </body>
+</html>
