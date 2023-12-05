@@ -141,7 +141,7 @@ if __name__ == "__main__":
 
     if check_totals:
         prob.setup(mode='rev')
-        om.n2(prob, show_browser=False, outfile='n2_new.html')
+        om.n2(prob, show_browser=False, outfile='n2.html')
         prob.run_model()
         prob.check_totals(step_calc='rel_avg',
                           compact_print=True,
