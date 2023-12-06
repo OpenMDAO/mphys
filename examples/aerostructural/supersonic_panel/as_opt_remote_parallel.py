@@ -49,23 +49,18 @@ class TopLevelGroup(om.Group):
         # distributed IVCs
         self.ivc.add_output('mach', [5., 3.])
         self.ivc.add_output('qdyn', [3E4, 1E4])
-        #self.ivc.add_output('aoa', [3., 2.]) # derivatives are wrong when using vector aoa and coloring; see OpenMDAO issue 2919
-        self.ivc.add_output('aoa1', 3.)
-        self.ivc.add_output('aoa2', 2.)
+        self.ivc.add_output('aoa', [3., 2.])
 
         # add distributed design vars
-        #self.add_design_var('aoa', lower=-20., upper=20.)
-        self.add_design_var('aoa1', lower=-20., upper=20.)
-        self.add_design_var('aoa2', lower=-20., upper=20.)
+        self.add_design_var('aoa', lower=-20., upper=20.)
 
         # add the parallel servers
         self.add_subsystem('multipoint', ParallelRemoteGroup(num_scenarios=2), promotes=['*'])
 
         # connect distributed IVCs to servers, which are size (2,) and (1,) on client and server sides
         for i in range(2):
-            for var in ['mach', 'qdyn']: #, 'aoa']:
+            for var in ['mach', 'qdyn', 'aoa']:
                 self.connect(var, f'remote_scenario{i}.{var}', src_indices=[i])
-            self.connect(f'aoa{i+1}', f'remote_scenario{i}.aoa')
 
         # add CL and stress constraints
         min_CL = [0.15, 0.45]

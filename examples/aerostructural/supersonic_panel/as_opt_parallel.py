@@ -1,6 +1,7 @@
 import numpy as np
 import openmdao.api as om
 import os
+from openmdao.core.constants import _DEFAULT_OUT_STREAM
 
 from mphys import Multipoint, MultipointParallel
 from mphys.scenario_aerostructural import ScenarioAeroStructural
@@ -67,9 +68,7 @@ class Model(om.Group):
         self.ivc.add_output('density', val=2800.)
         self.ivc.add_output('mach', val=[5.,3.])
         self.ivc.add_output('qdyn', val=[3E4,1E4])
-        #self.ivc.add_output('aoa', val=[3.,2.], units='deg') # derivatives are wrong when using vector aoa and coloring; see OpenMDAO issue 2919
-        self.ivc.add_output('aoa1', val=3., units='deg')
-        self.ivc.add_output('aoa2', val=2., units='deg')
+        self.ivc.add_output('aoa', val=[3.,2.], units='deg')
         self.ivc.add_output('geometry_morph_param', val=1.)
 
         # create dv_struct, which is the thickness of each structural element
@@ -113,10 +112,8 @@ class Model(om.Group):
                 self.connect(var, 'multipoint.'+self.scenario_names[i]+'.'+var)
 
             # connect vector inputs
-            for var in ['mach', 'qdyn']: #, 'aoa']:
+            for var in ['mach', 'qdyn', 'aoa']:
                 self.connect(var, 'multipoint.'+self.scenario_names[i]+'.'+var, src_indices=[i])
-
-            self.connect(f'aoa{i+1}', 'multipoint.'+self.scenario_names[i]+'.aoa')
 
             # connect top-level geom parameter
             self.connect('geometry_morph_param', 'multipoint.'+self.scenario_names[i]+'.geometry.geometry_morph_param')
@@ -124,9 +121,7 @@ class Model(om.Group):
         # add design vars
         self.add_design_var('geometry_morph_param', lower=0.1, upper=10.0)
         self.add_design_var('dv_struct', lower=1.e-4, upper=1.e-2, ref=1.e-3)
-        #self.add_design_var('aoa', lower=-10., upper=10.)
-        self.add_design_var('aoa1', lower=-20., upper=20.)
-        self.add_design_var('aoa2', lower=-20., upper=20.)
+        self.add_design_var('aoa', lower=-20., upper=20.)
 
         # add objective/constraints
         self.add_objective(f'multipoint.{self.scenario_names[0]}.mass', ref=0.01)
@@ -151,7 +146,8 @@ if __name__ == "__main__":
         prob.check_totals(step_calc='rel_avg',
                           compact_print=True,
                           directional=False,
-                          show_progress=True)
+                          show_progress=True,
+                          out_stream=None if prob.model.comm.rank>0 else _DEFAULT_OUT_STREAM)
 
     else:
 
@@ -176,33 +172,33 @@ if __name__ == "__main__":
         prob.run_driver()
         prob.cleanup()
 
-        # write out data
-        cr = om.CaseReader("optimization_history.sql")
-        driver_cases = cr.list_cases('driver')
+        if prob.model.comm.rank==0: # write out data
+            cr = om.CaseReader("optimization_history.sql")
+            driver_cases = cr.list_cases('driver')
 
-        case = cr.get_case(0)
-        cons = case.get_constraints()
-        dvs = case.get_design_vars()
-        objs = case.get_objectives()
+            case = cr.get_case(0)
+            cons = case.get_constraints()
+            dvs = case.get_design_vars()
+            objs = case.get_objectives()
 
-        f = open("optimization_history.dat","w+")
+            f = open("optimization_history.dat","w+")
 
-        for i, k in enumerate(objs.keys()):
-            f.write('objective: ' + k + '\n')
-            for j, case_id in enumerate(driver_cases):
-                f.write(str(j) + ' ' + str(cr.get_case(case_id).get_objectives(scaled=False)[k][0]) + '\n')
-            f.write(' ' + '\n')
+            for i, k in enumerate(objs.keys()):
+                f.write('objective: ' + k + '\n')
+                for j, case_id in enumerate(driver_cases):
+                    f.write(str(j) + ' ' + str(cr.get_case(case_id).get_objectives(scaled=False)[k][0]) + '\n')
+                f.write(' ' + '\n')
 
-        for i, k in enumerate(cons.keys()):
-            f.write('constraint: ' + k + '\n')
-            for j, case_id in enumerate(driver_cases):
-                f.write(str(j) + ' ' + ' '.join(map(str,cr.get_case(case_id).get_constraints(scaled=False)[k])) + '\n')
-            f.write(' ' + '\n')
+            for i, k in enumerate(cons.keys()):
+                f.write('constraint: ' + k + '\n')
+                for j, case_id in enumerate(driver_cases):
+                    f.write(str(j) + ' ' + ' '.join(map(str,cr.get_case(case_id).get_constraints(scaled=False)[k])) + '\n')
+                f.write(' ' + '\n')
 
-        for i, k in enumerate(dvs.keys()):
-            f.write('DV: ' + k + '\n')
-            for j, case_id in enumerate(driver_cases):
-                f.write(str(j) + ' ' + ' '.join(map(str,cr.get_case(case_id).get_design_vars(scaled=False)[k])) + '\n')
-            f.write(' ' + '\n')
+            for i, k in enumerate(dvs.keys()):
+                f.write('DV: ' + k + '\n')
+                for j, case_id in enumerate(driver_cases):
+                    f.write(str(j) + ' ' + ' '.join(map(str,cr.get_case(case_id).get_design_vars(scaled=False)[k])) + '\n')
+                f.write(' ' + '\n')
 
-        f.close()
+            f.close()
