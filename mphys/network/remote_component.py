@@ -18,6 +18,9 @@ class RemoteComp(om.ExplicitComponent):
     def initialize(self):
         self.options.declare('run_server_filename', default="mphys_server.py", desc="python file that will launch the Server class")
         self.options.declare('time_estimate_multiplier', default=2.0, desc="when determining whether to reboot the server, estimate model run time as this times max prior run time")
+        self.options.declare('time_estimate_buffer', default=0.0, types=float, desc="constant time in seconds to add to model evaluation esimate. "
+                                                                                    +"When using parallel remote components with very different evaluation times, setting to slowest component's "
+                                                                                    +"estimated evaluation time avoids having the faster component's job expire while the slower one is being evaluated")
         self.options.declare('reboot_only_on_function_call', default=True, desc="only allows server reboot before function call, not gradient call. "
                                                                                 +"Avoids having to rerun forward solution on next job, but shortens current job time")
         self.options.declare('dump_json', default=False, desc="dump input/output json file in client")
@@ -31,6 +34,7 @@ class RemoteComp(om.ExplicitComponent):
         if self.comm.size>1:
             raise SystemError('Using Remote Component on more than 1 rank is not supported')
         self.time_estimate_multiplier = self.options['time_estimate_multiplier']
+        self.time_estimate_buffer = self.options['time_estimate_buffer']
         self.reboot_only_on_function_call = self.options['reboot_only_on_function_call']
         self.dump_json = self.options['dump_json']
         self.dump_separate_json = self.options['dump_separate_json']
@@ -150,16 +154,16 @@ class RemoteComp(om.ExplicitComponent):
             if self._is_first_gradient_evaluation() or self.reboot_only_on_function_call:
                 return False
             else:
-                estimated_model_time = self.time_estimate_multiplier*max(self.times_gradient)
+                estimated_model_time = self.time_estimate_multiplier*max(self.times_gradient) + self.time_estimate_buffer
 
         else:
             if self._is_first_function_evaluation():
                 return False
             else:
                 if self.reboot_only_on_function_call and not self._is_first_gradient_evaluation():
-                    estimated_model_time = self.time_estimate_multiplier*(max(self.times_function)+max(self.times_gradient))
+                    estimated_model_time = self.time_estimate_multiplier*(max(self.times_function)+max(self.times_gradient)) + self.time_estimate_buffer
                 else:
-                    estimated_model_time = self.time_estimate_multiplier*max(self.times_function)
+                    estimated_model_time = self.time_estimate_multiplier*max(self.times_function) + self.time_estimate_buffer
         return not self.server_manager.enough_time_is_remaining(estimated_model_time)
 
     def _dump_json(self, remote_dict: dict, command: str):
