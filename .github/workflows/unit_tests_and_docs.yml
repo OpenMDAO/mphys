@@ -60,7 +60,7 @@ jobs:
           echo "=============================================================";
           echo "Install optional dependencies";
           echo "=============================================================";
-          mamba install -c "smdogroup/label/complex" -c smdogroup -c conda-forge tacs funtofem -q -y;
+          mamba install -c "smdogroup/label/complex" -c smdogroup -c conda-forge "tacs>=3.6.0" funtofem -q -y;
           pip install openaerostruct;
           echo "=============================================================";
           echo "List installed packages/versions";
