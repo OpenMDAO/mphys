@@ -154,19 +154,25 @@ Wall times for function and gradient calls are saved, and when the maximum previ
 <td><p>N/A</p></td>
 <td><p>python file that will launch the Server class</p></td>
 </tr>
-<tr class="row-odd"><td><p>time_estimate_multiplier</p></td>
+<tr class="row-odd"><td><p>time_estimate_buffer</p></td>
+<td><p>0.0</p></td>
+<td><p>N/A</p></td>
+<td><p>[‘float’]</p></td>
+<td><p>constant time in seconds to add to model evaluation esimate. When using parallel remote components with very different evaluation times, setting to slowest component’s estimated evaluation time avoids having the faster component’s job expire while the slower one is being evaluated</p></td>
+</tr>
+<tr class="row-even"><td><p>time_estimate_multiplier</p></td>
 <td><p>2.0</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>when determining whether to reboot the server, estimate model run time as this times max prior run time</p></td>
 </tr>
-<tr class="row-even"><td><p>use_derivative_coloring</p></td>
+<tr class="row-odd"><td><p>use_derivative_coloring</p></td>
 <td><p>False</p></td>
 <td><p>[True, False]</p></td>
 <td><p>[‘bool’]</p></td>
 <td><p>assign derivative coloring to objective/constraints. Only for cases with parallel servers</p></td>
 </tr>
-<tr class="row-odd"><td><p>var_naming_dot_replacement</p></td>
+<tr class="row-even"><td><p>var_naming_dot_replacement</p></td>
 <td><p>:</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
