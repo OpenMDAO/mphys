@@ -1,5 +1,16 @@
+from functools import wraps
+
 from .mphys_group import MphysGroup
 from .utils.directory_utils import cd
+
+# Define decorator functions for methods where run directory must be switched before calling
+def switch_run_directory(method):
+    @wraps(method)
+    def wrapped_method(self, *args, **kwargs):
+        with cd(self.options['run_directory']):
+            return method(self, *args, **kwargs)
+
+    return wrapped_method
 
 class Scenario(MphysGroup):
     """
@@ -60,21 +71,21 @@ class Scenario(MphysGroup):
         # setup() to add the builder subsystems before adding these
         self._post_subsystems.append((name, subsystem, promotes_inputs, promotes_outputs, promotes))
 
-    def _solve_nonlinear(self):
-        with cd(self.options['run_directory']):
-            return super()._solve_nonlinear()
+    @switch_run_directory
+    def _solve_nonlinear(self, *args, **kwargs):
+        return super()._solve_nonlinear(*args, **kwargs)
 
-    def _solve_linear(self, mode, rel_systems, scope_out=..., scope_in=...):
-        with cd(self.options['run_directory']):
-            return super()._solve_linear(mode, rel_systems, scope_out, scope_in)
+    @switch_run_directory
+    def _solve_linear(self, *args, **kwargs):
+        return super()._solve_linear(*args, **kwargs)
 
-    def _apply_nonlinear(self):
-        with cd(self.options['run_directory']):
-            return super()._apply_nonlinear()
+    @switch_run_directory
+    def _apply_nonlinear(self, *args, **kwargs):
+        return super()._apply_nonlinear(*args, **kwargs)
 
-    def _apply_linear(self, jac, rel_systems, mode, scope_out=None, scope_in=None):
-        with cd(self.options['run_directory']):
-            return super()._apply_linear(jac, rel_systems, mode, scope_out, scope_in)
+    @switch_run_directory
+    def _apply_linear(self, *args, **kwargs):
+        return super()._apply_linear(*args, **kwargs)
 
     def _mphys_add_pre_coupling_subsystem_from_builder(self, name, builder, scenario_name=None):
         """
