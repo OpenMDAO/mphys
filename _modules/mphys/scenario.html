@@ -34,8 +34,19 @@
           <div class="body" role="main">
             
   <h1>Source code for mphys.scenario</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">.mphys_group</span> <span class="kn">import</span> <span class="n">MphysGroup</span>
+<span></span><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span>
+
+<span class="kn">from</span> <span class="nn">.mphys_group</span> <span class="kn">import</span> <span class="n">MphysGroup</span>
 <span class="kn">from</span> <span class="nn">.utils.directory_utils</span> <span class="kn">import</span> <span class="n">cd</span>
+
+<span class="c1"># Define decorator functions for methods where run directory must be switched before calling</span>
+<span class="k">def</span> <span class="nf">switch_run_directory</span><span class="p">(</span><span class="n">method</span><span class="p">):</span>
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">method</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">wrapped_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">cd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;run_directory&#39;</span><span class="p">]):</span>
+            <span class="k">return</span> <span class="n">method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">wrapped_method</span>
 
 <div class="viewcode-block" id="Scenario"><a class="viewcode-back" href="../../developers/new_multiphysics_problems.html#mphys.scenario.Scenario">[docs]</a><span class="k">class</span> <span class="nc">Scenario</span><span class="p">(</span><span class="n">MphysGroup</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -96,21 +107,21 @@
         <span class="c1"># setup() to add the builder subsystems before adding these</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_post_subsystems</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">,</span> <span class="n">promotes_inputs</span><span class="p">,</span> <span class="n">promotes_outputs</span><span class="p">,</span> <span class="n">promotes</span><span class="p">))</span></div>
 
-    <span class="k">def</span> <span class="nf">_solve_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">cd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;run_directory&#39;</span><span class="p">]):</span>
-            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_solve_nonlinear</span><span class="p">()</span>
+    <span class="nd">@switch_run_directory</span>
+    <span class="k">def</span> <span class="nf">_solve_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_solve_nonlinear</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_solve_linear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">rel_systems</span><span class="p">,</span> <span class="n">scope_out</span><span class="o">=...</span><span class="p">,</span> <span class="n">scope_in</span><span class="o">=...</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">cd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;run_directory&#39;</span><span class="p">]):</span>
-            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_solve_linear</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">rel_systems</span><span class="p">,</span> <span class="n">scope_out</span><span class="p">,</span> <span class="n">scope_in</span><span class="p">)</span>
+    <span class="nd">@switch_run_directory</span>
+    <span class="k">def</span> <span class="nf">_solve_linear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_solve_linear</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">cd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;run_directory&#39;</span><span class="p">]):</span>
-            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">()</span>
+    <span class="nd">@switch_run_directory</span>
+    <span class="k">def</span> <span class="nf">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_apply_linear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">jac</span><span class="p">,</span> <span class="n">rel_systems</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">scope_out</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">scope_in</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">cd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;run_directory&#39;</span><span class="p">]):</span>
-            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_apply_linear</span><span class="p">(</span><span class="n">jac</span><span class="p">,</span> <span class="n">rel_systems</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">scope_out</span><span class="p">,</span> <span class="n">scope_in</span><span class="p">)</span>
+    <span class="nd">@switch_run_directory</span>
+    <span class="k">def</span> <span class="nf">_apply_linear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_apply_linear</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_mphys_add_pre_coupling_subsystem_from_builder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">builder</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
