@@ -25,7 +25,8 @@ class Server:
     def __init__(self, get_om_group_function_pointer,
                  ignore_setup_warnings = False,
                  ignore_runtime_warnings = False,
-                 rerun_initial_design = False):
+                 rerun_initial_design = False,
+                 write_n2 = False):
 
         self.get_om_group_function_pointer = get_om_group_function_pointer
         self.ignore_setup_warnings = ignore_setup_warnings
@@ -38,6 +39,7 @@ class Server:
         self.additional_inputs = None
         self.additional_outputs = None
         self.design_counter = 0 # more debugging info for client side json dumping
+        self.write_n2 = write_n2
 
         self._load_the_model()
 
@@ -99,7 +101,7 @@ class Server:
         design_vars = self.prob.model._design_vars
         remote_output_dict['design_vars'] = {}
         for dv in design_vars.keys():
-            remote_output_dict['design_vars'][dv] = {'val': self.prob.get_val(dv),
+            remote_output_dict['design_vars'][dv] = {'val': self.prob.get_val(dv, get_remote=True),
                                                      'ref': design_vars[dv]['ref'],
                                                      'ref0': design_vars[dv]['ref0'],
                                                      'lower': design_vars[dv]['lower'],
@@ -117,7 +119,7 @@ class Server:
     def _gather_additional_inputs_from_om_problem(self, remote_output_dict = {}):
         remote_output_dict['additional_inputs'] = {}
         for input in self.additional_inputs:
-            remote_output_dict['additional_inputs'][input] = {'val': self.prob.get_val(input)}
+            remote_output_dict['additional_inputs'][input] = {'val': self.prob.get_val(input, get_remote=True)}
             if hasattr(remote_output_dict['additional_inputs'][input]['val'], 'tolist'):
                 remote_output_dict['additional_inputs'][input]['val'] = remote_output_dict['additional_inputs'][input]['val'].tolist()
         return remote_output_dict
@@ -271,14 +273,14 @@ class Server:
     def _set_design_variables_into_the_server_problem(self, input_dict):
         design_changed = False
         for key in input_dict['design_vars'].keys():
-            if (self.prob.get_val(key)!=input_dict['design_vars'][key]['val']).any():
+            if (self.prob.get_val(key, get_remote=True)!=input_dict['design_vars'][key]['val']).any():
                 design_changed = True
             self.prob.set_val(key, input_dict['design_vars'][key]['val'])
         return design_changed
 
     def _set_additional_inputs_into_the_server_problem(self, input_dict, design_changed):
         for key in input_dict['additional_inputs'].keys():
-            if (self.prob.get_val(key)!=input_dict['additional_inputs'][key]['val']).any():
+            if (self.prob.get_val(key, get_remote=True)!=input_dict['additional_inputs'][key]['val']).any():
                 design_changed = True
             self.prob.set_val(key, input_dict['additional_inputs'][key]['val'])
         return design_changed
@@ -350,4 +352,5 @@ class Server:
             self._send_outputs_to_client(output_dict)
 
             # write current n2 with values
-            om.n2(self.prob, show_browser=False, outfile=f"n2_inner_analysis_{input_dict['component_name']}.html")
+            if self.write_n2:
+                om.n2(self.prob, show_browser=False, outfile=f"n2_inner_analysis_{input_dict['component_name']}.html")

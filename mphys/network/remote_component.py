@@ -13,7 +13,8 @@ class RemoteComp(om.ExplicitComponent):
     """
     def stop_server(self):
         # shortcut for stopping server from top level
-        self.server_manager.stop_server()
+        if self.server_manager is not None:
+            self.server_manager.stop_server()
 
     def initialize(self):
         self.options.declare('run_server_filename', default="mphys_server.py", desc="python file that will launch the Server class")
@@ -135,7 +136,7 @@ class RemoteComp(om.ExplicitComponent):
     def _create_input_dict_for_server(self, inputs):
         input_dict = {'design_vars': {}, 'additional_inputs': {}, 'additional_outputs': self.additional_remote_outputs, 'component_name': self.name}
         for dv in self.design_var_keys:
-            input_dict['design_vars'][dv.replace('.',self.var_naming_dot_replacement)] = {'val': inputs[dv.replace('.',self.var_naming_dot_replacement)].tolist()}
+            input_dict['design_vars'][dv] = {'val': inputs[dv.replace('.',self.var_naming_dot_replacement)].tolist()}
         for input in self.additional_remote_inputs:
             input_dict['additional_inputs'][input] = {'val': inputs[input.replace('.',self.var_naming_dot_replacement)].tolist()}
         return input_dict
