@@ -151,6 +151,8 @@ class RemoteComp(om.ExplicitComponent):
         return len(self.times_gradient) == 0
 
     def _need_to_restart_server(self, command: str):
+        if self.server_manager.job_has_expired():
+            return True
         if self._doing_derivative_evaluation(command):
             if self._is_first_gradient_evaluation() or self.reboot_only_on_function_call:
                 return False
