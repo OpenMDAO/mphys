@@ -68,6 +68,7 @@ Troubleshooting
 ---------------
 The :code:`dump_json` option for :code:`RemoteZeroMQComp` will make the component write input and output JSON files, which contain all data sent to and received from the server.
 An exception is the :code:`wall_time` entry (given in seconds) in the output JSON file, which is added on the client-side after the server has completed the design evaluation.
+Similarly, the :code:`down_time` entry keeps track of the elapsed time between the end of the previous design evaluation and the beginning of the current one.
 Another entry that is only provided for informational purposes is :code:`design_counter`, which keeps track of how many different designs have been evaluated on the current server.
 If :code:`dump_separate_json` is set to True, then separate files will be written for each design evaluation.
 On the server side, an n2 file titled :code:`n2_inner_analysis_<component name>.html` will be written after each evaluation.
