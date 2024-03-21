@@ -142,5 +142,6 @@ else:
                     f.write(str(j) + ' ' + ' '.join(map(str,cr.get_case(case_id).get_design_vars(scaled=False)[k])) + '\n')
                 f.write(' ' + '\n')
 
-# shutdown each rank's server
-eval(f'prob.model.multipoint.remote_scenario{prob.model.comm.rank}.stop_server()')
+# shutdown the servers
+prob.model.multipoint.remote_scenario0.stop_server()
+prob.model.multipoint.remote_scenario1.stop_server()
