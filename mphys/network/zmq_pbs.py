@@ -19,6 +19,7 @@ class RemoteZeroMQComp(RemoteComp):
         self.options.declare('port', default=5081, desc="port number for server/client communication")
         self.options.declare('acceptable_port_range', default=[5081,6000], desc="port range to look through if 'port' is currently busy")
         self.options.declare('additional_server_args', default="", desc="Optional arguments to give server, in addition to --port <port number>")
+        self.options.declare('job_expiration_max_restarts', default=None, desc="Optional maximum number of server restarts due to job expiration; unlimited by default")
         super().initialize()
         self.server_manager = None # for avoiding reinitialization due to multiple setup calls
 
@@ -40,7 +41,8 @@ class RemoteZeroMQComp(RemoteComp):
                                                            component_name=self.name,
                                                            port=self.options['port'],
                                                            acceptable_port_range=self.options['acceptable_port_range'],
-                                                           additional_server_args=self.options['additional_server_args'])
+                                                           additional_server_args=self.options['additional_server_args'],
+                                                           job_expiration_max_restarts=self.options['job_expiration_max_restarts'])
 
 class MPhysZeroMQServerManager(ServerManager):
     """
@@ -61,6 +63,8 @@ class MPhysZeroMQServerManager(ServerManager):
         Range of alternative port numbers if specified port is already in use
     additional_server_args : str
         Optional arguments to give server, in addition to --port <port number>
+    job_expiration_max_restarts : int
+        Optional maximum number of server restarts due to job expiration; unlimited by default
     """
     def __init__(self,
                  pbs: PBS,
@@ -68,7 +72,8 @@ class MPhysZeroMQServerManager(ServerManager):
                  component_name: str,
                  port=5081,
                  acceptable_port_range=[5081,6000],
-                 additional_server_args=''
+                 additional_server_args='',
+                 job_expiration_max_restarts=None
                  ):
         self.pbs = pbs
         self.run_server_filename = run_server_filename
@@ -76,8 +81,10 @@ class MPhysZeroMQServerManager(ServerManager):
         self.port = port
         self.acceptable_port_range = acceptable_port_range
         self.additional_server_args = additional_server_args
+        self.job_expiration_max_restarts = job_expiration_max_restarts
         self.queue_time_delay = 5 # seconds to wait before rechecking if a job has started
         self.server_counter = 0 # for saving output of each server to different files
+        self.job_expiration_restarts = 0
         self.start_server()
 
     def start_server(self):
@@ -87,7 +94,8 @@ class MPhysZeroMQServerManager(ServerManager):
 
     def stop_server(self):
         print(f'CLIENT (subsystem {self.component_name}): Stopping the remote analysis server', flush=True)
-        self.socket.send('shutdown|null'.encode())
+        if self.job.state=='R':
+            self.socket.send('shutdown|null'.encode())
         self._shutdown_server()
         self.socket.close()
 
@@ -97,6 +105,19 @@ class MPhysZeroMQServerManager(ServerManager):
             return False
         else:
             return estimated_model_time < self.job.walltime_remaining
+
+    def job_has_expired(self):
+        self.job.update_job_state()
+        if self.job.state!='R':
+            if self.job_expiration_max_restarts is not None:
+                if self.job_expiration_restarts+1 > self.job_expiration_max_restarts:
+                    self.stop_server()
+                    raise RuntimeError(f'CLIENT (subsystem {self.component_name}): Reached maximum number of job expiration restarts')
+                self.job_expiration_restarts += 1
+            print(f'CLIENT (subsystem {self.component_name}): Job no longer running; flagging for job restart')
+            return True
+        else:
+            return False
 
     def _port_is_in_use(self, port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
