@@ -153,11 +153,11 @@ class MPhysZeroMQServerManager(ServerManager):
     def _wait_for_job_to_start(self):
         print(f'CLIENT (subsystem {self.component_name}): Waiting for job to start', flush=True)
         job_submission_time = time.time()
-        self._setup_placeholder_ssh()
+        self._setup_dummy_socket()
         while self.job.state!='R':
             time.sleep(self.queue_time_delay)
             self.job.update_job_state()
-        self._stop_placeholder_ssh()
+        self._stop_dummy_socket()
         self.job_start_time = time.time()
         print(f'CLIENT (subsystem {self.component_name}): Job started (queue wait time: {(time.time()-job_submission_time)/3600} hours)', flush=True)
 
@@ -172,15 +172,14 @@ class MPhysZeroMQServerManager(ServerManager):
         time.sleep(0.1) # prevent full shutdown before job deletion?
         self.job.qdel()
 
-    def _setup_placeholder_ssh(self):
-        print(f'CLIENT (subsystem {self.component_name}): Starting placeholder process to hold port {self.port} while in queue', flush=True)
-        ssh_command = f'ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L {self.port}:localhost:{self.port} {socket.gethostname()} &'
-        self.ssh_proc = subprocess.Popen(ssh_command.split(),
-                                         stdout=subprocess.DEVNULL,
-                                         stderr=subprocess.DEVNULL)
+    def _setup_dummy_socket(self):
+        print(f'CLIENT (subsystem {self.component_name}): Starting dummy ZeroMQ socket to hold port {self.port} while in queue', flush=True)
+        context = zmq.Context()
+        self.dummy_socket = context.socket(zmq.REP)
+        self.dummy_socket.bind(f"tcp://*:{self.port}")
 
-    def _stop_placeholder_ssh(self):
-        self.ssh_proc.kill()
+    def _stop_dummy_socket(self):
+        self.dummy_socket.close()
 
 class MPhysZeroMQServer(Server):
     """
