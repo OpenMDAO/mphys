@@ -44,6 +44,7 @@ class RemoteComp(om.ExplicitComponent):
         self.additional_remote_outputs = self.options['additional_remote_outputs']
         self.use_derivative_coloring = self.options['use_derivative_coloring']
         self.derivative_coloring_num = 0
+        self.last_analysis_completed_time = time.time() # for tracking down time between function/gradient calls
         if self.dump_separate_json:
             self.dump_json = True
 
@@ -95,14 +96,16 @@ class RemoteComp(om.ExplicitComponent):
         if self.dump_json:
             self._dump_json(remote_input_dict, command)
 
+        down_time = time.time() - self.last_analysis_completed_time
         model_start_time = time.time()
         self._send_inputs_to_server(remote_input_dict, command)
         remote_output_dict = self._receive_outputs_from_server()
 
         model_time_elapsed = time.time() - model_start_time
+        self.last_analysis_completed_time = time.time()
 
         if self.dump_json:
-            remote_output_dict.update({'wall_time': model_time_elapsed})
+            remote_output_dict.update({'wall_time': model_time_elapsed, 'down_time': down_time})
             self._dump_json(remote_output_dict, command)
 
         if self._doing_derivative_evaluation(command):
