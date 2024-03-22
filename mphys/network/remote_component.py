@@ -32,34 +32,36 @@ class RemoteComp(om.ExplicitComponent):
         self.options.declare('use_derivative_coloring', default=False, types=bool, desc="assign derivative coloring to objective/constraints. Only for cases with parallel servers")
 
     def setup(self):
-        if self.comm.size>1:
-            raise SystemError('Using Remote Component on more than 1 rank is not supported')
-        self.time_estimate_multiplier = self.options['time_estimate_multiplier']
-        self.time_estimate_buffer = self.options['time_estimate_buffer']
-        self.reboot_only_on_function_call = self.options['reboot_only_on_function_call']
-        self.dump_json = self.options['dump_json']
-        self.dump_separate_json = self.options['dump_separate_json']
         self.var_naming_dot_replacement = self.options['var_naming_dot_replacement']
-        self.additional_remote_inputs = self.options['additional_remote_inputs']
-        self.additional_remote_outputs = self.options['additional_remote_outputs']
         self.use_derivative_coloring = self.options['use_derivative_coloring']
         self.derivative_coloring_num = 0
-        self.last_analysis_completed_time = time.time() # for tracking down time between function/gradient calls
-        if self.dump_separate_json:
-            self.dump_json = True
 
-        self._setup_server_manager()
+        output_dict = None
+        if self.comm.rank==0:
+            self.time_estimate_multiplier = self.options['time_estimate_multiplier']
+            self.time_estimate_buffer = self.options['time_estimate_buffer']
+            self.reboot_only_on_function_call = self.options['reboot_only_on_function_call']
+            self.dump_json = self.options['dump_json']
+            self.dump_separate_json = self.options['dump_separate_json']
+            self.additional_remote_inputs = self.options['additional_remote_inputs']
+            self.additional_remote_outputs = self.options['additional_remote_outputs']
+            self.last_analysis_completed_time = time.time() # for tracking down time between function/gradient calls
+            if self.dump_separate_json:
+                self.dump_json = True
 
-        # for tracking model times, and determining whether to relaunch servers
-        self.times_function = np.array([])
-        self.times_gradient = np.array([])
+            self._setup_server_manager()
 
-        # get baseline model
-        print(f'CLIENT (subsystem {self.name}): Running model from setup to get design problem info', flush=True)
-        output_dict = self.evaluate_model(command='initialize',
-                                          remote_input_dict={'additional_inputs': self.additional_remote_inputs,
-                                                             'additional_outputs': self.additional_remote_outputs,
-                                                             'component_name': self.name})
+            # for tracking model times, and determining whether to relaunch servers
+            self.times_function = np.array([])
+            self.times_gradient = np.array([])
+
+            # get baseline model
+            print(f'CLIENT (subsystem {self.name}): Running model from setup to get design problem info', flush=True)
+            output_dict = self.evaluate_model(command='initialize',
+                                            remote_input_dict={'additional_inputs': self.additional_remote_inputs,
+                                                                'additional_outputs': self.additional_remote_outputs,
+                                                                'component_name': self.name})
+        output_dict = self.comm.bcast(output_dict)
 
         self._add_design_inputs_from_baseline_model(output_dict)
         self._add_objectives_from_baseline_model(output_dict)
@@ -71,8 +73,11 @@ class RemoteComp(om.ExplicitComponent):
         self.declare_partials('*', '*')
 
     def compute(self,inputs,outputs):
-        input_dict = self._create_input_dict_for_server(inputs)
-        remote_dict = self.evaluate_model(remote_input_dict=input_dict, command='evaluate')
+        remote_dict = None
+        if self.comm.rank==0:
+            input_dict = self._create_input_dict_for_server(inputs)
+            remote_dict = self.evaluate_model(remote_input_dict=input_dict, command='evaluate')
+        remote_dict = self.comm.bcast(remote_dict)
 
         self._assign_objectives_from_remote_output(remote_dict, outputs)
         self._assign_constraints_from_remote_output(remote_dict, outputs)
@@ -81,8 +86,11 @@ class RemoteComp(om.ExplicitComponent):
     def compute_partials(self, inputs, partials):
         # NOTE: this will not use of and wrt inputs, if given in outer script's compute_totals/check_totals
 
-        input_dict = self._create_input_dict_for_server(inputs)
-        remote_dict = self.evaluate_model(remote_input_dict=input_dict, command='evaluate derivatives')
+        remote_dict = None
+        if self.comm.rank==0:
+            input_dict = self._create_input_dict_for_server(inputs)
+            remote_dict = self.evaluate_model(remote_input_dict=input_dict, command='evaluate derivatives')
+        remote_dict = self.comm.bcast(remote_dict)
 
         self._assign_objective_partials_from_remote_output(remote_dict, partials)
         self._assign_constraint_partials_from_remote_output(remote_dict, partials)

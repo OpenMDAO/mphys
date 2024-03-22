@@ -108,7 +108,9 @@ class MPhysZeroMQServerManager(ServerManager):
 
     def job_has_expired(self):
         self.job.update_job_state()
-        if self.job.state!='R':
+        if self.job.state=='R':
+            return False
+        else:
             if self.job_expiration_max_restarts is not None:
                 if self.job_expiration_restarts+1 > self.job_expiration_max_restarts:
                     self.stop_server()
@@ -116,8 +118,6 @@ class MPhysZeroMQServerManager(ServerManager):
                 self.job_expiration_restarts += 1
             print(f'CLIENT (subsystem {self.component_name}): Job no longer running; flagging for job restart')
             return True
-        else:
-            return False
 
     def _port_is_in_use(self, port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

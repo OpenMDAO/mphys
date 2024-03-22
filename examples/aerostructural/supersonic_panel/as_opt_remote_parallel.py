@@ -40,9 +40,6 @@ class ParallelRemoteGroup(om.ParallelGroup):
 
 class TopLevelGroup(om.Group):
     def setup(self):
-        if self.comm.size!=2:
-            raise SystemError('Please launch with 2 processors')
-
         # IVCs that feed into both parallel groups
         self.add_subsystem('ivc', om.IndepVarComp(), promotes=['*'])
 
