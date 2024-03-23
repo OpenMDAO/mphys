@@ -2,7 +2,7 @@ import os
 from setuptools import setup, find_packages
 
 __package_name__ = "mphys"
-__package_version__ = "1.2.0"
+__package_version__ = "1.2.1"
 
 mphys_root = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(mphys_root, 'README.md'), encoding='utf-8') as f:
