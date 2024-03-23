@@ -29,3 +29,8 @@ class ServerManager:
             How much time the new analysis is estimated to take
         """
         return True
+
+    def job_has_expired(self):
+        """
+        Check if the job has run out of time.
+        """

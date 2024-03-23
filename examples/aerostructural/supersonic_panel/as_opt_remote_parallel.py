@@ -40,9 +40,6 @@ class ParallelRemoteGroup(om.ParallelGroup):
 
 class TopLevelGroup(om.Group):
     def setup(self):
-        if self.comm.size!=2:
-            raise SystemError('Please launch with 2 processors')
-
         # IVCs that feed into both parallel groups
         self.add_subsystem('ivc', om.IndepVarComp(), promotes=['*'])
 
@@ -142,5 +139,6 @@ else:
                     f.write(str(j) + ' ' + ' '.join(map(str,cr.get_case(case_id).get_design_vars(scaled=False)[k])) + '\n')
                 f.write(' ' + '\n')
 
-# shutdown each rank's server
-eval(f'prob.model.multipoint.remote_scenario{prob.model.comm.rank}.stop_server()')
+# shutdown the servers
+prob.model.multipoint.remote_scenario0.stop_server()
+prob.model.multipoint.remote_scenario1.stop_server()
