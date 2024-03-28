@@ -188,10 +188,11 @@ class MPhysZeroMQServer(Server):
     def __init__(self, port, get_om_group_function_pointer,
                  ignore_setup_warnings = False,
                  ignore_runtime_warnings = False,
-                 rerun_initial_design = False):
+                 rerun_initial_design = False,
+                 write_n2 = False):
 
         super().__init__(get_om_group_function_pointer, ignore_setup_warnings,
-                         ignore_runtime_warnings, rerun_initial_design)
+                         ignore_runtime_warnings, rerun_initial_design, write_n2)
         self._setup_zeromq_socket(port)
 
     def _setup_zeromq_socket(self, port):
