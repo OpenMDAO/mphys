@@ -23,6 +23,7 @@ These are descriptions of how MPhys works and how it interfaces with solvers and
   basics/tagged_promotion.rst
   basics/builders.rst
   basics/naming_conventions.rst
+  basics/remote_components.rst
 
 .. _scenario_library:
 
@@ -58,6 +59,14 @@ These pages provide more details of how MPhys works and how to add to the MPhys 
 
   developers/mphys_group.rst
   developers/new_multiphysics_problems.rst
+
+References
+==========
+
+.. toctree::
+  :maxdepth: 1
+
+  references/papers_using_mphys.rst
 
 Indices and tables
 ==================

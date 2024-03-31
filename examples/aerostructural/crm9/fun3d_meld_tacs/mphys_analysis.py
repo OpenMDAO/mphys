@@ -36,13 +36,9 @@ class Top(Multipoint):
         dvs.add_output('yaw', val=0.0, units='deg')
         aero_dvs = ['aoa','mach','reynolds','q_inf','yaw']
 
-        # TACS options
-        tacs_options = {
-            'element_callback': tacs_setup.element_callback,
-            'problem_setup': tacs_setup.problem_setup,
-            'mesh_file'   : 'CRM_box_2nd.bdf'
-        }
-        struct_builder = TacsBuilder(tacs_options, coupled=True)
+        # TACS
+        struct_builder = TacsBuilder(mesh_file='CRM_box_2nd.bdf', element_callback=element_callback,
+                                   problem_setup=problem_setup, coupled=True)
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
 

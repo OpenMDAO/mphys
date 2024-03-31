@@ -72,15 +72,13 @@ class Top(Multipoint):
         self.add_subsystem('mesh_aero', aero_builder.get_mesh_coordinate_subsystem())
 
         # TACS
-        tacs_options = {'element_callback' : element_callback,
-                        'problem_setup': problem_setup,
-                        'mesh_file': '../input_files/debug.bdf'}
-
         if use_modal:
             tacs_options['nmodes'] = 15
             #struct_assembler = ModalStructAssembler(tacs_options)
         else:
-            struct_builder = TacsBuilder(tacs_options, check_partials=True, coupled=True, write_solution=False)
+            struct_builder = TacsBuilder(mesh_file='../input_files/debug.bdf', element_callback=element_callback,
+                                         problem_setup=problem_setup, check_partials=True, coupled=True,
+                                         write_solution=False)
 
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
