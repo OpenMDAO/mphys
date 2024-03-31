@@ -72,13 +72,8 @@ class Top(om.Group):
             F[2::ndof] = 100.0
             problem.addLoadToRHS(F)
 
-        tacs_options = {
-            "element_callback": element_callback,
-            "problem_setup": problem_setup,
-            "mesh_file": "wingbox.bdf",
-        }
-
-        tacs_builder = TacsBuilder(tacs_options, coupled=False)
+        tacs_builder = TacsBuilder(mesh_file="wingbox.bdf", element_callback=element_callback,
+                                   problem_setup=problem_setup, coupled=False)
         tacs_builder.initialize(self.comm)
 
         ################################################################################

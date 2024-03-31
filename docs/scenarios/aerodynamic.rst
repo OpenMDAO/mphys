@@ -7,8 +7,8 @@ Default Solvers
 ===============
 The default solvers are NonlinearRunOnce and LinearRunOnce that execute the pre coupling, coupling, and post coupling subsystems in order.
 
-StructuralScenario Options
-==========================
+Options
+=======
 .. embed-options::
   mphys.scenario_aerodynamic
   ScenarioAerodynamic

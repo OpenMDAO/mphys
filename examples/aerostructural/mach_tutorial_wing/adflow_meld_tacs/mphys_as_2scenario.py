@@ -74,13 +74,8 @@ class Top(Multipoint):
         ################################################################################
         # TACS Setup
         ################################################################################
-        tacs_options = {
-            "element_callback": tacs_setup.element_callback,
-            "problem_setup": tacs_setup.problem_setup,
-            "mesh_file": "wingbox.bdf",
-        }
-
-        struct_builder = TacsBuilder(tacs_options)
+        struct_builder = TacsBuilder(mesh_file="wingbox.bdf", element_callback=tacs_setup.element_callback,
+                                     problem_setup=tacs_setup.problem_setup)
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
 

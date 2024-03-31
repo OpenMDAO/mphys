@@ -11,7 +11,7 @@ from fake_struct import StructBuilder, StructMeshComp, StructPreCouplingComp, St
 from fake_geometry import Geometry, GeometryBuilder
 
 
-class PreCouplingComp(om.IndepVarComp):
+class PreCouplingComp(om.ExplicitComponent):
     def setup(self):
         self.add_input('x_struct0', shape_by_conn=True, tags=['mphys_coordinates'])
         self.add_output('f_struct', val=np.ones(struct_num_nodes*3), tags=['mphys_coupling'])

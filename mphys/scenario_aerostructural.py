@@ -56,9 +56,6 @@ class ScenarioAeroStructural(Scenario):
         )
 
     def _mphys_scenario_setup(self):
-        self._mphys_check_coupling_order_inputs(self.options["pre_coupling_order"])
-        self._mphys_check_coupling_order_inputs(self.options["post_coupling_order"])
-
         if self.options["in_MultipointParallel"]:
             self._mphys_initialize_builders()
             self._mphys_add_mesh_and_geometry_subsystems()
@@ -83,23 +80,11 @@ class ScenarioAeroStructural(Scenario):
                 )
 
     def _mphys_add_pre_coupling_subsystems(self):
+        self._mphys_check_coupling_order_inputs(self.options["pre_coupling_order"])
         for discipline in self.options["pre_coupling_order"]:
-            if discipline == "ldxfer":
-                self._mphys_add_pre_coupling_subsystem_from_builder(
-                    "ldxfer", self.options["ldxfer_builder"], self.name
-                )
-            elif discipline == "struct":
-                self._mphys_add_pre_coupling_subsystem_from_builder(
-                    "struct", self.options["struct_builder"], self.name
-                )
-            elif discipline == "aero":
-                self._mphys_add_pre_coupling_subsystem_from_builder(
-                    "aero", self.options["aero_builder"], self.name
-                )
-            else:
-                raise ValueError(
-                    f"Unknown pre_coupling name, {discipline} in pre_coupling order"
-                )
+            self._mphys_add_pre_coupling_subsystem_from_builder(
+                discipline, self.options[f"{discipline}_builder"], self.name
+            )
 
     def _mphys_add_coupling_group(self):
         if self.options["coupling_group_type"] == "full_coupling":
@@ -116,23 +101,11 @@ class ScenarioAeroStructural(Scenario):
             self.mphys_add_subsystem("aero", aero)
 
     def _mphys_add_post_coupling_subsystems(self):
+        self._mphys_check_coupling_order_inputs(self.options["post_coupling_order"])
         for discipline in self.options["post_coupling_order"]:
-            if discipline == "ldxfer":
-                self._mphys_add_post_coupling_subsystem_from_builder(
-                    "ldxfer", self.options["ldxfer_builder"], self.name
-                )
-            elif discipline == "struct":
-                self._mphys_add_post_coupling_subsystem_from_builder(
-                    "struct", self.options["struct_builder"], self.name
-                )
-            elif discipline == "aero":
-                self._mphys_add_post_coupling_subsystem_from_builder(
-                    "aero", self.options["aero_builder"], self.name
-                )
-            else:
-                raise ValueError(
-                    f"Unknown post_coupling name, {discipline} in post_coupling order"
-                )
+            self._mphys_add_post_coupling_subsystem_from_builder(
+                discipline, self.options[f"{discipline}_builder"], self.name
+            )
 
     def _mphys_initialize_builders(self):
         self.options["aero_builder"].initialize(self.comm)

@@ -19,12 +19,9 @@ class AerostructParallel(MultipointParallel):
         mesh_file = 'wing_VLM.dat'
         aero_builder = VlmBuilder(mesh_file)
 
-        # TACS
-        tacs_options = {'element_callback': tacs_setup.element_callback,
-                        'problem_setup': tacs_setup.problem_setup,
-                        'mesh_file': 'wingbox_Y_Z_flip.bdf'}
-
-        struct_builder = TacsBuilder(tacs_options, coupled=True)
+        # TACS setup
+        struct_builder = TacsBuilder(mesh_file='wingbox_Y_Z_flip.bdf', element_callback=tacs_setup.element_callback,
+                                     problem_setup=tacs_setup.problem_setup, coupled=True)
 
         # MELD
         isym = 1

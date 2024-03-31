@@ -13,11 +13,9 @@ import tacs_setup
 
 class Top(Multipoint):
     def setup(self):
-        tacs_options = {'element_callback': tacs_setup.element_callback,
-                        'problem_setup': tacs_setup.problem_setup,
-                        'mesh_file': 'CRM_box_2nd.bdf'}
-
-        struct_builder = TacsBuilder(tacs_options, coupled=False, check_partials=True)
+        struct_builder = TacsBuilder(mesh_file='CRM_box_2nd.bdf', element_callback=tacs_setup.element_callback,
+                                     problem_setup=tacs_setup.problem_setup,
+                                     constraint_setup=tacs_setup.constraint_setup, coupled=False)
         struct_builder.initialize(self.comm)
         dv_array = struct_builder.get_initial_dvs()
 
@@ -40,8 +38,12 @@ prob.model = Top()
 model = prob.model
 
 model.add_design_var('dv_struct', lower=0.002, upper=0.2, scaler=1000.0)
-model.add_objective('analysis.mass', index=0, scaler=1.0 / 1000.0)
+model.add_objective('analysis.mass', scaler=1.0 / 1000.0)
 model.add_constraint('analysis.ks_vmfailure', lower=0.0, upper=1.0, scaler=1.0)
+model.add_constraint('analysis.adjacency.LE_SPAR', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
+model.add_constraint('analysis.adjacency.TE_SPAR', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
+model.add_constraint('analysis.adjacency.U_SKIN', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
+model.add_constraint('analysis.adjacency.L_SKIN', lower=-2.5e-3, upper=2.5e-3, scaler=1e3, linear=True)
 
 prob.driver = om.ScipyOptimizeDriver(debug_print=['objs', 'nl_cons'], maxiter=200)
 prob.driver.options['optimizer'] = 'SLSQP'
@@ -50,5 +52,9 @@ prob.setup()
 om.n2(prob, show_browser=False, outfile='tacs_struct.html')
 
 prob.run_driver()
-for i in range(240):
-    print('final dvs', i, prob['dv_struct'][i])
+
+if prob.comm.rank == 0:
+    for i in range(240):
+        print('final dvs', i, prob['dv_struct'][i])
+
+model.analysis.coupling.write_bdf("out.bdf")

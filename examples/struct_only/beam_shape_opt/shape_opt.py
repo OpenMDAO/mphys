@@ -81,12 +81,9 @@ def problem_setup(scenario_name, fea_assembler, problem):
 
 class Top(Multipoint):
     def setup(self):
-        tacs_options = {'element_callback': element_callback,
-                        'problem_setup': problem_setup,
-                        'mesh_file': bdf_file}
-
         # Initialize MPHYS builder for TACS
-        struct_builder = TacsBuilder(tacs_options, coupled=False)
+        struct_builder = TacsBuilder(mesh_file=bdf_file, element_callback=element_callback, problem_setup=problem_setup,
+                                     coupled=False)
         struct_builder.initialize(self.comm)
 
         # Add mesh component
@@ -138,3 +135,6 @@ om.n2(prob, show_browser=False, outfile='beam_opt_n2.html')
 
 # Run optimization
 prob.run_driver()
+
+# Write out optimized bdf file
+model.tip_shear.coupling.write_bdf("out.bdf")

@@ -8,7 +8,7 @@ from openmdao.utils.assert_utils import assert_near_equal
 from mphys.multipoint import Multipoint
 from mphys.scenario_structural import ScenarioStructural
 
-from tacs import elements, constitutive, functions
+from tacs import elements, constitutive, functions, TACS
 from tacs.mphys import TacsBuilder
 
 # Callback function used to setup TACS element objects and DVs
@@ -51,12 +51,9 @@ def problem_setup(scenario_name, fea_assembler, problem):
 class Top(Multipoint):
 
     def setup(self):
-
-        tacs_options = {'element_callback' : element_callback,
-                        'problem_setup': problem_setup,
-                        'mesh_file': '../input_files/debug.bdf'}
-
-        tacs_builder = TacsBuilder(tacs_options, check_partials=True, coupled=False, write_solution=False)
+        tacs_builder = TacsBuilder(mesh_file='../input_files/debug.bdf', element_callback=element_callback,
+                                   problem_setup=problem_setup, check_partials=True, coupled=False,
+                                   write_solution=False)
         tacs_builder.initialize(self.comm)
         ndv_struct = tacs_builder.get_ndv()
 
@@ -80,6 +77,7 @@ class TestTACS(unittest.TestCase):
     def test_run_model(self):
         self.prob.run_model()
 
+    @unittest.skipUnless(TACS.dtype == complex, "TACS must be compiled in complex mode.")
     def test_derivatives(self):
         self.prob.run_model()
         print('----------------starting check totals--------------')
