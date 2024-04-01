@@ -1,4 +1,4 @@
-from .scenario import Scenario
+from mphys.core import Scenario, MPhysVariables
 
 class ScenarioStructural(Scenario):
     def initialize(self):
@@ -27,9 +27,14 @@ class ScenarioStructural(Scenario):
                 geometry_builder.initialize(self.comm)
                 self.add_subsystem('mesh',struct_builder.get_mesh_coordinate_subsystem(self.name))
                 self.mphys_add_subsystem('geometry',geometry_builder.get_mesh_coordinate_subsystem(self.name))
-                self.connect('mesh.x_struct0','geometry.x_struct_in')
+                self.connect(f'mesh.{MPhysVariables.Structures.Mesh.COORDINATES}',
+                             MPhysVariables.Structures.Geometry.COORDINATES_INPUT)
+                self.connect(MPhysVariables.Structures.Geometry.COORDINATES_OUTPUT,
+                             MPhysVariables.Structures.COORDINATES)
             else:
                 self.mphys_add_subsystem('mesh',struct_builder.get_mesh_coordinate_subsystem(self.name))
+                self.connect(MPhysVariables.Structures.Mesh.COORDINATES,
+                             MPhysVariables.Structures.COORDINATES)
 
         self._mphys_add_pre_coupling_subsystem_from_builder('struct', struct_builder, self.name)
         self.mphys_add_subsystem('coupling',struct_builder.get_coupling_group_subsystem(self.name))

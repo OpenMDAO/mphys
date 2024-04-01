@@ -1,6 +1,6 @@
 import openmdao.api as om
-from .scenario import Scenario
-from .coupling_group import CouplingGroup
+
+from mphys.core import Scenario, CouplingGroup
 
 
 class ScenarioAeropropulsive(Scenario):

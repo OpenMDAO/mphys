@@ -1,11 +1,8 @@
-from mphys.mphys_group import MphysGroup
 import unittest
-import numpy as np
 
 import openmdao.api as om
-from mpi4py import MPI
 
-from mphys.mphys_group import MphysGroup
+from mphys.core import MphysGroup
 from common_methods import CommonMethods
 
 

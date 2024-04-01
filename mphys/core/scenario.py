@@ -1,10 +1,12 @@
 from functools import wraps
 
 from .mphys_group import MphysGroup
-from .utils.directory_utils import cd
+from mphys.utils.directory_utils import cd
 
-# Define decorator functions for methods where run directory must be switched before calling
 def switch_run_directory(method):
+    """
+    Decorator function for methods where run directory must be switched before calling
+    """
     @wraps(method)
     def wrapped_method(self, *args, **kwargs):
         with cd(self.options['run_directory']):

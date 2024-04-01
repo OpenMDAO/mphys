@@ -10,7 +10,7 @@ import os
 
 from docutils.parsers.rst.directives import unchanged, images
 
-from mphys.doc_utils._utils.docutil import get_source_code, remove_docstrings, \
+from mphys.utils.docs._utils.docutil import get_source_code, remove_docstrings, \
     remove_initial_empty_lines, replace_asserts_with_prints, \
     strip_header, dedent, insert_output_start_stop_indicators, run_code, \
     get_skip_output_node, get_interleaved_io_nodes, get_output_block_node, \
