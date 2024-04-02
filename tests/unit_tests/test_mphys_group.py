@@ -2,7 +2,7 @@ import unittest
 
 import openmdao.api as om
 
-from mphys.core import MphysGroup
+from mphys.core import MPhysGroup
 from common_methods import CommonMethods
 
 
@@ -21,11 +21,11 @@ class Comp(om.ExplicitComponent):
         self.add_output('coordinates_out', tags=['mphys_coordinates'])
 
 
-class TestMphysGroupAddingMphysSubsystem(unittest.TestCase):
+class TestMPhysGroupAddingMphysSubsystem(unittest.TestCase):
     def setUp(self):
         self.common = CommonMethods()
         self.prob = om.Problem()
-        group = self.prob.model.add_subsystem('mphys_group', MphysGroup())
+        group = self.prob.model.add_subsystem('mphys_group', MPhysGroup())
         group.mphys_add_subsystem('comp1', Comp())
 
         self.prob.setup()
@@ -54,7 +54,7 @@ class TestMphysGroupAddingMphysSubsystem(unittest.TestCase):
                 self.assertEqual(val['prom_name'], key)
 
 
-class TestMphysGroupNotAddingMphysSubsystem(unittest.TestCase):
+class TestMPhysGroupNotAddingMphysSubsystem(unittest.TestCase):
     """
     Subsystem with inputs/outputs with mphys tags but not added with mphys_add_subsystem
     should not promote tagged variables
@@ -63,7 +63,7 @@ class TestMphysGroupNotAddingMphysSubsystem(unittest.TestCase):
     def setUp(self):
         self.common = CommonMethods()
         self.prob = om.Problem()
-        group = self.prob.model.add_subsystem('mphys_group', MphysGroup())
+        group = self.prob.model.add_subsystem('mphys_group', MPhysGroup())
         group.add_subsystem('comp1', Comp())
 
         self.prob.setup()

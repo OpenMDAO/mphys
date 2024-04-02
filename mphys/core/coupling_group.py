@@ -1,4 +1,4 @@
-from .mphys_group import MphysGroup
+from .mphys_group import MPhysGroup
 
-class CouplingGroup(MphysGroup):
+class CouplingGroup(MPhysGroup):
     pass

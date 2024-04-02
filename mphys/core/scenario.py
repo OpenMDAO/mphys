@@ -1,6 +1,6 @@
 from functools import wraps
 
-from .mphys_group import MphysGroup
+from .mphys_group import MPhysGroup
 from mphys.utils.directory_utils import cd
 
 def switch_run_directory(method):
@@ -14,7 +14,7 @@ def switch_run_directory(method):
 
     return wrapped_method
 
-class Scenario(MphysGroup):
+class Scenario(MPhysGroup):
     """
     A group to represent a specific analysis condition or point of the MPhys
     multipoint groups.
