@@ -2,8 +2,8 @@ import numpy as np
 import argparse
 
 import openmdao.api as om
-from mphys import Multipoint
-from mphys.scenario_aerostructural import ScenarioAeroStructural
+from mphys import Multipoint, MPhysVariables
+from mphys.scenarios import ScenarioAeroStructural
 
 from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
@@ -116,8 +116,10 @@ class Top(Multipoint):
                 linear_solver,
             )
 
-            for discipline in ["aero", "struct"]:
-                self.mphys_connect_scenario_coordinate_source("mesh_%s" % discipline, scenario, discipline)
+            self.connect(f'mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}',
+                         f'{scenario}.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}')
+            self.connect(f'mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}',
+                         f'{scenario}.{MPhysVariables.Structures.COORDINATES}')
 
             self.connect("dv_struct", f"{scenario}.dv_struct")
 
