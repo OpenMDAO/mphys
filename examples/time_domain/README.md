@@ -7,7 +7,7 @@ This directory contains exploratory work looking at two different ways of doing 
 
 1. `timestep_groups`: The first mode is the default mode of OpenMDAO where each time step of the temporal problem is a subsystem and connections are used to indicate the dependency of a particular time step on previous time
 This requires OpenMDAO to allocate and store all states in the system in memory at all times;
-this is not practical with large high-fidelity codes where there could be 100s or 1000s of time steps.
+this is not practical with large high-fidelity codes where there could be hundreds or thousands of time steps.
 
 2. `timestep_loop`: The alternative approach is to use nested OpenMDAO problems.
 The outer OpenMDAO problem is the optimization problem, and the inner problem represents a single coupled time step of the time-domain problem.
@@ -19,7 +19,7 @@ The purpose of these prototypes is to demonstrate that the `timestep_loop` metho
 
 While the prototype shows that the `timestep_loop` approach is feasible, the temporal integrator component is specific to the structural problem being solved.
 Therefore, the `builder_version` looks to generalize this timestep loop approach by introducing unsteady versions of the MPhys Builders and Scenarios called the Integrator.
-The TimeDomainBuilder extends the standard MPhys Builder class to provide additional information about the temporal integration such as how many temporal backplanes of data are required for a particular state.
+The `TimeDomainBuilder` extends the standard MPhys Builder class to provide additional information about the temporal integration such as how many temporal backplanes of data are required for a particular state.
 The Integrator component performs the time step loops and manages the temporal state data including shuffling backplanes of states as the time is advanced.
 In this simplified example, the aerodynamic loads are computed on the same coordinate locations as the structural mesh.
 Since a normal load and displacement transfer scheme is not required,
