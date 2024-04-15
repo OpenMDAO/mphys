@@ -7,6 +7,8 @@ class MPhysVariables:
             REYNOLDS_NUMBER = "reynolds_number"
             DYNAMIC_PRESSURE = "dynamic_pressure"
 
+        #TODO add propulsion coupling variables
+
         class Surface:
             #: displacement distribution
             DISPLACEMENTS = "u_aero"
@@ -54,12 +56,34 @@ class MPhysVariables:
         COORDINATES = "x_struct0"
 
         class Geometry:
-            #: node coordinates, jig shape
+            #: node coordinates, input to geometry subsystem
             COORDINATES_INPUT = "x_struct0_geometry_input"
 
-            #: node coordinates, jig shape
+            #: node coordinates, output of geometry subsystem
             COORDINATES_OUTPUT = "x_struct0_geometry_output"
 
         class Mesh:
-            #: node coordinates, original (no geometry changes)
+            #: node coordinates, original (no geometry changes, no deflections)
             COORDINATES = "x_struct0_mesh"
+
+        class Thermal:
+            """
+            In physical space, the thermal domain is the same as the structures
+            domain, but in some situations a different mesh is used.
+            """
+            #: Coordinates at start of analysis
+            COORDINATES = "x_thermal0"
+
+            class Geometry:
+                #: node coordinates, input to geometry subsystem
+                COORDINATES_INPUT = "x_thermal0_geometry_input"
+
+                #: node coordinates, output of geometry subsystem
+                COORDINATES_OUTPUT = "x_thermal0_geometry_output"
+
+            class Mesh:
+                #: node coordinates, original (no geometry changes)
+                COORDINATES = "x_thermal0_mesh"
+
+    #TODO add propulsion
+    #class Propulsion:
