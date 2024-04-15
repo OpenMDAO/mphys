@@ -1,7 +1,7 @@
 import openmdao.api as om
 
 from mphys.core import Scenario, CouplingGroup, MPhysVariables, Builder
-from mphys.scenarios.geo_disp import GeoDisp, GeoOnly
+from mphys.scenarios.geo_disp import GeoDisp
 
 
 class ScenarioAeroStructural(Scenario):
@@ -78,9 +78,6 @@ class ScenarioAeroStructural(Scenario):
                 )
 
     def _mphys_add_pre_coupling_subsystems(self):
-        if self.options["coupling_group_type"] != "full_coupling":
-            self.mphys_add_subsystem('geo', GeoOnly(number_of_nodes=self.options["aero_builder"].get_number_of_nodes()))
-
         self._mphys_check_coupling_order_inputs(self.options["pre_coupling_order"])
         for discipline in self.options["pre_coupling_order"]:
             self._mphys_add_pre_coupling_subsystem_from_builder(

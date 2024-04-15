@@ -6,7 +6,7 @@ from mpi4py import MPI
 
 from mphys import MPhysVariables
 from mphys.scenarios.aerostructural import ScenarioAeroStructural, CouplingAeroStructural
-from mphys.scenarios.geo_disp import GeoDisp, GeoOnly
+from mphys.scenarios.geo_disp import GeoDisp
 
 from common_methods import CommonMethods
 from fake_aero import AeroBuilder, AeroMeshComp, AeroPreCouplingComp, AeroCouplingComp, AeroPostCouplingComp
@@ -228,6 +228,8 @@ class TestScenarioAeroStructuralAeroOnlyInCoupling(unittest.TestCase):
         )
         self.prob.model.connect(f"aero_mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
                                 f"scenario.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}")
+        self.prob.model.connect(f"aero_mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+                                f"scenario.{MPhysVariables.Aerodynamics.Surface.COORDINATES}")
 
         self.prob.model.connect(f"struct_mesh.{MPhysVariables.Structures.Mesh.COORDINATES}",
                                 f"scenario.{MPhysVariables.Structures.COORDINATES}")
@@ -237,7 +239,6 @@ class TestScenarioAeroStructuralAeroOnlyInCoupling(unittest.TestCase):
         self.common.test_run_model(self)
 
     def test_scenario_components_were_added(self):
-        self.assertIsInstance(self.prob.model.scenario.geo, GeoOnly)
         self.assertIsInstance(self.prob.model.scenario.aero_pre, AeroPreCouplingComp)
         self.assertIsInstance(self.prob.model.scenario.struct_pre, StructPreCouplingComp)
         self.assertIsInstance(self.prob.model.scenario.aero, AeroCouplingComp)
@@ -245,7 +246,7 @@ class TestScenarioAeroStructuralAeroOnlyInCoupling(unittest.TestCase):
         self.assertIsInstance(self.prob.model.scenario.struct_post, StructPostCouplingCompForNoCoupling)
 
     def test_scenario_subsystem_order(self):
-        expected_order = ["geo", "aero_pre", "struct_pre", "aero", "aero_post", "struct_post"]
+        expected_order = ["aero_pre", "struct_pre", "aero", "aero_post", "struct_post"]
         self.common.test_subsystem_order(self, self.prob.model.scenario, expected_order)
 
     def test_no_autoivcs(self):
@@ -295,6 +296,8 @@ class TestScenarioAeroStructuralNoCoupling(unittest.TestCase):
         )
         self.prob.model.connect(f"aero_mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
                                 f"scenario.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}")
+        self.prob.model.connect(f"aero_mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+                                f"scenario.{MPhysVariables.Aerodynamics.Surface.COORDINATES}")
 
         self.prob.model.connect(f"struct_mesh.{MPhysVariables.Structures.Mesh.COORDINATES}",
                                 f"scenario.{MPhysVariables.Structures.COORDINATES}")
@@ -304,14 +307,13 @@ class TestScenarioAeroStructuralNoCoupling(unittest.TestCase):
         self.common.test_run_model(self)
 
     def test_scenario_components_were_added(self):
-        self.assertIsInstance(self.prob.model.scenario.geo, GeoOnly)
         self.assertIsInstance(self.prob.model.scenario.aero_pre, AeroPreCouplingComp)
         self.assertIsInstance(self.prob.model.scenario.struct_pre, StructPreCouplingComp)
         self.assertIsInstance(self.prob.model.scenario.aero_post, AeroPostCouplingCompForNoCoupling)
         self.assertIsInstance(self.prob.model.scenario.struct_post, StructPostCouplingCompForNoCoupling)
 
     def test_scenario_subsystem_order(self):
-        expected_order = ["geo","aero_pre", "struct_pre",  "aero_post", "struct_post"]
+        expected_order = ["aero_pre", "struct_pre",  "aero_post", "struct_post"]
         self.common.test_subsystem_order(self, self.prob.model.scenario, expected_order)
 
     def test_no_autoivcs(self):

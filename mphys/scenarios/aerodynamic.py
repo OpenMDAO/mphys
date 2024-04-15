@@ -31,10 +31,14 @@ class ScenarioAerodynamic(Scenario):
                             MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT)
                 self.connect(MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT,
                             MPhysVariables.Aerodynamics.Surface.COORDINATES)
+                self.connect(MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT,
+                             MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL)
             else:
                 self.mphys_add_subsystem('mesh',aero_builder.get_mesh_coordinate_subsystem(self.name))
                 self.connect(MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES,
                             MPhysVariables.Aerodynamics.Surface.COORDINATES)
+                self.connect(MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES,
+                            MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL)
 
         self._mphys_add_pre_coupling_subsystem_from_builder('aero', aero_builder, self.name)
         self.mphys_add_subsystem('coupling',aero_builder.get_coupling_group_subsystem(self.name))

@@ -20,6 +20,8 @@ class TestScenarioAerodynamic(unittest.TestCase):
         self.prob.model.add_subsystem('scenario', ScenarioAerodynamic(aero_builder=builder))
         self.prob.model.connect(f'mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}',
                                 f'scenario.{MPhysVariables.Aerodynamics.Surface.COORDINATES}')
+        self.prob.model.connect(f'mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}',
+                                f'scenario.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}')
         self.prob.setup()
 
     def test_mphys_components_were_added(self):
@@ -94,7 +96,12 @@ class TestScenarioAerodynamicParallelWithGeometry(unittest.TestCase):
 
     def test_coordinates_connected_from_geometry(self):
         scenario = self.prob.model.scenario
-        systems = ['aero_pre', 'coupling', 'aero_post']
+        systems = ['aero_pre']
+        for sys in systems:
+            self.assertEqual(scenario._conn_global_abs_in2out[f'scenario.{sys}.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}'],
+                             f'scenario.geometry.{MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT}')
+
+        systems = ['coupling', 'aero_post']
         for sys in systems:
             self.assertEqual(scenario._conn_global_abs_in2out[f'scenario.{sys}.{MPhysVariables.Aerodynamics.Surface.COORDINATES}'],
                              f'scenario.geometry.{MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT}')
