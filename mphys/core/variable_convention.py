@@ -46,12 +46,6 @@ class MPhysVariables:
         #: loads at mesh nodes
         LOADS_FROM_AERODYNAMICS = "f_aero_struct"
 
-        #: temperature at mesh nodes
-        TEMPERATURE = "T_struct"
-
-        #: heat flux * local surface area at mesh nodes
-        HEAT_FLOW = "q_aero_struct"
-
         #: Coordinates at start of analysis
         COORDINATES = "x_struct0"
 
@@ -66,24 +60,26 @@ class MPhysVariables:
             #: node coordinates, original (no geometry changes, no deflections)
             COORDINATES = "x_struct0_mesh"
 
-        class Thermal:
-            """
-            In physical space, the thermal domain is the same as the structures
-            domain, but in some situations a different mesh is used.
-            """
-            #: Coordinates at start of analysis
-            COORDINATES = "x_thermal0"
+    class Thermal:
+        #: Coordinates at start of analysis
+        COORDINATES = "x_thermal0"
 
-            class Geometry:
-                #: node coordinates, input to geometry subsystem
-                COORDINATES_INPUT = "x_thermal0_geometry_input"
+        #: temperature at mesh nodes
+        TEMPERATURE = "T_thermal"
 
-                #: node coordinates, output of geometry subsystem
-                COORDINATES_OUTPUT = "x_thermal0_geometry_output"
+        #: heat flux * local surface area at mesh nodes
+        HEAT_FLOW = "q_aero_thermal"
 
-            class Mesh:
-                #: node coordinates, original (no geometry changes)
-                COORDINATES = "x_thermal0_mesh"
+        class Geometry:
+            #: node coordinates, input to geometry subsystem
+            COORDINATES_INPUT = "x_thermal0_geometry_input"
+
+            #: node coordinates, output of geometry subsystem
+            COORDINATES_OUTPUT = "x_thermal0_geometry_output"
+
+        class Mesh:
+            #: node coordinates, original (no geometry changes)
+            COORDINATES = "x_thermal0_mesh"
 
     #TODO add propulsion
     #class Propulsion:

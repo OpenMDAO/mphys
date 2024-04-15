@@ -63,12 +63,38 @@ class ScenarioAeroThermal(Scenario):
         if geometry_builder is None:
             self.mphys_add_subsystem("aero_mesh", aero_builder.get_mesh_coordinate_subsystem(self.name))
             self.mphys_add_subsystem("thermal_mesh", thermal_builder.get_mesh_coordinate_subsystem(self.name))
+            self.connect(
+                MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES,
+                MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL,
+            )
+
+            self.mphys_add_subsystem("thermal_mesh", thermal_builder.get_mesh_coordinate_subsystem(self.name))
+            self.connect(
+                MPhysVariables.Thermal.Mesh.COORDINATES,
+                MPhysVariables.Thermal.COORDINATES,
+            )
         else:
             self.add_subsystem("aero_mesh", aero_builder.get_mesh_coordinate_subsystem(self.name))
             self.add_subsystem("thermal_mesh", thermal_builder.get_mesh_coordinate_subsystem(self.name))
             self.mphys_add_subsystem("geometry", geometry_builder.get_mesh_coordinate_subsystem(self.name))
-            self.connect("aero_mesh.x_aero0", "geometry.x_aero_in")
-            self.connect("thermal_mesh.x_thermal0", "geometry.x_thermal_in")
+
+            self.connect(
+                f"aero_mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+                MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT,
+            )
+            self.connect(
+                MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT,
+                MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL,
+            )
+
+            self.connect(
+                f"thermal_mesh.{MPhysVariables.Thermal.Mesh.COORDINATES}",
+                MPhysVariables.Thermal.Geometry.COORDINATES_INPUT,
+            )
+            self.connect(
+                MPhysVariables.Thermal.Geometry.COORDINATES_OUTPUT,
+                MPhysVariables.Thermal.COORDINATES,
+            )
 
 
 class CouplingAeroThermal(CouplingGroup):
