@@ -62,3 +62,5 @@ tests/constant
 tests/FFD
 tests/system
 
+# OM output
+reports
