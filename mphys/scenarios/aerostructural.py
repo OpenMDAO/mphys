@@ -78,6 +78,9 @@ class ScenarioAeroStructural(Scenario):
                 )
 
     def _mphys_add_pre_coupling_subsystems(self):
+        if self.options["coupling_group_type"] != "full_coupling":
+            self.mphys_add_subsystem('geo', GeoOnly(number_of_nodes=self.options["aero_builder"].get_number_of_nodes()))
+
         self._mphys_check_coupling_order_inputs(self.options["pre_coupling_order"])
         for discipline in self.options["pre_coupling_order"]:
             self._mphys_add_pre_coupling_subsystem_from_builder(
@@ -96,11 +99,7 @@ class ScenarioAeroStructural(Scenario):
 
         elif self.options["coupling_group_type"] == "aerodynamics_only":
             aero_builder = self.options["aero_builder"]
-            self.mphys_add_subsystem('geo', GeoOnly(number_of_nodes=aero_builder.get_number_of_nodes()))
             self.mphys_add_subsystem("aero", aero_builder.get_coupling_group_subsystem(self.name))
-        else:
-            aero_builder = self.options["aero_builder"]
-            self.mphys_add_subsystem('geo', GeoOnly(number_of_nodes=aero_builder.get_number_of_nodes()))
 
     def _mphys_add_post_coupling_subsystems(self):
         self._mphys_check_coupling_order_inputs(self.options["post_coupling_order"])

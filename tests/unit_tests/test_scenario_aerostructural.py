@@ -237,15 +237,15 @@ class TestScenarioAeroStructuralAeroOnlyInCoupling(unittest.TestCase):
         self.common.test_run_model(self)
 
     def test_scenario_components_were_added(self):
+        self.assertIsInstance(self.prob.model.scenario.geo, GeoOnly)
         self.assertIsInstance(self.prob.model.scenario.aero_pre, AeroPreCouplingComp)
         self.assertIsInstance(self.prob.model.scenario.struct_pre, StructPreCouplingComp)
-        self.assertIsInstance(self.prob.model.scenario.geo, GeoOnly)
         self.assertIsInstance(self.prob.model.scenario.aero, AeroCouplingComp)
         self.assertIsInstance(self.prob.model.scenario.aero_post, AeroPostCouplingComp)
         self.assertIsInstance(self.prob.model.scenario.struct_post, StructPostCouplingCompForNoCoupling)
 
     def test_scenario_subsystem_order(self):
-        expected_order = ["aero_pre", "struct_pre", "geo", "aero", "aero_post", "struct_post"]
+        expected_order = ["geo", "aero_pre", "struct_pre", "aero", "aero_post", "struct_post"]
         self.common.test_subsystem_order(self, self.prob.model.scenario, expected_order)
 
     def test_no_autoivcs(self):
@@ -304,14 +304,14 @@ class TestScenarioAeroStructuralNoCoupling(unittest.TestCase):
         self.common.test_run_model(self)
 
     def test_scenario_components_were_added(self):
+        self.assertIsInstance(self.prob.model.scenario.geo, GeoOnly)
         self.assertIsInstance(self.prob.model.scenario.aero_pre, AeroPreCouplingComp)
         self.assertIsInstance(self.prob.model.scenario.struct_pre, StructPreCouplingComp)
-        self.assertIsInstance(self.prob.model.scenario.geo, GeoOnly)
         self.assertIsInstance(self.prob.model.scenario.aero_post, AeroPostCouplingCompForNoCoupling)
         self.assertIsInstance(self.prob.model.scenario.struct_post, StructPostCouplingCompForNoCoupling)
 
     def test_scenario_subsystem_order(self):
-        expected_order = ["aero_pre", "struct_pre", "geo", "aero_post", "struct_post"]
+        expected_order = ["geo","aero_pre", "struct_pre",  "aero_post", "struct_post"]
         self.common.test_subsystem_order(self, self.prob.model.scenario, expected_order)
 
     def test_no_autoivcs(self):
