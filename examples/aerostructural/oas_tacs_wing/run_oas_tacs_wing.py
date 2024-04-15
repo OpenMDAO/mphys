@@ -3,8 +3,8 @@ import os
 import numpy as np
 import openmdao.api as om
 
-from mphys import Multipoint
-from mphys.scenario_aerostructural import ScenarioAeroStructural
+from mphys import Multipoint, MPhysVariables
+from mphys.scenarios import ScenarioAeroStructural
 from openaerostruct.geometry.utils import generate_vsp_surfaces
 from openaerostruct.mphys import AeroBuilder
 from funtofem.mphys import MeldBuilder
@@ -87,9 +87,10 @@ class Top(Multipoint):
                                                                  struct_builder=struct_builder,
                                                                  ldxfer_builder=ldxfer_builder))
 
-        for discipline in ['aero', 'struct']:
-            self.mphys_connect_scenario_coordinate_source(
-                'mesh_%s' % discipline, 'maneuver', discipline)
+        self.connect(f'mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}',
+                     f'maneuver.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}')
+        self.connect(f'mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}',
+                     f'maneuver.{MPhysVariables.Structures.COORDINATES}')
 
         for dv in ['aoa', 'yaw', 'rho', 'mach', 'v', 'reynolds']:
             self.connect(dv, f'maneuver.{dv}')

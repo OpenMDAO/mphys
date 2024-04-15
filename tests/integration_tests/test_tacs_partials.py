@@ -5,8 +5,8 @@ import unittest
 import openmdao.api as om
 from openmdao.utils.assert_utils import assert_near_equal
 
-from mphys.multipoint import Multipoint
-from mphys.scenario_structural import ScenarioStructural
+from mphys import Multipoint, MPhysVariables
+from mphys.scenarios import ScenarioStructural
 
 from tacs import elements, constitutive, functions, TACS
 from tacs.mphys import TacsBuilder
@@ -62,7 +62,8 @@ class Top(Multipoint):
 
         self.add_subsystem('mesh', tacs_builder.get_mesh_coordinate_subsystem())
         self.mphys_add_scenario('analysis', ScenarioStructural(struct_builder=tacs_builder))
-        self.connect('mesh.x_struct0', 'analysis.x_struct0')
+        self.connect(f'mesh.{MPhysVariables.Structures.Mesh.COORDINATES}',
+                     f'analysis.{MPhysVariables.Structures.COORDINATES}')
         self.connect('dv_struct', 'analysis.dv_struct')
 
 class TestTACS(unittest.TestCase):

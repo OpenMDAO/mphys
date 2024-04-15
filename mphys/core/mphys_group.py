@@ -1,7 +1,7 @@
 from openmdao.api import Group
 
 
-class MphysGroup(Group):
+class MPhysGroup(Group):
     """
     A OpenMDAO class for automated promotion of MPhys variables
     """
@@ -21,7 +21,7 @@ class MphysGroup(Group):
 
     def configure(self):
         """
-        Promote the mphys-tagged variables of subsystems added by :func:`~MphysGroup.mphys_add_subsystem`
+        Promote the mphys-tagged variables of subsystems added by :func:`~MPhysGroup.mphys_add_subsystem`
         """
         self._mphys_promote_coupling_variables()
         self._mphys_promote_inputs()

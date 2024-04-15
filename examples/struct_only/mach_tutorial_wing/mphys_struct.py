@@ -5,8 +5,8 @@ from mpi4py import MPI
 
 import openmdao.api as om
 
-from mphys import Multipoint
-from mphys.scenario_structural import ScenarioStructural
+from mphys import Multipoint, MPhysVariables
+from mphys.scenarios import ScenarioStructural
 
 # these imports will be from the respective codes' repos rather than omfsi
 from tacs.mphys import TacsBuilder
@@ -93,7 +93,9 @@ class Top(om.Group):
         mp.add_subsystem("mesh", tacs_builder.get_mesh_coordinate_subsystem())
         # this is the method that needs to be called for every point in this mp_group
         mp.mphys_add_scenario("s0", ScenarioStructural(struct_builder=tacs_builder))
-        mp.mphys_connect_scenario_coordinate_source("mesh", "s0", "struct")
+
+        mp.connect(f"mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}",
+                   f"s0.{MPhysVariables.Structures.COORDINATES}")
 
         self.connect("dv_struct", "mp_group.s0.dv_struct")
 

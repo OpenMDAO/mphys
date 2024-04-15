@@ -40,7 +40,7 @@ For example, a sonic boom propagator requires the flow solution as an input but 
 
 MPhys provides a library of these Scenario groups designed for specific type problems.
 See :ref:`scenario_library` for details about specific standardized scenarios.
-If a particular multiphysics problem is not covered by the MPhys library, new scenarios and coupling groups can be created by subclassing the :class:`~mphys.mphys_group.MphysGroup`.
+If a particular multiphysics problem is not covered by the MPhys library, new scenarios and coupling groups can be created by subclassing the :class:`~mphys.mphys_group.MPhysGroup`.
 
 
 =================

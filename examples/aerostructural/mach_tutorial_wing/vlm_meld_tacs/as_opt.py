@@ -1,8 +1,8 @@
 import numpy as np
 import openmdao.api as om
 
-from mphys.multipoint import Multipoint
-from mphys.scenario_aerostructural import ScenarioAeroStructural
+from mphys import Multipoint, MPhysVariables
+from mphys.scenarios import ScenarioAeroStructural
 from vlm_solver.mphys_vlm import VlmBuilder
 from tacs.mphys import TacsBuilder
 from funtofem.mphys import MeldBuilder
@@ -65,8 +65,10 @@ class Top(Multipoint):
                                                                     ldxfer_builder=ldxfer_builder),
                                              nonlinear_solver, linear_solver)
 
-            for discipline in ['aero','struct']:
-                self.mphys_connect_scenario_coordinate_source('mesh_%s' % discipline, scenario, discipline)
+            self.connect(f'mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}',
+                        f'{scenario}.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}')
+            self.connect(f'mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}',
+                        f'{scenario}.{MPhysVariables.Structures.COORDINATES}')
 
             for dv in ['q_inf','vel','nu','mach','dv_struct']:
                 self.connect(dv, f'{scenario}.{dv}')
