@@ -16,7 +16,7 @@ class AeroMeshComp(om.IndepVarComp):
 
 class AeroPreCouplingComp(om.ExplicitComponent):
     def setup(self):
-        self.x_aero_name = MPhysVariables.Aerodynamics.Surface.COORDINATES
+        self.x_aero_name = MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL
 
         self.add_input(self.x_aero_name, shape_by_conn=True, tags=["mphys_coordinates"])
         self.add_output("prestate_aero", tags=["mphys_coupling"])
