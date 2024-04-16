@@ -27,6 +27,7 @@ class MphysGroup(Group):
         self._mphys_promote_inputs()
         self._mphys_promote_mesh_coordinates()
         self._mphys_promote_results()
+        self._mphys_promote_time_derivatives()
 
     def _mphys_promote_by_tag(self, iotype, tag):
         for subsystem in self.mphys_subsystems:
@@ -39,6 +40,9 @@ class MphysGroup(Group):
                 if variable not in promoted:
                     self.promotes(subsystem.name, any=[variable])
                     promoted.append(variable)
+
+    def _mphys_promote_time_derivatives(self):
+        self._mphys_promote_by_tag(['input', 'output'], 'mphys_time_derivative')
 
     def _mphys_promote_coupling_variables(self):
         self._mphys_promote_by_tag(['input', 'output'], 'mphys_coupling')
