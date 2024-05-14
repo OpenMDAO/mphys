@@ -39,6 +39,7 @@ They describe physics problem being solved, the standards set by MPhys, requirem
   :caption: Multiphysics Scenarios
 
   scenarios/aerostructural.rst
+  scenarios/aeropropulsive.rst
 
 .. toctree::
   :maxdepth: 1
