@@ -44,7 +44,9 @@ class MPhysVariables:
         DISPLACEMENTS = "u_struct"
 
         #: loads at mesh nodes
-        LOADS_FROM_AERODYNAMICS = "f_aero_struct"
+        class Loads:
+            # Loads from aerodynamics
+            AERODYNAMIC = "f_aero_struct"
 
         #: Coordinates at start of analysis
         COORDINATES = "x_struct0"
@@ -67,8 +69,9 @@ class MPhysVariables:
         #: temperature at mesh nodes
         TEMPERATURE = "T_thermal"
 
-        #: heat flux * local surface area at mesh nodes
-        HEAT_FLOW = "q_aero_thermal"
+        class HeatFlow:
+            #: heat flux * local surface area at mesh nodes
+            AERODYNAMIC = "q_aero_thermal"
 
         class Geometry:
             #: node coordinates, input to geometry subsystem
