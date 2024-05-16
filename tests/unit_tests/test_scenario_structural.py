@@ -15,7 +15,7 @@ from fake_geometry import Geometry, GeometryBuilder
 class PreCouplingComp(om.ExplicitComponent):
     def setup(self):
         self.x_struct0_name = MPhysVariables.Structures.COORDINATES
-        self.f_struct_name = MPhysVariables.Structures.LOADS_FROM_AERODYNAMICS
+        self.f_struct_name = MPhysVariables.Structures.Loads.AERODYNAMIC
         self.add_input(self.x_struct0_name, shape_by_conn=True, tags=['mphys_coordinates'])
         self.add_output(self.f_struct_name, val=np.ones(struct_num_nodes*3), tags=['mphys_coupling'])
         self.add_output('prestate_struct', tags=['mphys_coupling'])
