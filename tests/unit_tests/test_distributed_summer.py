@@ -3,7 +3,7 @@ from mpi4py import MPI
 import numpy as np
 import openmdao.api as om
 
-from mphys import DistributedSumer, DistributedVariableDescription
+from mphys import DistributedSummer, DistributedVariableDescription
 
 from common_methods import CommonMethods
 from openmdao.utils.assert_utils import assert_near_equal
@@ -24,7 +24,7 @@ class TestMaskConverterSingle(unittest.TestCase):
         input_metadata = [DistributedVariableDescription('dist_input1', shape=10, tags=['mphys_coordinates']),
                           DistributedVariableDescription('dist_input2', shape=10, tags=['mphys_coordinates'])]
         output_metadata = DistributedVariableDescription('sumed_output', shape=10, tags=['mphys_coordinates'])
-        sumer = DistributedSumer(inputs=input_metadata, output=output_metadata)
+        sumer = DistributedSummer(inputs=input_metadata, output=output_metadata)
 
         self.prob.model.add_subsystem('sumer', sumer, promotes=["*"])
 

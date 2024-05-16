@@ -3,7 +3,7 @@ import openmdao.api as om
 from mphys.core.distributed_converter import DistributedVariableDescription
 
 
-class DistributedSumer(om.ExplicitComponent):
+class DistributedSummer(om.ExplicitComponent):
     """
     An ExplicitComponent used to sum multiple distributed vectors together.
     This is a simple sum that results in a single distribute vector output (i.e. not a Reduce).
