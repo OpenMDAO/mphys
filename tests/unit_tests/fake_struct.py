@@ -26,7 +26,7 @@ class StructPreCouplingComp(om.ExplicitComponent):
 class StructCouplingComp(om.ExplicitComponent):
     def setup(self):
         self.coords_name = MPhysVariables.Structures.COORDINATES
-        self.aero_loads_name = MPhysVariables.Structures.LOADS_FROM_AERODYNAMICS
+        self.aero_loads_name = MPhysVariables.Structures.Loads.AERODYNAMIC
         self.disps_name = MPhysVariables.Structures.DISPLACEMENTS
 
         self.add_input(self.coords_name, shape_by_conn=True, tags=["mphys_coordinates"])
