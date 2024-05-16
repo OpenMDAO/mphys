@@ -1,5 +1,5 @@
 import openmdao.api as om
-
+from mphys.core.variable_convention import MPhysVariables
 
 def set_coupling_algorithms_in_scenarios(multipoint_group):
     """
@@ -46,6 +46,31 @@ class Multipoint(om.Group):
         self.mphys_coupling_solvers.append((scenario, solver_tuple))
         return self.add_subsystem(name, scenario)
 
+    def mphys_connect_scenario_coordinate_source(self, source, scenarios, disciplines):
+        """
+        A helper method to aid in connecting mesh coordinate sources to the scenarios
+        in this multipoint group.
+
+        Parameters
+        ----------
+        source: openmdao.api.Group or openmdao.api.Component
+            The source subsystem for the mesh coordinate variables
+        scenarios : str or list[str]
+            The names of the scenarios to be the target of the connections
+        disciplines : str or list[str]
+            The names of the disciplines for the mesh coordinates.
+
+        """
+        scenarios_list = scenarios if type(scenarios) == list else [scenarios]
+        disciplines_list = disciplines if type(disciplines) == list else [disciplines]
+
+        for scenario in scenarios_list:
+            for discipline in disciplines_list:
+                discipline_vars = getattr(MPhysVariables, discipline)
+                src = f'{source}.{discipline_vars.Mesh.COORDINATES}'
+                target = f'{scenario}.{discipline_vars.COORDINATES}'
+                self.connect(src, target)
+
     def configure(self):
         return set_coupling_algorithms_in_scenarios(self)
 
@@ -79,6 +104,31 @@ class MultipointParallel(om.ParallelGroup):
         solver_tuple = (coupling_nonlinear_solver, coupling_linear_solver)
         self.mphys_coupling_solvers.append((scenario, solver_tuple))
         return self.add_subsystem(name, scenario)
+
+    def mphys_connect_scenario_coordinate_source(self, source, scenarios, disciplines):
+        """
+        A helper method to aid in connecting mesh coordinate sources to the scenarios
+        in this multipoint group.
+
+        Parameters
+        ----------
+        source: openmdao.api.Group or openmdao.api.Component
+            The source subsystem for the mesh coordinate variables
+        scenarios : str or list[str]
+            The names of the scenarios to be the target of the connections
+        disciplines : str or list[str]
+            The names of the disciplines for the mesh coordinates.
+
+        """
+        scenarios_list = scenarios if type(scenarios) == list else [scenarios]
+        disciplines_list = disciplines if type(disciplines) == list else [disciplines]
+
+        for scenario in scenarios_list:
+            for discipline in disciplines_list:
+                discipline_vars = getattr(MPhysVariables, discipline)
+                src = f'{source}.{discipline_vars.Mesh.COORDINATES}'
+                target = f'{scenario}.{discipline_vars.COORDINATES}'
+                self.connect(src, target)
 
     def configure(self):
         return set_coupling_algorithms_in_scenarios(self)
