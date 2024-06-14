@@ -1,5 +1,5 @@
 import openmdao.api as om
-
+from mphys.core.variable_convention import MPhysVariables
 
 def set_coupling_algorithms_in_scenarios(multipoint_group):
     """

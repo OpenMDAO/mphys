@@ -32,7 +32,7 @@ class LoadXferComp(om.ExplicitComponent):
 
         self.x_struct0_name = MPhysVariables.Structures.COORDINATES
         self.u_struct_name = MPhysVariables.Structures.DISPLACEMENTS
-        self.f_struct_name = MPhysVariables.Structures.LOADS_FROM_AERODYNAMICS
+        self.f_struct_name = MPhysVariables.Structures.Loads.AERODYNAMIC
 
         struct_num_nodes = self.options['struct_num_nodes']
         self.add_input(self.x_struct0_name, shape_by_conn=True, tags=['mphys_coordinates'])
