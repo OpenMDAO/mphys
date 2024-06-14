@@ -9,7 +9,7 @@ from common_methods import CommonMethods
 from openmdao.utils.assert_utils import assert_near_equal
 
 
-class TestMaskConverterSingle(unittest.TestCase):
+class TestDistributedSummer(unittest.TestCase):
     N_PROCS = 2
 
     def setUp(self):
