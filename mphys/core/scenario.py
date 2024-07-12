@@ -41,6 +41,7 @@ class Scenario(MPhysGroup):
         """
         pass
 
+    @switch_run_directory
     def setup(self):
         """
         The main setup call for all multiphysics scenarios.
