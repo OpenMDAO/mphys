@@ -55,7 +55,7 @@ else:
 
     # write out data
     if prob.model.comm.rank==0:
-        cr = om.CaseReader("optimization_history.sql")
+        cr = om.CaseReader(f"{prob.get_outputs_dir()}/optimization_history.sql")
         driver_cases = cr.list_cases('driver')
 
         case = cr.get_case(0)

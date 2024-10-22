@@ -173,7 +173,7 @@ if __name__ == "__main__":
         prob.cleanup()
 
         if prob.model.comm.rank==0: # write out data
-            cr = om.CaseReader("optimization_history.sql")
+            cr = om.CaseReader(f"{prob.get_outputs_dir()}/optimization_history.sql")
             driver_cases = cr.list_cases('driver')
 
             case = cr.get_case(0)
