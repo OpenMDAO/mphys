@@ -1,5 +1,7 @@
 import openmdao.api as om
 import warnings
+from copy import deepcopy
+import numpy as np
 
 class Server:
     """
@@ -280,9 +282,15 @@ class Server:
 
     def _set_additional_inputs_into_the_server_problem(self, input_dict, design_changed):
         for key in input_dict['additional_inputs'].keys():
-            if (self.prob.get_val(key, get_remote=True)!=input_dict['additional_inputs'][key]['val']).any():
+            design_changed_condition = self.prob.get_val(key, get_remote=True)!=input_dict['additional_inputs'][key]['val']
+            if type(design_changed_condition)==bool:
+                design_changed = deepcopy(design_changed_condition)
+            elif design_changed_condition.any():
                 design_changed = True
-            self.prob.set_val(key, input_dict['additional_inputs'][key]['val'])
+            if np.array(input_dict['additional_inputs'][key]['val']).shape==self.prob.get_val(key, get_remote=True).shape:
+                self.prob.set_val(key, input_dict['additional_inputs'][key]['val'])
+            elif self.rank==0:
+                print(f'SERVER: shape of additional input {key} differs from actual input size... ignoring.', flush=True)
         return design_changed
 
     def _save_additional_variable_names(self, input_dict):
