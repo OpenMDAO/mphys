@@ -29,6 +29,7 @@ class RemoteComp(om.ExplicitComponent):
         self.options.declare('var_naming_dot_replacement', default=":", desc="what to replace '.' within dv/response name trees")
         self.options.declare('additional_remote_inputs', default=[], types=list, desc="additional inputs not defined as design vars in the remote component")
         self.options.declare('additional_remote_outputs', default=[], types=list, desc="additional outputs not defined as objective/constraints in the remote component")
+        self.options.declare('additional_remote_constants', default=[], types=list, desc="same as additional_remote_inputs, but derivatives wrt constants will not be computed")
         self.options.declare('use_derivative_coloring', default=False, types=bool, desc="assign derivative coloring to objective/constraints. Only for cases with parallel servers")
 
     def setup(self):
@@ -45,6 +46,7 @@ class RemoteComp(om.ExplicitComponent):
             self.dump_separate_json = self.options['dump_separate_json']
             self.additional_remote_inputs = self.options['additional_remote_inputs']
             self.additional_remote_outputs = self.options['additional_remote_outputs']
+            self.additional_remote_constants = self.options['additional_remote_constants']
             self.last_analysis_completed_time = time.time() # for tracking down time between function/gradient calls
             if self.dump_separate_json:
                 self.dump_json = True
@@ -60,6 +62,7 @@ class RemoteComp(om.ExplicitComponent):
             output_dict = self.evaluate_model(command='initialize',
                                             remote_input_dict={'additional_inputs': self.additional_remote_inputs,
                                                                 'additional_outputs': self.additional_remote_outputs,
+                                                                'additional_constants': self.additional_remote_constants,
                                                                 'component_name': self.name})
         output_dict = self.comm.bcast(output_dict)
 
@@ -69,6 +72,7 @@ class RemoteComp(om.ExplicitComponent):
 
         self._add_additional_inputs_from_baseline_model(output_dict)
         self._add_additional_outputs_from_baseline_model(output_dict)
+        self._add_additional_constants_from_baseline_model(output_dict)
 
         self.declare_partials('*', '*')
 
@@ -145,11 +149,13 @@ class RemoteComp(om.ExplicitComponent):
                 partials[( output.replace('.',self.var_naming_dot_replacement), inp.replace('.',self.var_naming_dot_replacement) )] = remote_dict['additional_outputs'][output]['derivatives'][inp]
 
     def _create_input_dict_for_server(self, inputs):
-        input_dict = {'design_vars': {}, 'additional_inputs': {}, 'additional_outputs': self.additional_remote_outputs, 'component_name': self.name}
+        input_dict = {'design_vars': {}, 'additional_inputs': {}, 'additional_constants': {}, 'additional_outputs': self.additional_remote_outputs, 'component_name': self.name}
         for dv in self.design_var_keys:
             input_dict['design_vars'][dv] = {'val': inputs[dv.replace('.',self.var_naming_dot_replacement)].tolist()}
         for input in self.additional_remote_inputs:
             input_dict['additional_inputs'][input] = {'val': inputs[input.replace('.',self.var_naming_dot_replacement)].tolist()}
+        for constant in self.additional_remote_constants:
+            input_dict['additional_constants'][constant] = {'val': inputs[constant.replace('.',self.var_naming_dot_replacement)].tolist()}
         return input_dict
 
     def _doing_derivative_evaluation(self, command: str):
@@ -218,6 +224,12 @@ class RemoteComp(om.ExplicitComponent):
         for input in self.additional_remote_inputs:
             self.add_input(input.replace('.',self.var_naming_dot_replacement),
                            output_dict['additional_inputs'][input]['val'])
+
+    def _add_additional_constants_from_baseline_model(self, output_dict):
+        self.additional_remote_constants = list(output_dict['additional_constants'].keys())
+        for constant in self.additional_remote_constants:
+            self.add_input(constant.replace('.',self.var_naming_dot_replacement),
+                           output_dict['additional_constants'][constant]['val'])
 
     def _add_additional_outputs_from_baseline_model(self, output_dict):
         self.additional_remote_outputs = list(output_dict['additional_outputs'].keys())

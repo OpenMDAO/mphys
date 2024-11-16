@@ -40,6 +40,7 @@ class Server:
         self.derivatives = None
         self.additional_inputs = None
         self.additional_outputs = None
+        self.additional_constants = None
         self.design_counter = 0 # more debugging info for client side json dumping
         self.write_n2 = write_n2
 
@@ -124,6 +125,14 @@ class Server:
             remote_output_dict['additional_inputs'][input] = {'val': self.prob.get_val(input, get_remote=True)}
             if hasattr(remote_output_dict['additional_inputs'][input]['val'], 'tolist'):
                 remote_output_dict['additional_inputs'][input]['val'] = remote_output_dict['additional_inputs'][input]['val'].tolist()
+        return remote_output_dict
+
+    def _gather_additional_constants_from_om_problem(self, remote_output_dict = {}):
+        remote_output_dict['additional_constants'] = {}
+        for constant in self.additional_constants:
+            remote_output_dict['additional_constants'][constant] = {'val': self.prob.get_val(constant)}
+            if hasattr(remote_output_dict['additional_constants'][constant]['val'], 'tolist'):
+                remote_output_dict['additional_constants'][constant]['val'] = remote_output_dict['additional_constants'][constant]['val'].tolist()
         return remote_output_dict
 
     def _gather_design_outputs_from_om_problem(self, remote_output_dict = {}):
@@ -265,6 +274,7 @@ class Server:
         remote_output_dict = self._gather_design_outputs_from_om_problem(remote_output_dict)
         remote_output_dict = self._gather_additional_inputs_from_om_problem(remote_output_dict)
         remote_output_dict = self._gather_additional_outputs_from_om_problem(remote_output_dict)
+        remote_output_dict = self._gather_additional_constants_from_om_problem(remote_output_dict)
         if self.derivatives is not None:
             remote_output_dict = self._gather_design_derivatives_from_om_problem(remote_output_dict)
             remote_output_dict = self._gather_additional_output_derivatives_from_om_problem(remote_output_dict)
@@ -293,11 +303,27 @@ class Server:
                 print(f'SERVER: shape of additional input {key} differs from actual input size... ignoring.', flush=True)
         return design_changed
 
+    def _set_additional_constants_into_the_server_problem(self, input_dict, design_changed):
+        for key in input_dict['additional_constants'].keys():
+            design_changed_condition = self.prob.get_val(key, get_remote=True)!=input_dict['additional_constants'][key]['val']
+            if type(design_changed_condition)==bool:
+                design_changed = deepcopy(design_changed_condition)
+            elif design_changed_condition.any():
+                design_changed = True
+            if np.array(input_dict['additional_constants'][key]['val']).shape==self.prob.get_val(key, get_remote=True).shape:
+                self.prob.set_val(key, input_dict['additional_constants'][key]['val'])
+            elif self.rank==0:
+                print(f'SERVER: shape of additional input {key} differs from actual input size... ignoring.', flush=True)
+        return design_changed
+
     def _save_additional_variable_names(self, input_dict):
         self.additional_inputs = input_dict['additional_inputs']
         self.additional_outputs = input_dict['additional_outputs']
+        self.additional_constants = input_dict['additional_constants']
         if hasattr(self.additional_inputs,'keys'):
             self.additional_inputs = list(self.additional_inputs.keys())
+        if hasattr(self.additional_constants,'keys'):
+            self.additional_constants = list(self.additional_constants.keys())
 
     def run(self):
         """
@@ -329,6 +355,7 @@ class Server:
             else:
                 design_changed = self._set_design_variables_into_the_server_problem(input_dict)
                 design_changed = self._set_additional_inputs_into_the_server_problem(input_dict, design_changed)
+                design_changed = self._set_additional_constants_into_the_server_problem(input_dict, design_changed)
                 if design_changed:
                     self.current_design_has_been_evaluated = False
                     self.current_derivatives_have_been_evaluated = False
