@@ -196,14 +196,14 @@ class MPhysZeroMQServer(Server):
         self._setup_zeromq_socket(port)
 
     def _setup_zeromq_socket(self, port):
-        if self.rank==0:
+        if self.comm.rank==0:
             context = zmq.Context()
             self.socket = context.socket(zmq.REP)
             self.socket.bind(f"tcp://*:{port}")
 
     def _parse_incoming_message(self):
         inputs = None
-        if self.rank==0:
+        if self.comm.rank==0:
             inputs = self.socket.recv().decode()
         inputs = self.prob.model.comm.bcast(inputs)
 
@@ -213,7 +213,7 @@ class MPhysZeroMQServer(Server):
         return command, input_dict
 
     def _send_outputs_to_client(self, output_dict: dict):
-        if self.rank==0:
+        if self.comm.rank==0:
             self.socket.send(str(json.dumps(output_dict)).encode())
 
 def get_default_zmq_pbs_argparser():

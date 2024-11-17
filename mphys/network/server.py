@@ -60,11 +60,11 @@ class Server:
                 self.prob.setup(mode='rev')
         else:
             self.prob.setup(mode='rev')
-        self.rank = self.prob.model.comm.rank
+        self.comm = self.prob.model.comm
 
         # temporary fix for MELD initialization issue
         if self.rerun_initial_design:
-            if self.rank==0:
+            if self.comm.rank==0:
                 print('SERVER: Evaluating baseline design', flush=True)
             self._run_model()
 
@@ -299,22 +299,20 @@ class Server:
                 design_changed = True
             if np.array(input_dict['additional_inputs'][key]['val']).shape==self.prob.get_val(key, get_remote=True).shape:
                 self.prob.set_val(key, input_dict['additional_inputs'][key]['val'])
-            elif self.rank==0:
+            elif self.comm.rank==0:
                 print(f'SERVER: shape of additional input {key} differs from actual input size... ignoring.', flush=True)
         return design_changed
 
     def _set_additional_constants_into_the_server_problem(self, input_dict, design_changed):
         for key in input_dict['additional_constants'].keys():
-            design_changed_condition = self.prob.get_val(key, get_remote=True)!=input_dict['additional_constants'][key]['val']
-            if type(design_changed_condition)==bool:
-                design_changed = deepcopy(design_changed_condition)
-            elif design_changed_condition.any():
-                design_changed = True
-            if np.array(input_dict['additional_constants'][key]['val']).shape==self.prob.get_val(key, get_remote=True).shape:
+            if np.array(input_dict['additional_constants'][key]['val']).shape==self.prob.get_val(key).shape:
+                design_changed_condition = self.prob.get_val(key)!=input_dict['additional_constants'][key]['val']
+                if type(design_changed_condition)==bool:
+                    design_changed = deepcopy(design_changed_condition)
+                elif design_changed_condition.any():
+                    design_changed = True
                 self.prob.set_val(key, input_dict['additional_constants'][key]['val'])
-            elif self.rank==0:
-                print(f'SERVER: shape of additional input {key} differs from actual input size... ignoring.', flush=True)
-        return design_changed
+        return max(self.comm.allgather(design_changed))
 
     def _save_additional_variable_names(self, input_dict):
         self.additional_inputs = input_dict['additional_inputs']
@@ -331,24 +329,24 @@ class Server:
         """
         while True:
 
-            if self.rank==0:
+            if self.comm.rank==0:
                 print('SERVER: Waiting for new design...', flush=True)
 
             command, input_dict = self._parse_incoming_message()
 
             # interpret command (options are "shutdown", "initialize", "evaluate", or "evaluate derivatives")
             if command=='shutdown':
-                if self.rank==0:
+                if self.comm.rank==0:
                     print('SERVER: Received signal to shutdown', flush=True)
                 break
 
             self._save_additional_variable_names(input_dict)
 
             if command=='initialize': # evaluate baseline model for RemoteComp setup
-                if self.rank==0:
+                if self.comm.rank==0:
                     print('SERVER: Initialization requested... using baseline design', flush=True)
                 if self.current_design_has_been_evaluated:
-                    if self.rank==0:
+                    if self.comm.rank==0:
                         print('SERVER: Design already evaluated, skipping run_model', flush=True)
                 else:
                     self._run_model()
@@ -362,23 +360,23 @@ class Server:
 
             if command=='evaluate derivatives': # compute derivatives
                 if self.current_derivatives_have_been_evaluated:
-                    if self.rank==0:
+                    if self.comm.rank==0:
                         print('SERVER: Derivatives already evaluated, skipping compute_totals', flush=True)
                 else:
                     if not self.current_design_has_been_evaluated:
-                        if self.rank==0:
+                        if self.comm.rank==0:
                             print('SERVER: Derivative needed, but design has changed... evaluating forward solution first', flush=True)
                         self._run_model()
-                    if self.rank==0:
+                    if self.comm.rank==0:
                         print('SERVER: Evaluating derivatives', flush=True)
                     self._compute_totals()
 
             elif command=='evaluate': # run model
                 if self.current_design_has_been_evaluated:
-                    if self.rank==0:
+                    if self.comm.rank==0:
                         print('SERVER: Design already evaluated, skipping run_model', flush=True)
                 else:
-                    if self.rank==0:
+                    if self.comm.rank==0:
                         print('SERVER: Evaluating design', flush=True)
                     self._run_model()
 
