@@ -37,13 +37,16 @@ class DistributedConverter(om.ExplicitComponent):
 
     def setup(self):
         for input in self.options['distributed_inputs']:
-            self.add_input(input.name, shape_by_conn=True, tags=input.tags, distributed=True)
-            self.add_output(f'{input.name}_serial', shape=input.shape, distributed=False)
+            in_shape = input.shape if self.comm.Get_rank() == 0 else 0
+            out_shape = input.shape
+            self.add_input(input.name, shape=in_shape, tags=input.tags, distributed=True)
+            self.add_output(f'{input.name}_serial', shape=out_shape, distributed=False)
 
         for output in self.options['distributed_outputs']:
-            shape = output.shape if self.comm.Get_rank() == 0 else 0
-            self.add_input(f'{output.name}_serial', shape_by_conn=True, distributed=False)
-            self.add_output(output.name, shape=shape, tags=output.tags, distributed=True)
+            in_shape = output.shape
+            out_shape = output.shape if self.comm.Get_rank() == 0 else 0
+            self.add_input(f'{output.name}_serial', shape=in_shape, distributed=False)
+            self.add_output(output.name, shape=out_shape, tags=output.tags, distributed=True)
 
     def compute(self, inputs, outputs):
         for input in self.options['distributed_inputs']:
