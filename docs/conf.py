@@ -96,6 +96,7 @@ packages = [
 
 autoclass_content = 'both'
 autodoc_member_order = 'bysource'
+autosummary_generate = True
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'

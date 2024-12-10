@@ -10,7 +10,7 @@ import openmdao.api as om
 from tacs.mphys import TacsBuilder
 from pygeo.mphys import OM_DVGEOCOMP
 from mphys import Multipoint
-from mphys.scenario_structural import ScenarioStructural
+from mphys.scenarios.structural import ScenarioStructural
 from tacs import functions
 
 bdf_file = 'tank.dat'

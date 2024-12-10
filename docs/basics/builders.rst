@@ -13,7 +13,9 @@ Not all builders need to implement all the methods.
 For example, a transfer scheme builder may not need a precoupling post coupling subsystem in the scenario.
 
 
-.. automodule:: mphys.builder
+.. automodule:: mphys
+  :noindex:
 
 .. autoclass:: Builder
   :members:
+~

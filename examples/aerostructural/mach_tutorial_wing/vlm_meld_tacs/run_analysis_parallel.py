@@ -6,7 +6,7 @@ from mpi4py import MPI
 import openmdao.api as om
 
 from mphys import MultipointParallel
-from mphys.scenario_aerostructural import ScenarioAeroStructural
+from mphys.scenarios.aerostructural import ScenarioAeroStructural
 from vlm_solver.mphys_vlm import VlmBuilder
 from tacs.mphys import TacsBuilder
 from funtofem.mphys import MeldBuilder

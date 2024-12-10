@@ -1,5 +1,4 @@
 import openmdao.api as om
-from mphys.core.variable_convention import MPhysVariables
 
 def set_coupling_algorithms_in_scenarios(multipoint_group):
     """
@@ -35,7 +34,7 @@ class Multipoint(om.Group):
         ----------
         name : str
             The name of the scenario
-        Scenario: :class:`~mphys.scenario.Scenario`
+        Scenario: :class:`~mphys.Scenario`
             The scenario object
         coupling_nonlinear_solver: openmdao.solvers.solver.NonlinearSolver
             The nonlinear solver to assign to the coupling group primal problem
@@ -69,7 +68,7 @@ class MultipointParallel(om.ParallelGroup):
         ----------
         name : str
             The name of the scenario
-        Scenario: :class:`~mphys.scenario.Scenario`
+        Scenario: :class:`~mphys.Scenario`
             The scenario object
         coupling_nonlinear_solver: openmdao.solvers.solver.NonlinearSolver
             The nonlinear solver to assign to the coupling group primal problem

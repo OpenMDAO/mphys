@@ -2,14 +2,15 @@
 Aerostructural Scenario
 %%%%%%%%%%%%%%%%%%%%%%%
 
-The :class:`ScenarioAeroStructural<mphys.scenario_aerostructural.ScenarioAeroStructural>` is for static fluid structure interaction problems.
+The :class:`ScenarioAeroStructural<mphys.scenarios.aerostructural.ScenarioAeroStructural>` is for static fluid structure interaction problems.
 The primary physics modules required for this problem are:
+
 1. The aerodynamics which computes forces given the displaced aerodynamic surface coordinates.
 2. The structures which computes structural displacements given the loads at structural nodes.
 3. The displacement transfer which projects the structural displacements to the aerodynamic surface mesh
 4. The load transfer which computes the loads on the structure from the aerodynamic output.
 
-MPhys will add a :class:`~mphy.geo_disp.GeoDisp` subsystem to compute the displaced aerodynamic coordinates given the undeformed surface coordinates and the displacements.
+MPhys will add a :class:`~mphys.scenarios.geo_disp.GeoDisp` subsystem to compute the displaced aerodynamic coordinates given the undeformed surface coordinates and the displacements.
 
 Builder Requirements
 ====================
@@ -17,7 +18,7 @@ Builder Requirements
 Load and Displacement Transfer Builder
 --------------------------------------
 Because the load and displacement transfers are typically tied together by the principle of virtual work, but are not adjacent in the coupling loop,
-the load and displacement Builder's :meth:`~Builder.get_coupling_group_subsystem` must return both the displacement transfer and load tranfer subsystems as a tuple.
+the load and displacement Builder's :func:`get_coupling_group_subsystem() <mphys.Builder.get_coupling_group_subsystem>` function must return both the displacement transfer and load transfer subsystems as a tuple.
 
 Structural Solver Builder
 -------------------------
@@ -31,7 +32,7 @@ The default solvers are NonlinearBlockGS and LinearBlockGS with ``use_aitken=Tru
 Options
 =======
 .. embed-options::
-  mphys.scenario_aerostructural
+  mphys.scenarios.aerostructural
   ScenarioAeroStructural
   options
 

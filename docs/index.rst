@@ -10,6 +10,7 @@ However, by following the MPhys conventions, the usage of OpenMDAO for multiphys
 This eases technology transfer and collaboration in this area of research.
 The standardization strives for modularity of multiphysics problems with large parallel physics codes.
 
+************
 MPhys Basics
 ************
 
@@ -22,6 +23,7 @@ These are descriptions of how MPhys works and how it interfaces with solvers and
   basics/model_hierarchy.rst
   basics/tagged_promotion.rst
   basics/builders.rst
+  basics/model_assembly.rst
   basics/naming_conventions.rst
   basics/remote_components.rst
 
