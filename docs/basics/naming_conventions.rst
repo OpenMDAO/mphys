@@ -1,6 +1,6 @@
-***************************
+===========================
 Variable Naming Conventions
-***************************
+===========================
 
 While it is possible to set up the same OpenMDAO multiphysics problem with different sets of variable names, it is preferable for codes solving the same physics to use the same variable names to be more easily interchangeable.
 This table provides the required names for coupling variables associated with a particular physics in MPhys.

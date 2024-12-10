@@ -1,8 +1,8 @@
 .. _model_assembly:
 
-#########################
+=========================
 Assembling an MPhys Model
-#########################
+=========================
 
 
 MPhys tries to automate most of its model assembly process using the builder software design pattern.
@@ -70,10 +70,10 @@ skip steps 3-4 as these are handled within the Scenario since each Scenario will
 	:alt: Flow chart of MPhys model assembly
 
 
-========
+--------
 Examples
-========
+--------
 
 
-- The `supersonic panel example <https://github.com/OpenMDAO/mphys/blob/main/examples/aerostructural/supersonic_panel/run.py>`_ provides of this model assemble and usage as a self-contained problem (not external disciplinary solvers).
+- The `supersonic panel example <https://github.com/OpenMDAO/mphys/blob/main/examples/aerostructural/supersonic_panel/run.py>`_ provides an example of this model assemble and usage in a self-contained problem (no external disciplinary solvers).
 - The `oas_tacs_wing example <https://github.com/OpenMDAO/mphys/blob/main/examples/aerostructural/oas_tacs_wing/run_oas_tacs_wing.py>`_ is another relatively simple example case that uses open-source disciplinary solvers.

@@ -1,6 +1,6 @@
-###############
+===============
 Model Hierarchy
-###############
+===============
 
 MPhys uses a hierarchical set of OpenMDAO groups to build multiphysics models.
 Each level of the hierarchy is a different OpenMDAO group that MPhys provides.
@@ -16,9 +16,9 @@ See :ref:`model_assembly` for information an out to create this model heirarchy 
 
 .. _coupling_groups:
 
-===============
+---------------
 Coupling Groups
-===============
+---------------
 
 The CouplingGroup is the primary physics coupling being solved.
 That is, it contains physics modules, such as an aerodynamic or structural solver,
@@ -31,9 +31,9 @@ but these can be overwritten with the optional arguments to :func:`~mphys.Multip
 
 .. _scenario_groups:
 
-===============
+---------------
 Scenario Groups
-===============
+---------------
 The scenario level is an OpenMDAO group that represents a specific condition in a multipoint optimization.
 For example, a scenario could be a cruise flight condition that requires a coupling group to determine the lift and drag.
 The scenario group contains a coupling group and any scenario-specific computation that needs to occur before or after the associated coupled problem is solved.
@@ -51,9 +51,9 @@ See :ref:`scenario_library` for details about specific standardized scenarios.
 If a particular multiphysics problem is not covered by the MPhys library, new scenarios and coupling groups can be created by subclassing the :class:`~mphys.MPhysGroup`.
 
 
-=================
+-----------------
 Multipoint Groups
-=================
+-----------------
 
 There are two versions of the multipoint group:
 
@@ -68,9 +68,9 @@ the lower levels of the model hierarchy.
 	:alt: Example Multipoint Group
 
 
-----------
+^^^^^^^^^^
 Multipoint
-----------
+^^^^^^^^^^
 The ``Multipoint`` group will sequentially evaluate the scenario groups.
 The ``Multipoint`` group can be the top group of the OpenMDAO model or a subsystem.
 
@@ -91,9 +91,9 @@ These extra subsystem can then be connected to the scenarios by the user.
     :members:
     :exclude-members: configure
 
-------------------
+^^^^^^^^^^^^^^^^^^
 MultipointParallel
-------------------
+^^^^^^^^^^^^^^^^^^
 If given a number of MPI ranks greater than or equal to the number of scenarios, the ``MultipointParallel`` group will simultaneously evaluate the scenario groups.
 Unlike the sequential Multipoint group, the MPI communicators are different for each scenario in MultipointParallel, so the scenarios will call the builder's initialize method.
 

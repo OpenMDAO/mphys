@@ -1,6 +1,6 @@
-**************
+==============
 The MPhysGroup
-**************
+==============
 
 The purpose of the MPhysGroup is to implement the mechanics of promoting the MPhys variables by tags.
 Subsystems with tagged variables that will be promoted are added with the :func:`~mphys.MPhysGroup.mphys_add_subsystem` method.
@@ -21,9 +21,9 @@ rather than subclassing MPhysGroup directly.
     :members:
 
 
-==============================
+------------------------------
 Manual Connection of Variables
-==============================
+------------------------------
 
 In some instances, the use of automated promotion is not appropriate.
 Because the MPhysGroup inherits from the standard OpenMDAO group,

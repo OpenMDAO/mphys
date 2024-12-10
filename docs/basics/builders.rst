@@ -1,8 +1,8 @@
 .. _builders:
 
-########
+========
 Builders
-########
+========
 
 In large multiphysics problems, creation and connection of the OpenMDAO can be complicated and time-consuming.
 The design of MPhys is based on builder classes in order to reduce the burden on the user.
