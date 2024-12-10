@@ -21,8 +21,8 @@ Coupling Groups
 ===============
 
 The CouplingGroup is the primary physics coupling being solved.
-That is it contains physics modules, such as an aerodynamic or structural solver,
-and potentially modules that transfer or interpolate between the physics modules, such as a load or displacement transfer schemes.
+That is, it contains physics modules, such as an aerodynamic or structural solver,
+and potentially modules that transfer or interpolate between the physics modules, such as a load or displacement transfer scheme.
 
 Each type of scenario typically has an associated coupling group that it will add automatically given the proper builders.
 Within the Scenario group, the coupling group will have the name 'coupling'.

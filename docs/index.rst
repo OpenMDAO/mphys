@@ -1,3 +1,6 @@
+.. image:: logo/mphys_logo_no_background.png
+  :scale: 15 %
+
 %%%%%%%%%%%%%%%%%%%%%%%
 Documentation for MPhys
 %%%%%%%%%%%%%%%%%%%%%%%
