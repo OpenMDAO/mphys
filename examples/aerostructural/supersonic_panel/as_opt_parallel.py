@@ -4,7 +4,7 @@ import os
 from openmdao.core.constants import _DEFAULT_OUT_STREAM
 
 from mphys import Multipoint, MultipointParallel
-from mphys.scenario_aerostructural import ScenarioAeroStructural
+from mphys.scenarios.aerostructural import ScenarioAeroStructural
 
 from structures_mphys import StructBuilder
 from aerodynamics_mphys import AeroBuilder

@@ -3,7 +3,7 @@ import openmdao.api as om
 
 from mphys import Multipoint
 from vlm_solver.mphys_vlm import VlmBuilder
-from mphys.scenario_aerodynamic import ScenarioAerodynamic
+from mphys.scenarios.aerodynamic import ScenarioAerodynamic
 
 
 class Top(Multipoint):

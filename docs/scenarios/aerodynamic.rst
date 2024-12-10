@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%
 Aerodynamic Scenario
 %%%%%%%%%%%%%%%%%%%%
-The :class:`ScenarioAerodynamic<mphys.scenario_aerodynamic.ScenarioAerodynamic>` is for scenarios that only need the aerodynamic solver.
+The :class:`ScenarioAerodynamic<mphys.scenarios.aerodynamic.ScenarioAerodynamic>` is for scenarios that only need the aerodynamic solver.
 
 Default Solvers
 ===============
@@ -10,7 +10,7 @@ The default solvers are NonlinearRunOnce and LinearRunOnce that execute the pre 
 Options
 =======
 .. embed-options::
-  mphys.scenario_aerodynamic
+  mphys.scenarios.aerodynamic
   ScenarioAerodynamic
   options
 

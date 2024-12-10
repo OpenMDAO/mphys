@@ -4,7 +4,7 @@ import openmdao.api as om
 import os
 
 from mphys import Multipoint
-from mphys.scenario_aerostructural import ScenarioAeroStructural
+from mphys.scenarios.aerostructural import ScenarioAeroStructural
 
 from structures_mphys import StructBuilder
 from aerodynamics_mphys import AeroBuilder

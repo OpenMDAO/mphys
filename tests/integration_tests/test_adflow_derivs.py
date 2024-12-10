@@ -15,7 +15,7 @@ import openmdao.api as om
 from openmdao.utils.assert_utils import assert_near_equal
 
 from mphys.multipoint import Multipoint
-from mphys.scenario_aerodynamic import ScenarioAerodynamic
+from mphys.scenarios.aerodynamic import ScenarioAerodynamic
 
 from adflow import ADFLOW
 from baseclasses import AeroProblem

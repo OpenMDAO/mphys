@@ -98,7 +98,7 @@ class Scenario(MPhysGroup):
         ----------
         name: str
             Name of the discipline
-        builder: :class:`~mphys.builder.Builder`
+        builder: :class:`~mphys.Builder`
             The discipline's builder object
         scenario_name: str or None
             Name of the scenario being setup (optional)
@@ -116,7 +116,7 @@ class Scenario(MPhysGroup):
         ----------
         name: str
             Name of the discipline
-        builder: :class:`~mphys.builder.Builder`
+        builder: :class:`~mphys.Builder`
             The discipline's builder object
         scenario_name: str or None
             Name of the scenario being setup (optional)

@@ -3,18 +3,18 @@ The MPhysGroup
 **************
 
 The purpose of the MPhysGroup is to implement the mechanics of promoting the MPhys variables by tags.
-Subsystems with tagged variables that will be promoted are added with the :func:`~mphys.mphys_group.MPhysGroup.mphys_add_subsystem` method.
+Subsystems with tagged variables that will be promoted are added with the :func:`~mphys.core.mphys_group.MPhysGroup.mphys_add_subsystem` method.
 Subsystems that have variables that should not be promoted can still be added with ``add_subsystem``
 The automated promotion of tagged variables is done during the configure phase of OpenMDAO setup.
 If you need to use ``configure`` in your CouplingGroup or Scenario group, be sure to call the parent's configure with
 ``super().configure()``.
 
-The :class:`~mphys.mphys_group.MPhysGroup` is the base class of the :ref:`dev_coupling_group` and :ref:`dev_scenario_group`.
-While it is important to understand the MPhysGroup's :func:`~mphys.mphys_group.MPhysGroup.configure` and :func:`~mphys.mphys_group.MPhysGroup.mphys_add_subsystem` interactions,
-any new scenario or coupling group should inherit from :class:`~mphys.scenario.Scenario` and :class:`~mphys.coupling_group.CouplingGroup`.
+The :class:`~mphys.core.mphys_group.MPhysGroup` is the base class of the :ref:`dev_coupling_group` and :ref:`dev_scenario_group`.
+While it is important to understand the MPhysGroup's :func:`~mphys.core.mphys_group.MPhysGroup.configure` and :func:`~mphys.core.mphys_group.MPhysGroup.mphys_add_subsystem` interactions,
+any new scenario or coupling group should inherit from :class:`~mphys.core.scenario.Scenario` and :class:`~mphys.core.coupling_group.CouplingGroup`.
 rather than subclassing MPhysGroup directly.
 
-.. automodule:: mphys.mphys_group
+.. automodule:: mphys
 
 .. autoclass:: MPhysGroup
     :members:

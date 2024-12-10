@@ -4,7 +4,7 @@ from mpi4py import MPI
 import openmdao.api as om
 
 from mphys import Multipoint
-from mphys.scenario_aerostructural import ScenarioAeroStructural
+from mphys.scenarios.aerostructural import ScenarioAeroStructural
 
 # MELD builder from funtofem
 from funtofem.mphys import MeldBuilder

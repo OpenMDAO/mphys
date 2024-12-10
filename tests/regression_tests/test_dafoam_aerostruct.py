@@ -21,7 +21,7 @@ import openmdao.api as om
 from openmdao.utils.assert_utils import assert_near_equal
 
 from mphys.multipoint import Multipoint
-from mphys.scenario_aerostructural import ScenarioAeroStructural
+from mphys.scenarios.aerostructural import ScenarioAeroStructural
 
 # these imports will be from the respective codes' repos rather than mphys
 from dafoam.mphys import DAFoamBuilder
