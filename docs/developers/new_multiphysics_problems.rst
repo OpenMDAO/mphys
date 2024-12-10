@@ -11,14 +11,14 @@ Coupling Groups
 ===============
 
 In ``initialize``, the coupling group needs to have the required builders declared as options.
-In the setup phase, :func:`~mphys.core.builder.Builder.get_coupling_group_subsystem` is used to get subsystems from the builders,
+In the setup phase, :func:`~mphys.Builder.get_coupling_group_subsystem` is used to get subsystems from the builders,
 and ``self.mphys_add_subsystem`` is used to add them.
 Other components like balance components can be added directly.
 Setting a default linear and nonlinear solver suitable for this type of problem is also helpful in ``setup``.
 In most cases using a configure phase is not necessary for the scenario, but if you do implement a ``configure``
 method, you must call ``super().configure()`` to do the tagged promotion of variables from the scenario's subsystems.
 
-.. automodule:: mphys.core.coupling_group
+.. automodule:: mphys
 
 .. autoclass:: CouplingGroup
     :members:

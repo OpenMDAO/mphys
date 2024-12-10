@@ -18,4 +18,3 @@ For example, a transfer scheme builder may not need a precoupling post coupling 
 
 .. autoclass:: Builder
   :members:
-~
