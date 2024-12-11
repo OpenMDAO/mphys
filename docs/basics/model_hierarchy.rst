@@ -9,7 +9,7 @@ The highest level of the model is the multipoint group.
 The multipoint group consists of scenarios which represent different conditions and/or types of multiphysics analyses to be performed.
 Within the scenario is the coupling group which represents the primary multiphysics problem for the scenario.
 
-See :ref:`model_assembly` for information an out to create this model heirarchy for a particular problem.
+See :ref:`model_assembly` for guidance on how to create this model hierarchy for a particular problem.
 
 :ref:`builders` are used to help populate these levels of the model hierarchy with subsystems from the solvers.
 :ref:`tagged_promotion` is used to promote specific variables to the level of scenario.
