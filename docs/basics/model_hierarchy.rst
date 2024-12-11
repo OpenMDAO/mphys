@@ -6,7 +6,7 @@ MPhys uses a hierarchical set of OpenMDAO groups to build multiphysics models.
 Each level of the hierarchy is a different OpenMDAO group that MPhys provides.
 
 The highest level of the model is the multipoint group.
-The multipoint group consist of scenarios which represent different conditions and/or types of multiphysics analyses to performed.
+The multipoint group consists of scenarios which represent different conditions and/or types of multiphysics analyses to be performed.
 Within the scenario is the coupling group which represents the primary multiphysics problem for the scenario.
 
 See :ref:`model_assembly` for information an out to create this model heirarchy for a particular problem.
