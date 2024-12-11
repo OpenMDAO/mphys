@@ -1,22 +1,22 @@
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-content_root="../">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>Variable Naming Conventions &#8212; MPhys  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
     <link rel="stylesheet" type="text/css" href="../_static/style.css?v=90ca181f" />
-    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
-    <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Remote Components" href="remote_components.html" />
-    <link rel="prev" title="Builders" href="builders.html" /> 
+    <link rel="prev" title="Assembling an MPhys Model" href="model_assembly.html" /> 
   </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -29,7 +29,7 @@
           <a href="remote_components.html" title="Remote Components"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="builders.html" title="Builders"
+          <a href="model_assembly.html" title="Assembling an MPhys Model"
              accesskey="P">previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">MPhys  documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Variable Naming Conventions</a></li> 
@@ -42,72 +42,139 @@
           <div class="body" role="main">
             
   <section id="variable-naming-conventions">
-<h1>Variable Naming Conventions<a class="headerlink" href="#variable-naming-conventions" title="Permalink to this heading">¶</a></h1>
+<h1>Variable Naming Conventions<a class="headerlink" href="#variable-naming-conventions" title="Link to this heading">¶</a></h1>
 <p>While it is possible to set up the same OpenMDAO multiphysics problem with different sets of variable names, it is preferable for codes solving the same physics to use the same variable names to be more easily interchangeable.
 This table provides the required names for coupling variables associated with a particular physics in MPhys.</p>
+<p>The variable naming convention is defined as a Nested Classes with static variables.
+The names are access from the <code class="docutils literal notranslate"><span class="pre">MPhysVariables</span></code> class.
+If defining an component that uses the MPhys variable names repeatedly, it is often uses to define a local copy due to the long names that the nested variable classes.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">openmdao.api</span> <span class="k">as</span> <span class="nn">om</span>
+<span class="kn">from</span> <span class="nn">mphys</span> <span class="kn">import</span> <span class="n">MPhysVariables</span>
+
+<span class="n">X_AERO0</span> <span class="o">=</span> <span class="n">MPhysVariables</span><span class="o">.</span><span class="n">Aerodynamics</span><span class="o">.</span><span class="n">Surface</span><span class="o">.</span><span class="n">COORDINATES_INITIAL</span>
+<span class="n">U_AERO</span> <span class="o">=</span> <span class="n">MPhysVariables</span><span class="o">.</span><span class="n">Aerodynamics</span><span class="o">.</span><span class="n">Surface</span><span class="o">.</span><span class="n">DISPLACEMENTS</span>
+<span class="n">F_AERO</span> <span class="o">=</span> <span class="n">MPhysVariables</span><span class="o">.</span><span class="n">Aerodynamics</span><span class="o">.</span><span class="n">Surface</span><span class="o">.</span><span class="n">LOADS</span>
+
+<span class="k">class</span> <span class="nc">AeroSolver</span><span class="p">(</span><span class="n">om</span><span class="o">.</span><span class="n">ImplicitComponent</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_input</span><span class="p">(</span><span class="n">X_AERO0</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">distributed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;mphys_coordinates&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_input</span><span class="p">(</span><span class="n">U_AERO0</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">distributed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;mphys_coupling&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_output</span><span class="p">(</span><span class="n">F_AERO0</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">distributed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;mphys_coupling&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
 <table class="docutils align-default">
 <thead>
-<tr class="row-odd"><th class="head"><p>Variable</p></th>
+<tr class="row-odd"><th class="head"><p>Code Access</p></th>
 <th class="head"><p>Associated Solver</p></th>
 <th class="head"><p>MPhys tag</p></th>
 <th class="head"><p>Variable description</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="code docutils literal notranslate"><span class="pre">x_aero0</span></code></p></td>
+<tr class="row-even"><td><p>MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES</p></td>
+<td><p>Aerodynamic</p></td>
+<td><p>mphys_coordinates</p></td>
+<td><p>Aerodynamic surface coordinates from initial mesh file</p></td>
+</tr>
+<tr class="row-odd"><td><p>MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT</p></td>
+<td><p>Aerodynamic</p></td>
+<td><p>mphys_coordinates</p></td>
+<td><p>Aerodynamic surface coordinates (initial coordinates)</p></td>
+</tr>
+<tr class="row-even"><td><p>MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT</p></td>
+<td><p>Aerodynamic</p></td>
+<td><p>mphys_coordinates</p></td>
+<td><p>Aerodynamic surface coordinates (geometry-deform jig shape)</p></td>
+</tr>
+<tr class="row-odd"><td><p>MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL</p></td>
 <td><p>Aerodynamic</p></td>
 <td><p>mphys_coordinates</p></td>
 <td><p>Aerodynamic surface coordinates (jig shape)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="code docutils literal notranslate"><span class="pre">x_aero</span></code></p></td>
+<tr class="row-even"><td><p>MPhysVariables.Aerodynamics.Surface.COORDINATES_DEFORMED</p></td>
 <td><p>Aerodynamic</p></td>
 <td><p>mphys_coupling</p></td>
 <td><p>Aerodynamic surface coordinates (deformed)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="code docutils literal notranslate"><span class="pre">u_aero</span></code></p></td>
+<tr class="row-odd"><td><p>MPhysVariables.Aerodynamics.Surface.DISPLACEMENTS</p></td>
 <td><p>Aerodynamic</p></td>
 <td><p>mphys_coupling</p></td>
 <td><p>Aerodynamic surface displacements</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="code docutils literal notranslate"><span class="pre">f_aero</span></code></p></td>
+<tr class="row-even"><td><p>MPhysVariables.Aerodynamics.Surface.LOADS</p></td>
 <td><p>Aerodynamic</p></td>
 <td><p>mphys_coupling</p></td>
 <td><p>Aerodynamic surface forces</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="code docutils literal notranslate"><span class="pre">T_convect</span></code></p></td>
+<tr class="row-odd"><td><p>MPhysVariables.Aerodynamics.Surface.TEMPERATURE</p></td>
 <td><p>Aerodynamic</p></td>
 <td><p>mphys_coupling</p></td>
 <td><p>Temperature for convective solver at interface</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="code docutils literal notranslate"><span class="pre">q_convect</span></code></p></td>
+<tr class="row-even"><td><p>MPhysVariables.Aerodynamics.Surface.HEAT_FLOW</p></td>
 <td><p>Aerodynamic</p></td>
 <td><p>mphys_coupling</p></td>
 <td><p>Convective heat flow at interface</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="code docutils literal notranslate"><span class="pre">x_struct0</span></code></p></td>
+<tr class="row-odd"><td><p>MPhysVariables.Structures.Mesh.COORDINATES</p></td>
+<td><p>Structural</p></td>
+<td><p>mphys_coordinates</p></td>
+<td><p>Structural coordinates from initial mesh file</p></td>
+</tr>
+<tr class="row-even"><td><p>MPhysVariables.Structures.Geometry.COORDINATES_INPUT</p></td>
+<td><p>Structural</p></td>
+<td><p>mphys_coordinates</p></td>
+<td><p>Structural coordinates (initial coordinates)</p></td>
+</tr>
+<tr class="row-odd"><td><p>MPhysVariables.Structures.Geometry.COORDINATES_OUTPUT</p></td>
+<td><p>Structural</p></td>
+<td><p>mphys_coordinates</p></td>
+<td><p>Structural coordinates (geometry-deformed jig shape)</p></td>
+</tr>
+<tr class="row-even"><td><p>MPhysVariables.Structures.COORDINATES</p></td>
 <td><p>Structural</p></td>
 <td><p>mphys_coordinates</p></td>
 <td><p>Structural coordinates (jig shape)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="code docutils literal notranslate"><span class="pre">u_struct</span></code></p></td>
+<tr class="row-odd"><td><p>MPhysVariables.Structures.DISPLACEMENTS</p></td>
 <td><p>Structural</p></td>
 <td><p>mphys_coupling</p></td>
 <td><p>Structural state vector (displacements)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="code docutils literal notranslate"><span class="pre">f_struct</span></code></p></td>
+<tr class="row-even"><td><p>MPhysVariables.Structures.LOADS.AERODYNAMIC</p></td>
 <td><p>Structural</p></td>
 <td><p>mphys_coupling</p></td>
-<td><p>Structural forces</p></td>
+<td><p>Structural forces due to aerodynamics</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="code docutils literal notranslate"><span class="pre">T_conduct</span></code></p></td>
+<tr class="row-odd"><td><p>MPhysVariables.Thermal.Mesh.COORDINATES</p></td>
 <td><p>Thermal</p></td>
 <td><p>mphys_coupling</p></td>
-<td><p>Temperature at interface (structural side)</p></td>
+<td><p>Thermal coordinates from initial mesh file</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="code docutils literal notranslate"><span class="pre">q_conduct</span></code></p></td>
+<tr class="row-even"><td><p>MPhysVariables.Thermal.Geometry.COORDINATES_INPUT</p></td>
 <td><p>Thermal</p></td>
 <td><p>mphys_coupling</p></td>
-<td><p>Conductive heat flow at interface (structural side)</p></td>
+<td><p>Thermal coordinates (initial coordinates)</p></td>
+</tr>
+<tr class="row-odd"><td><p>MPhysVariables.Thermal.Geometry.COORDINATES_OUTPUT</p></td>
+<td><p>Thermal</p></td>
+<td><p>mphys_coupling</p></td>
+<td><p>Thermal coordinates (geometry-deformed jig shape)</p></td>
+</tr>
+<tr class="row-even"><td><p>MPhysVariables.Thermal.COORDINATES</p></td>
+<td><p>Thermal</p></td>
+<td><p>mphys_coupling</p></td>
+<td><p>Thermal coordinates (jig shape)</p></td>
+</tr>
+<tr class="row-odd"><td><p>MPhysVariables.Thermal.TEMPERATURE</p></td>
+<td><p>Thermal</p></td>
+<td><p>mphys_coupling</p></td>
+<td><p>Temperature at interface (thermal solver side)</p></td>
+</tr>
+<tr class="row-even"><td><p>MPhysVariables.Thermal.HeatFlow.AERODYNAMIC</p></td>
+<td><p>Thermal</p></td>
+<td><p>mphys_coupling</p></td>
+<td><p>heat flow at interface due to aerodynamics (thermal solver side)</p></td>
 </tr>
 </tbody>
 </table>
@@ -121,27 +188,27 @@ This table provides the required names for coupling variables associated with a 
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="code docutils literal notranslate"><span class="pre">aoa</span></code></p></td>
+<tr class="row-even"><td><p>MPhysVariables.Aerodynamics.FlowConditions.ANGLE_OF_ATTACK</p></td>
 <td><p>Aerodynamic</p></td>
 <td><p>mphys_input</p></td>
 <td><p>Angle of attack (please include units=’deg’ or ‘rad’ when declared)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="code docutils literal notranslate"><span class="pre">yaw</span></code></p></td>
+<tr class="row-odd"><td><p>MPhysVariables.Aerodynamics.FlowConditions.YAW_ANGLE</p></td>
 <td><p>Aerodynamic</p></td>
 <td><p>mphys_input</p></td>
-<td><p>Yaw angle  (please include units=’deg’ or ‘rad’ when declared)</p></td>
+<td><p>Yaw angle (please include units=’deg’ or ‘rad’ when declared)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="code docutils literal notranslate"><span class="pre">mach</span></code></p></td>
+<tr class="row-even"><td><p>MPhysVariables.Aerodynamics.FlowConditions.MACH_NUMBER</p></td>
 <td><p>Aerodynamic</p></td>
 <td><p>mphys_input</p></td>
 <td><p>Reference Mach number</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="code docutils literal notranslate"><span class="pre">reynolds</span></code></p></td>
+<tr class="row-odd"><td><p>MPhysVariables.Aerodynamics.FlowConditions.REYNOLDS_NUMBER</p></td>
 <td><p>Aerodynamic</p></td>
 <td><p>mphys_input</p></td>
 <td><p>Reference Reynolds number</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="code docutils literal notranslate"><span class="pre">q_inf</span></code></p></td>
+<tr class="row-even"><td><p>MPhysVariables.Aerodynamics.FlowConditions.DYNAMIC_PRESSURE</p></td>
 <td><p>Aerodynamic</p></td>
 <td><p>mphys_input</p></td>
 <td><p>Dynamic pressure</p></td>
@@ -155,7 +222,7 @@ This table provides the required names for coupling variables associated with a 
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
 <h3><a href="../index.html">Table of Contents</a></h3>
 <p class="caption" role="heading"><span class="caption-text">MPhys Basics</span></p>
@@ -163,6 +230,7 @@ This table provides the required names for coupling variables associated with a 
 <li class="toctree-l1"><a class="reference internal" href="model_hierarchy.html">Model Hierarchy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tagged_promotion.html">Tagged Promotion</a></li>
 <li class="toctree-l1"><a class="reference internal" href="builders.html">Builders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_assembly.html">Assembling an MPhys Model</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Variable Naming Conventions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="remote_components.html">Remote Components</a></li>
 </ul>
@@ -177,14 +245,14 @@ This table provides the required names for coupling variables associated with a 
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developers Guide</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../developers/mphys_group.html">The MphysGroup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developers/mphys_group.html">The MPhysGroup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developers/new_multiphysics_problems.html">Extending the Scenario Library</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../references/papers_using_mphys.html">Papers Using MPhys</a></li>
 </ul>
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -192,13 +260,13 @@ This table provides the required names for coupling variables associated with a 
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -211,7 +279,7 @@ This table provides the required names for coupling variables associated with a 
           <a href="remote_components.html" title="Remote Components"
              >next</a> |</li>
         <li class="right" >
-          <a href="builders.html" title="Builders"
+          <a href="model_assembly.html" title="Assembling an MPhys Model"
              >previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">MPhys  documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Variable Naming Conventions</a></li> 
@@ -219,7 +287,7 @@ This table provides the required names for coupling variables associated with a 
     </div>
     <div class="footer" role="contentinfo">
     &#169; Copyright 2022, NASA.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.1.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.4.7.
     </div>
   </body>
 </html>

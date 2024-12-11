@@ -4,7 +4,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>mphys.network.server_manager &#8212; MPhys  documentation</title>
+    <title>mphys.core.coupling_group &#8212; MPhys  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
     <link rel="stylesheet" type="text/css" href="../../../_static/style.css?v=90ca181f" />
     <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
@@ -24,7 +24,7 @@
              >modules</a> |</li>
         <li class="nav-item nav-item-0"><a href="../../../index.html">MPhys  documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">mphys.network.server_manager</a></li> 
+        <li class="nav-item nav-item-this"><a href="">mphys.core.coupling_group</a></li> 
       </ul>
     </div>  
 
@@ -33,49 +33,13 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <h1>Source code for mphys.network.server_manager</h1><div class="highlight"><pre>
-<div class="viewcode-block" id="ServerManager">
-<a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server_manager.ServerManager">[docs]</a>
-<span></span><span class="k">class</span> <span class="nc">ServerManager</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    A class used by the client-side RemoteComp to facilitate communication</span>
-<span class="sd">    with the remote, server-side OpenMDAO problem.</span>
+  <h1>Source code for mphys.core.coupling_group</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">.mphys_group</span> <span class="kn">import</span> <span class="n">MPhysGroup</span>
 
-<span class="sd">    To make a particular derived class, implement the start_server,</span>
-<span class="sd">    stop_server, and enough_time_is_remaining functions.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-<div class="viewcode-block" id="ServerManager.start_server">
-<a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server_manager.ServerManager.start_server">[docs]</a>
-    <span class="k">def</span> <span class="nf">start_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Start the server.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span></div>
-
-
-<div class="viewcode-block" id="ServerManager.stop_server">
-<a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server_manager.ServerManager.stop_server">[docs]</a>
-    <span class="k">def</span> <span class="nf">stop_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Stop the server.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span></div>
-
-
-<div class="viewcode-block" id="ServerManager.enough_time_is_remaining">
-<a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server_manager.ServerManager.enough_time_is_remaining">[docs]</a>
-    <span class="k">def</span> <span class="nf">enough_time_is_remaining</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">estimated_model_time</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Check if the current HPC job has enough time remaining</span>
-<span class="sd">        to run the next analysis.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        estimated_model_time : float</span>
-<span class="sd">            How much time the new analysis is estimated to take</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="kc">True</span></div>
-</div>
+<div class="viewcode-block" id="CouplingGroup">
+<a class="viewcode-back" href="../../../developers/new_multiphysics_problems.html#mphys.CouplingGroup">[docs]</a>
+<span class="k">class</span> <span class="nc">CouplingGroup</span><span class="p">(</span><span class="n">MPhysGroup</span><span class="p">):</span>
+    <span class="k">pass</span></div>
 
 </pre></div>
 
@@ -138,7 +102,7 @@
              >modules</a> |</li>
         <li class="nav-item nav-item-0"><a href="../../../index.html">MPhys  documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">mphys.network.server_manager</a></li> 
+        <li class="nav-item nav-item-this"><a href="">mphys.core.coupling_group</a></li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">

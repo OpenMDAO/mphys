@@ -1,21 +1,21 @@
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-content_root="./">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>Documentation for MPhys &#8212; MPhys  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
     <link rel="stylesheet" type="text/css" href="_static/style.css?v=90ca181f" />
-    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=b3ba4146"></script>
-    <script src="_static/doctools.js?v=888ff710"></script>
-    <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Model Hierarchy" href="basics/model_hierarchy.html" /> 
   </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -37,8 +37,10 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <section id="documentation-for-mphys">
-<h1>Documentation for MPhys<a class="headerlink" href="#documentation-for-mphys" title="Permalink to this heading">¶</a></h1>
+  <a class="reference internal image-reference" href="_images/mphys_logo_no_background.png"><img alt="_images/mphys_logo_no_background.png" src="_images/mphys_logo_no_background.png" style="width: 383.09999999999997px; height: 138.0px;" />
+</a>
+<section id="documentation-for-mphys">
+<h1>Documentation for MPhys<a class="headerlink" href="#documentation-for-mphys" title="Link to this heading">¶</a></h1>
 <p>MPhys is a package that standardizes high-fidelity multiphysics problems in OpenMDAO.
 MPhys eases the problem set up, provides straightforward extension to new disciplines, and has a library of OpenMDAO groups for multidisciplinary problems addressed by its standard.</p>
 <p>While MPhys does provide these conventions, it is not absolutely necessary to follow these guidelines in order to solve these types of problems with OpenMDAO given its very general coupling capability.
@@ -46,7 +48,7 @@ However, by following the MPhys conventions, the usage of OpenMDAO for multiphys
 This eases technology transfer and collaboration in this area of research.
 The standardization strives for modularity of multiphysics problems with large parallel physics codes.</p>
 <section id="mphys-basics">
-<h2>MPhys Basics<a class="headerlink" href="#mphys-basics" title="Permalink to this heading">¶</a></h2>
+<h2>MPhys Basics<a class="headerlink" href="#mphys-basics" title="Link to this heading">¶</a></h2>
 <p>These are descriptions of how MPhys works and how it interfaces with solvers and OpenMDAO.</p>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">MPhys Basics</span></p>
@@ -54,12 +56,14 @@ The standardization strives for modularity of multiphysics problems with large p
 <li class="toctree-l1"><a class="reference internal" href="basics/model_hierarchy.html">Model Hierarchy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="basics/tagged_promotion.html">Tagged Promotion</a></li>
 <li class="toctree-l1"><a class="reference internal" href="basics/builders.html">Builders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="basics/model_assembly.html">Assembling an MPhys Model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="basics/naming_conventions.html">Variable Naming Conventions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="basics/remote_components.html">Remote Components</a></li>
 </ul>
 </div>
+</section>
 <section id="mphys-scenario-library">
-<span id="scenario-library"></span><h3>MPhys Scenario Library<a class="headerlink" href="#mphys-scenario-library" title="Permalink to this heading">¶</a></h3>
+<span id="scenario-library"></span><h2>MPhys Scenario Library<a class="headerlink" href="#mphys-scenario-library" title="Link to this heading">¶</a></h2>
 <p>These are descriptions of the groups in the MPhys library of multiphysics problems.
 They describe physics problem being solved, the standards set by MPhys, requirements of the Builders, and the options available for each group.</p>
 <div class="toctree-wrapper compound">
@@ -77,17 +81,17 @@ They describe physics problem being solved, the standards set by MPhys, requirem
 </div>
 </section>
 <section id="mphys-developers-guide">
-<h3>MPhys Developers Guide<a class="headerlink" href="#mphys-developers-guide" title="Permalink to this heading">¶</a></h3>
+<h2>MPhys Developers Guide<a class="headerlink" href="#mphys-developers-guide" title="Link to this heading">¶</a></h2>
 <p>These pages provide more details of how MPhys works and how to add to the MPhys scenario library.</p>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Developers Guide</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="developers/mphys_group.html">The MphysGroup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developers/mphys_group.html">The MPhysGroup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="developers/new_multiphysics_problems.html">Extending the Scenario Library</a></li>
 </ul>
 </div>
 <section id="references">
-<h4>References<a class="headerlink" href="#references" title="Permalink to this heading">¶</a></h4>
+<h3>References<a class="headerlink" href="#references" title="Link to this heading">¶</a></h3>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="references/papers_using_mphys.html">Papers Using MPhys</a></li>
@@ -95,13 +99,12 @@ They describe physics problem being solved, the standards set by MPhys, requirem
 </div>
 </section>
 <section id="indices-and-tables">
-<h4>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this heading">¶</a></h4>
+<h3>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
 <li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
 <li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
 </ul>
-</section>
 </section>
 </section>
 </section>
@@ -111,21 +114,19 @@ They describe physics problem being solved, the standards set by MPhys, requirem
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
   <div>
     <h3><a href="#">Table of Contents</a></h3>
     <ul>
 <li><a class="reference internal" href="#">Documentation for MPhys</a><ul>
-<li><a class="reference internal" href="#mphys-basics">MPhys Basics</a><ul>
+<li><a class="reference internal" href="#mphys-basics">MPhys Basics</a></li>
 <li><a class="reference internal" href="#mphys-scenario-library">MPhys Scenario Library</a><ul>
 </ul>
 </li>
 <li><a class="reference internal" href="#mphys-developers-guide">MPhys Developers Guide</a><ul>
 <li><a class="reference internal" href="#references">References</a></li>
 <li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
-</ul>
-</li>
 </ul>
 </li>
 </ul>
@@ -139,6 +140,7 @@ They describe physics problem being solved, the standards set by MPhys, requirem
 <li class="toctree-l1"><a class="reference internal" href="basics/model_hierarchy.html">Model Hierarchy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="basics/tagged_promotion.html">Tagged Promotion</a></li>
 <li class="toctree-l1"><a class="reference internal" href="basics/builders.html">Builders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="basics/model_assembly.html">Assembling an MPhys Model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="basics/naming_conventions.html">Variable Naming Conventions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="basics/remote_components.html">Remote Components</a></li>
 </ul>
@@ -153,14 +155,14 @@ They describe physics problem being solved, the standards set by MPhys, requirem
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developers Guide</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="developers/mphys_group.html">The MphysGroup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developers/mphys_group.html">The MPhysGroup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="developers/new_multiphysics_problems.html">Extending the Scenario Library</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="references/papers_using_mphys.html">Papers Using MPhys</a></li>
 </ul>
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
@@ -168,13 +170,13 @@ They describe physics problem being solved, the standards set by MPhys, requirem
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -192,7 +194,7 @@ They describe physics problem being solved, the standards set by MPhys, requirem
     </div>
     <div class="footer" role="contentinfo">
     &#169; Copyright 2022, NASA.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.1.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.4.7.
     </div>
   </body>
 </html>

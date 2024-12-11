@@ -1,19 +1,19 @@
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-content_root="../../../">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>mphys.network.server &#8212; MPhys  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
     <link rel="stylesheet" type="text/css" href="../../../_static/style.css?v=90ca181f" />
-    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=b3ba4146"></script>
-    <script src="../../../_static/doctools.js?v=888ff710"></script>
-    <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
   </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -37,7 +37,9 @@
 <span></span><span class="kn">import</span> <span class="nn">openmdao.api</span> <span class="k">as</span> <span class="nn">om</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 
-<div class="viewcode-block" id="Server"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server.Server">[docs]</a><span class="k">class</span> <span class="nc">Server</span><span class="p">:</span>
+<div class="viewcode-block" id="Server">
+<a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server.Server">[docs]</a>
+<span class="k">class</span> <span class="nc">Server</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A class that serves as an OpenMDAO model analysis server. Launched</span>
 <span class="sd">    by a server run file by the ServerManager and runs on an HPC job,</span>
@@ -325,7 +327,9 @@
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span><span class="p">,</span><span class="s1">&#39;keys&#39;</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
 
-<div class="viewcode-block" id="Server.run"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server.Server.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Server.run">
+<a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server.Server.run">[docs]</a>
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Run the server.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -386,14 +390,16 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_send_outputs_to_client</span><span class="p">(</span><span class="n">output_dict</span><span class="p">)</span>
 
             <span class="c1"># write current n2 with values</span>
-            <span class="n">om</span><span class="o">.</span><span class="n">n2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="p">,</span> <span class="n">show_browser</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">outfile</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;n2_inner_analysis_</span><span class="si">{</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;component_name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">.html&quot;</span><span class="p">)</span></div></div>
+            <span class="n">om</span><span class="o">.</span><span class="n">n2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="p">,</span> <span class="n">show_browser</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">outfile</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;n2_inner_analysis_</span><span class="si">{</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;component_name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">.html&quot;</span><span class="p">)</span></div>
+</div>
+
 </pre></div>
 
             <div class="clearer"></div>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
 <h3><a href="../../../index.html">Table of Contents</a></h3>
 <p class="caption" role="heading"><span class="caption-text">MPhys Basics</span></p>
@@ -401,6 +407,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../basics/model_hierarchy.html">Model Hierarchy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../basics/tagged_promotion.html">Tagged Promotion</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../basics/builders.html">Builders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/model_assembly.html">Assembling an MPhys Model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../basics/naming_conventions.html">Variable Naming Conventions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../basics/remote_components.html">Remote Components</a></li>
 </ul>
@@ -415,14 +422,14 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developers Guide</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../developers/mphys_group.html">The MphysGroup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developers/mphys_group.html">The MPhysGroup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../developers/new_multiphysics_problems.html">Extending the Scenario Library</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../references/papers_using_mphys.html">Papers Using MPhys</a></li>
 </ul>
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../../search.html" method="get">
@@ -430,13 +437,13 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -452,7 +459,7 @@
     </div>
     <div class="footer" role="contentinfo">
     &#169; Copyright 2022, NASA.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.1.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.4.7.
     </div>
   </body>
 </html>

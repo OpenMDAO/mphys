@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Assembling an MPhys Model &#8212; MPhys  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=90ca181f" />
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Variable Naming Conventions" href="naming_conventions.html" />
+    <link rel="prev" title="Builders" href="builders.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="naming_conventions.html" title="Variable Naming Conventions"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="builders.html" title="Builders"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">MPhys  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Assembling an MPhys Model</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="assembling-an-mphys-model">
+<span id="model-assembly"></span><h1>Assembling an MPhys Model<a class="headerlink" href="#assembling-an-mphys-model" title="Link to this heading">¶</a></h1>
+<p>MPhys seeks to automate most of its model assembly process using the builder software design pattern.
+If using a <a class="reference internal" href="model_hierarchy.html#mphys.MultipointParallel" title="mphys.MultipointParallel"><code class="xref py py-class docutils literal notranslate"><span class="pre">MultipointParallel</span></code></a> group,
+skip steps 3-4 as these are handled within the Scenario since each Scenario will have its own MPI communicator.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">openmdao.api</span> <span class="k">as</span> <span class="nn">om</span>
+<span class="kn">from</span> <span class="nn">mphys</span> <span class="kn">import</span> <span class="n">Multipoint</span><span class="p">,</span> <span class="n">MPhysVariables</span>
+<span class="kn">from</span> <span class="nn">mphys.scenarios</span> <span class="kn">import</span>  <span class="n">ScenarioAerodynamic</span>
+
+<span class="kn">from</span> <span class="nn">my_aero_code</span> <span class="kn">import</span> <span class="n">AeroBuilder</span>
+
+<span class="c1"># Step 1</span>
+<span class="k">class</span> <span class="nc">MyMPhysModel</span><span class="p">(</span><span class="n">Multipoint</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="n">dvs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_subsystem</span><span class="p">(</span><span class="s1">&#39;dvs&#39;</span><span class="p">,</span> <span class="n">om</span><span class="o">.</span><span class="n">IndepVarComp</span><span class="p">())</span>
+        <span class="n">dvs</span><span class="o">.</span><span class="n">add_output</span><span class="p">(</span><span class="s1">&#39;aoa&#39;</span><span class="p">,</span> <span class="n">val</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="s1">&#39;deg&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Step 2</span>
+        <span class="n">aero_builder</span> <span class="o">=</span> <span class="n">AeroBuilder</span><span class="p">(</span><span class="n">mesh</span><span class="o">=</span><span class="s2">&quot;naca0012.ugrid&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Step 3</span>
+        <span class="n">aero_builder</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="p">)</span>
+
+        <span class="c1"># Step 4</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_subsystem</span><span class="p">(</span><span class="s2">&quot;aero_mesh&quot;</span><span class="p">,</span> <span class="n">aero_builder</span><span class="o">.</span><span class="n">get_mesh_coordinate_subsystem</span><span class="p">())</span>
+
+        <span class="c1"># Step 5</span>
+        <span class="n">scenario</span> <span class="o">=</span> <span class="n">ScenarioAerodynamic</span><span class="p">(</span><span class="n">aero_builder</span><span class="o">=</span><span class="n">aero_builder</span><span class="p">)</span>
+
+        <span class="c1"># Step 6</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mphys_add_scenario</span><span class="p">(</span><span class="s2">&quot;cruise&quot;</span><span class="p">,</span> <span class="n">scenario</span><span class="p">)</span>
+
+        <span class="c1"># Step 7</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;dvs.aoa&quot;</span><span class="p">,</span> <span class="s2">&quot;cruise.aoa&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">MPhysVariables</span><span class="o">.</span><span class="n">Aerodynamics</span><span class="o">.</span><span class="n">Mesh</span><span class="o">.</span><span class="n">COORDINATES</span><span class="p">,</span>
+                     <span class="n">MPhysVariables</span><span class="o">.</span><span class="n">Aerodynamics</span><span class="o">.</span><span class="n">Surface</span><span class="o">.</span><span class="n">COORDINATES</span><span class="p">)</span>
+</pre></div>
+</div>
+<ol class="arabic simple">
+<li><p>Define an <a class="reference internal" href="model_hierarchy.html#mphys.Multipoint" title="mphys.Multipoint"><code class="xref py py-class docutils literal notranslate"><span class="pre">Multipoint</span></code></a> group.</p></li>
+<li><p>In the <code class="docutils literal notranslate"><span class="pre">setup()</span></code> method of the Multipoint group, instantiate
+the <a class="reference internal" href="builders.html#builders"><span class="std std-ref">Builder</span></a> associated with the disciplinary solvers you intend to use.</p></li>
+<li><p>Initialize the disciplinary Builders with the MPI communicator of the Multipoint group.
+This should be done in the <code class="docutils literal notranslate"><span class="pre">setup()</span></code> method of the Multipoint group after the builder is instantiated.
+For example, <code class="docutils literal notranslate"><span class="pre">aero_builder.initialize(self.comm)</span></code></p></li>
+<li><p>If applicable to the discipline, add a subsystem for the initial mesh coordinates from the builder’s <a class="reference internal" href="builders.html#mphys.Builder.get_mesh_coordinate_subsystem" title="mphys.Builder.get_mesh_coordinate_subsystem"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_mesh_coordinate_subsystem</span></code></a> function.
+This subsystem allows the disciplinary solver to dictate the parallel decomposition of its mesh.
+Any geometry manipulation subsystems, data transfer scheme subsystems, etc. will then be connected to the mesh subsystem’s mesh coordinate output.</p></li>
+<li><p>Create an MPhys scenario from the <a class="reference internal" href="../index.html#scenario-library"><span class="std std-ref">MPhys Scenario Library</span></a>.</p></li>
+<li><p>Use <a class="reference internal" href="model_hierarchy.html#mphys.Multipoint.mphys_add_scenario" title="mphys.Multipoint.mphys_add_scenario"><code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_scenario</span></code></a> to add the scenario to the Multipoint group.
+Add customized coupled nonlinear and linear solvers to the scenario in this function call.</p></li>
+<li><p>Connect inputs to the scenarios. Since MPhys uses <a class="reference internal" href="tagged_promotion.html#tagged-promotion"><span class="std std-ref">Tagged Promotion</span></a>,
+these inputs will have been promoted to <code class="docutils literal notranslate"><span class="pre">{scenario_name}.{variable_name}</span></code>.
+Typically the inputs that need to be connected are the design variables of the disciplinary solvers
+and mesh coordinates (if applicable to the discipline).
+These mesh coordinates may come from the initial mesh, or be altered by a geometry tool.</p></li>
+<li><p>Repeat steps 5-7 until your Multipoint group is fully defined.</p></li>
+</ol>
+<figure class="align-default">
+<a class="reference internal image-reference" href="../_images/mphys_model_assembly.png"><img alt="Flow chart of MPhys model assembly" src="../_images/mphys_model_assembly.png" style="width: 739.5px; height: 509.0px;" />
+</a>
+</figure>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>The <a class="reference external" href="https://github.com/OpenMDAO/mphys/blob/main/examples/aerostructural/supersonic_panel/run.py">supersonic panel example</a> provides an example of this model assembly and usage in a self-contained problem (no external disciplinary solvers).</p></li>
+<li><p>The <a class="reference external" href="https://github.com/OpenMDAO/mphys/blob/main/examples/aerostructural/oas_tacs_wing/run_oas_tacs_wing.py">oas_tacs_wing example</a> is another relatively simple example case that uses open-source disciplinary solvers.</p></li>
+</ul>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Assembling an MPhys Model</a><ul>
+<li><a class="reference internal" href="#examples">Examples</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+<h3><a href="../index.html">Table of Contents</a></h3>
+<p class="caption" role="heading"><span class="caption-text">MPhys Basics</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="model_hierarchy.html">Model Hierarchy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tagged_promotion.html">Tagged Promotion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="builders.html">Builders</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Assembling an MPhys Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="naming_conventions.html">Variable Naming Conventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="remote_components.html">Remote Components</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Multiphysics Scenarios</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../scenarios/aerostructural.html">Aerostructural Scenario</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Single Discipline Scenarios</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../scenarios/structural.html">Structural Scenario</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../scenarios/aerodynamic.html">Aerodynamic Scenario</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developers Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../developers/mphys_group.html">The MPhysGroup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developers/new_multiphysics_problems.html">Extending the Scenario Library</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../references/papers_using_mphys.html">Papers Using MPhys</a></li>
+</ul>
+
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="naming_conventions.html" title="Variable Naming Conventions"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="builders.html" title="Builders"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">MPhys  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Assembling an MPhys Model</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2022, NASA.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.4.7.
+    </div>
+  </body>
+</html>

@@ -1,19 +1,19 @@
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-content_root="../../../">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>mphys.network.remote_component &#8212; MPhys  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
     <link rel="stylesheet" type="text/css" href="../../../_static/style.css?v=90ca181f" />
-    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=b3ba4146"></script>
-    <script src="../../../_static/doctools.js?v=888ff710"></script>
-    <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
   </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -38,7 +38,9 @@
 <span class="kn">import</span> <span class="nn">json</span><span class="o">,</span> <span class="nn">time</span><span class="o">,</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
-<div class="viewcode-block" id="RemoteComp"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.remote_component.RemoteComp">[docs]</a><span class="k">class</span> <span class="nc">RemoteComp</span><span class="p">(</span><span class="n">om</span><span class="o">.</span><span class="n">ExplicitComponent</span><span class="p">):</span>
+<div class="viewcode-block" id="RemoteComp">
+<a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.remote_component.RemoteComp">[docs]</a>
+<span class="k">class</span> <span class="nc">RemoteComp</span><span class="p">(</span><span class="n">om</span><span class="o">.</span><span class="n">ExplicitComponent</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A component used for network communication between top-level OpenMDAO</span>
 <span class="sd">    problem and remote problem evaluated on an HPC job. Serves as the</span>
@@ -51,7 +53,9 @@
         <span class="c1"># shortcut for stopping server from top level</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span><span class="o">.</span><span class="n">stop_server</span><span class="p">()</span>
 
-<div class="viewcode-block" id="RemoteComp.initialize"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.remote_component.RemoteComp.initialize">[docs]</a>    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="RemoteComp.initialize">
+<a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.remote_component.RemoteComp.initialize">[docs]</a>
+    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s1">&#39;run_server_filename&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;mphys_server.py&quot;</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;python file that will launch the Server class&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s1">&#39;time_estimate_multiplier&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;when determining whether to reboot the server, estimate model run time as this times max prior run time&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s1">&#39;time_estimate_buffer&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">types</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;constant time in seconds to add to model evaluation esimate. &quot;</span>
@@ -66,7 +70,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s1">&#39;additional_remote_outputs&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="p">[],</span> <span class="n">types</span><span class="o">=</span><span class="nb">list</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;additional outputs not defined as objective/constraints in the remote component&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s1">&#39;use_derivative_coloring&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">types</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;assign derivative coloring to objective/constraints. Only for cases with parallel servers&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="RemoteComp.setup"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.remote_component.RemoteComp.setup">[docs]</a>    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+<div class="viewcode-block" id="RemoteComp.setup">
+<a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.remote_component.RemoteComp.setup">[docs]</a>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">size</span><span class="o">&gt;</span><span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">SystemError</span><span class="p">(</span><span class="s1">&#39;Using Remote Component on more than 1 rank is not supported&#39;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">time_estimate_multiplier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;time_estimate_multiplier&#39;</span><span class="p">]</span>
@@ -104,7 +111,10 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">declare_partials</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="s1">&#39;*&#39;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="RemoteComp.compute"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.remote_component.RemoteComp.compute">[docs]</a>    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">inputs</span><span class="p">,</span><span class="n">outputs</span><span class="p">):</span>
+
+<div class="viewcode-block" id="RemoteComp.compute">
+<a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.remote_component.RemoteComp.compute">[docs]</a>
+    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">inputs</span><span class="p">,</span><span class="n">outputs</span><span class="p">):</span>
         <span class="n">input_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_input_dict_for_server</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
         <span class="n">remote_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_model</span><span class="p">(</span><span class="n">remote_input_dict</span><span class="o">=</span><span class="n">input_dict</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="s1">&#39;evaluate&#39;</span><span class="p">)</span>
 
@@ -112,7 +122,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_assign_constraints_from_remote_output</span><span class="p">(</span><span class="n">remote_dict</span><span class="p">,</span> <span class="n">outputs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_assign_additional_outputs_from_remote_output</span><span class="p">(</span><span class="n">remote_dict</span><span class="p">,</span> <span class="n">outputs</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="RemoteComp.compute_partials"><a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.remote_component.RemoteComp.compute_partials">[docs]</a>    <span class="k">def</span> <span class="nf">compute_partials</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">partials</span><span class="p">):</span>
+
+<div class="viewcode-block" id="RemoteComp.compute_partials">
+<a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.remote_component.RemoteComp.compute_partials">[docs]</a>
+    <span class="k">def</span> <span class="nf">compute_partials</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">partials</span><span class="p">):</span>
         <span class="c1"># NOTE: this will not use of and wrt inputs, if given in outer script&#39;s compute_totals/check_totals</span>
 
         <span class="n">input_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_input_dict_for_server</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
@@ -121,6 +134,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_assign_objective_partials_from_remote_output</span><span class="p">(</span><span class="n">remote_dict</span><span class="p">,</span> <span class="n">partials</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_assign_constraint_partials_from_remote_output</span><span class="p">(</span><span class="n">remote_dict</span><span class="p">,</span> <span class="n">partials</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_assign_additional_partials_from_remote_output</span><span class="p">(</span><span class="n">remote_dict</span><span class="p">,</span> <span class="n">partials</span><span class="p">)</span></div>
+
 
     <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_input_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="s1">&#39;initialize&#39;</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_need_to_restart_server</span><span class="p">(</span><span class="n">command</span><span class="p">):</span>
@@ -317,13 +331,14 @@
 
     <span class="k">def</span> <span class="nf">_setup_server_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
 </pre></div>
 
             <div class="clearer"></div>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
 <h3><a href="../../../index.html">Table of Contents</a></h3>
 <p class="caption" role="heading"><span class="caption-text">MPhys Basics</span></p>
@@ -331,6 +346,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../basics/model_hierarchy.html">Model Hierarchy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../basics/tagged_promotion.html">Tagged Promotion</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../basics/builders.html">Builders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/model_assembly.html">Assembling an MPhys Model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../basics/naming_conventions.html">Variable Naming Conventions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../basics/remote_components.html">Remote Components</a></li>
 </ul>
@@ -345,14 +361,14 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developers Guide</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../developers/mphys_group.html">The MphysGroup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developers/mphys_group.html">The MPhysGroup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../developers/new_multiphysics_problems.html">Extending the Scenario Library</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../references/papers_using_mphys.html">Papers Using MPhys</a></li>
 </ul>
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../../search.html" method="get">
@@ -360,13 +376,13 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -382,7 +398,7 @@
     </div>
     <div class="footer" role="contentinfo">
     &#169; Copyright 2022, NASA.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.1.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.4.7.
     </div>
   </body>
 </html>

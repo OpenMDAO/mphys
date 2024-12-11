@@ -1,22 +1,22 @@
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-content_root="../">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>Aerostructural Scenario &#8212; MPhys  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
     <link rel="stylesheet" type="text/css" href="../_static/style.css?v=90ca181f" />
-    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
-    <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Structural Scenario" href="structural.html" />
     <link rel="prev" title="Remote Components" href="../basics/remote_components.html" /> 
   </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -42,33 +42,34 @@
           <div class="body" role="main">
             
   <section id="aerostructural-scenario">
-<h1>Aerostructural Scenario<a class="headerlink" href="#aerostructural-scenario" title="Permalink to this heading">¶</a></h1>
+<h1>Aerostructural Scenario<a class="headerlink" href="#aerostructural-scenario" title="Link to this heading">¶</a></h1>
 <p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">ScenarioAeroStructural</span></code> is for static fluid structure interaction problems.
-The primary physics modules required for this problem are:
-1. The aerodynamics which computes forces given the displaced aerodynamic surface coordinates.
-2. The structures which computes structural displacements given the loads at structural nodes.
-3. The displacement transfer which projects the structural displacements to the aerodynamic surface mesh
-4. The load transfer which computes the loads on the structure from the aerodynamic output.</p>
+The primary physics modules required for this problem are:</p>
+<ol class="arabic simple">
+<li><p>The aerodynamics which computes forces given the displaced aerodynamic surface coordinates.</p></li>
+<li><p>The structures which computes structural displacements given the loads at structural nodes.</p></li>
+<li><p>The displacement transfer which projects the structural displacements to the aerodynamic surface mesh</p></li>
+<li><p>The load transfer which computes the loads on the structure from the aerodynamic output.</p></li>
+</ol>
 <p>MPhys will add a <code class="xref py py-class docutils literal notranslate"><span class="pre">GeoDisp</span></code> subsystem to compute the displaced aerodynamic coordinates given the undeformed surface coordinates and the displacements.</p>
 <section id="builder-requirements">
-<h2>Builder Requirements<a class="headerlink" href="#builder-requirements" title="Permalink to this heading">¶</a></h2>
+<h2>Builder Requirements<a class="headerlink" href="#builder-requirements" title="Link to this heading">¶</a></h2>
 <section id="load-and-displacement-transfer-builder">
-<h3>Load and Displacement Transfer Builder<a class="headerlink" href="#load-and-displacement-transfer-builder" title="Permalink to this heading">¶</a></h3>
+<h3>Load and Displacement Transfer Builder<a class="headerlink" href="#load-and-displacement-transfer-builder" title="Link to this heading">¶</a></h3>
 <p>Because the load and displacement transfers are typically tied together by the principle of virtual work, but are not adjacent in the coupling loop,
-the load and displacement Builder’s <code class="xref py py-meth docutils literal notranslate"><span class="pre">get_coupling_group_subsystem()</span></code> must return both the displacement transfer and load tranfer subsystems as a tuple.</p>
+the load and displacement Builder’s <a class="reference internal" href="../basics/builders.html#mphys.Builder.get_coupling_group_subsystem" title="mphys.Builder.get_coupling_group_subsystem"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_coupling_group_subsystem()</span></code></a> function must return both the displacement transfer and load transfer subsystems as a tuple.</p>
 </section>
 <section id="structural-solver-builder">
-<h3>Structural Solver Builder<a class="headerlink" href="#structural-solver-builder" title="Permalink to this heading">¶</a></h3>
+<h3>Structural Solver Builder<a class="headerlink" href="#structural-solver-builder" title="Link to this heading">¶</a></h3>
 <p>The structural solver builder must implement the <code class="docutils literal notranslate"><span class="pre">get_ndof</span></code> method in order for the displacement transfer to know if it needs to slice the displacements from the full structural state vector.
 For example, the structural state vector for linear shell elements includes linearized rotation degrees of freedom at each node in addition to the translational displacements.</p>
 </section>
-</section>
 <section id="default-solvers">
-<h2>Default Solvers<a class="headerlink" href="#default-solvers" title="Permalink to this heading">¶</a></h2>
+<h3>Default Solvers<a class="headerlink" href="#default-solvers" title="Link to this heading">¶</a></h3>
 <p>The default solvers are NonlinearBlockGS and LinearBlockGS with <code class="docutils literal notranslate"><span class="pre">use_aitken=True</span></code>.</p>
 </section>
 <section id="options">
-<h2>Options<a class="headerlink" href="#options" title="Permalink to this heading">¶</a></h2>
+<h3>Options<a class="headerlink" href="#options" title="Link to this heading">¶</a></h3>
 <table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Option</p></th>
@@ -103,43 +104,49 @@ For example, the structural state vector for linear shell elements includes line
 <td><p>N/A</p></td>
 <td><p>Limited flexibility for coupling group type to accomodate flutter about jig shape or DLM where coupling group can be skipped: [“full_coupling”, “aerodynamics_only”, None]</p></td>
 </tr>
-<tr class="row-even"><td><p>geometry_builder</p></td>
+<tr class="row-even"><td><p>derivs_method</p></td>
+<td><p>N/A</p></td>
+<td><p>[‘jax’, ‘cs’, ‘fd’, None]</p></td>
+<td><p>N/A</p></td>
+<td><p>The method to use for computing derivatives</p></td>
+</tr>
+<tr class="row-odd"><td><p>geometry_builder</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>The optional MPhys builder for the geometry</p></td>
 </tr>
-<tr class="row-odd"><td><p>in_MultipointParallel</p></td>
+<tr class="row-even"><td><p>in_MultipointParallel</p></td>
 <td><p>False</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>Set to <cite>True</cite> if adding this scenario inside a MultipointParallel Group.</p></td>
 </tr>
-<tr class="row-even"><td><p>ldxfer_builder</p></td>
+<tr class="row-odd"><td><p>ldxfer_builder</p></td>
 <td><p><strong>Required</strong></p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>The MPhys builder for the load and displacement transfer</p></td>
 </tr>
-<tr class="row-odd"><td><p>post_coupling_order</p></td>
+<tr class="row-even"><td><p>post_coupling_order</p></td>
 <td><p>[‘ldxfer’, ‘aero’, ‘struct’]</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>The order of the post coupling subsystems</p></td>
 </tr>
-<tr class="row-even"><td><p>pre_coupling_order</p></td>
+<tr class="row-odd"><td><p>pre_coupling_order</p></td>
 <td><p>[‘aero’, ‘struct’, ‘ldxfer’]</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>The order of the pre coupling subsystems</p></td>
 </tr>
-<tr class="row-odd"><td><p>run_directory</p></td>
+<tr class="row-even"><td><p>run_directory</p></td>
 <td></td>
 <td><p>N/A</p></td>
 <td><p>[‘str’]</p></td>
 <td><p>Path in which to execute subsystems in this scenario group. The default of empty string will not change the directory.</p></td>
 </tr>
-<tr class="row-even"><td><p>struct_builder</p></td>
+<tr class="row-odd"><td><p>struct_builder</p></td>
 <td><p><strong>Required</strong></p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
@@ -149,14 +156,15 @@ For example, the structural state vector for linear shell elements includes line
 </table>
 </section>
 <section id="n2-basic">
-<h2>N2: Basic<a class="headerlink" href="#n2-basic" title="Permalink to this heading">¶</a></h2>
+<h3>N2: Basic<a class="headerlink" href="#n2-basic" title="Link to this heading">¶</a></h3>
 <iframe width='1200' height='700' style='border: 1px solid lightgray; resize: both;' src='../TestScenarioAeroStructural.html'></iframe></section>
 <section id="n2-in-multipointparallel">
-<h2>N2: in_MultipointParallel<a class="headerlink" href="#n2-in-multipointparallel" title="Permalink to this heading">¶</a></h2>
+<h3>N2: in_MultipointParallel<a class="headerlink" href="#n2-in-multipointparallel" title="Link to this heading">¶</a></h3>
 <iframe width='1200' height='700' style='border: 1px solid lightgray; resize: both;' src='../TestScenarioAeroStructuralParallel.html'></iframe></section>
 <section id="n2-in-multipointparallel-with-geometry-builder">
-<h2>N2: in_MultipointParallel with geometry_builder<a class="headerlink" href="#n2-in-multipointparallel-with-geometry-builder" title="Permalink to this heading">¶</a></h2>
+<h3>N2: in_MultipointParallel with geometry_builder<a class="headerlink" href="#n2-in-multipointparallel-with-geometry-builder" title="Link to this heading">¶</a></h3>
 <iframe width='1200' height='700' style='border: 1px solid lightgray; resize: both;' src='../TestScenarioAeroStructuralParallelWithGeometry.html'></iframe></section>
+</section>
 </section>
 
 
@@ -164,7 +172,7 @@ For example, the structural state vector for linear shell elements includes line
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
   <div>
     <h3><a href="../index.html">Table of Contents</a></h3>
@@ -173,13 +181,13 @@ For example, the structural state vector for linear shell elements includes line
 <li><a class="reference internal" href="#builder-requirements">Builder Requirements</a><ul>
 <li><a class="reference internal" href="#load-and-displacement-transfer-builder">Load and Displacement Transfer Builder</a></li>
 <li><a class="reference internal" href="#structural-solver-builder">Structural Solver Builder</a></li>
-</ul>
-</li>
 <li><a class="reference internal" href="#default-solvers">Default Solvers</a></li>
 <li><a class="reference internal" href="#options">Options</a></li>
 <li><a class="reference internal" href="#n2-basic">N2: Basic</a></li>
 <li><a class="reference internal" href="#n2-in-multipointparallel">N2: in_MultipointParallel</a></li>
 <li><a class="reference internal" href="#n2-in-multipointparallel-with-geometry-builder">N2: in_MultipointParallel with geometry_builder</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -191,6 +199,7 @@ For example, the structural state vector for linear shell elements includes line
 <li class="toctree-l1"><a class="reference internal" href="../basics/model_hierarchy.html">Model Hierarchy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../basics/tagged_promotion.html">Tagged Promotion</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../basics/builders.html">Builders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../basics/model_assembly.html">Assembling an MPhys Model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../basics/naming_conventions.html">Variable Naming Conventions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../basics/remote_components.html">Remote Components</a></li>
 </ul>
@@ -205,14 +214,14 @@ For example, the structural state vector for linear shell elements includes line
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developers Guide</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../developers/mphys_group.html">The MphysGroup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developers/mphys_group.html">The MPhysGroup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developers/new_multiphysics_problems.html">Extending the Scenario Library</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../references/papers_using_mphys.html">Papers Using MPhys</a></li>
 </ul>
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -220,13 +229,13 @@ For example, the structural state vector for linear shell elements includes line
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -247,7 +256,7 @@ For example, the structural state vector for linear shell elements includes line
     </div>
     <div class="footer" role="contentinfo">
     &#169; Copyright 2022, NASA.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.1.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.4.7.
     </div>
   </body>
 </html>

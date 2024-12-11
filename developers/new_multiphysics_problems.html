@@ -1,22 +1,22 @@
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-content_root="../">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>Extending the Scenario Library &#8212; MPhys  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
     <link rel="stylesheet" type="text/css" href="../_static/style.css?v=90ca181f" />
-    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
-    <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Papers Using MPhys" href="../references/papers_using_mphys.html" />
-    <link rel="prev" title="The MphysGroup" href="mphys_group.html" /> 
+    <link rel="prev" title="The MPhysGroup" href="mphys_group.html" /> 
   </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -29,7 +29,7 @@
           <a href="../references/papers_using_mphys.html" title="Papers Using MPhys"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="mphys_group.html" title="The MphysGroup"
+          <a href="mphys_group.html" title="The MPhysGroup"
              accesskey="P">previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">MPhys  documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Extending the Scenario Library</a></li> 
@@ -42,68 +42,68 @@
           <div class="body" role="main">
             
   <section id="extending-the-scenario-library">
-<h1>Extending the Scenario Library<a class="headerlink" href="#extending-the-scenario-library" title="Permalink to this heading">¶</a></h1>
+<h1>Extending the Scenario Library<a class="headerlink" href="#extending-the-scenario-library" title="Link to this heading">¶</a></h1>
 <section id="coupling-groups">
-<span id="dev-coupling-group"></span><h2>Coupling Groups<a class="headerlink" href="#coupling-groups" title="Permalink to this heading">¶</a></h2>
+<span id="dev-coupling-group"></span><h2>Coupling Groups<a class="headerlink" href="#coupling-groups" title="Link to this heading">¶</a></h2>
 <p>In <code class="docutils literal notranslate"><span class="pre">initialize</span></code>, the coupling group needs to have the required builders declared as options.
-In the setup phase, <a class="reference internal" href="../basics/builders.html#mphys.builder.Builder.get_coupling_group_subsystem" title="mphys.builder.Builder.get_coupling_group_subsystem"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_coupling_group_subsystem()</span></code></a> is used to get subsystems from the builders,
+In the setup phase, <a class="reference internal" href="../basics/builders.html#mphys.Builder.get_coupling_group_subsystem" title="mphys.Builder.get_coupling_group_subsystem"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_coupling_group_subsystem()</span></code></a> is used to get subsystems from the builders,
 and <code class="docutils literal notranslate"><span class="pre">self.mphys_add_subsystem</span></code> is used to add them.
 Other components like balance components can be added directly.
 Setting a default linear and nonlinear solver suitable for this type of problem is also helpful in <code class="docutils literal notranslate"><span class="pre">setup</span></code>.
 In most cases using a configure phase is not necessary for the scenario, but if you do implement a <code class="docutils literal notranslate"><span class="pre">configure</span></code>
 method, you must call <code class="docutils literal notranslate"><span class="pre">super().configure()</span></code> to do the tagged promotion of variables from the scenario’s subsystems.</p>
-<span class="target" id="module-mphys.coupling_group"></span><dl class="py class">
-<dt class="sig sig-object py" id="mphys.coupling_group.CouplingGroup">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mphys.coupling_group.</span></span><span class="sig-name descname"><span class="pre">CouplingGroup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/coupling_group.html#CouplingGroup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.coupling_group.CouplingGroup" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="mphys.CouplingGroup">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mphys.</span></span><span class="sig-name descname"><span class="pre">CouplingGroup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/core/coupling_group.html#CouplingGroup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.CouplingGroup" title="Link to this definition">¶</a></dt>
 <dd><p>Set the solvers to nonlinear and linear block Gauss–Seidel by default.</p>
 </dd></dl>
 
 </section>
 <section id="scenarios">
-<span id="dev-scenario-group"></span><h2>Scenarios<a class="headerlink" href="#scenarios" title="Permalink to this heading">¶</a></h2>
+<span id="dev-scenario-group"></span><h2>Scenarios<a class="headerlink" href="#scenarios" title="Link to this heading">¶</a></h2>
 <p>Your custom Scenario should at least implement the <code class="docutils literal notranslate"><span class="pre">initialize</span></code> and <code class="docutils literal notranslate"><span class="pre">setup</span></code> methods.
 As with the <code class="docutils literal notranslate"><span class="pre">CouplingGroup</span></code>, you must call the <code class="docutils literal notranslate"><span class="pre">configure</span></code> method of the parent class if you implement a
 <code class="docutils literal notranslate"><span class="pre">configure</span></code> method in the Scenario.</p>
 <section id="initialize">
-<h3>Initialize<a class="headerlink" href="#initialize" title="Permalink to this heading">¶</a></h3>
+<h3>Initialize<a class="headerlink" href="#initialize" title="Link to this heading">¶</a></h3>
 <p>The Scenario’s <code class="docutils literal notranslate"><span class="pre">initialize</span></code> method should declare the necessary builders as options.
 An <code class="docutils literal notranslate"><span class="pre">in_MultipointParallel</span></code> option should also be included if that mode of operation will be implemented.
 Otherwise the developer is free to add options specific to the scenario type.</p>
 </section>
 <section id="setup">
-<h3>Setup<a class="headerlink" href="#setup" title="Permalink to this heading">¶</a></h3>
+<h3>Setup<a class="headerlink" href="#setup" title="Link to this heading">¶</a></h3>
 <p>The basic pattern for the scenario group’s setup method is:</p>
 <ol class="arabic simple" start="0">
 <li><p>If <code class="docutils literal notranslate"><span class="pre">in_MultipointParallel</span></code>, initialize all the builders</p></li>
 <li><p>Call <code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_pre_coupling_subsystem()</span></code> for each builder.</p></li>
-<li><p>Instantiate the associated <a class="reference internal" href="#mphys.coupling_group.CouplingGroup" title="mphys.coupling_group.CouplingGroup"><code class="xref py py-class docutils literal notranslate"><span class="pre">CouplingGroup</span></code></a>.</p></li>
+<li><p>Instantiate the associated <code class="xref py py-class docutils literal notranslate"><span class="pre">CouplingGroup</span></code>.</p></li>
 <li><p>Call <code class="xref py py-func docutils literal notranslate"><span class="pre">mphys_add_post_coupling_subsystem()</span></code> for each builder.</p></li>
 </ol>
-<span class="target" id="module-mphys.scenario"></span><dl class="py class">
-<dt class="sig sig-object py" id="mphys.scenario.Scenario">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mphys.scenario.</span></span><span class="sig-name descname"><span class="pre">Scenario</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/scenario.html#Scenario"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.scenario.Scenario" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="mphys.Scenario">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mphys.</span></span><span class="sig-name descname"><span class="pre">Scenario</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/core/scenario.html#Scenario"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.Scenario" title="Link to this definition">¶</a></dt>
 <dd><p>A group to represent a specific analysis condition or point of the MPhys
 multipoint groups.</p>
 <p>To make a Scenario for a particular type of multiphysics problem, subclass
 the Scenario, and implement the <cite>initialize</cite> and <cite>setup</cite> phases of the Group.</p>
 <p>Set the solvers to nonlinear and linear block Gauss–Seidel by default.</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="mphys.scenario.Scenario.initialize">
-<span class="sig-name descname"><span class="pre">initialize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/scenario.html#Scenario.initialize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.scenario.Scenario.initialize" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="mphys.Scenario.initialize">
+<span class="sig-name descname"><span class="pre">initialize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/core/scenario.html#Scenario.initialize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.Scenario.initialize" title="Link to this definition">¶</a></dt>
 <dd><p>Perform any one-time initialization run at instantiation.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="mphys.scenario.Scenario.setup">
-<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/scenario.html#Scenario.setup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.scenario.Scenario.setup" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="mphys.Scenario.setup">
+<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/core/scenario.html#Scenario.setup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.Scenario.setup" title="Link to this definition">¶</a></dt>
 <dd><p>The main setup call for all multiphysics scenarios.
 Multiphysics scenarios should implement setup-type operations in _mphys_scenario_setup().
 Adds the builder subsystems, then adds user-defined post subsystems.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="mphys.scenario.Scenario.mphys_add_post_subsystem">
-<span class="sig-name descname"><span class="pre">mphys_add_post_subsystem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subsystem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promotes_inputs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promotes_outputs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promotes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/scenario.html#Scenario.mphys_add_post_subsystem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.scenario.Scenario.mphys_add_post_subsystem" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="mphys.Scenario.mphys_add_post_subsystem">
+<span class="sig-name descname"><span class="pre">mphys_add_post_subsystem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subsystem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promotes_inputs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promotes_outputs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promotes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/core/scenario.html#Scenario.mphys_add_post_subsystem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.Scenario.mphys_add_post_subsystem" title="Link to this definition">¶</a></dt>
 <dd><p>Add a user-defined subsystem at the end of a Scenario.
 Tag variables with mphys tags to promote or use the optional promotes argument.</p>
 <dl class="field-list simple">
@@ -132,23 +132,23 @@ else variables will be promoted by this input</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
   <div>
     <h3><a href="../index.html">Table of Contents</a></h3>
     <ul>
 <li><a class="reference internal" href="#">Extending the Scenario Library</a><ul>
 <li><a class="reference internal" href="#coupling-groups">Coupling Groups</a><ul>
-<li><a class="reference internal" href="#mphys.coupling_group.CouplingGroup"><code class="docutils literal notranslate"><span class="pre">CouplingGroup</span></code></a></li>
+<li><a class="reference internal" href="#mphys.CouplingGroup"><code class="docutils literal notranslate"><span class="pre">CouplingGroup</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#scenarios">Scenarios</a><ul>
 <li><a class="reference internal" href="#initialize">Initialize</a></li>
 <li><a class="reference internal" href="#setup">Setup</a><ul>
-<li><a class="reference internal" href="#mphys.scenario.Scenario"><code class="docutils literal notranslate"><span class="pre">Scenario</span></code></a><ul>
-<li><a class="reference internal" href="#mphys.scenario.Scenario.initialize"><code class="docutils literal notranslate"><span class="pre">Scenario.initialize()</span></code></a></li>
-<li><a class="reference internal" href="#mphys.scenario.Scenario.setup"><code class="docutils literal notranslate"><span class="pre">Scenario.setup()</span></code></a></li>
-<li><a class="reference internal" href="#mphys.scenario.Scenario.mphys_add_post_subsystem"><code class="docutils literal notranslate"><span class="pre">Scenario.mphys_add_post_subsystem()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.Scenario"><code class="docutils literal notranslate"><span class="pre">Scenario</span></code></a><ul>
+<li><a class="reference internal" href="#mphys.Scenario.initialize"><code class="docutils literal notranslate"><span class="pre">Scenario.initialize()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.Scenario.setup"><code class="docutils literal notranslate"><span class="pre">Scenario.setup()</span></code></a></li>
+<li><a class="reference internal" href="#mphys.Scenario.mphys_add_post_subsystem"><code class="docutils literal notranslate"><span class="pre">Scenario.mphys_add_post_subsystem()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -166,6 +166,7 @@ else variables will be promoted by this input</p>
 <li class="toctree-l1"><a class="reference internal" href="../basics/model_hierarchy.html">Model Hierarchy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../basics/tagged_promotion.html">Tagged Promotion</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../basics/builders.html">Builders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../basics/model_assembly.html">Assembling an MPhys Model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../basics/naming_conventions.html">Variable Naming Conventions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../basics/remote_components.html">Remote Components</a></li>
 </ul>
@@ -180,14 +181,14 @@ else variables will be promoted by this input</p>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developers Guide</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="mphys_group.html">The MphysGroup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mphys_group.html">The MPhysGroup</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Extending the Scenario Library</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../references/papers_using_mphys.html">Papers Using MPhys</a></li>
 </ul>
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -195,13 +196,13 @@ else variables will be promoted by this input</p>
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -214,7 +215,7 @@ else variables will be promoted by this input</p>
           <a href="../references/papers_using_mphys.html" title="Papers Using MPhys"
              >next</a> |</li>
         <li class="right" >
-          <a href="mphys_group.html" title="The MphysGroup"
+          <a href="mphys_group.html" title="The MPhysGroup"
              >previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">MPhys  documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Extending the Scenario Library</a></li> 
@@ -222,7 +223,7 @@ else variables will be promoted by this input</p>
     </div>
     <div class="footer" role="contentinfo">
     &#169; Copyright 2022, NASA.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.1.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.4.7.
     </div>
   </body>
 </html>
