@@ -5,13 +5,16 @@ from mpi4py import MPI
 
 from piston_theory import PistonTheory
 
+X_AERO0_MESH= MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES
+X_AERO = MPhysVariables.Aerodynamics.Surface.COORDINATES
+F_AERO = MPhysVariables.Aerodynamics.Surface.LOADS
+
 # IVC which returns a baseline mesh
 class AeroMesh(om.IndepVarComp):
     def initialize(self):
         self.options.declare('x_aero0')
     def setup(self):
-        self.x_aero0_name = MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL
-        self.add_output(self.x_aero0_name, val=self.options['x_aero0'], distributed=True, tags=['mphys_coordinates'])
+        self.add_output(X_AERO0_MESH, val=self.options['x_aero0'], distributed=True, tags=['mphys_coordinates'])
 
 
 # IC which computes aero pressures
@@ -19,12 +22,10 @@ class AeroSolver(om.ImplicitComponent):
     def initialize(self):
         self.options.declare('solver')
 
-        self.x_aero_name = MPhysVariables.Aerodynamics.Surface.COORDINATES
-
     def setup(self):
         self.solver = self.options['solver']
 
-        self.add_input(self.x_aero_name, shape_by_conn=True, distributed=True, tags=['mphys_coordinates'])
+        self.add_input(X_AERO, shape_by_conn=True, distributed=True, tags=['mphys_coordinates'])
         self.add_input('aoa', 0., units = 'deg', tags=['mphys_input'])
         self.add_input('qdyn', 0., tags=['mphys_input'])
         self.add_input('mach', 0., tags=['mphys_input'])
@@ -38,7 +39,7 @@ class AeroSolver(om.ImplicitComponent):
 
     def solve_nonlinear(self,inputs,outputs):
 
-        self.solver.xyz = inputs[self.x_aero_name]
+        self.solver.xyz = inputs[X_AERO]
         self.solver.aoa = inputs['aoa']
         self.solver.qdyn = inputs['qdyn']
         self.solver.mach = inputs['mach']
@@ -46,7 +47,7 @@ class AeroSolver(om.ImplicitComponent):
         outputs['pressure'] = self.solver.compute_pressure()
 
     def apply_nonlinear(self,inputs,outputs,residuals):
-        self.solver.xyz = inputs[self.x_aero_name]
+        self.solver.xyz = inputs[X_AERO]
         self.solver.aoa = inputs['aoa']
         self.solver.qdyn = inputs['qdyn']
         self.solver.mach = inputs['mach']
@@ -69,8 +70,8 @@ class AeroSolver(om.ImplicitComponent):
                     adjoint=d_residuals['pressure']
                 )
 
-                if self.x_aero_name in d_inputs:
-                    d_inputs[self.x_aero_name] += d_xa
+                if X_AERO in d_inputs:
+                    d_inputs[X_AERO] += d_xa
                 if 'aoa' in d_inputs:
                     d_inputs['aoa'] += d_aoa
                 if 'qdyn' in d_inputs:
@@ -85,30 +86,28 @@ class AeroForces(om.ExplicitComponent):
         self.options.declare('solver')
 
     def setup(self):
-        self.x_aero_name = MPhysVariables.Aerodynamics.Surface.COORDINATES
-        self.f_aero_name = MPhysVariables.Aerodynamics.Surface.LOADS
 
         self.solver = self.options['solver']
 
-        self.add_input(self.x_aero_name, shape_by_conn=True, distributed=True, tags=['mphys_coordinates'])
+        self.add_input(X_AERO, shape_by_conn=True, distributed=True, tags=['mphys_coordinates'])
         self.add_input('pressure', shape_by_conn=True, distributed=True, tags=['mphys_coupling'])
-        self.add_output(self.f_aero_name, np.zeros(self.solver.n_nodes*self.solver.n_dof), distributed=True, tags=['mphys_coupling'])
+        self.add_output(F_AERO, np.zeros(self.solver.n_nodes*self.solver.n_dof), distributed=True, tags=['mphys_coupling'])
 
     def compute(self,inputs,outputs):
-        self.solver.xyz = inputs[self.x_aero_name]
+        self.solver.xyz = inputs[X_AERO]
         self.solver.pressure = inputs['pressure']
 
-        outputs[self.f_aero_name] = self.solver.compute_force()
+        outputs[F_AERO] = self.solver.compute_force()
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'rev':
-            if self.f_aero_name in d_outputs:
+            if F_AERO in d_outputs:
                 d_xa, d_p = self.solver.compute_force_derivatives(
-                    adjoint=d_outputs[self.f_aero_name]
+                    adjoint=d_outputs[F_AERO]
                 )
 
-                if self.x_aero_name in d_inputs:
-                    d_inputs[self.x_aero_name] += d_xa
+                if X_AERO in d_inputs:
+                    d_inputs[X_AERO] += d_xa
                 if 'pressure' in d_inputs:
                     d_inputs['pressure'] += d_p
 
@@ -205,4 +204,4 @@ class AeroBuilder(Builder):
         return self.solver.n_nodes
 
     def get_ndof(self):
-        return self.soler.n_dof
+        return self.solver.n_dof

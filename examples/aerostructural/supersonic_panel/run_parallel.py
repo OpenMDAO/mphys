@@ -2,7 +2,7 @@ import numpy as np
 from mpi4py import MPI
 import openmdao.api as om
 
-from mphys import Multipoint, MultipointParallel
+from mphys import MultipointParallel
 from mphys.scenarios.aerostructural import ScenarioAeroStructural
 
 from structures_mphys import StructBuilder
@@ -22,9 +22,7 @@ panel_width = 0.01
 N_el_struct = 20
 N_el_aero = 7
 
-# Mphys parallel multipoint scenarios
 class AerostructParallel(MultipointParallel):
-#class AerostructParallel(Multipoint):
     def __init__(self, aero_builder=None, struct_builder=None, xfer_builder=None, geometry_builder=None, scenario_names=None):
         super().__init__()
         self.aero_builder = aero_builder

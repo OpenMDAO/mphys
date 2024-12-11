@@ -3,7 +3,7 @@ from mpi4py import MPI
 import openmdao.api as om
 import os
 
-from mphys import Multipoint
+from mphys import Multipoint, MPhysVariables
 from mphys.scenarios.aerostructural import ScenarioAeroStructural
 
 from structures_mphys import StructBuilder
@@ -22,6 +22,17 @@ panel_width = 0.01
 # panel discretization
 N_el_struct = 20
 N_el_aero = 7
+
+X_AERO = MPhysVariables.Aerodynamics.Surface.COORDINATES
+X_AERO0 = MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL
+X_AERO0_MESH = MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES
+X_AERO0_GEOM_INPUT = MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT
+X_AERO0_GEOM_OUTPUT = MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT
+
+X_STRUCT = MPhysVariables.Structures.COORDINATES
+X_STRUCT_MESH = MPhysVariables.Structures.Mesh.COORDINATES
+X_STRUCT_GEOM_INPUT = MPhysVariables.Structures.Geometry.COORDINATES_INPUT
+X_STRUCT_GEOM_OUTPUT = MPhysVariables.Structures.Geometry.COORDINATES_OUTPUT
 
 # Mphys
 class Model(Multipoint):
@@ -74,10 +85,10 @@ class Model(Multipoint):
 
         self.add_subsystem('struct_mesh', struct_builder.get_mesh_coordinate_subsystem())
         self.add_subsystem('aero_mesh', aero_builder.get_mesh_coordinate_subsystem())
-        self.add_subsystem('geometry', geometry_builder.get_mesh_coordinate_subsystem(), promotes=['*'])
+        self.add_subsystem('geometry', geometry_builder.get_mesh_coordinate_subsystem())
 
-        self.connect('struct_mesh.x_struct0', 'x_struct_in')
-        self.connect('aero_mesh.x_aero0', 'x_aero_in')
+        self.connect(f'struct_mesh.{X_STRUCT_MESH}', f'geometry.{X_STRUCT_GEOM_INPUT}')
+        self.connect(f'aero_mesh.{X_AERO0_MESH}', f'geometry.{X_AERO0_GEOM_INPUT}')
 
         # create the run directory
         if self.comm.rank==0:
@@ -97,8 +108,10 @@ class Model(Multipoint):
                                 coupling_nonlinear_solver=nonlinear_solver,
                                 coupling_linear_solver=linear_solver)
 
-        for var in ['modulus', 'yield_stress', 'density', 'mach', 'qdyn', 'aoa', 'dv_struct', 'x_struct0', 'x_aero0']:
+        for var in ['modulus', 'yield_stress', 'density', 'mach', 'qdyn', 'aoa', 'dv_struct']:
             self.connect(var, self.scenario_name+'.'+var)
+        self.connect(f'geometry.{X_AERO0_GEOM_OUTPUT}', f'{self.scenario_name}.{X_AERO0}')
+        self.connect(f'geometry.{X_STRUCT_GEOM_OUTPUT}', f'{self.scenario_name}.{X_STRUCT}')
 
         # add design variables, to simplify remote setup
         self.add_design_var('geometry_morph_param', lower=0.1, upper=10.0)
