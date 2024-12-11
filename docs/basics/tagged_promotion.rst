@@ -1,8 +1,8 @@
 .. _tagged_promotion:
 
-****************
+================
 Tagged Promotion
-****************
+================
 
 MPhys uses tags to selectively promote variables to the level of scenario.
 There are four types of tags in MPhys that represent different types of data.

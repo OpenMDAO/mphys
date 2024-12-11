@@ -24,8 +24,8 @@ import openmdao.api as om
 from openmdao.utils.assert_utils import assert_near_equal
 
 
-from mphys.multipoint import Multipoint
-from mphys.scenario_aerostructural import ScenarioAeroStructural
+from mphys import Multipoint, MPhysVariables
+from mphys.scenarios import ScenarioAeroStructural
 
 # these imports will be from the respective codes' repos rather than mphys
 from adflow.mphys import ADflowBuilder
@@ -163,8 +163,10 @@ class Top(Multipoint):
             linear_solver,
         )
 
-        for discipline in ["aero", "struct"]:
-            self.mphys_connect_scenario_coordinate_source("mesh_%s" % discipline, "cruise", discipline)
+        self.connect(f'mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}',
+                    f'cruise.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}')
+        self.connect(f'mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}',
+                    f'cruise.{MPhysVariables.Structures.COORDINATES}')
 
         # add the structural thickness DVs
         ndv_struct = struct_builder.get_ndv()

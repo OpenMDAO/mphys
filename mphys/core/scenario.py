@@ -1,10 +1,12 @@
 from functools import wraps
 
-from .mphys_group import MphysGroup
-from .utils.directory_utils import cd
+from .mphys_group import MPhysGroup
+from mphys.utils.directory_utils import cd
 
-# Define decorator functions for methods where run directory must be switched before calling
 def switch_run_directory(method):
+    """
+    Decorator function for methods where run directory must be switched before calling
+    """
     @wraps(method)
     def wrapped_method(self, *args, **kwargs):
         with cd(self.options['run_directory']):
@@ -12,7 +14,7 @@ def switch_run_directory(method):
 
     return wrapped_method
 
-class Scenario(MphysGroup):
+class Scenario(MPhysGroup):
     """
     A group to represent a specific analysis condition or point of the MPhys
     multipoint groups.
@@ -39,6 +41,7 @@ class Scenario(MphysGroup):
         """
         pass
 
+    @switch_run_directory
     def setup(self):
         """
         The main setup call for all multiphysics scenarios.
@@ -96,7 +99,7 @@ class Scenario(MphysGroup):
         ----------
         name: str
             Name of the discipline
-        builder: :class:`~mphys.builder.Builder`
+        builder: :class:`~mphys.Builder`
             The discipline's builder object
         scenario_name: str or None
             Name of the scenario being setup (optional)
@@ -114,7 +117,7 @@ class Scenario(MphysGroup):
         ----------
         name: str
             Name of the discipline
-        builder: :class:`~mphys.builder.Builder`
+        builder: :class:`~mphys.Builder`
             The discipline's builder object
         scenario_name: str or None
             Name of the scenario being setup (optional)

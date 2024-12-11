@@ -1,42 +1,56 @@
 import numpy as np
 import openmdao.api as om
-from mphys import Builder
+from mphys import Builder, MPhysVariables
 
 aero_num_nodes = 3
 
+
 class AeroMeshComp(om.IndepVarComp):
     def setup(self):
-        self.add_output('x_aero0', val=np.ones(aero_num_nodes*3), tags=['mphys_coordinates'])
+        self.add_output(
+            MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES,
+            val=np.ones(aero_num_nodes * 3),
+            tags=["mphys_coordinates"],
+        )
 
 
 class AeroPreCouplingComp(om.ExplicitComponent):
     def setup(self):
-        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_output('prestate_aero', tags=['mphys_coupling'])
+        self.x_aero_name = MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL
+
+        self.add_input(self.x_aero_name, shape_by_conn=True, tags=["mphys_coordinates"])
+        self.add_output("prestate_aero", tags=["mphys_coupling"])
 
     def compute(self, inputs, outputs):
-        outputs['prestate_aero'] = np.sum(inputs['x_aero'])
+        outputs["prestate_aero"] = np.sum(inputs[self.x_aero_name])
 
 
 class AeroCouplingComp(om.ExplicitComponent):
     def setup(self):
-        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_input('prestate_aero', tags=['mphys_coupling'])
-        self.add_output('f_aero', shape=aero_num_nodes*3, tags=['mphys_coupling'])
+        self.coords_name = MPhysVariables.Aerodynamics.Surface.COORDINATES
+        self.loads_name = MPhysVariables.Aerodynamics.Surface.LOADS
+
+        self.add_input(self.coords_name, shape_by_conn=True, tags=["mphys_coordinates"])
+        self.add_input("prestate_aero", tags=["mphys_coupling"])
+        self.add_output(self.loads_name, shape=aero_num_nodes * 3, tags=["mphys_coupling"])
 
     def compute(self, inputs, outputs):
-        outputs['f_aero'] = inputs['x_aero'] + inputs['prestate_aero']
+        outputs[self.loads_name] = inputs[self.coords_name] + inputs["prestate_aero"]
 
 
 class AeroPostCouplingComp(om.ExplicitComponent):
     def setup(self):
-        self.add_input('prestate_aero', tags=['mphys_coupling'])
-        self.add_input('x_aero', shape_by_conn=True, tags=['mphys_coordinates'])
-        self.add_input('f_aero', shape_by_conn=True, tags=['mphys_coupling'])
-        self.add_output('func_aero', val=1.0, tags=['mphys_result'])
+        self.coords_name = MPhysVariables.Aerodynamics.Surface.COORDINATES
+        self.loads_name = MPhysVariables.Aerodynamics.Surface.LOADS
+
+        self.add_input("prestate_aero", tags=["mphys_coupling"])
+        self.add_input(self.coords_name, shape_by_conn=True, tags=["mphys_coordinates"])
+        self.add_input(self.loads_name, shape_by_conn=True, tags=["mphys_coupling"])
+        self.add_output("func_aero", val=1.0, tags=["mphys_result"])
 
     def compute(self, inputs, outputs):
-        outputs['func_aero'] = np.sum(inputs['f_aero'] + inputs['prestate_aero'] + inputs['x_aero'])
+        outputs["func_aero"] = np.sum(inputs[self.loads_name] + inputs["prestate_aero"] + inputs[self.coords_name])
+
 
 class AeroBuilder(Builder):
 
@@ -59,6 +73,6 @@ class AeroBuilder(Builder):
         return AeroPostCouplingComp()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     aero_builder = AeroBuilder()
     print(aero_builder.get_number_of_nodes())

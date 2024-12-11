@@ -2,7 +2,7 @@ import argparse
 
 import openmdao.api as om
 from mphys.multipoint import Multipoint
-from mphys.scenario_aerodynamic import ScenarioAerodynamic
+from mphys.scenarios.aerodynamic import ScenarioAerodynamic
 from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
 

@@ -2,7 +2,7 @@ from mpi4py import MPI
 
 import openmdao.api as om
 from mphys.multipoint import Multipoint
-from mphys.scenario_aerodynamic import ScenarioAerodynamic
+from mphys.scenarios.aerodynamic import ScenarioAerodynamic
 from vlm_solver.mphys_vlm import VlmBuilder
 
 comm = MPI.COMM_WORLD

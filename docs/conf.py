@@ -7,8 +7,8 @@ import os
 import importlib
 from unittest.mock import Mock
 
-from mphys.doc_utils.config_params import MOCK_MODULES
-from mphys.doc_utils._utils.patch import do_monkeypatch
+from mphys.utils.docs.config_params import MOCK_MODULES
+from mphys.utils.docs._utils.patch import do_monkeypatch
 
 # Only mock the ones that don't import.
 for mod_name in MOCK_MODULES:
@@ -96,6 +96,7 @@ packages = [
 
 autoclass_content = 'both'
 autodoc_member_order = 'bysource'
+autosummary_generate = True
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'

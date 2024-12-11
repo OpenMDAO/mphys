@@ -1,11 +1,9 @@
 # from mpi4py import MPI
 import argparse
 import numpy as np
-import openmdao
 import openmdao.api as om
-from mphys import Multipoint 
-from mphys.multipoint import set_coupling_algorithms_in_scenarios
-from mphys.scenario_aerothermal import ScenarioAeroThermal
+from mphys import Multipoint, MPhysVariables
+from mphys.scenarios import ScenarioAeroThermal
 from pygeo.mphys import OM_DVGEOCOMP
 
 
@@ -86,20 +84,10 @@ def get_surface_mapping(Xpts_array):
     return mapping
 
 
-# def f5_writer(TACS_lib, tacs, count):
-#     flag = TACS_lib.OUTPUT_CONNECTIVITY | TACS_lib.OUTPUT_NODES | TACS_lib.OUTPUT_DISPLACEMENTS | TACS_lib.OUTPUT_STRAINS
-#     f5 = TACS_lib.ToFH5(tacs, TACS_lib.SOLID_ELEMENT, flag)
-#     fid = "output/tacs_iter_%04d.f5" % count
-#     f5.writeToFile(fid)
-#     print("tacs output written to ", fid)
-
-
 class Top(Multipoint):
     def setup(self):
-        
-        
         # ivc to keep the top level DVs
-        dvs = self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
+        self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
 
 
         ################################################################################
@@ -177,11 +165,11 @@ class Top(Multipoint):
         ################################################################################
         # MPHYS Setup
         ################################################################################
-        
+
         self.add_subsystem("geometry", OM_DVGEOCOMP(file="./ffds/n0012_ffd.xyz", type="ffd", options= {"complex":complexify}))
-        
+
         scenario = "cruise"
-        
+
         self.mphys_add_scenario(
             scenario,
             ScenarioAeroThermal(
@@ -189,35 +177,22 @@ class Top(Multipoint):
             ),
             om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-12, atol=1e-14),
             om.LinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-12, atol=1e-14),
-            # om.NonlinearRunOnce(),
-            # om.LinearRunOnce(),
         )
 
-        # for discipline in ["aero", "thermal"]:
-        #     self.mphys_connect_scenario_coordinate_source("mesh_%s" % discipline, scenario, discipline)
-            
-        
-        # for scenario in scenarios_list:
-        #     for discipline in disciplines_list:
-        #         src = f'{source}.x_{discipline}0'
-        #         target = f'{scenario}.x_{discipline}0'
-        #         self.connect(src, target)
+        self.connect(f"mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+                     f"geometry.{MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT}")
+        self.connect(f"geometry.{MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT}",
+                     f"cruise.{MPhysVariables.Aerodynamics.Surface.COORDINATES}")
 
-        # self.connect("")
-        self.connect("mesh_aero.x_aero0", "geometry.x_aero_in")
-        self.connect("mesh_thermal.x_thermal0", "geometry.x_thermal_in")
-        self.connect("geometry.x_aero0", "cruise.x_aero")
-        self.connect("geometry.x_thermal0", "cruise.x_thermal0")
-        
-        # self.connect("x_aero0", "cruise.x_aero")
-        # self.connect("x_thermal0", "cruise.x_thermal0")
-
-        # self.connect( "mesh_thermal.x_thermal0","cruise.x_thermal0")
+        self.connect(f"mesh_thermal.{MPhysVariables.Thermal.Mesh.COORDINATES}",
+                     f"geometry.{MPhysVariables.Thermal.Geometry.COORDINATES_INPUT}")
+        self.connect(f"geometry.{MPhysVariables.Thermal.Geometry.COORDINATES_OUTPUT}",
+                     f"cruise.{MPhysVariables.Thermal.COORDINATES}")
 
     def configure(self):
         # create the aero problems for the analysis point.
         # this is custom to the ADflow based approach we chose here.
-        set_coupling_algorithms_in_scenarios(self)
+        super().configure()
 
         aoa0 = 0.0
         ap0 = AeroProblem(
@@ -239,23 +214,23 @@ class Top(Multipoint):
 
         self.cruise.coupling.aero.mphys_set_ap(ap0)
         self.cruise.aero_post.mphys_set_ap(ap0)
-        
+
         # define the aero DVs in the IVC
         self.dvs.add_output("aoa", val=aoa0, units="deg")
 
         # connect to the aero for each scenario
         self.connect("aoa", ["cruise.coupling.aero.aoa", "cruise.aero_post.aoa"])
-        
-        
+
+
         self.cruise.aero_post.mphys_add_BCDVs("Temperature", famGroup="allIsothermalWalls", dv_name="T_convect", coupling=True)
         self.cruise.coupling.aero.mphys_add_BCDVs("Temperature", famGroup="allIsothermalWalls", dv_name="T_convect", coupling=True)
-         
+
         # new coupling variables were added so we need to reinitialize promotion
         self.cruise.coupling._mphys_promote_coupling_variables()
 
-        # This should be done automatically in the future, but alas it is not yet. 
+        # This should be done automatically in the future, but alas it is not yet.
         self.connect("cruise.T_convect", ["cruise.aero_post.T_convect"])
-        
+
         # create geometric DV setup
         # points_aero = self.mesh_aero.mphys_get_surface_mesh()
         # points_thermal = self.mesh_thermal.mphys_get_mesh()
@@ -273,7 +248,7 @@ class Top(Multipoint):
         # geometry setup
 
         # Create reference axis
-        
+
         nLocal = self.geometry.nom_addSpanwiseLocalDV("shape", 'k', axis="y")
 
         le = 0.01
@@ -370,7 +345,7 @@ if args.task == "run":
     prob.setup(mode="rev", force_alloc_complex=True)
     # om.n2(prob, show_browser=False, outfile="mphys_at_adflow_tacs_meld_tmp.html")
     prob.run_model()
-    
+
     if complexify:
         prob.model.approx_totals(method='cs', step=1e-40)
         from openmdao.core.total_jac import _TotalJacInfo
@@ -381,7 +356,7 @@ if args.task == "run":
         print('------------------------------------')
         print('J cs = ', Jfd)
         print('------------------------------------')
-    else:        
+    else:
         # from openmdao.core.total_jac import _TotalJacInfo
         # prob._mode='rev'
         # total_info = _TotalJacInfo(prob, "cruise.T_conduct", "x_thermal0", False, return_format='flat_dict', approx=False,
@@ -392,13 +367,12 @@ if args.task == "run":
         # print('------------------------------------')
         prob.check_totals(step=1e-10)
 
-    
-    
+
+
     # prob.model.list_outputs(print_arrays=True)
     # prob.check_partials(compact_print=True, includes='*geometry*')
 elif args.task == "opt":
     prob.setup(mode="rev")
-    
-    
-    prob.run_driver()
 
+
+    prob.run_driver()

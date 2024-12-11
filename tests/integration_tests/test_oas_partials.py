@@ -1,12 +1,11 @@
 import unittest
 
 import numpy as np
-from mpi4py import MPI
 import openmdao.api as om
 from openmdao.utils.assert_utils import assert_near_equal
 
-from mphys.multipoint import Multipoint
-from mphys.scenario_aerodynamic import ScenarioAerodynamic
+from mphys import Multipoint, MPhysVariables
+from mphys.scenarios import ScenarioAerodynamic
 from openaerostruct.mphys import AeroBuilder
 
 
@@ -60,7 +59,8 @@ class Top(Multipoint):
 
         self.add_subsystem('mesh', aero_builder.get_mesh_coordinate_subsystem())
         self.mphys_add_scenario('cruise', ScenarioAerodynamic(aero_builder=aero_builder))
-        self.connect('mesh.x_aero0', 'cruise.x_aero')
+        self.connect(f'mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}',
+                     f'cruise.{MPhysVariables.Aerodynamics.Surface.COORDINATES}')
 
         for dv in ['aoa', 'mach', 'rho', 'v', 'reynolds']:
             self.connect(dv, f'cruise.{dv}')

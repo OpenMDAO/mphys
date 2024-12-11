@@ -2,8 +2,7 @@ import unittest
 from typing import List
 import openmdao.api as om
 
-from mphys.scenario import Scenario
-from mphys import Builder
+from mphys import Scenario, Builder
 
 from common_methods import CommonMethods
 

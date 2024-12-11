@@ -1,8 +1,8 @@
 .. _remote_components:
 
-*****************
+=================
 Remote Components
-*****************
+=================
 
 The purpose of remote components is to provide a means of adding a remote physics analysis to a local OpenMDAO problem.
 One situation in which this may be desirable is when the time to carry out a full optimization exceeds an HPC job time limit.
@@ -27,15 +27,17 @@ Currently, there is one derived class for each, which use pbs4py for HPC job con
 * :class:`~mphys.network.zmq_pbs.MPhysZeroMQServerManager`: Uses ZeroMQ socket and ssh port forwarding from login to compute node to communicate with server, and pbs4py to start, stop, and check status of HPC jobs.
 * :class:`~mphys.network.zmq_pbs.MPhysZeroMQServer`: Uses ZeroMQ socket to send and receive encoded JSON dictionaries.
 
+------------------------
 RemoteZeroMQComp Options
-========================
+------------------------
 .. embed-options::
     mphys.network.zmq_pbs
     RemoteZeroMQComp
     options
 
+-----
 Usage
-=====
+-----
 When adding a :code:`RemoteZeroMQComp` component, the two required options are :code:`run_server_filename`, which is the server to be launched on an HPC job, and :code:`pbs`, which is the pbs4py Launcher object.
 The server file should accept port number as an argument to facilitate communication with the client.
 Within this file, the :code:`MPhysZeroMQServer` class's :code:`get_om_group_function_pointer` option is the pointer to the OpenMDAO Group or Multipoint class to be evaluated.
@@ -48,8 +50,9 @@ Searching for the keyword "SERVER" will display what the server is currently doi
 The HPC job for the component's server is named :code:`MPhys<port number>`; the pbs4py-generated job submission script is the same followed by ".pbs".
 Note that running the remote component in parallel is not supported, and a SystemError will be triggered otherwise.
 
+-------
 Example
-=======
+-------
 Two examples are provided for the `supersonic panel aerostructural case <https://github.com/OpenMDAO/mphys/tree/main/examples/aerostructural/supersonic_panel>`_: :code:`as_opt_remote_serial.py` and :code:`as_opt_remote_parallel.py`.
 Both run the optimization problem defined in :code:`as_opt_parallel.py`, which contains a :code:`MultipointParallel` class and thus evaluates two aerostructural scenarios in parallel.
 The serial remote example runs this group on one server.
@@ -60,8 +63,9 @@ In this particular case, scenario name(s) are sent as :code:`additional_server_a
 Using the scenario :code:`run_directory` option, the scenarios can then be evaluated in different directories.
 In both examples, the remote component(s) use a :code:`K4` pbs4py Launcher object, which will launch, monitor, and stop jobs using the K4 queue of the NASA K-cluster.
 
+---------------
 Troubleshooting
-===============
+---------------
 The :code:`dump_json` option for :code:`RemoteZeroMQComp` will make the component write input and output JSON files, which contain all data sent to and received from the server.
 An exception is the :code:`wall_time` entry (given in seconds) in the output JSON file, which is added on the client-side after the server has completed the design evaluation.
 Another entry that is only provided for informational purposes is :code:`design_counter`, which keeps track of how many different designs have been evaluated on the current server.
