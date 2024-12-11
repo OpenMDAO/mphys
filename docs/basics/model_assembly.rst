@@ -5,7 +5,7 @@ Assembling an MPhys Model
 =========================
 
 
-MPhys tries to automate most of its model assembly process using the builder software design pattern.
+MPhys seeks to automate most of its model assembly process using the builder software design pattern.
 If using a :class:`MultipointParallel <mphys.MultipointParallel>` group,
 skip steps 3-4 as these are handled within the Scenario since each Scenario will have its own MPI communicator.
 
