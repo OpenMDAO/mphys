@@ -23,31 +23,36 @@ N_el_struct = 20
 N_el_aero = 7
 
 class AerostructParallel(MultipointParallel):
-    def __init__(self, aero_builder=None, struct_builder=None, xfer_builder=None, geometry_builder=None, scenario_names=None):
-        super().__init__()
-        self.aero_builder = aero_builder
-        self.struct_builder = struct_builder
-        self.xfer_builder = xfer_builder
-        self.geometry_builder = geometry_builder
-        self.scenario_names = scenario_names
+
+    def initialize(self):
+        self.options.declare('aero_builder')
+        self.options.declare('struct_builder')
+        self.options.declare('xfer_builder')
+        self.options.declare('geometry_builder')
+        self.options.declare('scenario_names')
 
     def setup(self):
-        for i in range(len(self.scenario_names)):
+
+        for scenario_name in self.options['scenario_names']:
             nonlinear_solver = om.NonlinearBlockGS(maxiter=100, iprint=2, use_aitken=True, aitken_initial_factor=0.5)
             linear_solver = om.LinearBlockGS(maxiter=40, iprint=2, use_aitken=True, aitken_initial_factor=0.5)
-            self.mphys_add_scenario(self.scenario_names[i],
+            self.mphys_add_scenario(scenario_name,
                                     ScenarioAeroStructural(
-                                        aero_builder=self.aero_builder,
-                                        struct_builder=self.struct_builder,
-                                        ldxfer_builder=self.xfer_builder,
-                                        geometry_builder=self.geometry_builder,
+                                        aero_builder=self.options['aero_builder'],
+                                        struct_builder=self.options['struct_builder'],
+                                        ldxfer_builder=self.options['xfer_builder'],
+                                        geometry_builder=self.options['geometry_builder'],
                                         in_MultipointParallel=True),
                                     coupling_nonlinear_solver=nonlinear_solver,
                                     coupling_linear_solver=linear_solver)
 
 # OM group
 class Model(om.Group):
+    def initialize(self):
+        self.options.declare('scenario_names', default=['aerostructural1','aerostructural2'])
+
     def setup(self):
+        self.scenario_names = self.options['scenario_names']
 
         # ivc
         self.add_subsystem('ivc', om.IndepVarComp(), promotes=['*'])
@@ -76,38 +81,34 @@ class Model(om.Group):
         aero_builder = AeroBuilder(aero_setup)
 
         # xfer builder
-        xfer_builder = XferBuilder(
-            aero_builder=aero_builder,
-            struct_builder=struct_builder
-        )
+        xfer_builder = XferBuilder(aero_builder=aero_builder, struct_builder=struct_builder)
 
         # geometry
         builders = {'struct': struct_builder, 'aero': aero_builder}
         geometry_builder = GeometryBuilder(builders)
 
-        # list of scenario names
-        scenario_names = ['aerostructural1','aerostructural2']
-
         # add parallel multipoint group
-        self.add_subsystem('multipoint',AerostructParallel(
-                                        aero_builder=aero_builder,
-                                        struct_builder=struct_builder,
-                                        xfer_builder=xfer_builder,
-                                        geometry_builder=geometry_builder,
-                                        scenario_names=scenario_names))
+        self.add_subsystem('multipoint',
+                            AerostructParallel(
+                                aero_builder=aero_builder,
+                                struct_builder=struct_builder,
+                                xfer_builder=xfer_builder,
+                                geometry_builder=geometry_builder,
+                                scenario_names=self.scenario_names)
+                            )
 
-        for i in range(len(scenario_names)):
+        for i in range(len(self.scenario_names)):
 
             # connect scalar inputs to the scenario
             for var in ['modulus', 'yield_stress', 'density', 'dv_struct']:
-                self.connect(var, 'multipoint.'+scenario_names[i]+'.'+var)
+                self.connect(var, 'multipoint.'+self.scenario_names[i]+'.'+var)
 
             # connect vector inputs
             for var in ['mach', 'qdyn', 'aoa']:
-                self.connect(var, 'multipoint.'+scenario_names[i]+'.'+var, src_indices=[i])
+                self.connect(var, 'multipoint.'+self.scenario_names[i]+'.'+var, src_indices=[i])
 
             # connect top-level geom parameter
-            self.connect('geometry_morph_param', 'multipoint.'+scenario_names[i]+'.geometry.geometry_morph_param')
+            self.connect('geometry_morph_param', 'multipoint.'+self.scenario_names[i]+'.geometry.geometry_morph_param')
 
 # run model and check derivatives
 if __name__ == "__main__":

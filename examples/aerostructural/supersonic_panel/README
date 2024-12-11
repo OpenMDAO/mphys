@@ -1,0 +1,28 @@
+Summary of top-level codes:
+
+    run.py: most basic code that demonstrates a single scenario, doing a derivative check at the starting design
+    run_parallel.py: code that demonstrates two scenarios, evaluated in parallel with MultipointParallel, doing a derivative check at the starting design
+    as_opt_parallel.py: runs an optimization of the previous code's two scenarios (mass minimization subject to lift and stress constraints at the two flight conditions)
+    as_opt_remote_serial.py: runs the same optimization using one remote component that evaluates the MultipointParallel group in as_opt_parallel.py
+    as_opt_remote_parallel.py: runs the same optimization using two parallel remote components, which each evaluates the Multipoint analysis in run.py
+
+The optimizations should complete with the following metrics; note that objective and constraint names can vary slightly based on the optimization script.
+
+    Nonlinear constraints
+    {'multipoint.aerostructural1.C_L': array([0.15]),
+     'multipoint.aerostructural1.func_struct': array([1.00000023]),
+     'multipoint.aerostructural2.C_L': array([0.45]),
+     'multipoint.aerostructural2.func_struct': array([1.00000051])}
+
+    Objectives
+    {'multipoint.aerostructural1.mass': array([8.73298752e-05])}
+
+    Optimization terminated successfully    (Exit mode 0)
+                Current function value: 0.008732987524877025
+                Iterations: 22
+                Function evaluations: 24
+                Gradient evaluations: 22
+
+Note that the remote scripts, which both use mphys_server.py, are set up to use the K4 queue of NASA Langley's K cluster.
+To run this script on an HPC not supported by pbs4py, you will likely have to write your own pbs4py Launcher constructor.
+Further details on remote components may be found on the document page: https://openmdao.github.io/mphys/basics/remote_components.html

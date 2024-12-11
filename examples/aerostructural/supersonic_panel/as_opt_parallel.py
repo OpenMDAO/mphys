@@ -32,24 +32,25 @@ class AerostructParallel(MultipointParallel):
         self.options.declare('scenario_names')
 
     def setup(self):
-        for i in range(len(self.options['scenario_names'])):
+
+        for scenario_name in self.options['scenario_names']:
 
             # create the run directory
             if self.comm.rank==0:
-                if not os.path.isdir(self.options['scenario_names'][i]):
-                    os.mkdir(self.options['scenario_names'][i])
+                if not os.path.isdir(scenario_name):
+                    os.mkdir(scenario_name)
             self.comm.Barrier()
 
             nonlinear_solver = om.NonlinearBlockGS(maxiter=100, iprint=2, use_aitken=True, aitken_initial_factor=0.5)
             linear_solver = om.LinearBlockGS(maxiter=40, iprint=2, use_aitken=True, aitken_initial_factor=0.5)
-            self.mphys_add_scenario(self.options['scenario_names'][i],
+            self.mphys_add_scenario(scenario_name,
                                     ScenarioAeroStructural(
                                         aero_builder=self.options['aero_builder'],
                                         struct_builder=self.options['struct_builder'],
                                         ldxfer_builder=self.options['xfer_builder'],
                                         geometry_builder=self.options['geometry_builder'],
                                         in_MultipointParallel=True,
-                                        run_directory=self.options['scenario_names'][i]),
+                                        run_directory=scenario_name),
                                     coupling_nonlinear_solver=nonlinear_solver,
                                     coupling_linear_solver=linear_solver)
 
@@ -98,12 +99,14 @@ class Model(om.Group):
         geometry_builder = GeometryBuilder(builders)
 
         # add parallel multipoint group
-        self.add_subsystem('multipoint',AerostructParallel(
-                                        aero_builder=aero_builder,
-                                        struct_builder=struct_builder,
-                                        xfer_builder=xfer_builder,
-                                        geometry_builder=geometry_builder,
-                                        scenario_names=self.scenario_names))
+        self.add_subsystem('multipoint',
+                            AerostructParallel(
+                                aero_builder=aero_builder,
+                                struct_builder=struct_builder,
+                                xfer_builder=xfer_builder,
+                                geometry_builder=geometry_builder,
+                                scenario_names=self.scenario_names)
+                            )
 
         for i in range(len(self.scenario_names)):
 

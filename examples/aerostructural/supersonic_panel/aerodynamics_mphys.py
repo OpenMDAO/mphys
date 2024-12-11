@@ -5,7 +5,7 @@ from mpi4py import MPI
 
 from piston_theory import PistonTheory
 
-X_AERO0_MESH= MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES
+X_AERO0_MESH = MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES
 X_AERO = MPhysVariables.Aerodynamics.Surface.COORDINATES
 F_AERO = MPhysVariables.Aerodynamics.Surface.LOADS
 

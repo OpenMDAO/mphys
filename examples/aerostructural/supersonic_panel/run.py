@@ -110,6 +110,7 @@ class Model(Multipoint):
 
         for var in ['modulus', 'yield_stress', 'density', 'mach', 'qdyn', 'aoa', 'dv_struct']:
             self.connect(var, self.scenario_name+'.'+var)
+        self.connect('geometry_morph_param', 'geometry.geometry_morph_param')
         self.connect(f'geometry.{X_AERO0_GEOM_OUTPUT}', f'{self.scenario_name}.{X_AERO0}')
         self.connect(f'geometry.{X_STRUCT_GEOM_OUTPUT}', f'{self.scenario_name}.{X_STRUCT}')
 
