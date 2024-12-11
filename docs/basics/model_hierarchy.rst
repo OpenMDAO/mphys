@@ -60,7 +60,7 @@ There are two versions of the multipoint group:
 1. ``Multipoint`` is derived from the standard OpenMDAO ``Group``
 2. ``MultipointParallel`` is derived for the OpenMDAO ``ParallelGroup``.
 
-For both versions have a function,  :func:`~mphys.Multipoint.mphys_add_scenario`, is used to populate
+For both versions, a function :func:`~mphys.Multipoint.mphys_add_scenario` is used to populate
 the lower levels of the model hierarchy.
 
 .. figure:: multipoint_example.png
