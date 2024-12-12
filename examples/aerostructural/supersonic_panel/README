@@ -1,12 +1,21 @@
 Summary of top-level codes:
 
     run.py: most basic code that demonstrates a single scenario, doing a derivative check at the starting design
-    run_parallel.py: code that demonstrates two scenarios, evaluated in parallel with MultipointParallel, doing a derivative check at the starting design
+    run_parallel.py: code that demonstrates two scenarios (differing by Mach and dynamic pressure), evaluated in parallel with MultipointParallel, doing a derivative check at the starting design
     as_opt_parallel.py: runs an optimization of the previous code's two scenarios (mass minimization subject to lift and stress constraints at the two flight conditions)
     as_opt_remote_serial.py: runs the same optimization using one remote component that evaluates the MultipointParallel group in as_opt_parallel.py
     as_opt_remote_parallel.py: runs the same optimization using two parallel remote components, which each evaluates the Multipoint analysis in run.py
 
-The optimizations should complete with the following metrics; note that objective and constraint names can vary slightly based on the optimization script.
+The optimizations should complete with the following metrics (with C_L being lift coefficient and func_struct being an aggregated von Mises stress).
+Note that objective and constraint names can vary slightly based on the optimization script.
+
+    Design Vars
+    {'aoa': array([10.52590682, 18.2314054 ]),
+     'dv_struct': array([0.0001    , 0.0001    , 0.0001    , 0.0001    , 0.0001    ,
+           0.0001    , 0.0001    , 0.0001    , 0.0001    , 0.00010421,
+           0.00010883, 0.00011221, 0.00011371, 0.00011452, 0.0001133 ,
+           0.00010892, 0.00010359, 0.0001    , 0.0001    , 0.0001    ]),
+     'geometry_morph_param': array([0.1])}
 
     Nonlinear constraints
     {'multipoint.aerostructural1.C_L': array([0.15]),
@@ -23,6 +32,6 @@ The optimizations should complete with the following metrics; note that objectiv
                 Function evaluations: 24
                 Gradient evaluations: 22
 
-Note that the remote scripts, which both use mphys_server.py, are set up to use the K4 queue of NASA Langley's K cluster.
+Note that the remote scripts, which both use mphys_server.py to launch the HPC job used for the analyses, are set up to use the K4 queue of NASA Langley's K cluster.
 To run this script on an HPC not supported by pbs4py, you will likely have to write your own pbs4py Launcher constructor.
-Further details on remote components may be found on the document page: https://openmdao.github.io/mphys/basics/remote_components.html
+Further details on remote components may be found on the document page on remote components: https://openmdao.github.io/mphys/basics/remote_components.html
