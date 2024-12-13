@@ -52,7 +52,7 @@ class Top(Multipoint):
 
     def setup(self):
         tacs_builder = TacsBuilder(mesh_file='../input_files/debug.bdf', element_callback=element_callback,
-                                   problem_setup=problem_setup, check_partials=True, coupled=False,
+                                   problem_setup=problem_setup, check_partials=True,
                                    write_solution=False)
         tacs_builder.initialize(self.comm)
         ndv_struct = tacs_builder.get_ndv()

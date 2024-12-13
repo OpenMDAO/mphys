@@ -48,11 +48,11 @@ class Top(Multipoint):
         re = 1e6
 
         dvs = self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
-        dvs.add_output("aoa", val=aoa, units="deg")
+        dvs.add_output(MPhysVariables.Aerodynamics.FlowConditions.ANGLE_OF_ATTACK, val=aoa, units="deg")
         dvs.add_output("rho", val=rho, units="kg/m**3")
-        dvs.add_output("mach", mach)
+        dvs.add_output(MPhysVariables.Aerodynamics.FlowConditions.MACH_NUMBER, mach)
         dvs.add_output("v", vel, units="m/s")
-        dvs.add_output("reynolds", re, units="1/m")
+        dvs.add_output(MPhysVariables.Aerodynamics.FlowConditions.REYNOLDS_NUMBER, re, units="1/m")
 
         aero_builder = AeroBuilder([surface], options={"write_solution": False})
         aero_builder.initialize(self.comm)
@@ -62,7 +62,10 @@ class Top(Multipoint):
         self.connect(f'mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}',
                      f'cruise.{MPhysVariables.Aerodynamics.Surface.COORDINATES}')
 
-        for dv in ['aoa', 'mach', 'rho', 'v', 'reynolds']:
+        for dv in [MPhysVariables.Aerodynamics.FlowConditions.ANGLE_OF_ATTACK,
+                   MPhysVariables.Aerodynamics.FlowConditions.MACH_NUMBER,
+                   MPhysVariables.Aerodynamics.FlowConditions.REYNOLDS_NUMBER,
+                   'rho', 'v']:
             self.connect(dv, f'cruise.{dv}')
 
 class TestOAS(unittest.TestCase):

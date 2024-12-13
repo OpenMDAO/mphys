@@ -78,7 +78,8 @@ class Top(Multipoint):
             #struct_assembler = ModalStructAssembler(tacs_options)
         else:
             struct_builder = TacsBuilder(mesh_file='../input_files/debug.bdf', element_callback=element_callback,
-                                         problem_setup=problem_setup, check_partials=True, coupled=True,
+                                         problem_setup=problem_setup, check_partials=True,
+                                         coupling_loads=[MPhysVariables.Structures.Loads.AERODYNAMIC],
                                          write_solution=False)
 
         struct_builder.initialize(self.comm)

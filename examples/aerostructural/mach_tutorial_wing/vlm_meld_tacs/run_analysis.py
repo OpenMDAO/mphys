@@ -39,7 +39,8 @@ class Top(Multipoint):
 
         # TACS setup
         struct_builder = TacsBuilder(mesh_file="wingbox_Y_Z_flip.bdf", element_callback=tacs_setup.element_callback,
-                                     problem_setup=tacs_setup.problem_setup, coupled=True)
+                                     problem_setup=tacs_setup.problem_setup,
+                                     coupling_loads=[MPhysVariables.Structures.Loads.AERODYNAMIC])
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
 
