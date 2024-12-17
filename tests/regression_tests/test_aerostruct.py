@@ -131,7 +131,8 @@ class Top(Multipoint):
         # TACS setup
         ################################################################################
         struct_builder = TacsBuilder(mesh_file='../input_files/wingbox.bdf', element_callback=element_callback,
-                                     problem_setup=problem_setup, coupled=True)
+                                     problem_setup=problem_setup,
+                                     coupling_loads=[MPhysVariables.Structures.Loads.AERODYNAMIC])
         struct_builder.initialize(self.comm)
 
         self.add_subsystem("mesh_struct", struct_builder.get_mesh_coordinate_subsystem())

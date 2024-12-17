@@ -54,12 +54,12 @@ class Top(Multipoint):
         re = 1e6
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
-        dvs.add_output('aoa', val=aoa, units='deg')
-        dvs.add_output('yaw', val=yaw, units='deg')
+        dvs.add_output(MPhysVariables.Aerodynamics.FlowConditions.ANGLE_OF_ATTACK, val=aoa, units='deg')
+        dvs.add_output(MPhysVariables.Aerodynamics.FlowConditions.YAW_ANGLE, val=yaw, units='deg')
         dvs.add_output('rho', val=rho, units='kg/m**3')
-        dvs.add_output('mach', mach)
+        dvs.add_output(MPhysVariables.Aerodynamics.FlowConditions.MACH_NUMBER, mach)
         dvs.add_output('v', vel, units='m/s')
-        dvs.add_output('reynolds', re, units="1/m")
+        dvs.add_output(MPhysVariables.Aerodynamics.FlowConditions.REYNOLDS_NUMBER, re, units="1/m")
 
         # OpenAeroStruct
         aero_builder = AeroBuilder(surfaces)
@@ -70,7 +70,8 @@ class Top(Multipoint):
         # TACS setup
         struct_builder = TacsBuilder(mesh_file=bdf_file, element_callback=tacs_setup.element_callback,
                                      problem_setup=tacs_setup.problem_setup,
-                                     constraint_setup=tacs_setup.constraint_setup, coupled=True)
+                                     constraint_setup=tacs_setup.constraint_setup,
+                                     coupling_loads=[MPhysVariables.Structures.Loads.AERODYNAMIC])
 
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
@@ -92,7 +93,11 @@ class Top(Multipoint):
         self.connect(f'mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}',
                      f'maneuver.{MPhysVariables.Structures.COORDINATES}')
 
-        for dv in ['aoa', 'yaw', 'rho', 'mach', 'v', 'reynolds']:
+        for dv in [MPhysVariables.Aerodynamics.FlowConditions.ANGLE_OF_ATTACK,
+                   MPhysVariables.Aerodynamics.FlowConditions.YAW_ANGLE,
+                   MPhysVariables.Aerodynamics.FlowConditions.MACH_NUMBER,
+                   MPhysVariables.Aerodynamics.FlowConditions.REYNOLDS_NUMBER,
+                   'rho', 'v']:
             self.connect(dv, f'maneuver.{dv}')
         self.connect('dv_struct', 'maneuver.dv_struct')
 
@@ -103,7 +108,7 @@ model = prob.model
 
 # Add wingbox panel thicknesses and angle of attack as design variables
 model.add_design_var('dv_struct', lower=0.002, upper=0.2, scaler=1000.0)
-model.add_design_var('aoa', lower=-10, upper=10.0, scaler=0.1)
+model.add_design_var(MPhysVariables.Aerodynamics.FlowConditions.ANGLE_OF_ATTACK, lower=-10, upper=10.0, scaler=0.1)
 # Structural mass of half wing
 model.add_objective('maneuver.mass', scaler=1.0/1000.0)
 # Max stress constraint

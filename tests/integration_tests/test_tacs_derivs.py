@@ -68,7 +68,9 @@ class Top(Multipoint):
     def setup(self):
         tacs_builder = TacsBuilder(mesh_file='../input_files/debug.bdf', element_callback=element_callback,
                                    problem_setup=problem_setup,
-                                   check_partials=True, coupled=True, write_solution=False)
+                                   check_partials=True,
+                                   coupling_loads=[MPhysVariables.Structures.Loads.AERODYNAMIC],
+                                   write_solution=False)
         tacs_builder.initialize(self.comm)
         ndv_struct = tacs_builder.get_ndv()
 
@@ -85,7 +87,7 @@ class Top(Multipoint):
         self.connect(f'mesh.{MPhysVariables.Structures.Mesh.COORDINATES}',
                      f'analysis.{MPhysVariables.Structures.COORDINATES}')
         self.connect('dv_struct', 'analysis.dv_struct')
-        self.connect('f_struct', f'analysis.{MPhysVariables.Structures.LOADS_FROM_AERODYNAMICS}')
+        self.connect('f_struct', f'analysis.{MPhysVariables.Structures.Loads.AERODYNAMIC}')
 
 
 class TestTACS(unittest.TestCase):
@@ -105,7 +107,7 @@ class TestTACS(unittest.TestCase):
         self.prob.run_model()
         print('----------------starting check totals--------------')
         data = self.prob.check_totals(of=['analysis.ks_vmfailure', 'analysis.mass'],
-                                      wrt='mesh.fea_mesh.x_struct0', method='cs',
+                                      wrt=f'mesh.fea_mesh.{MPhysVariables.Structures.Mesh.COORDINATES}', method='cs',
                                       step=1e-50, step_calc='rel')
         assert_check_totals(data, atol=1e99, rtol=1e-7)
 

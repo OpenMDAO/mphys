@@ -98,12 +98,12 @@ class Top(Multipoint):
         re = 1e6
 
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
-        dvs.add_output('aoa', val=aoa, units='deg')
-        dvs.add_output('yaw', val=yaw, units='deg')
+        dvs.add_output(MPhysVariables.Aerodynamics.FlowConditions.ANGLE_OF_ATTACK, val=aoa, units='deg')
+        dvs.add_output(MPhysVariables.Aerodynamics.FlowConditions.YAW_ANGLE, val=yaw, units='deg')
         dvs.add_output('rho', val=rho, units='kg/m**3')
-        dvs.add_output('mach', mach)
+        dvs.add_output(MPhysVariables.Aerodynamics.FlowConditions.MACH_NUMBER, mach)
         dvs.add_output('v', vel, units='m/s')
-        dvs.add_output('reynolds', re, units="1/m")
+        dvs.add_output(MPhysVariables.Aerodynamics.FlowConditions.REYNOLDS_NUMBER, re, units="1/m")
 
         aero_builder = AeroBuilder([surface], options={"write_solution": False})
         aero_builder.initialize(self.comm)
@@ -112,7 +112,8 @@ class Top(Multipoint):
 
         # TACS setup
         struct_builder = TacsBuilder(mesh_file='../input_files/debug.bdf', element_callback=element_callback,
-                                     problem_setup=problem_setup, check_partials=True, coupled=True,
+                                     problem_setup=problem_setup, check_partials=True,
+                                     coupling_loads=[MPhysVariables.Structures.Loads.AERODYNAMIC],
                                      write_solution=False)
 
         struct_builder.initialize(self.comm)
@@ -141,7 +142,11 @@ class Top(Multipoint):
         self.connect(f'mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}',
                      f'cruise.{MPhysVariables.Structures.COORDINATES}')
 
-        for dv in ['aoa', 'yaw', 'rho', 'mach', 'v', 'reynolds']:
+        for dv in [MPhysVariables.Aerodynamics.FlowConditions.ANGLE_OF_ATTACK,
+                   MPhysVariables.Aerodynamics.FlowConditions.YAW_ANGLE,
+                   MPhysVariables.Aerodynamics.FlowConditions.MACH_NUMBER,
+                   MPhysVariables.Aerodynamics.FlowConditions.REYNOLDS_NUMBER,
+                   'rho', 'v']:
             self.connect(dv, f'cruise.{dv}')
         self.connect('dv_struct', 'cruise.dv_struct')
 
@@ -161,7 +166,8 @@ class TestTACS(unittest.TestCase):
         self.prob.run_model()
         print('----------------starting check totals--------------')
         data = self.prob.check_totals(of=['cruise.wing.CL', 'cruise.ks_vmfailure', 'cruise.mass'],
-                                      wrt=['aoa', 'dv_struct'], method='fd', form='central',
+                                      wrt=[MPhysVariables.Aerodynamics.FlowConditions.ANGLE_OF_ATTACK, 'dv_struct'],
+                                      method='fd', form='central',
                                       step=1e-5, step_calc='rel')
         assert_check_totals(data, atol=1e99, rtol=1e-6)
 
