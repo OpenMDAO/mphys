@@ -35,7 +35,7 @@ Open-source codes with builders and components compatible with mphys:
 |------------------------------------------------------------|----------------------|--------------------------------|-------------------------------------------------------------------------|
 | [ADflow](https://github.com/mdolab/adflow)                 | 2.12.0               | Aerodynamics                   | Structured multi-block and overset CFD.                                 |
 | [DAfoam](https://github.com/mdolab/dafoam)                 | 3.2.0                | Aerodynamics                   | Discrete Adjoint with OpenFOAM.                                         |
-| [OpenAeroStruct](https://github.com/mdolab/openaerostruct) | 2.10.0               | Aerodynamics                   | Vortex lattice aerodynamics written using OpenMDAO.                     |
+| [OpenAeroStruct](https://github.com/mdolab/openaerostruct) | 2.9.1                | Aerodynamics                   | Vortex lattice aerodynamics written using OpenMDAO.                     |
 | [FunToFEM](https://github.com/smdogroup/funtofem)          | 0.3.8                | Load and Displacement Transfer | Point cloud based transfer scheme. Part of the FUNtoFEM package.        |
 | [pyCycle](https://github.com/OpenMDAO/pyCycle)             | 4.3.0                | Propulsion                     | Thermodynamic cycle modeling library for engines.                       |
 | [pyGeo](https://github.com/mdolab/pygeo)                   | 1.15.0               | Geometric Parameterization     | Wrapper for ESP, OpenVSP, and a free-form deformation parameterization. |

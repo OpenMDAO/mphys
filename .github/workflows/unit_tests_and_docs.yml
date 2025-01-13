@@ -79,7 +79,7 @@ jobs:
           chmod +x get-input-files.sh
           ./get-input-files.sh
           cd ../integration_tests
-          testflo test_tacs_* test_meld_* #test_oas_*
+          testflo test_tacs_* test_meld_* test_oas_*
           echo "=============================================================";
           echo "Making docs";
           echo "=============================================================";
