@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>mphys.network.server &#8212; MPhys  documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../_static/style.css?v=90ca181f" />
     <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
@@ -34,12 +34,12 @@
           <div class="body" role="main">
             
   <h1>Source code for mphys.network.server</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">openmdao.api</span> <span class="k">as</span> <span class="nn">om</span>
-<span class="kn">import</span> <span class="nn">warnings</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">openmdao.api</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">om</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
 <div class="viewcode-block" id="Server">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server.Server">[docs]</a>
-<span class="k">class</span> <span class="nc">Server</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Server</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A class that serves as an OpenMDAO model analysis server. Launched</span>
 <span class="sd">    by a server run file by the ServerManager and runs on an HPC job,</span>
@@ -60,7 +60,7 @@
 <span class="sd">    rerun_initial_design : bool</span>
 <span class="sd">        Whether to evaluate the baseline design upon starup</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">get_om_group_function_pointer</span><span class="p">,</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">get_om_group_function_pointer</span><span class="p">,</span>
                  <span class="n">ignore_setup_warnings</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
                  <span class="n">ignore_runtime_warnings</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
                  <span class="n">rerun_initial_design</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
@@ -79,13 +79,13 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_load_the_model</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_parse_incoming_message</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_incoming_message</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
-    <span class="k">def</span> <span class="nf">_send_outputs_to_client</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_send_outputs_to_client</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
-    <span class="k">def</span> <span class="nf">_load_the_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_the_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">prob</span> <span class="o">=</span> <span class="n">om</span><span class="o">.</span><span class="n">Problem</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_om_group_function_pointer</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ignore_setup_warnings</span><span class="p">:</span>
@@ -101,7 +101,7 @@
                 <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;SERVER: Evaluating baseline design&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_run_model</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_run_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ignore_runtime_warnings</span><span class="p">:</span>
             <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">(</span><span class="n">record</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">w</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">run_model</span><span class="p">()</span>
@@ -111,7 +111,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">design_counter</span> <span class="o">+=</span> <span class="mi">1</span>
 
-    <span class="k">def</span> <span class="nf">_compute_totals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_totals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">of</span><span class="p">,</span> <span class="n">wrt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_derivative_inputs_outputs</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ignore_runtime_warnings</span><span class="p">:</span>
             <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">(</span><span class="n">record</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">w</span><span class="p">:</span>
@@ -120,7 +120,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">compute_totals</span><span class="p">(</span><span class="n">of</span><span class="o">=</span><span class="n">of</span><span class="p">,</span> <span class="n">wrt</span><span class="o">=</span><span class="n">wrt</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">current_derivatives_have_been_evaluated</span> <span class="o">=</span> <span class="kc">True</span>
 
-    <span class="k">def</span> <span class="nf">_get_derivative_inputs_outputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_derivative_inputs_outputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">of</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_responses</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="n">of</span> <span class="o">+=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s1">&#39;source&#39;</span><span class="p">]]</span>
@@ -133,7 +133,7 @@
 
         <span class="k">return</span> <span class="n">of</span><span class="p">,</span> <span class="n">wrt</span>
 
-    <span class="k">def</span> <span class="nf">_gather_design_inputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="p">{}):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gather_design_inputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="p">{}):</span>
         <span class="n">design_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_design_vars</span>
         <span class="n">remote_output_dict</span><span class="p">[</span><span class="s1">&#39;design_vars&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">dv</span> <span class="ow">in</span> <span class="n">design_vars</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
@@ -152,7 +152,7 @@
                     <span class="n">remote_output_dict</span><span class="p">[</span><span class="s1">&#39;design_vars&#39;</span><span class="p">][</span><span class="n">dv</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s1">&#39;design_vars&#39;</span><span class="p">][</span><span class="n">dv</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
-    <span class="k">def</span> <span class="nf">_gather_additional_inputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="p">{}):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gather_additional_inputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="p">{}):</span>
         <span class="n">remote_output_dict</span><span class="p">[</span><span class="s1">&#39;additional_inputs&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="nb">input</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span><span class="p">:</span>
             <span class="n">remote_output_dict</span><span class="p">[</span><span class="s1">&#39;additional_inputs&#39;</span><span class="p">][</span><span class="nb">input</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;val&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="nb">input</span><span class="p">)}</span>
@@ -160,7 +160,7 @@
                 <span class="n">remote_output_dict</span><span class="p">[</span><span class="s1">&#39;additional_inputs&#39;</span><span class="p">][</span><span class="nb">input</span><span class="p">][</span><span class="s1">&#39;val&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s1">&#39;additional_inputs&#39;</span><span class="p">][</span><span class="nb">input</span><span class="p">][</span><span class="s1">&#39;val&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
-    <span class="k">def</span> <span class="nf">_gather_design_outputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="p">{}):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gather_design_outputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="p">{}):</span>
         <span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_responses</span>
         <span class="n">remote_output_dict</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;objective&#39;</span><span class="p">:{},</span> <span class="s1">&#39;constraints&#39;</span><span class="p">:{}})</span>
         <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">responses</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
@@ -187,7 +187,7 @@
                     <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
-    <span class="k">def</span> <span class="nf">_set_reference_vals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_dict</span><span class="p">,</span> <span class="n">om_dict</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_reference_vals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_dict</span><span class="p">,</span> <span class="n">om_dict</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">remote_dict</span><span class="p">[</span><span class="s1">&#39;ref&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">remote_dict</span><span class="p">[</span><span class="s1">&#39;ref0&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span> <span class="c1"># using ref/ref0</span>
             <span class="n">remote_dict</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;scaler&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
                                 <span class="s1">&#39;adder&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span>
@@ -204,7 +204,7 @@
                 <span class="n">remote_dict</span><span class="p">[</span><span class="s1">&#39;adder&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">return</span> <span class="n">remote_dict</span>
 
-    <span class="k">def</span> <span class="nf">_apply_reference_vals_to_desvar_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">desvar_dict</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_reference_vals_to_desvar_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">desvar_dict</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;adder&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;scaler&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="c1"># using ref/ref0</span>
             <span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;lower&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;lower&#39;</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;ref&#39;</span><span class="p">]</span><span class="o">-</span><span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;ref0&#39;</span><span class="p">])</span> <span class="o">+</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;ref0&#39;</span><span class="p">]</span>
             <span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;upper&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;upper&#39;</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;ref&#39;</span><span class="p">]</span><span class="o">-</span><span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;ref0&#39;</span><span class="p">])</span> <span class="o">+</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;ref0&#39;</span><span class="p">]</span>
@@ -213,7 +213,7 @@
             <span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;upper&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;upper&#39;</span><span class="p">]</span><span class="o">/</span><span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;scaler&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s1">&#39;adder&#39;</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">desvar_dict</span>
 
-    <span class="k">def</span> <span class="nf">_apply_reference_vals_to_constraint_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constraint_dict</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_reference_vals_to_constraint_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constraint_dict</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s1">&#39;adder&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s1">&#39;scaler&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="c1"># using ref/ref0</span>
             <span class="k">if</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s1">&#39;equals&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span> <span class="c1"># equality constraint</span>
                 <span class="n">constraint_dict</span><span class="p">[</span><span class="s1">&#39;equals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s1">&#39;equals&#39;</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s1">&#39;ref&#39;</span><span class="p">]</span><span class="o">-</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s1">&#39;ref0&#39;</span><span class="p">])</span> <span class="o">+</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s1">&#39;ref0&#39;</span><span class="p">]</span>
@@ -232,7 +232,7 @@
                     <span class="n">constraint_dict</span><span class="p">[</span><span class="s1">&#39;upper&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s1">&#39;upper&#39;</span><span class="p">]</span><span class="o">/</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s1">&#39;scaler&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s1">&#39;adder&#39;</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">constraint_dict</span>
 
-    <span class="k">def</span> <span class="nf">_gather_additional_outputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="p">{}):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gather_additional_outputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="p">{}):</span>
         <span class="n">remote_output_dict</span><span class="p">[</span><span class="s1">&#39;additional_outputs&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_outputs</span><span class="p">:</span>
             <span class="n">remote_output_dict</span><span class="p">[</span><span class="s1">&#39;additional_outputs&#39;</span><span class="p">][</span><span class="n">output</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;val&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">)}</span>
@@ -240,7 +240,7 @@
                 <span class="n">remote_output_dict</span><span class="p">[</span><span class="s1">&#39;additional_outputs&#39;</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s1">&#39;val&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s1">&#39;additional_outputs&#39;</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s1">&#39;val&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
-    <span class="k">def</span> <span class="nf">_gather_design_derivatives_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gather_design_derivatives_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="p">):</span>
         <span class="n">design_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_design_vars</span>
         <span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_responses</span>
         <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">responses</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
@@ -258,7 +258,7 @@
                 <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="s1">&#39;derivatives&#39;</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span> <span class="o">=</span> <span class="n">deriv</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
-    <span class="k">def</span> <span class="nf">_gather_additional_output_derivatives_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gather_additional_output_derivatives_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_outputs</span><span class="p">:</span>
             <span class="n">remote_output_dict</span><span class="p">[</span><span class="s1">&#39;additional_outputs&#39;</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s1">&#39;derivatives&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
@@ -278,7 +278,7 @@
 
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
-    <span class="k">def</span> <span class="nf">_gather_additional_input_derivatives_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gather_additional_input_derivatives_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="p">):</span>
         <span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_responses</span>
         <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">responses</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
 
@@ -294,7 +294,7 @@
                 <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="s1">&#39;derivatives&#39;</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span> <span class="o">=</span> <span class="n">deriv</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
-    <span class="k">def</span> <span class="nf">_gather_inputs_and_outputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gather_inputs_and_outputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gather_design_inputs_from_om_problem</span><span class="p">()</span>
         <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gather_design_outputs_from_om_problem</span><span class="p">(</span><span class="n">remote_output_dict</span><span class="p">)</span>
         <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gather_additional_inputs_from_om_problem</span><span class="p">(</span><span class="n">remote_output_dict</span><span class="p">)</span>
@@ -306,7 +306,7 @@
         <span class="n">remote_output_dict</span><span class="p">[</span><span class="s1">&#39;design_counter&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">design_counter</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
-    <span class="k">def</span> <span class="nf">_set_design_variables_into_the_server_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_design_variables_into_the_server_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
         <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;design_vars&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="o">!=</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;design_vars&#39;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s1">&#39;val&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
@@ -314,14 +314,14 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">set_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;design_vars&#39;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s1">&#39;val&#39;</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">design_changed</span>
 
-    <span class="k">def</span> <span class="nf">_set_additional_inputs_into_the_server_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">,</span> <span class="n">design_changed</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_additional_inputs_into_the_server_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">,</span> <span class="n">design_changed</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;additional_inputs&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="o">!=</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;additional_inputs&#39;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s1">&#39;val&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
                 <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">set_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;additional_inputs&#39;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s1">&#39;val&#39;</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">design_changed</span>
 
-    <span class="k">def</span> <span class="nf">_save_additional_variable_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_save_additional_variable_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span> <span class="o">=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;additional_inputs&#39;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">additional_outputs</span> <span class="o">=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;additional_outputs&#39;</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span><span class="p">,</span><span class="s1">&#39;keys&#39;</span><span class="p">):</span>
@@ -329,7 +329,7 @@
 
 <div class="viewcode-block" id="Server.run">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server.Server.run">[docs]</a>
-    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Run the server.</span>
 <span class="sd">        &quot;&quot;&quot;</span>

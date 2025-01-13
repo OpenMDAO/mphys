@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>mphys.core.builder &#8212; MPhys  documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../_static/style.css?v=90ca181f" />
     <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
@@ -36,12 +36,12 @@
   <h1>Source code for mphys.core.builder</h1><div class="highlight"><pre>
 <div class="viewcode-block" id="Builder">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder">[docs]</a>
-<span></span><span class="k">class</span> <span class="nc">Builder</span><span class="p">:</span>
+<span></span><span class="k">class</span><span class="w"> </span><span class="nc">Builder</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    MPHYS builder base class. Template for developers to create their builders.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Because the MPI communicator that will be used inside the OpenMDAO</span>
 <span class="sd">        problem is not known when the builder is instantiated. The actual</span>
@@ -52,7 +52,7 @@
 
 <div class="viewcode-block" id="Builder.initialize">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.initialize">[docs]</a>
-    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">comm</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">comm</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize the solver, transfer scheme, etc.</span>
 <span class="sd">        This method will be called when the MPI comm is available</span>
@@ -68,7 +68,7 @@
 
 <div class="viewcode-block" id="Builder.get_mesh_coordinate_subsystem">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_mesh_coordinate_subsystem">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_mesh_coordinate_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_mesh_coordinate_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        The subsystem that contains the subsystem that will return the mesh</span>
 <span class="sd">        coordinates</span>
@@ -88,7 +88,7 @@
 
 <div class="viewcode-block" id="Builder.get_coupling_group_subsystem">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_coupling_group_subsystem">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_coupling_group_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_coupling_group_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        The subsystem that this builder will add to the CouplingGroup</span>
 
@@ -108,7 +108,7 @@
 
 <div class="viewcode-block" id="Builder.get_pre_coupling_subsystem">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_pre_coupling_subsystem">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_pre_coupling_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_pre_coupling_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Method that returns the openmdao subsystem to be added to each scenario before the coupling group</span>
 
@@ -126,7 +126,7 @@
 
 <div class="viewcode-block" id="Builder.get_post_coupling_subsystem">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_post_coupling_subsystem">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_post_coupling_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_post_coupling_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Method that returns the openmdao subsystem to be added to each scenario after the coupling group</span>
 
@@ -144,7 +144,7 @@
 
 <div class="viewcode-block" id="Builder.get_number_of_nodes">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_number_of_nodes">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_number_of_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_number_of_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Method that returns the number of nodes defining the interface</span>
 <span class="sd">        (input) mesh</span>
@@ -160,7 +160,7 @@
 
 <div class="viewcode-block" id="Builder.get_ndof">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_ndof">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        The number of degrees of freedom used at each output location.</span>
 
@@ -174,7 +174,7 @@
 
 <div class="viewcode-block" id="Builder.get_tagged_indices">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_tagged_indices">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_tagged_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tags</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_tagged_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tags</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Method that returns grid IDs for a list of body/boundary tags.</span>
 

@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>mphys.core.mphys_group &#8212; MPhys  documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../_static/style.css?v=90ca181f" />
     <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
@@ -34,23 +34,23 @@
           <div class="body" role="main">
             
   <h1>Source code for mphys.core.mphys_group</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">openmdao.api</span> <span class="kn">import</span> <span class="n">Group</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">openmdao.api</span><span class="w"> </span><span class="kn">import</span> <span class="n">Group</span>
 
 
 <div class="viewcode-block" id="MPhysGroup">
 <a class="viewcode-back" href="../../../developers/mphys_group.html#mphys.MPhysGroup">[docs]</a>
-<span class="k">class</span> <span class="nc">MPhysGroup</span><span class="p">(</span><span class="n">Group</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MPhysGroup</span><span class="p">(</span><span class="n">Group</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A OpenMDAO class for automated promotion of MPhys variables</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">mphys_subsystems</span> <span class="o">=</span> <span class="p">[]</span>
 
 <div class="viewcode-block" id="MPhysGroup.mphys_add_subsystem">
 <a class="viewcode-back" href="../../../developers/mphys_group.html#mphys.MPhysGroup.mphys_add_subsystem">[docs]</a>
-    <span class="k">def</span> <span class="nf">mphys_add_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mphys_add_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Adding an mphys subsystem will add the subsystem and then set the group</span>
 <span class="sd">        to automatically promote the mphys tagged variables</span>
@@ -62,7 +62,7 @@
 
 <div class="viewcode-block" id="MPhysGroup.configure">
 <a class="viewcode-back" href="../../../developers/mphys_group.html#mphys.MPhysGroup.configure">[docs]</a>
-    <span class="k">def</span> <span class="nf">configure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Promote the mphys-tagged variables of subsystems added by :func:`~MPhysGroup.mphys_add_subsystem`</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -73,7 +73,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_mphys_promote_time_derivatives</span><span class="p">()</span></div>
 
 
-    <span class="k">def</span> <span class="nf">_mphys_promote_by_tag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iotype</span><span class="p">,</span> <span class="n">tag</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mphys_promote_by_tag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iotype</span><span class="p">,</span> <span class="n">tag</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">subsystem</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mphys_subsystems</span><span class="p">:</span>
             <span class="n">promoted</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="n">tagged_variables</span> <span class="o">=</span> <span class="n">subsystem</span><span class="o">.</span><span class="n">get_io_metadata</span><span class="p">(</span><span class="n">iotypes</span><span class="o">=</span><span class="n">iotype</span><span class="p">,</span>
@@ -85,19 +85,19 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">promotes</span><span class="p">(</span><span class="n">subsystem</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">any</span><span class="o">=</span><span class="p">[</span><span class="n">variable</span><span class="p">])</span>
                     <span class="n">promoted</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">variable</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_mphys_promote_time_derivatives</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mphys_promote_time_derivatives</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mphys_promote_by_tag</span><span class="p">([</span><span class="s1">&#39;input&#39;</span><span class="p">,</span> <span class="s1">&#39;output&#39;</span><span class="p">],</span> <span class="s1">&#39;mphys_time_derivative&#39;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_mphys_promote_coupling_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mphys_promote_coupling_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mphys_promote_by_tag</span><span class="p">([</span><span class="s1">&#39;input&#39;</span><span class="p">,</span> <span class="s1">&#39;output&#39;</span><span class="p">],</span> <span class="s1">&#39;mphys_coupling&#39;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_mphys_promote_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mphys_promote_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mphys_promote_by_tag</span><span class="p">(</span><span class="s1">&#39;input&#39;</span><span class="p">,</span> <span class="s1">&#39;mphys_input&#39;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_mphys_promote_mesh_coordinates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mphys_promote_mesh_coordinates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mphys_promote_by_tag</span><span class="p">([</span><span class="s1">&#39;input&#39;</span><span class="p">,</span> <span class="s1">&#39;output&#39;</span><span class="p">],</span> <span class="s1">&#39;mphys_coordinates&#39;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_mphys_promote_results</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mphys_promote_results</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mphys_promote_by_tag</span><span class="p">(</span><span class="s1">&#39;output&#39;</span><span class="p">,</span> <span class="s1">&#39;mphys_result&#39;</span><span class="p">)</span></div>
 
 </pre></div>

@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>Variable Naming Conventions &#8212; MPhys  documentation</title>
-    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../_static/style.css?v=90ca181f" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
@@ -48,15 +48,15 @@ This table provides the required names for coupling variables associated with a 
 <p>The variable naming convention is defined as a Nested Classes with static variables.
 The names are access from the <code class="docutils literal notranslate"><span class="pre">MPhysVariables</span></code> class.
 If defining an component that uses the MPhys variable names repeatedly, it is often uses to define a local copy due to the long names that the nested variable classes.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">openmdao.api</span> <span class="k">as</span> <span class="nn">om</span>
-<span class="kn">from</span> <span class="nn">mphys</span> <span class="kn">import</span> <span class="n">MPhysVariables</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">openmdao.api</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">om</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mphys</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPhysVariables</span>
 
 <span class="n">X_AERO0</span> <span class="o">=</span> <span class="n">MPhysVariables</span><span class="o">.</span><span class="n">Aerodynamics</span><span class="o">.</span><span class="n">Surface</span><span class="o">.</span><span class="n">COORDINATES_INITIAL</span>
 <span class="n">U_AERO</span> <span class="o">=</span> <span class="n">MPhysVariables</span><span class="o">.</span><span class="n">Aerodynamics</span><span class="o">.</span><span class="n">Surface</span><span class="o">.</span><span class="n">DISPLACEMENTS</span>
 <span class="n">F_AERO</span> <span class="o">=</span> <span class="n">MPhysVariables</span><span class="o">.</span><span class="n">Aerodynamics</span><span class="o">.</span><span class="n">Surface</span><span class="o">.</span><span class="n">LOADS</span>
 
-<span class="k">class</span> <span class="nc">AeroSolver</span><span class="p">(</span><span class="n">om</span><span class="o">.</span><span class="n">ImplicitComponent</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AeroSolver</span><span class="p">(</span><span class="n">om</span><span class="o">.</span><span class="n">ImplicitComponent</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">add_input</span><span class="p">(</span><span class="n">X_AERO0</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">distributed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;mphys_coordinates&#39;</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">add_input</span><span class="p">(</span><span class="n">U_AERO0</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">distributed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;mphys_coupling&#39;</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">add_output</span><span class="p">(</span><span class="n">F_AERO0</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">distributed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;mphys_coupling&#39;</span><span class="p">])</span>
