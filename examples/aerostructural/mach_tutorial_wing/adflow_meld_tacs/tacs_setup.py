@@ -38,7 +38,7 @@ def problem_setup(scenario_name, fea_assembler, problem):
     problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=100.0)
 
     # Add gravity load
-    g = np.array([0.0, -9.81, 0.0])  # m/s^2
+    g = np.array([0.0, 0.0, -9.81])  # m/s^2
     if scenario_name == 'maneuver':
         problem.addInertialLoad(2.5 * g)
     else: # cruise
