@@ -1,0 +1,16 @@
+# --- code style check by flake8 ---
+flake8:
+  runs-on: ubuntu-latest
+  steps:
+  - uses: actions/checkout@v2
+  - name: Set up Python 3.8
+    uses: actions/setup-python@v2
+    with:
+      python-version: '3.8'
+
+  # use both MDO Lab standard config
+  - name: Code style (flake8)
+    run: |
+      pip install flake8==3.9.2
+      wget https://raw.githubusercontent.com/mdolab/.github/master/.flake8 -O .flake8_mdolab
+      python -m flake8 mphys --append-config .flake8_mdolab --count --show-source --statistics
