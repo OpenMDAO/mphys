@@ -1,8 +1,7 @@
 import numpy as np
 import openmdao.api as om
-
-from modal_comps import ModalDisplacements, ModalForces, ModalStep, HarmonicForcer
-
+from modal_comps import (HarmonicForcer, ModalDisplacements, ModalForces,
+                         ModalStep)
 
 nsteps = 10
 nmodes = 2

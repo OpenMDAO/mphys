@@ -1,5 +1,6 @@
 import numpy as np
-from tacs import elements, constitutive, functions
+from tacs import constitutive, elements, functions
+
 
 # Callback function used to setup TACS element objects and DVs
 def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):

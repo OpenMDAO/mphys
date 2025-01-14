@@ -1,6 +1,7 @@
 import numpy as np
 from mpi4py import MPI
 
+
 class PistonTheory:
     def __init__(self, panel_chord, panel_width, N_el, comm=MPI.COMM_WORLD):
         self.panel_chord = panel_chord

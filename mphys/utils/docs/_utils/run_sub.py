@@ -3,10 +3,11 @@ This is used by our doc build system to execute a code chunk in a subprocess whi
 access to its containing module's globals.
 """
 
+import importlib
 import os
 import sys
-import importlib
 import traceback
+
 import numpy as np
 from openmdao.utils.general_utils import printoptions
 

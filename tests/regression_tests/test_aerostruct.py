@@ -8,34 +8,31 @@
 """
 
 # === Standard Python modules ===
-from __future__ import print_function, division
+from __future__ import division, print_function
+
 import os
 import unittest
 
-
 # === External Python modules ===
 import numpy as np
-from mpi4py import MPI
-from parameterized import parameterized, parameterized_class
-
-
 # === Extension modules ===
 import openmdao.api as om
-from openmdao.utils.assert_utils import assert_near_equal
-
-
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioAeroStructural
-
 # these imports will be from the respective codes' repos rather than mphys
 from adflow.mphys import ADflowBuilder
-from tacs.mphys import TacsBuilder
+from baseclasses import AeroProblem
 from funtofem.mphys import MeldBuilder
+from mpi4py import MPI
+from openmdao.utils.assert_utils import assert_near_equal
+from parameterized import parameterized, parameterized_class
+from tacs import constitutive, elements, functions
+from tacs.mphys import TacsBuilder
+
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioAeroStructural
+
 # TODO RLT needs to be updated with the new tacs wrapper
 # from rlt.mphys import RltBuilder
 
-from baseclasses import AeroProblem
-from tacs import elements, constitutive, functions
 
 
 # set these for convenience

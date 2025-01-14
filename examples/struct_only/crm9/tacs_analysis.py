@@ -11,19 +11,19 @@ The sensitivities are then verified agains finite-difference or complex step app
 # Standard Python modules
 # ==============================================================================
 from __future__ import print_function
-import os
 
+import os
 # ==============================================================================
 # External Python modules
 # ==============================================================================
 from pprint import pprint
+
 import numpy as np
 from mpi4py import MPI
-
 # ==============================================================================
 # Extension modules
 # ==============================================================================
-from tacs import functions, constitutive, elements, pyTACS, TACS
+from tacs import TACS, constitutive, elements, functions, pyTACS
 
 comm = MPI.COMM_WORLD
 

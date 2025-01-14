@@ -1,16 +1,15 @@
 # rst Imports
-from __future__ import print_function, division
+from __future__ import division, print_function
+
 import numpy as np
-from mpi4py import MPI
-
 import openmdao.api as om
-
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioStructural
-
+from mpi4py import MPI
+from tacs import constitutive, elements, functions
 # these imports will be from the respective codes' repos rather than omfsi
 from tacs.mphys import TacsBuilder
-from tacs import elements, constitutive, functions
+
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioStructural
 
 # set these for convenience
 comm = MPI.COMM_WORLD

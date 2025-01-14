@@ -1,6 +1,6 @@
 import openmdao.api as om
 
-from mphys.core import Scenario, CouplingGroup, MPhysVariables
+from mphys.core import CouplingGroup, MPhysVariables, Scenario
 
 
 class ScenarioAeroThermal(Scenario):

@@ -1,7 +1,9 @@
 from functools import wraps
 
-from .mphys_group import MPhysGroup
 from mphys.utils.directory_utils import cd
+
+from .mphys_group import MPhysGroup
+
 
 def switch_run_directory(method):
     """

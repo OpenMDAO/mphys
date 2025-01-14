@@ -1,16 +1,15 @@
-from __future__ import print_function, division
-from mpi4py import MPI
+from __future__ import division, print_function
+
 import numpy as np
-
 import openmdao.api as om
-
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioAeroStructural
-from vlm_solver.mphys_vlm import VlmBuilder
-from tacs.mphys import TacsBuilder
 from funtofem.mphys import MeldBuilder
+from mpi4py import MPI
+from tacs import constitutive, elements, functions
+from tacs.mphys import TacsBuilder
+from vlm_solver.mphys_vlm import VlmBuilder
 
-from tacs import elements, constitutive, functions
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioAeroStructural
 
 use_modal = False
 

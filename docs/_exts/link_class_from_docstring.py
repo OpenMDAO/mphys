@@ -1,9 +1,10 @@
 # a short sphinx extension to take care of hyperlinking in docstrings
 # where a syntax of <Class> is employed.
-import openmdao
-import pkgutil
 import inspect
+import pkgutil
 import re
+
+import openmdao
 from openmdao.docs.config_params import IGNORE_LIST
 
 # first, we will need a dict that contains full pathnames to every class.

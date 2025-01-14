@@ -1,15 +1,13 @@
 # must compile funtofem and tacs in complex mode
 import numpy as np
-
 import openmdao.api as om
-
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioAeroStructural
-from vlm_solver.mphys_vlm import VlmBuilder
-from tacs.mphys import TacsBuilder
 from funtofem.mphys import MeldBuilder
+from tacs import constitutive, elements, functions
+from tacs.mphys import TacsBuilder
+from vlm_solver.mphys_vlm import VlmBuilder
 
-from tacs import elements, constitutive, functions
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioAeroStructural
 
 use_modal = False
 

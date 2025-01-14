@@ -1,8 +1,9 @@
 import numpy as np
 import openmdao.api as om
+from xfer import Xfer
+
 from mphys import Builder
 
-from xfer import Xfer
 
 # EC which transfers displacements from structure to aero
 class DispXfer(om.ExplicitComponent):

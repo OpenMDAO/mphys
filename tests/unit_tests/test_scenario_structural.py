@@ -1,15 +1,15 @@
 import unittest
-import numpy as np
 
+import numpy as np
 import openmdao.api as om
+from common_methods import CommonMethods
+from fake_geometry import Geometry, GeometryBuilder
+from fake_struct import (StructBuilder, StructCouplingComp, StructMeshComp,
+                         StructPostCouplingComp, struct_num_nodes)
 from mpi4py import MPI
 
 from mphys import MPhysVariables
 from mphys.scenarios import ScenarioStructural
-from common_methods import CommonMethods
-
-from fake_struct import StructBuilder, StructMeshComp, StructCouplingComp, StructPostCouplingComp, struct_num_nodes
-from fake_geometry import Geometry, GeometryBuilder
 
 
 class PreCouplingComp(om.ExplicitComponent):

@@ -1,7 +1,7 @@
-import sys
-import subprocess
-import pipes
 import os
+import pipes
+import subprocess
+import sys
 
 
 def get_tag_info():

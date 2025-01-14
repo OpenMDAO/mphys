@@ -8,28 +8,25 @@
 """
 # === Standard Python modules ===
 import os
-import unittest
-
 # === External Python modules ===
 import shutil
-import numpy as np
-from mpi4py import MPI
-from parameterized import parameterized, parameterized_class
+import unittest
 
+import numpy as np
 # === Extension modules ===
 import openmdao.api as om
+# these imports will be from the respective codes' repos rather than mphys
+from dafoam.mphys import DAFoamBuilder
+from funtofem.mphys import MeldBuilder
+from mpi4py import MPI
 from openmdao.utils.assert_utils import assert_near_equal
+from parameterized import parameterized, parameterized_class
+from pygeo.mphys import OM_DVGEOCOMP
+from tacs import constitutive, elements, functions
+from tacs.mphys import TacsBuilder
 
 from mphys.multipoint import Multipoint
 from mphys.scenarios.aerostructural import ScenarioAeroStructural
-
-# these imports will be from the respective codes' repos rather than mphys
-from dafoam.mphys import DAFoamBuilder
-from tacs.mphys import TacsBuilder
-from funtofem.mphys import MeldBuilder
-from pygeo.mphys import OM_DVGEOCOMP
-
-from tacs import elements, constitutive, functions
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
 dataDir = baseDir + "/../input_files/dafoam_aerostruct/"

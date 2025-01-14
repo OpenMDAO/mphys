@@ -1,5 +1,6 @@
 import openmdao.api as om
 
+
 def set_coupling_algorithms_in_scenarios(multipoint_group):
     """
     Set the stored linear and nonlinear solver into the coupling group if the

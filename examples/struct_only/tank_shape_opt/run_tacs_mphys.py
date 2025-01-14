@@ -3,15 +3,15 @@ Mass minimization of a thin-walled ellipsoidal tank with a volume constraint.
 Design variables are the semi-axes of the ellipsoid.
 """
 from __future__ import division, print_function
+
 import numpy as np
-
 import openmdao.api as om
-
-from tacs.mphys import TacsBuilder
 from pygeo.mphys import OM_DVGEOCOMP
+from tacs import functions
+from tacs.mphys import TacsBuilder
+
 from mphys import Multipoint
 from mphys.scenarios.structural import ScenarioStructural
-from tacs import functions
 
 bdf_file = 'tank.dat'
 vsp_file = "tank.vsp3"

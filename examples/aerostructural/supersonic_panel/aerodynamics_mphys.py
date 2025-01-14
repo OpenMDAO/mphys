@@ -1,9 +1,10 @@
 import numpy as np
 import openmdao.api as om
-from mphys import Builder, MPhysVariables
 from mpi4py import MPI
-
 from piston_theory import PistonTheory
+
+from mphys import Builder, MPhysVariables
+
 
 # IVC which returns a baseline mesh
 class AeroMesh(om.IndepVarComp):

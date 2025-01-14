@@ -1,10 +1,11 @@
 import argparse
 
 import openmdao.api as om
-from mphys.multipoint import Multipoint
-from mphys.scenarios.aerodynamic import ScenarioAerodynamic
 from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
+
+from mphys.multipoint import Multipoint
+from mphys.scenarios.aerodynamic import ScenarioAerodynamic
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--level", type=str, default="L1")

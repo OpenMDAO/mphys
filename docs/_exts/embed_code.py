@@ -1,22 +1,21 @@
-import unittest
-from docutils import nodes
-from docutils.parsers.rst import Directive
-import re
-from sphinx.errors import SphinxError
-import sphinx
-import traceback
 import inspect
 import os
+import re
+import traceback
+import unittest
 
-from docutils.parsers.rst.directives import unchanged, images
+import sphinx
+from docutils import nodes
+from docutils.parsers.rst import Directive
+from docutils.parsers.rst.directives import images, unchanged
+from sphinx.errors import SphinxError
 
-from mphys.utils.docs._utils.docutil import get_source_code, remove_docstrings, \
-    remove_initial_empty_lines, replace_asserts_with_prints, \
-    strip_header, dedent, insert_output_start_stop_indicators, run_code, \
-    get_skip_output_node, get_interleaved_io_nodes, get_output_block_node, \
-    split_source_into_input_blocks, extract_output_blocks, consolidate_input_blocks, node_setup, \
-    strip_decorators
-
+from mphys.utils.docs._utils.docutil import (
+    consolidate_input_blocks, dedent, extract_output_blocks,
+    get_interleaved_io_nodes, get_output_block_node, get_skip_output_node,
+    get_source_code, insert_output_start_stop_indicators, node_setup,
+    remove_docstrings, remove_initial_empty_lines, replace_asserts_with_prints,
+    run_code, split_source_into_input_blocks, strip_decorators, strip_header)
 
 _plot_count = 0
 

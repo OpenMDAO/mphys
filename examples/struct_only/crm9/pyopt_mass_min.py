@@ -1,12 +1,13 @@
 # A demonstration of basic functions of the Python interface for TACS: loading a
 # mesh, creating elements, evaluating functions, solution, and output
 from __future__ import print_function
-from pyOpt import Optimization,pySLSQP
 
 # Import necessary libraries
 import numpy as np
 from mpi4py import MPI
-from tacs import TACS, elements, constitutive, functions
+from pyOpt import Optimization, pySLSQP
+from tacs import TACS, constitutive, elements, functions
+
 
 class TacsOpt(object):
     def __init__(self):

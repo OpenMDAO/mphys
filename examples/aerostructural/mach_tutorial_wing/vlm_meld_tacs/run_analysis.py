@@ -1,17 +1,16 @@
 # rst Imports
-from __future__ import print_function, division
+from __future__ import division, print_function
+
 import numpy as np
-from mpi4py import MPI
-
 import openmdao.api as om
-
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioAeroStructural
-from vlm_solver.mphys_vlm import VlmBuilder
-from tacs.mphys import TacsBuilder
-from funtofem.mphys import MeldBuilder
-
 import tacs_setup
+from funtofem.mphys import MeldBuilder
+from mpi4py import MPI
+from tacs.mphys import TacsBuilder
+from vlm_solver.mphys_vlm import VlmBuilder
+
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioAeroStructural
 
 
 class Top(Multipoint):

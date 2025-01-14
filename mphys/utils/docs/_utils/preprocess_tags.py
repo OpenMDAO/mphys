@@ -4,8 +4,8 @@
 # each instance of the tag throughout the docs.
 
 import os
-import shutil
 import re
+import shutil
 
 
 def make_tagdir():

@@ -1,10 +1,11 @@
 import unittest
 from typing import List
+
 import openmdao.api as om
-
-from mphys import Scenario, Builder
-
 from common_methods import CommonMethods
+
+from mphys import Builder, Scenario
+
 
 class PreComp(om.IndepVarComp):
     def setup(self):

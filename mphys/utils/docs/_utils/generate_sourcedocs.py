@@ -1,4 +1,5 @@
 import os
+
 from openmdao.docs.config_params import IGNORE_LIST
 
 # this function is used to create the entire directory structure

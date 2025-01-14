@@ -1,9 +1,9 @@
 import unittest
 
 import openmdao.api as om
+from common_methods import CommonMethods
 
 from mphys.core import MPhysGroup
-from common_methods import CommonMethods
 
 
 class Comp(om.ExplicitComponent):

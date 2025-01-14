@@ -1,17 +1,17 @@
 #rst Imports
-from __future__ import print_function, division
-import numpy as np
-from mpi4py import MPI
+from __future__ import division, print_function
 
+import numpy as np
 import openmdao.api as om
+import tacs_setup
+from funtofem.mphys import MeldBuilder
+from mpi4py import MPI
+from tacs.mphys import TacsBuilder
+from vlm_solver.mphys_vlm import VlmBuilder
 
 from mphys import MultipointParallel
 from mphys.scenarios.aerostructural import ScenarioAeroStructural
-from vlm_solver.mphys_vlm import VlmBuilder
-from tacs.mphys import TacsBuilder
-from funtofem.mphys import MeldBuilder
 
-import tacs_setup
 
 class AerostructParallel(MultipointParallel):
     def setup(self):

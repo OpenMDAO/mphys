@@ -1,12 +1,12 @@
 import unittest
-from mpi4py import MPI
+
 import numpy as np
 import openmdao.api as om
-
-from mphys import MaskedConverter, UnmaskedConverter, MaskedVariableDescription
-
 from common_methods import CommonMethods
+from mpi4py import MPI
 from openmdao.utils.assert_utils import assert_near_equal
+
+from mphys import MaskedConverter, MaskedVariableDescription, UnmaskedConverter
 
 
 class TestMaskConverterSingle(unittest.TestCase):

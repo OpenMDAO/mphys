@@ -1,13 +1,12 @@
 
 import importlib
 
-from docutils import nodes
-from docutils.statemachine import ViewList
-
 import sphinx
+from docutils import nodes
 from docutils.parsers.rst import Directive
-from sphinx.util.nodes import nested_parse_with_titles
+from docutils.statemachine import ViewList
 from openmdao.utils.options_dictionary import OptionsDictionary
+from sphinx.util.nodes import nested_parse_with_titles
 
 
 class EmbedOptionsDirective(Directive):

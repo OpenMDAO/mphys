@@ -2,15 +2,15 @@ import os
 
 import numpy as np
 import openmdao.api as om
-
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioAeroStructural
+import tacs_setup
+from funtofem.mphys import MeldBuilder
 from openaerostruct.geometry.utils import generate_vsp_surfaces
 from openaerostruct.mphys import AeroBuilder
-from funtofem.mphys import MeldBuilder
 from tacs.mphys import TacsBuilder
 
-import tacs_setup
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioAeroStructural
+
 
 class Top(Multipoint):
     def setup(self):

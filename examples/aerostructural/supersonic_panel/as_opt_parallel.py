@@ -1,15 +1,15 @@
+import os
+
 import numpy as np
 import openmdao.api as om
-import os
+from aerodynamics_mphys import AeroBuilder
+from geometry_morph import GeometryBuilder
 from openmdao.core.constants import _DEFAULT_OUT_STREAM
+from structures_mphys import StructBuilder
+from xfer_mphys import XferBuilder
 
 from mphys import Multipoint, MultipointParallel
 from mphys.scenarios.aerostructural import ScenarioAeroStructural
-
-from structures_mphys import StructBuilder
-from aerodynamics_mphys import AeroBuilder
-from xfer_mphys import XferBuilder
-from geometry_morph import GeometryBuilder
 
 check_totals = False # True=check objective/constraint derivatives, False=run optimization
 

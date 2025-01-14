@@ -1,18 +1,19 @@
-import numpy as np
 import argparse
 
+import numpy as np
 import openmdao.api as om
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioAeroStructural
-
+import tacs_setup
 from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
-from tacs.mphys import TacsBuilder
 from funtofem.mphys import MeldBuilder
+from tacs.mphys import TacsBuilder
+
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioAeroStructural
+
 # TODO RLT needs to be updated with the new tacs wrapper
 # from rlt.mphys import RltBuilder
 
-import tacs_setup
 
 
 parser = argparse.ArgumentParser()

@@ -1,15 +1,13 @@
 
-import sys
 import importlib
-
-from docutils import nodes
+import sys
 
 import sphinx
+from docutils import nodes
 from docutils.parsers.rst import Directive
-
+from sphinx.errors import SphinxError
 from sphinx.writers.html import HTMLTranslator
 from sphinx.writers.html5 import HTML5Translator
-from sphinx.errors import SphinxError
 
 
 class bibtex_node(nodes.Element):

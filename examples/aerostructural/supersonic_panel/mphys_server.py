@@ -1,4 +1,6 @@
-from mphys.network.zmq_pbs import MPhysZeroMQServer, get_default_zmq_pbs_argparser
+from mphys.network.zmq_pbs import (MPhysZeroMQServer,
+                                   get_default_zmq_pbs_argparser)
+
 
 class GetModel:
     def __init__(self, scenario_name: str, model_filename: str):

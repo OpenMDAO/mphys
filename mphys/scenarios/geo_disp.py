@@ -1,5 +1,7 @@
 import openmdao.api as om
+
 from mphys import MPhysVariables
+
 
 class GeoDisp(om.ExplicitComponent):
     """

@@ -1,6 +1,7 @@
 import numpy as np
 import openmdao.api as om
 
+
 class IntegratedSurfaceForces(om.ExplicitComponent):
     def setup(self):
         self.add_input('aoa',desc = 'angle of attack', units='rad',tags=['mphys_input'])

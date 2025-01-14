@@ -2,11 +2,11 @@
 Mass minimization of uCRM wingbox subject to a constant vertical force
 """
 import openmdao.api as om
-
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioStructural
-from tacs.mphys import TacsBuilder
 import tacs_setup
+from tacs.mphys import TacsBuilder
+
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioStructural
 
 
 class Top(Multipoint):

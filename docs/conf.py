@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 # This file is execfile()d with the current directory set to its
 # containing dir.
-import sys
-import os
-
 import importlib
+import os
+import sys
 from unittest.mock import Mock
 
-from mphys.utils.docs.config_params import MOCK_MODULES
 from mphys.utils.docs._utils.patch import do_monkeypatch
+from mphys.utils.docs.config_params import MOCK_MODULES
 
 # Only mock the ones that don't import.
 for mod_name in MOCK_MODULES:

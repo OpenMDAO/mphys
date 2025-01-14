@@ -1,7 +1,8 @@
 import numpy as np
 import openmdao.api as om
+from modal_comps import (HarmonicForcer, ModalDisplacements, ModalForces,
+                         ModalStep)
 
-from modal_comps import ModalDisplacements, ModalForces, ModalStep, HarmonicForcer
 
 class ModalIntegrator(om.ExplicitComponent):
     def initialize(self):

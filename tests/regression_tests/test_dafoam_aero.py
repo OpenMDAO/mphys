@@ -7,19 +7,18 @@
              produced by MPHYS has changed
 """
 
-# === Standard Python Modules ===
-import unittest
 import os
-
 # === External Python modules ===
 import shutil
-import numpy as np
-from mpi4py import MPI
-from parameterized import parameterized, parameterized_class
+# === Standard Python Modules ===
+import unittest
 
+import numpy as np
 # === Extension modules ===
 import openmdao.api as om
+from mpi4py import MPI
 from openmdao.utils.assert_utils import assert_near_equal
+from parameterized import parameterized, parameterized_class
 
 from mphys.multipoint import Multipoint
 from mphys.scenarios.aerodynamic import ScenarioAerodynamic

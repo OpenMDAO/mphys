@@ -2,32 +2,27 @@
 A collection of functions for modifying source code that is embeded into the Sphinx documentation.
 """
 
-import sys
-import os
-import re
-import tokenize
+import ast
+import html as cgiesc
 import importlib
 import inspect
+import os
+import re
 import subprocess
+import sys
 import tempfile
-import unittest
+import tokenize
 import traceback
-import ast
-
-from docutils import nodes
-
+import unittest
 from collections import namedtuple
-
 from io import StringIO
 
+from docutils import nodes
+from openmdao.utils.general_utils import printoptions
+from redbaron import RedBaron
 from sphinx.errors import SphinxError
 from sphinx.writers.html import HTMLTranslator
 from sphinx.writers.html5 import HTML5Translator
-from redbaron import RedBaron
-
-import html as cgiesc
-
-from openmdao.utils.general_utils import printoptions
 
 sqlite_file = 'feature_docs_unit_test_db.sqlite'    # name of the sqlite database file
 table_name = 'feature_unit_tests'   # name of the table to be queried

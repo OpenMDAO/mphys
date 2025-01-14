@@ -1,6 +1,5 @@
 import numpy as np
 import openmdao.api as om
-
 from modal_integrator import ModalIntegrator
 
 nsteps = 10

@@ -5,22 +5,20 @@
 @Desc    :   File for testing the derivatives of the mphys adflow wrapper
 """
 
+import os
 # === Standard Python modules ===
 import unittest
-import os
 
 # === External Python modules ===
 import numpy as np
-
 # === Extension modules ===
 import openmdao.api as om
 from openmdao.utils.assert_utils import assert_check_totals
-
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioStructural
-
-from tacs import elements, constitutive, functions, TACS
+from tacs import TACS, constitutive, elements, functions
 from tacs.mphys import TacsBuilder
+
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioStructural
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
 

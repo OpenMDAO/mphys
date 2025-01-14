@@ -1,5 +1,7 @@
-import openmdao.api as om
 import warnings
+
+import openmdao.api as om
+
 
 class Server:
     """

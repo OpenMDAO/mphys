@@ -1,6 +1,6 @@
 import numpy as np
-from mpi4py import MPI
 import openmdao.api as om
+from mpi4py import MPI
 
 from mphys import Builder
 

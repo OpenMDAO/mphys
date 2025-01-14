@@ -6,23 +6,24 @@
 @Desc    :   Test the dervatives of the geometric components
 """
 
+import os
 # === Standard Python modules ===
 import unittest
-import os
 
 # === External Python modules ===
 import numpy as np
+# === Extension modules ===
+import openmdao.api as om
+from adflow import ADFLOW
+from openmdao.utils.assert_utils import assert_near_equal
+from pygeo.mphys import OM_DVGEOCOMP
+
+from mphys.multipoint import Multipoint
 
 # from mpi4py import MPI
 
-# === Extension modules ===
-import openmdao.api as om
-from openmdao.utils.assert_utils import assert_near_equal
 
-from mphys.multipoint import Multipoint
-from adflow import ADFLOW
 
-from pygeo.mphys import OM_DVGEOCOMP
 
 
 baseDir = os.path.dirname(os.path.abspath(__file__))

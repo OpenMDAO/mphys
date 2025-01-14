@@ -1,4 +1,5 @@
-from mphys.core import Builder, Scenario, MPhysVariables
+from mphys.core import Builder, MPhysVariables, Scenario
+
 
 class ScenarioAerodynamic(Scenario):
     def initialize(self):

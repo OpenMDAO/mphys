@@ -1,6 +1,7 @@
 import openmdao.api as om
-from mphys.network.zmq_pbs import RemoteZeroMQComp
 from pbs4py import PBS
+
+from mphys.network.zmq_pbs import RemoteZeroMQComp
 
 check_totals = False # True=check objective/constraint derivatives, False=run optimization
 

@@ -2,17 +2,19 @@ import unittest
 
 import numpy as np
 import openmdao.api as om
+from common_methods import CommonMethods
+from fake_aero import (AeroBuilder, AeroCouplingComp, AeroMeshComp,
+                       AeroPostCouplingComp, AeroPreCouplingComp)
+from fake_geometry import Geometry, GeometryBuilder
+from fake_ldxfer import DispXferComp, LDXferBuilder, LoadXferComp
+from fake_struct import (StructBuilder, StructCouplingComp, StructMeshComp,
+                         StructPostCouplingComp, StructPreCouplingComp)
 from mpi4py import MPI
 
 from mphys import MPhysVariables
-from mphys.scenarios.aerostructural import ScenarioAeroStructural, CouplingAeroStructural
+from mphys.scenarios.aerostructural import (CouplingAeroStructural,
+                                            ScenarioAeroStructural)
 from mphys.scenarios.geo_disp import GeoDisp
-
-from common_methods import CommonMethods
-from fake_aero import AeroBuilder, AeroMeshComp, AeroPreCouplingComp, AeroCouplingComp, AeroPostCouplingComp
-from fake_struct import StructBuilder, StructMeshComp, StructPreCouplingComp, StructCouplingComp, StructPostCouplingComp
-from fake_geometry import GeometryBuilder, Geometry
-from fake_ldxfer import LDXferBuilder, LoadXferComp, DispXferComp
 
 
 class TestScenarioAeroStructural(unittest.TestCase):

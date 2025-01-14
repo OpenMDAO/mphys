@@ -1,6 +1,9 @@
 from typing import List
+
 import openmdao.api as om
+
 from mphys import Builder
+
 
 class Geometry(om.ExplicitComponent):
     def initialize(self):

@@ -1,9 +1,10 @@
-from mpi4py import MPI
 import openmdao.api as om
+from mpi4py import MPI
+from vlm_solver.mphys_vlm import VlmBuilder
 
 from mphys import Multipoint
-from vlm_solver.mphys_vlm import VlmBuilder
 from mphys.scenarios.aerodynamic import ScenarioAerodynamic
+
 
 class Top(Multipoint):
     def setup(self):

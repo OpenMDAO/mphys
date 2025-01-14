@@ -1,14 +1,14 @@
-from pathlib import Path
 import shutil
 import unittest
-import numpy as np
+from pathlib import Path
 
+import numpy as np
 import openmdao.api as om
+from common_methods import CommonMethods
 from mpi4py import MPI
 
 from mphys import Builder
 from mphys.scenarios import ScenarioAerodynamic
-from common_methods import CommonMethods
 
 num_nodes = 3
 

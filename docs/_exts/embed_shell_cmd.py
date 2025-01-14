@@ -4,20 +4,18 @@ Sphinx directive to embed shell command output in the docs.
 The shell command is executed and the output is captured.
 """
 
-import sys
+import html as cgiesc
 import os
-from docutils import nodes
-from docutils.parsers.rst.directives import unchanged
-
 import subprocess
+import sys
 
 import sphinx
+from docutils import nodes
 from docutils.parsers.rst import Directive
+from docutils.parsers.rst.directives import unchanged
+from sphinx.errors import SphinxError
 from sphinx.writers.html import HTMLTranslator
 from sphinx.writers.html5 import HTML5Translator
-from sphinx.errors import SphinxError
-
-import html as cgiesc
 
 
 class failed_node(nodes.Element):

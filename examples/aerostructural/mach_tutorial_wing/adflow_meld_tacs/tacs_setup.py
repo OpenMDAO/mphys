@@ -1,5 +1,5 @@
 import numpy as np
-from tacs import elements, constitutive, functions
+from tacs import constitutive, elements, functions
 
 # Material properties
 rho = 2500.0        # density kg/m^3

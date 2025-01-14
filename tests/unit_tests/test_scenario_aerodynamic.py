@@ -1,13 +1,14 @@
 import unittest
+
 import openmdao.api as om
+from common_methods import CommonMethods
+from fake_aero import (AeroBuilder, AeroCouplingComp, AeroMeshComp,
+                       AeroPostCouplingComp, AeroPreCouplingComp)
+from fake_geometry import Geometry, GeometryBuilder
 from mpi4py import MPI
 
 from mphys import MPhysVariables
 from mphys.scenarios import ScenarioAerodynamic
-
-from common_methods import CommonMethods
-from fake_aero import AeroBuilder, AeroMeshComp, AeroPreCouplingComp, AeroCouplingComp, AeroPostCouplingComp
-from fake_geometry import Geometry, GeometryBuilder
 
 
 class TestScenarioAerodynamic(unittest.TestCase):

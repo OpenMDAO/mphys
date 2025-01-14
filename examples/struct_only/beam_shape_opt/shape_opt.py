@@ -22,17 +22,17 @@ The optimization is setup using TACS' MPHYS module, which acts as a wrapper
 for OpenMDAO.
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
 import os
 
+import matplotlib.pyplot as plt
+import numpy as np
 import openmdao.api as om
 from pygeo.mphys import OM_DVGEOCOMP
+from tacs import constitutive, elements, functions
+from tacs.mphys import TacsBuilder
 
 from mphys import Multipoint
 from mphys.scenarios.structural import ScenarioStructural
-from tacs.mphys import TacsBuilder
-from tacs import elements, constitutive, functions
 
 bdf_file = os.path.join(os.path.dirname(__file__), 'Slender_Beam.bdf')
 ffd_file = os.path.join(os.path.dirname(__file__), 'ffd_8_linear.fmt')

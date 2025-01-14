@@ -1,6 +1,10 @@
-import openmdao.api as om
-import json, time, os
+import json
+import os
+import time
+
 import numpy as np
+import openmdao.api as om
+
 
 class RemoteComp(om.ExplicitComponent):
     """

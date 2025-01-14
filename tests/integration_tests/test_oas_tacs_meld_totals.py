@@ -3,15 +3,15 @@ import unittest
 
 import numpy as np
 import openmdao.api as om
-from openmdao.utils.assert_utils import assert_check_totals
-
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioAeroStructural
-from openaerostruct.mphys import AeroBuilder
 from funtofem.mphys import MeldBuilder
-
-from tacs import elements, constitutive, functions
+from openaerostruct.mphys import AeroBuilder
+from openmdao.utils.assert_utils import assert_check_totals
+from tacs import constitutive, elements, functions
 from tacs.mphys import TacsBuilder
+
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioAeroStructural
+
 
 # Callback function used to setup TACS element objects and DVs
 def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):

@@ -6,22 +6,20 @@
 @Desc    :   tests the output and derivatives of meld. Based on Kevin's test script
 """
 
+import os
 # === Standard Python modules ===
 import unittest
-import os
 
 # === External Python modules ===
 import numpy as np
-from mpi4py import MPI
-
 # === Extension modules ===
 import openmdao.api as om
+from funtofem import TransferScheme
+from funtofem.mphys import MeldBuilder
+from mpi4py import MPI
 from openmdao.utils.assert_utils import assert_near_equal
 
 from mphys import Builder
-from funtofem import TransferScheme
-from funtofem.mphys import MeldBuilder
-
 
 isym = 1
 

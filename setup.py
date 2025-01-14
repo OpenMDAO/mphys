@@ -1,5 +1,6 @@
 import os
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 __package_name__ = "mphys"
 __package_version__ = "2.0.0"

@@ -6,20 +6,18 @@
 @Desc    :   File for testing the derivatives of the mphys adflow wrapper
 """
 
+import os
 # === Standard Python modules ===
 import unittest
-import os
 
 # === Extension modules ===
 import openmdao.api as om
+from adflow import ADFLOW
+from baseclasses import AeroProblem
 from openmdao.utils.assert_utils import assert_near_equal
 
 from mphys.multipoint import Multipoint
 from mphys.scenarios.aerodynamic import ScenarioAerodynamic
-
-from adflow import ADFLOW
-from baseclasses import AeroProblem
-
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
 

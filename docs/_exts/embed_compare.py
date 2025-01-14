@@ -1,9 +1,9 @@
 """ Sphinx directive for a side by side code comparison."""
 
-from docutils import nodes
-
 import sphinx
+from docutils import nodes
 from docutils.parsers.rst import Directive
+
 from mphys.utils.docs._utils.docutil import get_source_code
 
 

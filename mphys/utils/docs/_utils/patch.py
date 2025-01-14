@@ -1,6 +1,7 @@
-from numpydoc.docscrape_sphinx import SphinxDocString
-from numpydoc.docscrape import NumpyDocString, Reader, ParseError
 import textwrap
+
+from numpydoc.docscrape import NumpyDocString, ParseError, Reader
+from numpydoc.docscrape_sphinx import SphinxDocString
 
 # start off running the monkeypatch to keep options/parameters
 # usable in docstring for autodoc.

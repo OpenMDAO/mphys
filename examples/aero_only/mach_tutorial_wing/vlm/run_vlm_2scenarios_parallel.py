@@ -1,9 +1,10 @@
-from mpi4py import MPI
 import openmdao.api as om
+from mpi4py import MPI
+from vlm_solver.mphys_vlm import VlmBuilder
 
 from mphys import MultipointParallel
-from vlm_solver.mphys_vlm import VlmBuilder
 from mphys.scenarios.aerodynamic import ScenarioAerodynamic
+
 
 class ParallelCruises(MultipointParallel):
     def setup(self):

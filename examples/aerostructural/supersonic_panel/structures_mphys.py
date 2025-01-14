@@ -1,8 +1,9 @@
 import numpy as np
 import openmdao.api as om
+from beam_solver import Beam
+
 from mphys import Builder
 
-from beam_solver import Beam
 
 # IVC which returns a baseline mesh
 class StructMesh(om.IndepVarComp):

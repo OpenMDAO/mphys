@@ -1,10 +1,9 @@
 # tag.py, this custom Sphinx extension is activated in conf.py
 # and allows the use of the custom directive for tags in our rst (e.g.):
 # .. tags:: tag1, tag2, tag3
-from docutils.parsers.rst import Directive
-
-from docutils.parsers.rst.directives.admonitions import Admonition
 from docutils import nodes
+from docutils.parsers.rst import Directive
+from docutils.parsers.rst.directives.admonitions import Admonition
 from sphinx.locale import _
 
 

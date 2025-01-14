@@ -1,16 +1,15 @@
-import numpy as np
-from mpi4py import MPI
-import openmdao.api as om
 import os
+
+import numpy as np
+import openmdao.api as om
+from aerodynamics_mphys import AeroBuilder
+from geometry_morph import GeometryBuilder
+from mpi4py import MPI
+from structures_mphys import StructBuilder
+from xfer_mphys import XferBuilder
 
 from mphys import Multipoint
 from mphys.scenarios.aerostructural import ScenarioAeroStructural
-
-from structures_mphys import StructBuilder
-from aerodynamics_mphys import AeroBuilder
-from xfer_mphys import XferBuilder
-
-from geometry_morph import GeometryBuilder
 
 comm = MPI.COMM_WORLD
 rank = comm.rank

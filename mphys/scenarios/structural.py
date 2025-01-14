@@ -1,4 +1,5 @@
-from mphys.core import Scenario, MPhysVariables
+from mphys.core import MPhysVariables, Scenario
+
 
 class ScenarioStructural(Scenario):
     def initialize(self):

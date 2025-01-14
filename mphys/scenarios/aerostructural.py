@@ -1,6 +1,6 @@
 import openmdao.api as om
 
-from mphys.core import Scenario, CouplingGroup, MPhysVariables, Builder
+from mphys.core import Builder, CouplingGroup, MPhysVariables, Scenario
 from mphys.scenarios.geo_disp import GeoDisp
 
 

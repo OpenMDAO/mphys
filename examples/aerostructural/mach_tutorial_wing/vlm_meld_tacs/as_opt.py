@@ -1,14 +1,14 @@
 import numpy as np
 import openmdao.api as om
-
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioAeroStructural
-from vlm_solver.mphys_vlm import VlmBuilder
-from tacs.mphys import TacsBuilder
-from funtofem.mphys import MeldBuilder
-
-from struct_dv_components import StructDvMapper, SmoothnessEvaluatorGrid, struct_comps
 import tacs_setup
+from funtofem.mphys import MeldBuilder
+from struct_dv_components import (SmoothnessEvaluatorGrid, StructDvMapper,
+                                  struct_comps)
+from tacs.mphys import TacsBuilder
+from vlm_solver.mphys_vlm import VlmBuilder
+
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioAeroStructural
 
 check_derivs = False
 class Top(Multipoint):

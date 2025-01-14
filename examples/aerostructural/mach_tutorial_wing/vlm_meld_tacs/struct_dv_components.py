@@ -1,4 +1,4 @@
-import  openmdao.api as om
+import openmdao.api as om
 
 # Number of components by type
 struct_comps = {'ribs':18,

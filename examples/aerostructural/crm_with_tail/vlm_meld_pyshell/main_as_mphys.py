@@ -1,21 +1,17 @@
 import numpy as np
-from mpi4py import MPI
-
 import openmdao.api as om
+# MELD builder from funtofem
+from funtofem.mphys import MeldBuilder
+from mappings import dv_map, f_struct_map
+from mpi4py import MPI
+from pyshell.mphys import PyshellBuilder, PyshellInertialForce
+# case-specific components
+from util_components import GeometryBuilder, LumpDvs
+# in-house aero and structural solvers
+from vlm_solver.mphys_vlm import VlmBuilder
 
 from mphys import Multipoint
 from mphys.scenarios.aerostructural import ScenarioAeroStructural
-
-# MELD builder from funtofem
-from funtofem.mphys import MeldBuilder
-
-# in-house aero and structural solvers
-from vlm_solver.mphys_vlm import VlmBuilder
-from pyshell.mphys import PyshellBuilder, PyshellInertialForce
-from mappings import dv_map, f_struct_map
-
-# case-specific components
-from util_components import LumpDvs, GeometryBuilder
 
 comm = MPI.COMM_WORLD
 rank = comm.rank
