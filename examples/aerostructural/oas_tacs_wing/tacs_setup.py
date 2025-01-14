@@ -15,7 +15,9 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
     # Setup (isotropic) property and constitutive objects
     prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
     # Set one thickness dv for every component
-    con = constitutive.IsoShellConstitutive(prop, t=thickness, tNum=dvNum, tlb=min_thickness, tub=max_thickness)
+    con = constitutive.IsoShellConstitutive(
+        prop, t=thickness, tNum=dvNum, tlb=min_thickness, tub=max_thickness
+    )
 
     # For each element type in this component,
     # pass back the appropriate tacs element object
@@ -33,6 +35,7 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
 
     return elemList
 
+
 def problem_setup(scenario_name, fea_assembler, problem):
     """
     Helper function to add fixed forces and eval functions
@@ -40,12 +43,15 @@ def problem_setup(scenario_name, fea_assembler, problem):
     """
     # Add TACS Functions
     # Only include mass from elements that belong to pytacs components (i.e. skip concentrated masses)
-    problem.addFunction('mass', functions.StructuralMass)
-    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
+    problem.addFunction("mass", functions.StructuralMass)
+    problem.addFunction(
+        "ks_vmfailure", functions.KSFailure, safetyFactor=1.0, ksWeight=50.0
+    )
 
     # Add 2.5G gravity load
     g = np.array([0.0, 0.0, -9.81])  # m/s^2
-    problem.addInertialLoad(2.5*g)
+    problem.addInertialLoad(2.5 * g)
+
 
 def constraint_setup(scenario_name, fea_assembler, constraint_list):
     """
@@ -63,4 +69,3 @@ def constraint_setup(scenario_name, fea_assembler, constraint_list):
         compIDs = fea_assembler.selectCompIDs(include="TE_SPAR")
         constr.addConstraint("TE_SPAR", compIDs=compIDs)
         constraint_list.append(constr)
-

@@ -74,7 +74,9 @@ class Top(Multipoint):
         # add the geometry component, we dont need a builder because we do it here.
         self.add_subsystem("geometry", OM_DVGEOCOMP(file="ffd.xyz", type="ffd"))
 
-        self.mphys_add_scenario("cruise", ScenarioAerodynamic(aero_builder=adflow_builder))
+        self.mphys_add_scenario(
+            "cruise", ScenarioAerodynamic(aero_builder=adflow_builder)
+        )
 
         self.connect("mesh.x_aero0", "geometry.x_aero_in")
         self.connect("geometry.x_aero0", "cruise.x_aero")
@@ -87,7 +89,13 @@ class Top(Multipoint):
         # it can easily be defined on the mp group, or the aero group.
         aoa = 1.5
         ap0 = AeroProblem(
-            name="ap0", mach=0.8, altitude=10000, alpha=aoa, areaRef=45.5, chordRef=3.25, evalFuncs=["cl", "cd"]
+            name="ap0",
+            mach=0.8,
+            altitude=10000,
+            alpha=aoa,
+            areaRef=45.5,
+            chordRef=3.25,
+            evalFuncs=["cl", "cd"],
         )
         ap0.addDV("alpha", value=aoa, name="aoa", units="deg")
 
@@ -113,7 +121,9 @@ class Top(Multipoint):
         # geometry setup
 
         # Create reference axis
-        nRefAxPts = self.geometry.nom_addRefAxis(name="wing", xFraction=0.25, alignIndex="k")
+        nRefAxPts = self.geometry.nom_addRefAxis(
+            name="wing", xFraction=0.25, alignIndex="k"
+        )
         nTwist = nRefAxPts - 1
 
         # Set up global design variables
@@ -121,7 +131,9 @@ class Top(Multipoint):
             for i in range(1, nRefAxPts):
                 geo.rot_y["wing"].coef[i] = val[i - 1]
 
-        self.geometry.nom_addGlobalDV(dvName="twist", value=np.array([0] * nTwist), func=twist)
+        self.geometry.nom_addGlobalDV(
+            dvName="twist", value=np.array([0] * nTwist), func=twist
+        )
         nLocal = self.geometry.nom_addLocalDV(dvName="thickness", axis="z")
 
         if args.level == "L3":
@@ -132,8 +144,12 @@ class Top(Multipoint):
             # L1 and L2 meshes can work with the more accurate coordinates
             leList = [[0.01, 0.001, 0.0], [7.51, 13.99, 0.0]]
             teList = [[4.99, 0.001, 0.0], [8.99, 13.99, 0.0]]
-        self.geometry.nom_addThicknessConstraints2D("thickcon", leList, teList, nSpan=10, nChord=10)
-        self.geometry.nom_addVolumeConstraint("volcon", leList, teList, nSpan=20, nChord=20)
+        self.geometry.nom_addThicknessConstraints2D(
+            "thickcon", leList, teList, nSpan=10, nChord=10
+        )
+        self.geometry.nom_addVolumeConstraint(
+            "volcon", leList, teList, nSpan=20, nChord=20
+        )
         self.geometry.nom_add_LETEConstraint(
             "lecon",
             0,

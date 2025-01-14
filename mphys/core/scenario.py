@@ -9,12 +9,14 @@ def switch_run_directory(method):
     """
     Decorator function for methods where run directory must be switched before calling
     """
+
     @wraps(method)
     def wrapped_method(self, *args, **kwargs):
-        with cd(self.options['run_directory']):
+        with cd(self.options["run_directory"]):
             return method(self, *args, **kwargs)
 
     return wrapped_method
+
 
 class Scenario(MPhysGroup):
     """
@@ -24,17 +26,20 @@ class Scenario(MPhysGroup):
     To make a Scenario for a particular type of multiphysics problem, subclass
     the Scenario, and implement the `initialize` and `setup` phases of the Group.
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         self._post_subsystems = []
 
     def initialize(self):
-        self.options.declare('run_directory',
-                             default='',
-                             types=str,
-                             desc='Path in which to execute subsystems in this scenario group.' +
-                                  ' The default of empty string will not change the directory.')
+        self.options.declare(
+            "run_directory",
+            default="",
+            types=str,
+            desc="Path in which to execute subsystems in this scenario group."
+            + " The default of empty string will not change the directory.",
+        )
 
     def _mphys_scenario_setup(self):
         """
@@ -53,10 +58,14 @@ class Scenario(MPhysGroup):
         self._mphys_scenario_setup()
         self._add_post_subsystems()
 
-    def mphys_add_post_subsystem(self, name, subsystem,
-                                 promotes_inputs=None,
-                                 promotes_outputs=None,
-                                 promotes=None):
+    def mphys_add_post_subsystem(
+        self,
+        name,
+        subsystem,
+        promotes_inputs=None,
+        promotes_outputs=None,
+        promotes=None,
+    ):
         """
         Add a user-defined subsystem at the end of a Scenario.
         Tag variables with mphys tags to promote or use the optional promotes argument.
@@ -74,7 +83,9 @@ class Scenario(MPhysGroup):
 
         # we hold onto these until the end of setup() b/c we want the scenario's
         # setup() to add the builder subsystems before adding these
-        self._post_subsystems.append((name, subsystem, promotes_inputs, promotes_outputs, promotes))
+        self._post_subsystems.append(
+            (name, subsystem, promotes_inputs, promotes_outputs, promotes)
+        )
 
     @switch_run_directory
     def _solve_nonlinear(self, *args, **kwargs):
@@ -92,7 +103,9 @@ class Scenario(MPhysGroup):
     def _apply_linear(self, *args, **kwargs):
         return super()._apply_linear(*args, **kwargs)
 
-    def _mphys_add_pre_coupling_subsystem_from_builder(self, name, builder, scenario_name=None):
+    def _mphys_add_pre_coupling_subsystem_from_builder(
+        self, name, builder, scenario_name=None
+    ):
         """
         If the builder has a precoupling subsystem, add it to the model.
         It is expected that is method is called during this scenario's`setup` phase.
@@ -108,9 +121,11 @@ class Scenario(MPhysGroup):
         """
         subsystem = builder.get_pre_coupling_subsystem(scenario_name)
         if subsystem is not None:
-            self.mphys_add_subsystem(name+'_pre', subsystem)
+            self.mphys_add_subsystem(name + "_pre", subsystem)
 
-    def _mphys_add_post_coupling_subsystem_from_builder(self, name, builder, scenario_name=None):
+    def _mphys_add_post_coupling_subsystem_from_builder(
+        self, name, builder, scenario_name=None
+    ):
         """
         If the builder has a postcoupling subsystem, add it to the model.
         It is expected that is method is called during this scenario's`setup` phase.
@@ -126,19 +141,26 @@ class Scenario(MPhysGroup):
         """
         subsystem = builder.get_post_coupling_subsystem(scenario_name)
         if subsystem is not None:
-            self.mphys_add_subsystem(name+'_post', subsystem)
+            self.mphys_add_subsystem(name + "_post", subsystem)
 
     def _add_post_subsystems(self):
-        for name, subsystem, promotes_inputs, promotes_outputs, promotes in self._post_subsystems:
+        for (
+            name,
+            subsystem,
+            promotes_inputs,
+            promotes_outputs,
+            promotes,
+        ) in self._post_subsystems:
             if self._no_promotes_specified(promotes_inputs, promotes_outputs, promotes):
                 self.mphys_add_subsystem(name, subsystem)
             else:
-                self.add_subsystem(name, subsystem,
-                                   promotes_inputs=promotes_inputs,
-                                   promotes_outputs=promotes_outputs,
-                                   promotes=promotes)
+                self.add_subsystem(
+                    name,
+                    subsystem,
+                    promotes_inputs=promotes_inputs,
+                    promotes_outputs=promotes_outputs,
+                    promotes=promotes,
+                )
 
     def _no_promotes_specified(self, promotes_inputs, promotes_outputs, promotes):
-        return (promotes_inputs is None and
-                promotes_outputs is None and
-                promotes is None)
+        return promotes_inputs is None and promotes_outputs is None and promotes is None

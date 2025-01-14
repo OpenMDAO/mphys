@@ -1,4 +1,3 @@
-
 import importlib
 
 import sphinx
@@ -43,13 +42,13 @@ class EmbedOptionsDirective(Directive):
         lines = ViewList()
 
         n = 0
-        for line in options.__rst__().split('\n'):
+        for line in options.__rst__().split("\n"):
             lines.append(line, "options table", n)
             n += 1
 
         # Note applicable to System, Solver and Driver 'options', but not to 'recording_options'
-        if attribute_name != 'recording_options':
-            lines.append("", "options table", n+1)  # Blank line required after table.
+        if attribute_name != "recording_options":
+            lines.append("", "options table", n + 1)  # Blank line required after table.
 
         # Create a node.
         node = nodes.section()
@@ -64,6 +63,6 @@ class EmbedOptionsDirective(Directive):
 
 def setup(app):
     """add custom directive into Sphinx so that it is found during document parsing"""
-    app.add_directive('embed-options', EmbedOptionsDirective)
+    app.add_directive("embed-options", EmbedOptionsDirective)
 
-    return {'version': sphinx.__display_version__, 'parallel_read_safe': True}
+    return {"version": sphinx.__display_version__, "parallel_read_safe": True}

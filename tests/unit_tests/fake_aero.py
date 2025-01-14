@@ -33,7 +33,9 @@ class AeroCouplingComp(om.ExplicitComponent):
 
         self.add_input(self.coords_name, shape_by_conn=True, tags=["mphys_coordinates"])
         self.add_input("prestate_aero", tags=["mphys_coupling"])
-        self.add_output(self.loads_name, shape=aero_num_nodes * 3, tags=["mphys_coupling"])
+        self.add_output(
+            self.loads_name, shape=aero_num_nodes * 3, tags=["mphys_coupling"]
+        )
 
     def compute(self, inputs, outputs):
         outputs[self.loads_name] = inputs[self.coords_name] + inputs["prestate_aero"]
@@ -50,11 +52,12 @@ class AeroPostCouplingComp(om.ExplicitComponent):
         self.add_output("func_aero", val=1.0, tags=["mphys_result"])
 
     def compute(self, inputs, outputs):
-        outputs["func_aero"] = np.sum(inputs[self.loads_name] + inputs["prestate_aero"] + inputs[self.coords_name])
+        outputs["func_aero"] = np.sum(
+            inputs[self.loads_name] + inputs["prestate_aero"] + inputs[self.coords_name]
+        )
 
 
 class AeroBuilder(Builder):
-
     def get_number_of_nodes(self):
         return aero_num_nodes
 

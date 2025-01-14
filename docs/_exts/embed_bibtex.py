@@ -1,4 +1,3 @@
-
 import importlib
 import sys
 
@@ -30,7 +29,9 @@ def depart_bibtex_node(self, node):
     html = """
     <div class="cell border-box-sizing code_cell rendered">
        <div class="output_area"><pre>{}</pre></div>
-    </div>""".format(node["text"])
+    </div>""".format(
+        node["text"]
+    )
 
     self.body.append(html)
 
@@ -60,7 +61,7 @@ class EmbedBibtexDirective(Directive):
         mod = importlib.import_module(module_path)
         obj = getattr(mod, class_name)()
 
-        if not hasattr(obj, 'cite') or not obj.cite:
+        if not hasattr(obj, "cite") or not obj.cite:
             raise SphinxError("Couldn't find 'cite' in class '%s'" % class_name)
 
         return [bibtex_node(text=obj.cite)]
@@ -68,7 +69,7 @@ class EmbedBibtexDirective(Directive):
 
 def setup(app):
     """add custom directive into Sphinx so that it is found during document parsing"""
-    app.add_directive('embed-bibtex', EmbedBibtexDirective)
+    app.add_directive("embed-bibtex", EmbedBibtexDirective)
     app.add_node(bibtex_node, html=(visit_bibtex_node, depart_bibtex_node))
 
-    return {'version': sphinx.__display_version__, 'parallel_read_safe': True}
+    return {"version": sphinx.__display_version__, "parallel_read_safe": True}

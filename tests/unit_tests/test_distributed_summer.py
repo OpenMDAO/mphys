@@ -15,18 +15,30 @@ class TestDistributedSummer(unittest.TestCase):
     def setUp(self):
         self.common = CommonMethods()
         self.prob = om.Problem()
-        inputs = self.prob.model.add_subsystem('inputs', om.IndepVarComp(), promotes=["*"])
+        inputs = self.prob.model.add_subsystem(
+            "inputs", om.IndepVarComp(), promotes=["*"]
+        )
 
-        inputs.add_output('dist_input1', val=np.ones(10, dtype=float), distributed=True)
-        inputs.add_output('dist_input2', val=np.arange(10, dtype=float), distributed=True)
+        inputs.add_output("dist_input1", val=np.ones(10, dtype=float), distributed=True)
+        inputs.add_output(
+            "dist_input2", val=np.arange(10, dtype=float), distributed=True
+        )
 
         # Create a mask that masks every other entry of the input array
-        input_metadata = [DistributedVariableDescription('dist_input1', shape=10, tags=['mphys_coordinates']),
-                          DistributedVariableDescription('dist_input2', shape=10, tags=['mphys_coordinates'])]
-        output_metadata = DistributedVariableDescription('sumed_output', shape=10, tags=['mphys_coordinates'])
+        input_metadata = [
+            DistributedVariableDescription(
+                "dist_input1", shape=10, tags=["mphys_coordinates"]
+            ),
+            DistributedVariableDescription(
+                "dist_input2", shape=10, tags=["mphys_coordinates"]
+            ),
+        ]
+        output_metadata = DistributedVariableDescription(
+            "sumed_output", shape=10, tags=["mphys_coordinates"]
+        )
         sumer = DistributedSummer(inputs=input_metadata, output=output_metadata)
 
-        self.prob.model.add_subsystem('sumer', sumer, promotes=["*"])
+        self.prob.model.add_subsystem("sumer", sumer, promotes=["*"])
 
         self.prob.setup(force_alloc_complex=True)
 
@@ -34,18 +46,19 @@ class TestDistributedSummer(unittest.TestCase):
         self.common.test_run_model(self, write_n2=False)
 
     def test_check_partials(self):
-        partials = self.prob.check_partials(compact_print=True, method='cs')
+        partials = self.prob.check_partials(compact_print=True, method="cs")
         tol = 1e-9
 
-        rel_error = partials['sumer'][('sumed_output', 'dist_input1')]['rel error']
+        rel_error = partials["sumer"][("sumed_output", "dist_input1")]["rel error"]
         assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
         assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
         assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
 
-        rel_error = partials['sumer'][('sumed_output', 'dist_input2')]['rel error']
+        rel_error = partials["sumer"][("sumed_output", "dist_input2")]["rel error"]
         assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
         assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
         assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

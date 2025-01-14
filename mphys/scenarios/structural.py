@@ -10,33 +10,63 @@ class ScenarioStructural(Scenario):
         the coupling subsystem, and the postcoupling subsystem.
         """
         super().initialize()
-        self.options.declare('struct_builder', recordable=False,
-                             desc='The MPhys builder for the structural solver')
-        self.options.declare('in_MultipointParallel', default=False, types=bool,
-                             desc='Set to `True` if adding this scenario inside a MultipointParallel Group.')
-        self.options.declare('geometry_builder', default=None, recordable=False,
-                             desc='The optional MPhys builder for the geometry')
+        self.options.declare(
+            "struct_builder",
+            recordable=False,
+            desc="The MPhys builder for the structural solver",
+        )
+        self.options.declare(
+            "in_MultipointParallel",
+            default=False,
+            types=bool,
+            desc="Set to `True` if adding this scenario inside a MultipointParallel Group.",
+        )
+        self.options.declare(
+            "geometry_builder",
+            default=None,
+            recordable=False,
+            desc="The optional MPhys builder for the geometry",
+        )
 
     def _mphys_scenario_setup(self):
-        struct_builder = self.options['struct_builder']
-        geometry_builder = self.options['geometry_builder']
+        struct_builder = self.options["struct_builder"]
+        geometry_builder = self.options["geometry_builder"]
 
-        if self.options['in_MultipointParallel']:
+        if self.options["in_MultipointParallel"]:
             struct_builder.initialize(self.comm)
 
             if geometry_builder is not None:
                 geometry_builder.initialize(self.comm)
-                self.add_subsystem('mesh',struct_builder.get_mesh_coordinate_subsystem(self.name))
-                self.mphys_add_subsystem('geometry',geometry_builder.get_mesh_coordinate_subsystem(self.name))
-                self.connect(f'mesh.{MPhysVariables.Structures.Mesh.COORDINATES}',
-                             MPhysVariables.Structures.Geometry.COORDINATES_INPUT)
-                self.connect(MPhysVariables.Structures.Geometry.COORDINATES_OUTPUT,
-                             MPhysVariables.Structures.COORDINATES)
+                self.add_subsystem(
+                    "mesh", struct_builder.get_mesh_coordinate_subsystem(self.name)
+                )
+                self.mphys_add_subsystem(
+                    "geometry",
+                    geometry_builder.get_mesh_coordinate_subsystem(self.name),
+                )
+                self.connect(
+                    f"mesh.{MPhysVariables.Structures.Mesh.COORDINATES}",
+                    MPhysVariables.Structures.Geometry.COORDINATES_INPUT,
+                )
+                self.connect(
+                    MPhysVariables.Structures.Geometry.COORDINATES_OUTPUT,
+                    MPhysVariables.Structures.COORDINATES,
+                )
             else:
-                self.mphys_add_subsystem('mesh',struct_builder.get_mesh_coordinate_subsystem(self.name))
-                self.connect(MPhysVariables.Structures.Mesh.COORDINATES,
-                             MPhysVariables.Structures.COORDINATES)
+                self.mphys_add_subsystem(
+                    "mesh", struct_builder.get_mesh_coordinate_subsystem(self.name)
+                )
+                self.connect(
+                    MPhysVariables.Structures.Mesh.COORDINATES,
+                    MPhysVariables.Structures.COORDINATES,
+                )
 
-        self._mphys_add_pre_coupling_subsystem_from_builder('struct', struct_builder, self.name)
-        self.mphys_add_subsystem('coupling',struct_builder.get_coupling_group_subsystem(self.name))
-        self._mphys_add_post_coupling_subsystem_from_builder('struct', struct_builder, self.name)
+        self._mphys_add_pre_coupling_subsystem_from_builder(
+            "struct", struct_builder, self.name
+        )
+        self.mphys_add_subsystem(
+            "coupling", struct_builder.get_coupling_group_subsystem(self.name)
+        )
+        self._mphys_add_post_coupling_subsystem_from_builder(
+            "struct", struct_builder, self.name
+        )

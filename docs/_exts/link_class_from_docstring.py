@@ -13,19 +13,24 @@ package = openmdao
 
 om_classes = {}
 
+
 def build_dict():
     global om_classes
-    for importer, modname, ispkg in pkgutil.walk_packages(path=package.__path__,
-                                                        prefix=package.__name__ + '.',
-                                                        onerror=lambda x: None):
+    for importer, modname, ispkg in pkgutil.walk_packages(
+        path=package.__path__, prefix=package.__name__ + ".", onerror=lambda x: None
+    ):
         if not ispkg:
-            if 'docs' not in modname:
+            if "docs" not in modname:
                 if any(ignore in modname for ignore in IGNORE_LIST):
                     continue
                 module = importer.find_module(modname).load_module(modname)
-                for classname, class_object in inspect.getmembers(module, inspect.isclass):
+                for classname, class_object in inspect.getmembers(
+                    module, inspect.isclass
+                ):
                     if class_object.__module__.startswith("openmdao"):
-                        om_classes[classname] = class_object.__module__ + "." + classname
+                        om_classes[classname] = (
+                            class_object.__module__ + "." + classname
+                        )
 
 
 def om_process_docstring(app, what, name, obj, options, lines):
@@ -38,7 +43,7 @@ def om_process_docstring(app, what, name, obj, options, lines):
 
     for i in range(len(lines)):
         # create a regex pattern to match <linktext>
-        pat = r'(<.*?>)'
+        pat = r"(<.*?>)"
         # find all matches of the pattern in a line
         match = re.findall(pat, lines[i])
         if match:
@@ -50,21 +55,26 @@ def om_process_docstring(app, what, name, obj, options, lines):
                     continue
                 # if there's a dot in the pattern, it's a method
                 # e.g. <classname.method_name>
-                if '.' in m:
+                if "." in m:
                     # need to grab the class name and method name separately
-                    split_match = m.split('.')
+                    split_match = m.split(".")
                     justclass = split_match[0]  # class
-                    justmeth = split_match[1]   # method
+                    justmeth = split_match[1]  # method
                     if justclass in om_classes:
                         classfullpath = om_classes[justclass]
                         # construct a link  :meth:`class.method <openmdao.core.class.method>`
-                        link = ":meth:`" + m + " <" + classfullpath + "." + justmeth + ">`"
+                        link = (
+                            ":meth:`" + m + " <" + classfullpath + "." + justmeth + ">`"
+                        )
                         # replace the <link> text with the constructed line.
                         lines[i] = lines[i].replace(ma, link)
                     else:
                         # the class isn't in the class table!
-                        print("WARNING: {} not found in dictionary of OpenMDAO methods".format
-                              (justclass))
+                        print(
+                            "WARNING: {} not found in dictionary of OpenMDAO methods".format(
+                                justclass
+                            )
+                        )
                         # replace instances of <class> with just class in docstring
                         # (strip angle brackets)
                         lines[i] = lines[i].replace(ma, m)
@@ -72,11 +82,16 @@ def om_process_docstring(app, what, name, obj, options, lines):
                 else:
                     if m in om_classes:
                         classfullpath = om_classes[m]
-                        lines[i] = lines[i].replace(ma, ":class:`~" + classfullpath + "`")
+                        lines[i] = lines[i].replace(
+                            ma, ":class:`~" + classfullpath + "`"
+                        )
                     else:
                         # the class isn't in the class table!
-                        print("WARNING: {} not found in dictionary of OpenMDAO classes"
-                              .format(m))
+                        print(
+                            "WARNING: {} not found in dictionary of OpenMDAO classes".format(
+                                m
+                            )
+                        )
                         # replace instances of <class> with class in docstring
                         # (strip angle brackets)
                         lines[i] = lines[i].replace(ma, m)
@@ -85,6 +100,5 @@ def om_process_docstring(app, what, name, obj, options, lines):
 # This is the crux of the extension--connecting an internal
 # Sphinx event, "autodoc-process-docstring" with our own custom function.
 def setup(app):
-    """
-    """
-    app.connect('autodoc-process-docstring', om_process_docstring)
+    """ """
+    app.connect("autodoc-process-docstring", om_process_docstring)

@@ -11,8 +11,16 @@ class DistributedSummer(om.ExplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare("inputs", desc="List of DistibutedVariableDescription objects of inputs that will be summed", types=list)
-        self.options.declare("output", desc="DistibutedVariableDescription object of summed output", types=DistributedVariableDescription)
+        self.options.declare(
+            "inputs",
+            desc="List of DistibutedVariableDescription objects of inputs that will be summed",
+            types=list,
+        )
+        self.options.declare(
+            "output",
+            desc="DistibutedVariableDescription object of summed output",
+            types=DistributedVariableDescription,
+        )
 
     def setup(self):
         inputs = self.options["inputs"]
@@ -20,12 +28,20 @@ class DistributedSummer(om.ExplicitComponent):
 
         shape = inputs[0].shape
         for input in inputs:
-            self.add_input(input.name, shape=input.shape, tags=input.tags, distributed=True)
+            self.add_input(
+                input.name, shape=input.shape, tags=input.tags, distributed=True
+            )
             if input.shape != shape:
-                raise ValueError("All input vectors must have the same shape on a processor")
+                raise ValueError(
+                    "All input vectors must have the same shape on a processor"
+                )
         if output.shape != shape:
-            raise ValueError("Output vectors must have the same shape as input vectors on a processor")
-        self.add_output(output.name, shape=output.shape, tags=output.tags, distributed=True)
+            raise ValueError(
+                "Output vectors must have the same shape as input vectors on a processor"
+            )
+        self.add_output(
+            output.name, shape=output.shape, tags=output.tags, distributed=True
+        )
 
         self.inputs_names = [input_desc.name for input_desc in inputs]
         self.output_name = output.name

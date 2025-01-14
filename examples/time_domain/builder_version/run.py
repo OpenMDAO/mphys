@@ -44,8 +44,8 @@ class Model(om.Group):
                 aero_builder=aero_builder,
                 struct_builder=struct_builder,
                 ldxfer_builder=ldxfer_builder,
-                nonlinear_solver = om.NonlinearRunOnce(),
-                linear_solver = om.LinearRunOnce()
+                nonlinear_solver=om.NonlinearRunOnce(),
+                linear_solver=om.LinearRunOnce(),
             ),
             promotes=["*"],
         )

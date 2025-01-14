@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--level", type=str, default="L1")
 args = parser.parse_args()
 
+
 class Top(Multipoint):
     def setup(self):
 
@@ -56,13 +57,21 @@ class Top(Multipoint):
 
         # create the mesh and cruise scenario because we only have one analysis point
         self.add_subsystem("mesh", adflow_builder.get_mesh_coordinate_subsystem())
-        self.mphys_add_scenario("cruise", ScenarioAerodynamic(aero_builder=adflow_builder))
+        self.mphys_add_scenario(
+            "cruise", ScenarioAerodynamic(aero_builder=adflow_builder)
+        )
         self.connect("mesh.x_aero0", "cruise.x_aero")
 
     def configure(self):
         aoa = 1.5
         ap0 = AeroProblem(
-            name="ap0", mach=0.8, altitude=10000, alpha=aoa, areaRef=45.5, chordRef=3.25, evalFuncs=["cl", "cd"]
+            name="ap0",
+            mach=0.8,
+            altitude=10000,
+            alpha=aoa,
+            areaRef=45.5,
+            chordRef=3.25,
+            evalFuncs=["cl", "cd"],
         )
         ap0.addDV("alpha", value=aoa, name="aoa", units="deg")
 

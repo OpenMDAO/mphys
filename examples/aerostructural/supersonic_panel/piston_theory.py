@@ -9,24 +9,24 @@ class PistonTheory:
         self.N_el = N_el
 
         self.comm = comm
-        self.rank = self.comm.Get_rank() 
+        self.rank = self.comm.Get_rank()
         self.nprocs = self.comm.Get_size()
 
         # create_mesh
-        x = np.linspace(0, self.panel_chord, num=self.N_el+1)
+        x = np.linspace(0, self.panel_chord, num=self.N_el + 1)
         y = np.zeros_like(x)
         z = np.zeros_like(x)
 
         # partitioning
         if self.rank == 0:
-            self.owned = np.arange(self.N_el+1)
-            ave, res = divmod(self.N_el+1, self.nprocs)
+            self.owned = np.arange(self.N_el + 1)
+            ave, res = divmod(self.N_el + 1, self.nprocs)
             counts = [ave + 1 if p < res else ave for p in range(self.nprocs)]
 
             starts = [sum(counts[:p]) for p in range(self.nprocs)]
-            ends = [sum(counts[:p+1]) for p in range(self.nprocs)]
+            ends = [sum(counts[: p + 1]) for p in range(self.nprocs)]
 
-            self.owned = [self.owned[starts[p]:ends[p]] for p in range(self.nprocs)]
+            self.owned = [self.owned[starts[p] : ends[p]] for p in range(self.nprocs)]
 
         else:
             self.owned = None
@@ -56,17 +56,22 @@ class PistonTheory:
             x = np.concatenate(x, axis=0)
             z = np.concatenate(z, axis=0)
 
-            pressure = np.zeros(len(x)-1)
-            for i in range(len(x)-1):
+            pressure = np.zeros(len(x) - 1)
+            for i in range(len(x) - 1):
                 # compute panel slope
-                dzdx = (z[i+1]-z[i])/(x[i+1]-x[i])
+                dzdx = (z[i + 1] - z[i]) / (x[i + 1] - x[i])
 
                 # compute panel pressure with steady piston theory
-                pressure[i] = 4*self.qdyn/np.sqrt(self.mach**2 - 1)*(self.aoa*np.pi/180 - dzdx)
+                pressure[i] = (
+                    4
+                    * self.qdyn
+                    / np.sqrt(self.mach**2 - 1)
+                    * (self.aoa * np.pi / 180 - dzdx)
+                )
 
         else:
             pressure = np.zeros(0)
- 
+
         return pressure
 
     def compute_residual(self, pressure):
@@ -78,13 +83,15 @@ class PistonTheory:
             x = np.concatenate(x, axis=0)
             z = np.concatenate(z, axis=0)
 
-            residual = np.zeros(len(x)-1)
-            for i in range(len(x)-1):
+            residual = np.zeros(len(x) - 1)
+            for i in range(len(x) - 1):
                 # compute panel slope
-                dzdx = (z[i+1]-z[i])/(x[i+1]-x[i])
+                dzdx = (z[i + 1] - z[i]) / (x[i + 1] - x[i])
 
                 # residual
-                residual[i] = pressure[i] - 4*self.qdyn/np.sqrt(self.mach**2 - 1)*(self.aoa*np.pi/180 - dzdx)
+                residual[i] = pressure[i] - 4 * self.qdyn / np.sqrt(
+                    self.mach**2 - 1
+                ) * (self.aoa * np.pi / 180 - dzdx)
 
         else:
             residual = np.zeros(0)
@@ -100,33 +107,78 @@ class PistonTheory:
             x = np.concatenate(x, axis=0)
             z = np.concatenate(z, axis=0)
 
-            # allocate output 
+            # allocate output
             d_x = np.zeros_like(x)
             d_z = np.zeros_like(z)
-            d_aoa = 0.
-            d_qdyn = 0.
-            d_mach = 0.
+            d_aoa = 0.0
+            d_qdyn = 0.0
+            d_mach = 0.0
 
-            for i in range(len(x)-1):
+            for i in range(len(x) - 1):
                 # compute panel slope
-                dzdx = (z[i+1]-z[i])/(x[i+1]-x[i])
+                dzdx = (z[i + 1] - z[i]) / (x[i + 1] - x[i])
 
                 # x derivatives
-                d_x[i]   += adjoint[i]*4*self.qdyn/np.sqrt(self.mach**2 - 1)*dzdx/(x[i+1]-x[i])
-                d_x[i+1] -= adjoint[i]*4*self.qdyn/np.sqrt(self.mach**2 - 1)*dzdx/(x[i+1]-x[i])
+                d_x[i] += (
+                    adjoint[i]
+                    * 4
+                    * self.qdyn
+                    / np.sqrt(self.mach**2 - 1)
+                    * dzdx
+                    / (x[i + 1] - x[i])
+                )
+                d_x[i + 1] -= (
+                    adjoint[i]
+                    * 4
+                    * self.qdyn
+                    / np.sqrt(self.mach**2 - 1)
+                    * dzdx
+                    / (x[i + 1] - x[i])
+                )
 
-                # z derivatives 
-                d_z[i]   -= adjoint[i]*4*self.qdyn/np.sqrt(self.mach**2 - 1)/(x[i+1]-x[i]) 
-                d_z[i+1] += adjoint[i]*4*self.qdyn/np.sqrt(self.mach**2 - 1)/(x[i+1]-x[i])
+                # z derivatives
+                d_z[i] -= (
+                    adjoint[i]
+                    * 4
+                    * self.qdyn
+                    / np.sqrt(self.mach**2 - 1)
+                    / (x[i + 1] - x[i])
+                )
+                d_z[i + 1] += (
+                    adjoint[i]
+                    * 4
+                    * self.qdyn
+                    / np.sqrt(self.mach**2 - 1)
+                    / (x[i + 1] - x[i])
+                )
 
                 # aoa derivatives
-                d_aoa += adjoint[i]*-4*self.qdyn/np.sqrt(self.mach**2 - 1)*np.pi/180
+                d_aoa += (
+                    adjoint[i]
+                    * -4
+                    * self.qdyn
+                    / np.sqrt(self.mach**2 - 1)
+                    * np.pi
+                    / 180
+                )
 
                 # qdyn derivatives
-                d_qdyn += adjoint[i]*-4/np.sqrt(self.mach**2 - 1)*(self.aoa*np.pi/180 - dzdx)
+                d_qdyn += (
+                    adjoint[i]
+                    * -4
+                    / np.sqrt(self.mach**2 - 1)
+                    * (self.aoa * np.pi / 180 - dzdx)
+                )
 
                 # mach derivatives
-                d_mach += adjoint[i]*4*self.qdyn*self.mach*(self.aoa*np.pi/180 - dzdx)/(self.mach**2 - 1)**(3/2)
+                d_mach += (
+                    adjoint[i]
+                    * 4
+                    * self.qdyn
+                    * self.mach
+                    * (self.aoa * np.pi / 180 - dzdx)
+                    / (self.mach**2 - 1) ** (3 / 2)
+                )
 
         else:
             d_x = None
@@ -138,12 +190,14 @@ class PistonTheory:
         # distribute output
         d_x = self._distribute_output(d_x)
         d_z = self._distribute_output(d_z)
-        d_aoa = self.comm.bcast(d_aoa, root=0) 
-        d_qdyn = self.comm.bcast(d_qdyn, root=0) 
-        d_mach = self.comm.bcast(d_mach, root=0) 
+        d_aoa = self.comm.bcast(d_aoa, root=0)
+        d_qdyn = self.comm.bcast(d_qdyn, root=0)
+        d_mach = self.comm.bcast(d_mach, root=0)
 
         # pad outputs into correct dof
-        d_xa = self._pad_output(size=3*self.n_nodes, n1=0, n2=3, x=d_x) + self._pad_output(size=3*self.n_nodes, n1=2, n2=3, x=d_z)
+        d_xa = self._pad_output(
+            size=3 * self.n_nodes, n1=0, n2=3, x=d_x
+        ) + self._pad_output(size=3 * self.n_nodes, n1=2, n2=3, x=d_z)
 
         return d_xa, d_aoa, d_qdyn, d_mach
 
@@ -155,9 +209,11 @@ class PistonTheory:
             x = np.concatenate(x, axis=0)
 
             f = np.zeros_like(x)
-            for i in range(len(x)-1):
+            for i in range(len(x) - 1):
                 # distribute force to the two end nodes
-                f[i:i+2] += self.pressure[i]*self.panel_width*(x[i+1]-x[i])/2
+                f[i : i + 2] += (
+                    self.pressure[i] * self.panel_width * (x[i + 1] - x[i]) / 2
+                )
 
         else:
             f = None
@@ -166,11 +222,11 @@ class PistonTheory:
         f = self._distribute_output(f)
 
         # pad outputs into dof 2
-        f = self._pad_output(size=self.n_dof*self.n_nodes, n1=2, n2=3, x=f)
+        f = self._pad_output(size=self.n_dof * self.n_nodes, n1=2, n2=3, x=f)
 
         return f
 
-    def compute_force_derivatives(self, adjoint): 
+    def compute_force_derivatives(self, adjoint):
         x = self.comm.gather(self.xyz[0::3], root=0)
 
         # extract the adjoints needed: dof 2
@@ -181,20 +237,20 @@ class PistonTheory:
             x = np.concatenate(x, axis=0)
             adjoint = np.concatenate(adjoint, axis=0)
 
-            # allocate output 
+            # allocate output
             d_x = np.zeros_like(x)
             d_p = np.zeros_like(self.pressure)
 
-            for i in range(len(x)-1):
+            for i in range(len(x) - 1):
                 # x derivatives
-                d_x[i]   -= self.pressure[i]*self.panel_width/2*adjoint[i]
-                d_x[i]   -= self.pressure[i]*self.panel_width/2*adjoint[i+1]
-                d_x[i+1] += self.pressure[i]*self.panel_width/2*adjoint[i]
-                d_x[i+1] += self.pressure[i]*self.panel_width/2*adjoint[i+1]
+                d_x[i] -= self.pressure[i] * self.panel_width / 2 * adjoint[i]
+                d_x[i] -= self.pressure[i] * self.panel_width / 2 * adjoint[i + 1]
+                d_x[i + 1] += self.pressure[i] * self.panel_width / 2 * adjoint[i]
+                d_x[i + 1] += self.pressure[i] * self.panel_width / 2 * adjoint[i + 1]
 
                 # pressure derivatives
-                d_p[i] += self.panel_width*(x[i+1]-x[i])/2*adjoint[i]
-                d_p[i] += self.panel_width*(x[i+1]-x[i])/2*adjoint[i+1] 
+                d_p[i] += self.panel_width * (x[i + 1] - x[i]) / 2 * adjoint[i]
+                d_p[i] += self.panel_width * (x[i + 1] - x[i]) / 2 * adjoint[i + 1]
 
         else:
             d_x = None
@@ -204,19 +260,19 @@ class PistonTheory:
         d_x = self._distribute_output(d_x)
 
         # pad outputs into correct dof
-        d_xa = self._pad_output(size=3*self.n_nodes, n1=0, n2=3, x=d_x)
+        d_xa = self._pad_output(size=3 * self.n_nodes, n1=0, n2=3, x=d_x)
 
         return d_xa, d_p
 
     def compute_lift(self):
-        C_L = self.comm.bcast(np.mean(self.pressure)/self.qdyn, root=0)
+        C_L = self.comm.bcast(np.mean(self.pressure) / self.qdyn, root=0)
         return C_L
 
     def compute_lift_derivatives(self, adjoint):
-        d_p = np.ones_like(self.pressure)/self.qdyn/len(self.pressure)*adjoint
+        d_p = np.ones_like(self.pressure) / self.qdyn / len(self.pressure) * adjoint
 
         if self.rank == 0:
-            d_qdyn = -np.mean(self.pressure)/self.qdyn/self.qdyn*adjoint
+            d_qdyn = -np.mean(self.pressure) / self.qdyn / self.qdyn * adjoint
         else:
             d_qdyn = None
         d_qdyn = self.comm.bcast(d_qdyn, root=0)
@@ -246,14 +302,14 @@ class PistonTheory:
             x = np.concatenate(x, axis=0)
             z = np.concatenate(z, axis=0)
 
-            x = np.c_[x[0:-1],x[1:]].flatten()/self.panel_chord
-            z = np.c_[z[0:-1],z[1:]].flatten()/self.panel_chord
-            pressure = np.c_[self.pressure,self.pressure].flatten()/self.qdyn
+            x = np.c_[x[0:-1], x[1:]].flatten() / self.panel_chord
+            z = np.c_[z[0:-1], z[1:]].flatten() / self.panel_chord
+            pressure = np.c_[self.pressure, self.pressure].flatten() / self.qdyn
 
-            f = open('aerodynamics_output.dat',"w+")
+            f = open("aerodynamics_output.dat", "w+")
             f.write('TITLE = "piston theory data"\n')
             f.write('VARIABLES = "x", "z", "pressure"\n')
-            f.write('ZONE I=' + str(len(x)) + ', F=POINT\n')
+            f.write("ZONE I=" + str(len(x)) + ", F=POINT\n")
             for i in range(len(x)):
-                f.write(str(x[i]) + ' ' + str(z[i]) + ' ' + str(pressure[i]) + '\n')
+                f.write(str(x[i]) + " " + str(z[i]) + " " + str(pressure[i]) + "\n")
             f.close()

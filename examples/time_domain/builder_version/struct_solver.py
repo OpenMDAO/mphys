@@ -3,8 +3,10 @@ import numpy as np
 import openmdao.api as om
 
 from mphys.time_domain.time_domain_builder import TimeDomainBuilder
-from mphys.time_domain.time_domain_variables import (TimeDerivativeVariable,
-                                                     TimeDomainInput)
+from mphys.time_domain.time_domain_variables import (
+    TimeDerivativeVariable,
+    TimeDomainInput,
+)
 
 
 class ModalStep(om.ImplicitComponent):

@@ -37,13 +37,18 @@ class Top(Multipoint):
         self.add_subsystem("mesh_aero", aero_builder.get_mesh_coordinate_subsystem())
 
         # TACS setup
-        struct_builder = TacsBuilder(mesh_file="wingbox_Y_Z_flip.bdf", element_callback=tacs_setup.element_callback,
-                                     problem_setup=tacs_setup.problem_setup,
-                                     coupling_loads=[MPhysVariables.Structures.Loads.AERODYNAMIC])
+        struct_builder = TacsBuilder(
+            mesh_file="wingbox_Y_Z_flip.bdf",
+            element_callback=tacs_setup.element_callback,
+            problem_setup=tacs_setup.problem_setup,
+            coupling_loads=[MPhysVariables.Structures.Loads.AERODYNAMIC],
+        )
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
 
-        self.add_subsystem("mesh_struct", struct_builder.get_mesh_coordinate_subsystem())
+        self.add_subsystem(
+            "mesh_struct", struct_builder.get_mesh_coordinate_subsystem()
+        )
 
         dvs.add_output("dv_struct", np.array(ndv_struct * [0.002]))
 
@@ -53,21 +58,31 @@ class Top(Multipoint):
         ldxfer_builder.initialize(self.comm)
 
         for iscen, scenario in enumerate(["cruise", "maneuver"]):
-            nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14)
-            linear_solver = om.LinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14)
+            nonlinear_solver = om.NonlinearBlockGS(
+                maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14
+            )
+            linear_solver = om.LinearBlockGS(
+                maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14
+            )
             self.mphys_add_scenario(
                 scenario,
                 ScenarioAeroStructural(
-                    aero_builder=aero_builder, struct_builder=struct_builder, ldxfer_builder=ldxfer_builder
+                    aero_builder=aero_builder,
+                    struct_builder=struct_builder,
+                    ldxfer_builder=ldxfer_builder,
                 ),
                 nonlinear_solver,
                 linear_solver,
             )
 
-            self.connect(f'mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}',
-                        f'{scenario}.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}')
-            self.connect(f'mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}',
-                        f'{scenario}.{MPhysVariables.Structures.COORDINATES}')
+            self.connect(
+                f"mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+                f"{scenario}.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}",
+            )
+            self.connect(
+                f"mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}",
+                f"{scenario}.{MPhysVariables.Structures.COORDINATES}",
+            )
 
             for dv in ["q_inf", "vel", "nu", "mach", "dv_struct"]:
                 self.connect(dv, f"{scenario}.{dv}")

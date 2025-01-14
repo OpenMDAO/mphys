@@ -34,22 +34,22 @@ from tacs.mphys import TacsBuilder
 from mphys import Multipoint
 from mphys.scenarios.structural import ScenarioStructural
 
-bdf_file = os.path.join(os.path.dirname(__file__), 'Slender_Beam.bdf')
-ffd_file = os.path.join(os.path.dirname(__file__), 'ffd_8_linear.fmt')
+bdf_file = os.path.join(os.path.dirname(__file__), "Slender_Beam.bdf")
+ffd_file = os.path.join(os.path.dirname(__file__), "ffd_8_linear.fmt")
 
 # Beam thickness
-t = 0.01            # m
+t = 0.01  # m
 # Length of beam
 L = 1.0
 
 # Material properties
-rho = 2780.0 # kg /m^3
+rho = 2780.0  # kg /m^3
 E = 70.0e9
 nu = 0.0
 ys = 420.0e6
 
 # Shear force applied at tip
-V = 2.5E4
+V = 2.5e4
 
 # Callback function used to setup TACS element objects and DVs
 def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
@@ -64,6 +64,7 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
     elem = elements.Quad4Shell(transform, con)
     return elem
 
+
 def problem_setup(scenario_name, fea_assembler, problem):
     """
     Helper function to add fixed forces and eval functions
@@ -71,9 +72,10 @@ def problem_setup(scenario_name, fea_assembler, problem):
     """
 
     # Add TACS Functions
-    problem.addFunction('mass', functions.StructuralMass)
-    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
-                        ksWeight=100.0)
+    problem.addFunction("mass", functions.StructuralMass)
+    problem.addFunction(
+        "ks_vmfailure", functions.KSFailure, safetyFactor=1.0, ksWeight=100.0
+    )
 
     # Add forces to static problem
     problem.addLoadToNodes(1112, [0.0, V, 0.0, 0.0, 0.0, 0.0], nastranOrdering=True)
@@ -82,32 +84,42 @@ def problem_setup(scenario_name, fea_assembler, problem):
 class Top(Multipoint):
     def setup(self):
         # Initialize MPHYS builder for TACS
-        struct_builder = TacsBuilder(mesh_file=bdf_file, element_callback=element_callback, problem_setup=problem_setup,
-                                     coupled=False)
+        struct_builder = TacsBuilder(
+            mesh_file=bdf_file,
+            element_callback=element_callback,
+            problem_setup=problem_setup,
+            coupled=False,
+        )
         struct_builder.initialize(self.comm)
 
         # Add mesh component
-        self.add_subsystem('mesh', struct_builder.get_mesh_coordinate_subsystem())
+        self.add_subsystem("mesh", struct_builder.get_mesh_coordinate_subsystem())
 
         # add the geometry component, we dont need a builder because we do it here.
         self.add_subsystem("geometry", OM_DVGEOCOMP(file=ffd_file, type="ffd"))
         self.geometry.nom_add_discipline_coords("struct")
 
-        self.mphys_add_scenario('tip_shear', ScenarioStructural(struct_builder=struct_builder))
+        self.mphys_add_scenario(
+            "tip_shear", ScenarioStructural(struct_builder=struct_builder)
+        )
 
         self.connect("mesh.x_struct0", "geometry.x_struct_in")
         self.connect("geometry.x_struct0", "tip_shear.x_struct0")
 
     def configure(self):
         # Create reference axis
-        nRefAxPts = self.geometry.nom_addRefAxis(name="centerline", alignIndex='i', yFraction=0.5)
+        nRefAxPts = self.geometry.nom_addRefAxis(
+            name="centerline", alignIndex="i", yFraction=0.5
+        )
 
         # Set up global design variables
         def depth(val, geo):
             for i in range(nRefAxPts):
                 geo.scale_y["centerline"].coef[i] = val[i]
 
-        self.geometry.nom_addGlobalDV(dvName="depth", value=np.ones(nRefAxPts), func=depth)
+        self.geometry.nom_addGlobalDV(
+            dvName="depth", value=np.ones(nRefAxPts), func=depth
+        )
 
 
 ################################################################################
@@ -119,19 +131,19 @@ prob.model = Top()
 model = prob.model
 
 # Declare design variables, objective, and constraint
-model.add_design_var('geometry.depth', lower=1e-3, upper=10.0, scaler=20.0)
-model.add_objective('tip_shear.mass', scaler=1.0)
-model.add_constraint('tip_shear.ks_vmfailure', lower=0.0, upper=1.0, scaler=1.0)
+model.add_design_var("geometry.depth", lower=1e-3, upper=10.0, scaler=20.0)
+model.add_objective("tip_shear.mass", scaler=1.0)
+model.add_constraint("tip_shear.ks_vmfailure", lower=0.0, upper=1.0, scaler=1.0)
 
 # Configure optimizer
-prob.driver = om.ScipyOptimizeDriver(debug_print=['objs', 'nl_cons'], maxiter=1000)
-prob.driver.options['optimizer'] = 'SLSQP'
+prob.driver = om.ScipyOptimizeDriver(debug_print=["objs", "nl_cons"], maxiter=1000)
+prob.driver.options["optimizer"] = "SLSQP"
 
 # Setup OpenMDAO problem
 prob.setup()
 
 # Output N2 representation of OpenMDAO model
-om.n2(prob, show_browser=False, outfile='beam_opt_n2.html')
+om.n2(prob, show_browser=False, outfile="beam_opt_n2.html")
 
 # Run optimization
 prob.run_driver()

@@ -61,12 +61,16 @@ class ParallelCruises(MultipointParallel):
 
         self.mphys_add_scenario(
             "cruise0",
-            ScenarioAerodynamic(aero_builder=adflow_builder, in_MultipointParallel=True),
+            ScenarioAerodynamic(
+                aero_builder=adflow_builder, in_MultipointParallel=True
+            ),
         )
 
         self.mphys_add_scenario(
             "cruise1",
-            ScenarioAerodynamic(aero_builder=adflow_builder, in_MultipointParallel=True),
+            ScenarioAerodynamic(
+                aero_builder=adflow_builder, in_MultipointParallel=True
+            ),
         )
 
 
@@ -94,12 +98,24 @@ class Top(om.Group):
         # it can easily be defined on the mp group, or the aero group.
         aoa = 1.5
         ap0 = AeroProblem(
-            name="ap0", mach=0.8, altitude=10000, alpha=aoa, areaRef=45.5, chordRef=3.25, evalFuncs=["cl", "cd"]
+            name="ap0",
+            mach=0.8,
+            altitude=10000,
+            alpha=aoa,
+            areaRef=45.5,
+            chordRef=3.25,
+            evalFuncs=["cl", "cd"],
         )
         ap0.addDV("alpha", value=aoa, name="aoa", units="deg")
 
         ap1 = AeroProblem(
-            name="ap1", mach=0.7, altitude=10000, alpha=1.5, areaRef=45.5, chordRef=3.25, evalFuncs=["cl", "cd"]
+            name="ap1",
+            mach=0.7,
+            altitude=10000,
+            alpha=1.5,
+            areaRef=45.5,
+            chordRef=3.25,
+            evalFuncs=["cl", "cd"],
         )
         ap1.addDV("alpha", value=aoa, name="aoa", units="deg")
 
@@ -150,8 +166,16 @@ class Top(om.Group):
         # self.dvs.add_output("twist", val=np.array([0] * nTwist))
 
         # TODO this is working but not the correct way to do it. the sensitivities are also wrong now.
-        self.connect("aoa0", ["mp.cruise0.coupling.aoa", "mp.cruise0.aero_post.aoa"], src_indices=[0])
-        self.connect("aoa1", ["mp.cruise1.coupling.aoa", "mp.cruise1.aero_post.aoa"], src_indices=[0])
+        self.connect(
+            "aoa0",
+            ["mp.cruise0.coupling.aoa", "mp.cruise0.aero_post.aoa"],
+            src_indices=[0],
+        )
+        self.connect(
+            "aoa1",
+            ["mp.cruise1.coupling.aoa", "mp.cruise1.aero_post.aoa"],
+            src_indices=[0],
+        )
         # self.connect("twist", "geometry.twist")
 
         # define the design variables

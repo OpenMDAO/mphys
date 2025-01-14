@@ -15,7 +15,6 @@ from mphys.scenarios import ScenarioAeroStructural
 # from rlt.mphys import RltBuilder
 
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--xfer", default="meld", choices=["meld", "rlt"])
 parser.add_argument("--level", type=str, default="L1")
@@ -75,12 +74,17 @@ class Top(Multipoint):
         ################################################################################
         # TACS Setup
         ################################################################################
-        struct_builder = TacsBuilder(mesh_file="wingbox.bdf", element_callback=tacs_setup.element_callback,
-                                     problem_setup=tacs_setup.problem_setup)
+        struct_builder = TacsBuilder(
+            mesh_file="wingbox.bdf",
+            element_callback=tacs_setup.element_callback,
+            problem_setup=tacs_setup.problem_setup,
+        )
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
 
-        self.add_subsystem("mesh_struct", struct_builder.get_mesh_coordinate_subsystem())
+        self.add_subsystem(
+            "mesh_struct", struct_builder.get_mesh_coordinate_subsystem()
+        )
 
         ################################################################################
         # Transfer Scheme Setup
@@ -106,21 +110,31 @@ class Top(Multipoint):
         dvs.add_output("dv_struct", np.array(ndv_struct * [0.002]))
 
         for iscen, scenario in enumerate(["cruise", "maneuver"]):
-            nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14)
-            linear_solver = om.LinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14)
+            nonlinear_solver = om.NonlinearBlockGS(
+                maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14
+            )
+            linear_solver = om.LinearBlockGS(
+                maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14
+            )
             self.mphys_add_scenario(
                 scenario,
                 ScenarioAeroStructural(
-                    aero_builder=aero_builder, struct_builder=struct_builder, ldxfer_builder=ldxfer_builder
+                    aero_builder=aero_builder,
+                    struct_builder=struct_builder,
+                    ldxfer_builder=ldxfer_builder,
                 ),
                 nonlinear_solver,
                 linear_solver,
             )
 
-            self.connect(f'mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}',
-                         f'{scenario}.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}')
-            self.connect(f'mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}',
-                         f'{scenario}.{MPhysVariables.Structures.COORDINATES}')
+            self.connect(
+                f"mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+                f"{scenario}.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}",
+            )
+            self.connect(
+                f"mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}",
+                f"{scenario}.{MPhysVariables.Structures.COORDINATES}",
+            )
 
             self.connect("dv_struct", f"{scenario}.dv_struct")
 

@@ -2,16 +2,16 @@ import numpy as np
 from tacs import constitutive, elements, functions
 
 # Material properties
-rho = 2500.0        # density kg/m^3
-E = 70.0e9          # Young's modulus (Pa)
-nu = 0.30           # Poisson's ratio
-kcorr = 5.0/6.0     # shear correction factor
-ys = 350e6        # yield stress
+rho = 2500.0  # density kg/m^3
+E = 70.0e9  # Young's modulus (Pa)
+nu = 0.30  # Poisson's ratio
+kcorr = 5.0 / 6.0  # shear correction factor
+ys = 350e6  # yield stress
 
 # Shell thickness
-t = 0.01            # m
-tMin = 0.002        # m
-tMax = 0.05         # m
+t = 0.01  # m
+tMin = 0.002  # m
+tMax = 0.05  # m
 
 # Callback function used to setup TACS element objects and DVs
 def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
@@ -21,10 +21,10 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
     con = constitutive.IsoShellConstitutive(prop, t=t, tNum=dvNum)
 
     # Define reference axis for local shell stresses
-    if 'SKIN' in compDescript: # USKIN + LSKIN
+    if "SKIN" in compDescript:  # USKIN + LSKIN
         sweep = 35.0 / 180.0 * np.pi
         refAxis = np.array([np.sin(sweep), np.cos(sweep), 0])
-    else: # RIBS + SPARS + ENGINE_MOUNT
+    else:  # RIBS + SPARS + ENGINE_MOUNT
         refAxis = np.array([0.0, 0.0, 1.0])
 
     # For each element type in this component,
@@ -32,9 +32,9 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
     elemList = []
     transform = elements.ShellRefAxisTransform(refAxis)
     for elemDescript in elemDescripts:
-        if elemDescript in ['CQUAD4', 'CQUADR']:
+        if elemDescript in ["CQUAD4", "CQUADR"]:
             elem = elements.Quad4Shell(transform, con)
-        elif elemDescript in ['CTRIA3', 'CTRIAR']:
+        elif elemDescript in ["CTRIA3", "CTRIAR"]:
             elem = elements.Tri3Shell(transform, con)
         else:
             print("Uh oh, '%s' not recognized" % (elemDescript))
@@ -44,6 +44,7 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
     scale = [100.0]
     return elemList, scale
 
+
 def problem_setup(scenario_name, fea_assembler, problem):
     """
     Helper function to add fixed forces and eval functions
@@ -51,15 +52,17 @@ def problem_setup(scenario_name, fea_assembler, problem):
     """
 
     # Add TACS Functions
-    problem.addFunction('mass', functions.StructuralMass)
-    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0,
-                        ksWeight=100.0)
+    problem.addFunction("mass", functions.StructuralMass)
+    problem.addFunction(
+        "ks_vmfailure", functions.KSFailure, safetyFactor=1.0, ksWeight=100.0
+    )
 
     # Add forces to static problem
     F = fea_assembler.createVec()
     ndof = fea_assembler.getVarsPerNode()
     F[2::ndof] = 100.0
     problem.addLoadToRHS(F)
+
 
 def constraint_setup(scenario_name, fea_assembler, constraint_list):
     """
@@ -79,7 +82,8 @@ def constraint_setup(scenario_name, fea_assembler, constraint_list):
         constraint_list.append(constr)
         # Add volume constraint
         constr = fea_assembler.createVolumeConstraint("volume")
-        compIDs = fea_assembler.selectCompIDs(include=["U_SKIN", "L_SKIN", "LE_SPAR", "TE_SPAR", "RIB.00", "RIB.48"])
+        compIDs = fea_assembler.selectCompIDs(
+            include=["U_SKIN", "L_SKIN", "LE_SPAR", "TE_SPAR", "RIB.00", "RIB.48"]
+        )
         constr.addConstraint("fuel", compIDs=compIDs)
         constraint_list.append(constr)
-

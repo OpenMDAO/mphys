@@ -8,12 +8,15 @@
 """
 
 import os
+
 # === External Python modules ===
 import shutil
+
 # === Standard Python Modules ===
 import unittest
 
 import numpy as np
+
 # === Extension modules ===
 import openmdao.api as om
 from mpi4py import MPI
@@ -44,7 +47,11 @@ class Top(Multipoint):
             "solverName": "DASimpleFoam",
             "primalMinResTol": 1.0e-8,
             "primalBC": {
-                "U0": {"variable": "U", "patches": ["inout"], "value": [self.U0, 0.0, 0.0]},
+                "U0": {
+                    "variable": "U",
+                    "patches": ["inout"],
+                    "value": [self.U0, 0.0, 0.0],
+                },
                 "useWallFunction": True,
             },
             "objFunc": {
@@ -71,7 +78,11 @@ class Top(Multipoint):
                     }
                 },
             },
-            "adjEqnOption": {"gmresRelTol": 1.0e-6, "pcFillLevel": 1, "jacMatReOrdering": "rcm"},
+            "adjEqnOption": {
+                "gmresRelTol": 1.0e-6,
+                "pcFillLevel": 1,
+                "jacMatReOrdering": "rcm",
+            },
             "normalizeStates": {
                 "U": 10.0,
                 "p": 100.0,
@@ -86,7 +97,12 @@ class Top(Multipoint):
                 "maxIncorrectlyOrientedFaces": 0,
             },
             "designVar": {
-                "aoa": {"designVarType": "AOA", "patches": ["inout"], "flowAxis": "x", "normalAxis": "y"},
+                "aoa": {
+                    "designVarType": "AOA",
+                    "patches": ["inout"],
+                    "flowAxis": "x",
+                    "normalAxis": "y",
+                },
                 "twist": {"designVarType": "FFD"},
                 "shape": {"designVarType": "FFD"},
             },
@@ -116,7 +132,9 @@ class Top(Multipoint):
         # add the geometry component, we dont need a builder because we do it here.
         self.add_subsystem("geometry", OM_DVGEOCOMP(file="FFD/wingFFD.xyz", type="ffd"))
 
-        self.mphys_add_scenario("cruise", ScenarioAerodynamic(aero_builder=dafoam_builder))
+        self.mphys_add_scenario(
+            "cruise", ScenarioAerodynamic(aero_builder=dafoam_builder)
+        )
 
         self.connect("mesh.x_aero0", "geometry.x_aero_in")
         self.connect("geometry.x_aero0", "cruise.x_aero")
@@ -141,7 +159,9 @@ class Top(Multipoint):
         # geometry setup
 
         # Create reference axis
-        nRefAxPts = self.geometry.nom_addRefAxis(name="wingAxis", xFraction=0.25, alignIndex="k")
+        nRefAxPts = self.geometry.nom_addRefAxis(
+            name="wingAxis", xFraction=0.25, alignIndex="k"
+        )
 
         # Set up global design variables
         def twist(val, geo):
@@ -151,19 +171,27 @@ class Top(Multipoint):
         def aoa(val, DASolver):
             aoa = val[0] * np.pi / 180.0
             U = [float(self.U0 * np.cos(aoa)), float(self.U0 * np.sin(aoa)), 0]
-            DASolver.setOption("primalBC", {"U0": {"variable": "U", "patches": ["inout"], "value": U}})
+            DASolver.setOption(
+                "primalBC", {"U0": {"variable": "U", "patches": ["inout"], "value": U}}
+            )
             DASolver.updateDAOption()
 
         self.cruise.coupling.solver.add_dv_func("aoa", aoa)
         self.cruise.aero_post.add_dv_func("aoa", aoa)
 
-        self.geometry.nom_addGlobalDV(dvName="twist", value=np.array([0] * (nRefAxPts - 1)), func=twist)
+        self.geometry.nom_addGlobalDV(
+            dvName="twist", value=np.array([0] * (nRefAxPts - 1)), func=twist
+        )
         nShapes = self.geometry.nom_addLocalDV(dvName="shape")
 
         leList = [[0.1, 0, 0.01], [7.5, 0, 13.9]]
         teList = [[4.9, 0, 0.01], [8.9, 0, 13.9]]
-        self.geometry.nom_addThicknessConstraints2D("thickcon", leList, teList, nSpan=10, nChord=10)
-        self.geometry.nom_addVolumeConstraint("volcon", leList, teList, nSpan=10, nChord=10)
+        self.geometry.nom_addThicknessConstraints2D(
+            "thickcon", leList, teList, nSpan=10, nChord=10
+        )
+        self.geometry.nom_addVolumeConstraint(
+            "volcon", leList, teList, nSpan=10, nChord=10
+        )
         self.geometry.nom_add_LETEConstraint("lecon", 0, "iLow")
         self.geometry.nom_add_LETEConstraint("tecon", 0, "iHigh")
 
@@ -202,9 +230,13 @@ class TestDAFoam(unittest.TestCase):
         self.prob.run_model()
         # self.prob.model.list_outputs()
         if MPI.COMM_WORLD.rank == 0:
-            assert_near_equal(self.prob.get_val("cruise.aero_post.CL"), self.ref_vals["CL"], 1e-6)
+            assert_near_equal(
+                self.prob.get_val("cruise.aero_post.CL"), self.ref_vals["CL"], 1e-6
+            )
 
-            assert_near_equal(self.prob.get_val("cruise.aero_post.CD"), self.ref_vals["CD"], 1e-6)
+            assert_near_equal(
+                self.prob.get_val("cruise.aero_post.CD"), self.ref_vals["CD"], 1e-6
+            )
 
 
 if __name__ == "__main__":

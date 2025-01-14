@@ -6,7 +6,7 @@ from openmdao.docs.config_params import IGNORE_LIST
 # of our source docs, as well as writing out each individual rst file.
 
 
-def generate_docs(dir, top, packages, project_name='openmdao'):
+def generate_docs(dir, top, packages, project_name="openmdao"):
     """
     generate_docs
 
@@ -54,14 +54,17 @@ Source Docs
 
     # file_wrap inherits from pyparsing, which has some formatting issues when
     # generating src docs, so this just turns off the generation of inherited stuff
-    no_inherit = set([
-        'file_wrap.py',
-    ])
+    no_inherit = set(
+        [
+            "file_wrap.py",
+        ]
+    )
     docs_dir = os.path.dirname(dir)
 
     doc_dir = os.path.join(docs_dir, "_srcdocs")
     if os.path.isdir(doc_dir):
         import shutil
+
         shutil.rmtree(doc_dir)
 
     if not os.path.isdir(doc_dir):
@@ -96,17 +99,21 @@ Source Docs
         # a package is e.g. openmdao.core, that contains source files
         # a sub_package, is a src file, e.g. openmdao.core.component
         sub_packages = []
-        package_filename = os.path.join(packages_dir,
-                                        project_name + "." + package + ".rst")
+        package_filename = os.path.join(
+            packages_dir, project_name + "." + package + ".rst"
+        )
         package_name = project_name + "." + package
 
         # the sub_listing is going into each package dir and listing what's in it
-        for sub_listing in sorted(os.listdir(os.path.join(dir, package.replace('.','/')))):
+        for sub_listing in sorted(
+            os.listdir(os.path.join(dir, package.replace(".", "/")))
+        ):
             # don't want to catalog files twice, nor use init files nor test dir
-            if (os.path.isdir(sub_listing) and sub_listing != "tests") or \
-               (sub_listing.endswith(".py") and not sub_listing.startswith('_')):
+            if (os.path.isdir(sub_listing) and sub_listing != "tests") or (
+                sub_listing.endswith(".py") and not sub_listing.startswith("_")
+            ):
                 # just want the name of e.g. dataxfer not dataxfer.py
-                sub_packages.append(sub_listing.rsplit('.')[0])
+                sub_packages.append(sub_listing.rsplit(".")[0])
 
         if len(sub_packages) > 0:
             # continue to write in the top-level index file.
@@ -128,7 +135,7 @@ Source Docs
             package_file.write(package_top)
 
             for sub_package in sub_packages:
-                SKIP_SUBPACKAGES = ['__pycache__']
+                SKIP_SUBPACKAGES = ["__pycache__"]
                 # this line writes subpackage name e.g. "core/component.py"
                 # into the corresponding package index file (e.g. "openmdao.core.rst")
                 if sub_package not in SKIP_SUBPACKAGES:
@@ -143,11 +150,12 @@ Source Docs
                     # get the meat of the ref sheet code done
                     filename = sub_package + ".py"
                     ref_sheet.write(".. index:: " + filename + "\n\n")
-                    ref_sheet.write(".. _" + package_name + "." +
-                                    filename + ":\n\n")
+                    ref_sheet.write(".. _" + package_name + "." + filename + ":\n\n")
                     ref_sheet.write(filename + "\n")
                     ref_sheet.write("-" * len(filename) + "\n\n")
-                    ref_sheet.write(".. automodule:: " + package_name + "." + sub_package)
+                    ref_sheet.write(
+                        ".. automodule:: " + package_name + "." + sub_package
+                    )
 
                     # finish and close each reference sheet.
                     if filename in no_inherit:
