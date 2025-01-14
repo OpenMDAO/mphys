@@ -91,7 +91,7 @@ testflo -v tests
 ## Code Formatting
 All pull requests automatically check for code formatting compliance using `flake8`, `black`, and `isort`.
 Before submitting a PR check code changes adheres to this formating. 
-To run flake8, black, and isort locally, use the folowing commands:
+To run `flake8`, `black`, and `isort` locally, use the folowing commands:
 ```commandline
 $ pip install flake8 black isort
 $ wget https://raw.githubusercontent.com/mdolab/.github/main/.flake8 -O .flake8_mdolab  # download flake8 configuration for mdolab
