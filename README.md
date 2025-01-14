@@ -1,6 +1,8 @@
 <img src="docs/logo/mphys_logo_no_background.png" alt= “MPhys” width="250">
 
 [![Unit Tests and Docs](https://github.com/OpenMDAO/mphys/actions/workflows/unit_tests_and_docs.yml/badge.svg)](https://github.com/OpenMDAO/mphys/actions/workflows/unit_tests_and_docs.yml)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
 MPhys is a package that standardizes high-fidelity multiphysics problems in OpenMDAO.
 MPhys eases the problem set up, provides straightforward extension to new disciplines, and has a library of OpenMDAO groups for multidisciplinary problems addressed by its standard.
@@ -84,6 +86,18 @@ ffd.xyz
 to run the tests execute in the root directory
 ```bash
 testflo -v tests
+```
+
+## Code Formatting
+All pull requests automatically check for code formatting compliance using `flake8`, `black`, and `isort`.
+Before submitting a PR check code changes adheres to this formating. 
+To run flake8, black, and isort locally, use the folowing commands:
+```commandline
+$ pip install flake8 black isort
+$ wget https://raw.githubusercontent.com/mdolab/.github/main/.flake8 -O .flake8_mdolab  # download flake8 configuration for mdolab
+$ python -m flake8 . --append-config .flake8_mdolab --count --show-source --statistics
+$ python -m black . --check --diff
+$ python -m isort . --check-only --diff
 ```
 
 # Software Assurance Plan
