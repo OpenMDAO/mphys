@@ -57,7 +57,7 @@ class Server:
         self.prob = om.Problem()
         self.prob.model = self.get_om_group_function_pointer()
         if self.ignore_setup_warnings:
-            with warnings.catch_warnings(record=True) as w:
+            with warnings.catch_warnings(record=True):
                 self.prob.setup(mode="rev")
         else:
             self.prob.setup(mode="rev")
@@ -71,7 +71,7 @@ class Server:
 
     def _run_model(self):
         if self.ignore_runtime_warnings:
-            with warnings.catch_warnings(record=True) as w:
+            with warnings.catch_warnings(record=True):
                 self.prob.run_model()
         else:
             self.prob.run_model()
@@ -82,7 +82,7 @@ class Server:
     def _compute_totals(self):
         of, wrt = self._get_derivative_inputs_outputs()
         if self.ignore_runtime_warnings:
-            with warnings.catch_warnings(record=True) as w:
+            with warnings.catch_warnings(record=True):
                 self.derivatives = self.prob.compute_totals(of=of, wrt=wrt)
         else:
             self.derivatives = self.prob.compute_totals(of=of, wrt=wrt)

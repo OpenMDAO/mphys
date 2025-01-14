@@ -1,4 +1,3 @@
-import numpy as np
 import openmdao.api as om
 
 from mphys.core.distributed_converter import DistributedVariableDescription

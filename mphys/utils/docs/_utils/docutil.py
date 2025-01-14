@@ -709,7 +709,7 @@ def dedent(src):
             lstrip = line.lstrip()
             if lstrip:  # keep going if first line(s) are blank.
                 tab = len(line) - len(lstrip)
-                return "\n".join(l[tab:] for l in lines[i:])
+                return "\n".join(s[tab:] for s in lines[i:])
     return ""
 
 
@@ -764,9 +764,8 @@ def run_code(
     if cls is None:
         use_mpi = False
     else:
-        try:
-            import mpi4py
-        except ImportError:
+        mpi4py_found = importlib.util.find_spec("mpi4py") is not None
+        if not mpi4py_found:
             use_mpi = False
         else:
             N_PROCS = getattr(cls, "N_PROCS", 1)
@@ -899,7 +898,7 @@ def run_code(
     except unittest.SkipTest as skip:
         output = str(skip)
         skipped = True
-    except Exception as exc:
+    except Exception:
         output = "Running of embedded code {} in docs failed due to: \n\n{}".format(
             path, traceback.format_exc()
         )

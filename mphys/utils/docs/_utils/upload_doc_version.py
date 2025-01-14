@@ -1,5 +1,3 @@
-import os
-import pipes
 import subprocess
 import sys
 

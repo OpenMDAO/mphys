@@ -8,11 +8,10 @@ import os
 import sys
 import traceback
 
-import numpy as np
 from openmdao.utils.general_utils import printoptions
 
 if __name__ == "__main__":
-    import openmdao.utils.mpi  # this will activate use_proc_files
+    import openmdao.utils.mpi  # noqa: F401, this will activate use_proc_files
 
     try:
         module_path = os.environ.get("OPENMDAO_CURRENT_MODULE", "").strip()
