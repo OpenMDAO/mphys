@@ -13,6 +13,7 @@ optional_dependencies = {
     "remote": ["pbs4py", "zmq"],
     "test": ["testflo"],
     "docs": ["sphinx", "sphinxcontrib.bibtex", "pbs4py", "zmq"],
+    "format": ["black", "flake8", "isort"],
 }
 # Add an optional dependency that concatenates all others
 optional_dependencies["all"] = sorted(
