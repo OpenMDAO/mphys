@@ -6,23 +6,23 @@
 @Desc    :   Test the dervatives of the geometric components
 """
 
+import os
+
 # === Standard Python modules ===
 import unittest
-import os
 
 # === External Python modules ===
 import numpy as np
 
-# from mpi4py import MPI
-
 # === Extension modules ===
 import openmdao.api as om
+from adflow import ADFLOW
 from openmdao.utils.assert_utils import assert_near_equal
+from pygeo.mphys import OM_DVGEOCOMP
 
 from mphys.multipoint import Multipoint
-from adflow import ADFLOW
 
-from pygeo.mphys import OM_DVGEOCOMP
+# from mpi4py import MPI
 
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
@@ -40,7 +40,9 @@ class Top(om.Group):
         # geometry parametrization with FFD and general geometric constraints
         self.add_subsystem(
             "geo",
-            OM_DVGEOCOMP(file=os.path.join(baseDir, "../input_files/ffd.xyz"), type="ffd"),
+            OM_DVGEOCOMP(
+                file=os.path.join(baseDir, "../input_files/ffd.xyz"), type="ffd"
+            ),
         )
 
     def configure(self):
@@ -95,7 +97,9 @@ class Top(om.Group):
 
         CFDSolver = ADFLOW(options=aero_options)
 
-        points["aero_points"] = CFDSolver.getSurfaceCoordinates(includeZipper=False).flatten(order="C")
+        points["aero_points"] = CFDSolver.getSurfaceCoordinates(
+            includeZipper=False
+        ).flatten(order="C")
 
         # add these points to the geometry object
         self.geo.nom_add_point_dict(points)

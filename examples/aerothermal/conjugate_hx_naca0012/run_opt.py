@@ -1,18 +1,17 @@
 # from mpi4py import MPI
 import argparse
+
 import numpy as np
 import openmdao.api as om
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioAeroThermal
-from pygeo.mphys import OM_DVGEOCOMP
-
-
 from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
-from tacs.mphys import TacsBuilder
 from funtofem.mphys import MeldThermalBuilder
-from tacs import elements, constitutive, functions
+from pygeo.mphys import OM_DVGEOCOMP
+from tacs import constitutive, elements, functions
+from tacs.mphys import TacsBuilder
 
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioAeroThermal
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--task", default="run")
@@ -64,8 +63,12 @@ def get_surface_mapping(Xpts_array):
         mask_sec = np.where(Xpts_array[:, 0] == x)[0]
 
         # find min and max y points
-        max_mask = np.where(Xpts_array[mask_sec, 1] == np.max(Xpts_array[mask_sec, 1]))[0]
-        min_mask = np.where(Xpts_array[mask_sec, 1] == np.min(Xpts_array[mask_sec, 1]))[0]
+        max_mask = np.where(Xpts_array[mask_sec, 1] == np.max(Xpts_array[mask_sec, 1]))[
+            0
+        ]
+        min_mask = np.where(Xpts_array[mask_sec, 1] == np.min(Xpts_array[mask_sec, 1]))[
+            0
+        ]
 
         lower_mask.extend(mask_sec[min_mask])
         upper_mask.extend(mask_sec[max_mask])
@@ -88,7 +91,6 @@ class Top(Multipoint):
     def setup(self):
         # ivc to keep the top level DVs
         self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
-
 
         ################################################################################
         # ADflow Setup
@@ -138,9 +140,16 @@ class Top(Multipoint):
             # "rkreset": True,
         }
 
-        aero_builder = ADflowBuilder(aero_options, scenario="aerothermal", complexify=complexify)
+        aero_builder = ADflowBuilder(
+            aero_options, scenario="aerothermal", complexify=complexify
+        )
         aero_builder.initialize(self.comm)
-        self.add_subsystem("mesh_aero", aero_builder.get_mesh_coordinate_subsystem(surface_groups=["allIsothermalWalls"]))
+        self.add_subsystem(
+            "mesh_aero",
+            aero_builder.get_mesh_coordinate_subsystem(
+                surface_groups=["allIsothermalWalls"]
+            ),
+        )
 
         # self.connect("mesh_aero.x_aero0", "cruise.x_aero")
         self.connect("mesh_aero.x_aero_allIsothermalWalls0", "cruise.x_aero_surface0")
@@ -148,46 +157,73 @@ class Top(Multipoint):
         ################################################################################
         # TACS Setup
         ################################################################################
-        thermal_builder = TacsBuilder(mesh_file="./meshes/n0012_hexa.bdf", element_callback=add_elements,
-                                      discipline="thermal", surface_mapper=get_surface_mapping)
+        thermal_builder = TacsBuilder(
+            mesh_file="./meshes/n0012_hexa.bdf",
+            element_callback=add_elements,
+            discipline="thermal",
+            surface_mapper=get_surface_mapping,
+        )
         thermal_builder.initialize(self.comm)
         ndv_struct = thermal_builder.get_ndv()
 
-        self.add_subsystem("mesh_thermal", thermal_builder.get_mesh_coordinate_subsystem())
+        self.add_subsystem(
+            "mesh_thermal", thermal_builder.get_mesh_coordinate_subsystem()
+        )
         self.connect("mesh_thermal.x_thermal_surface0", "cruise.x_thermal_surface0")
         ################################################################################
         # Transfer Scheme Setup
         ################################################################################
 
-        thermalxfer_builder = MeldThermalBuilder(aero_builder, thermal_builder, isym=1, n=10, beta=0.5)
+        thermalxfer_builder = MeldThermalBuilder(
+            aero_builder, thermal_builder, isym=1, n=10, beta=0.5
+        )
         thermalxfer_builder.initialize(self.comm)
 
         ################################################################################
         # MPHYS Setup
         ################################################################################
 
-        self.add_subsystem("geometry", OM_DVGEOCOMP(file="./ffds/n0012_ffd.xyz", type="ffd", options= {"complex":complexify}))
+        self.add_subsystem(
+            "geometry",
+            OM_DVGEOCOMP(
+                file="./ffds/n0012_ffd.xyz", type="ffd", options={"complex": complexify}
+            ),
+        )
 
         scenario = "cruise"
 
         self.mphys_add_scenario(
             scenario,
             ScenarioAeroThermal(
-                aero_builder=aero_builder, thermal_builder=thermal_builder, thermalxfer_builder=thermalxfer_builder
+                aero_builder=aero_builder,
+                thermal_builder=thermal_builder,
+                thermalxfer_builder=thermalxfer_builder,
             ),
-            om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-12, atol=1e-14),
-            om.LinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-12, atol=1e-14),
+            om.NonlinearBlockGS(
+                maxiter=25, iprint=2, use_aitken=True, rtol=1e-12, atol=1e-14
+            ),
+            om.LinearBlockGS(
+                maxiter=25, iprint=2, use_aitken=True, rtol=1e-12, atol=1e-14
+            ),
         )
 
-        self.connect(f"mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
-                     f"geometry.{MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT}")
-        self.connect(f"geometry.{MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT}",
-                     f"cruise.{MPhysVariables.Aerodynamics.Surface.COORDINATES}")
+        self.connect(
+            f"mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+            f"geometry.{MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT}",
+        )
+        self.connect(
+            f"geometry.{MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT}",
+            f"cruise.{MPhysVariables.Aerodynamics.Surface.COORDINATES}",
+        )
 
-        self.connect(f"mesh_thermal.{MPhysVariables.Thermal.Mesh.COORDINATES}",
-                     f"geometry.{MPhysVariables.Thermal.Geometry.COORDINATES_INPUT}")
-        self.connect(f"geometry.{MPhysVariables.Thermal.Geometry.COORDINATES_OUTPUT}",
-                     f"cruise.{MPhysVariables.Thermal.COORDINATES}")
+        self.connect(
+            f"mesh_thermal.{MPhysVariables.Thermal.Mesh.COORDINATES}",
+            f"geometry.{MPhysVariables.Thermal.Geometry.COORDINATES_INPUT}",
+        )
+        self.connect(
+            f"geometry.{MPhysVariables.Thermal.Geometry.COORDINATES_OUTPUT}",
+            f"cruise.{MPhysVariables.Thermal.COORDINATES}",
+        )
 
     def configure(self):
         # create the aero problems for the analysis point.
@@ -211,7 +247,6 @@ class Top(Multipoint):
         )
         ap0.addDV("alpha", value=aoa0, name="aoa", units="deg")
 
-
         self.cruise.coupling.aero.mphys_set_ap(ap0)
         self.cruise.aero_post.mphys_set_ap(ap0)
 
@@ -221,9 +256,18 @@ class Top(Multipoint):
         # connect to the aero for each scenario
         self.connect("aoa", ["cruise.coupling.aero.aoa", "cruise.aero_post.aoa"])
 
-
-        self.cruise.aero_post.mphys_add_BCDVs("Temperature", famGroup="allIsothermalWalls", dv_name="T_convect", coupling=True)
-        self.cruise.coupling.aero.mphys_add_BCDVs("Temperature", famGroup="allIsothermalWalls", dv_name="T_convect", coupling=True)
+        self.cruise.aero_post.mphys_add_BCDVs(
+            "Temperature",
+            famGroup="allIsothermalWalls",
+            dv_name="T_convect",
+            coupling=True,
+        )
+        self.cruise.coupling.aero.mphys_add_BCDVs(
+            "Temperature",
+            famGroup="allIsothermalWalls",
+            dv_name="T_convect",
+            coupling=True,
+        )
 
         # new coupling variables were added so we need to reinitialize promotion
         self.cruise.coupling._mphys_promote_coupling_variables()
@@ -249,26 +293,23 @@ class Top(Multipoint):
 
         # Create reference axis
 
-        nLocal = self.geometry.nom_addSpanwiseLocalDV("shape", 'k', axis="y")
+        nLocal = self.geometry.nom_addSpanwiseLocalDV("shape", "k", axis="y")
 
         le = 0.01
         leList = [[le, 0, le], [le, 0, 1.0 - le]]
         teList = [[1.0 - le, 0, le], [1.0 - le, 0, 1.0 - le]]
 
-        self.geometry.nom_addThicknessConstraints2D("thickcon", leList, teList, nSpan=10, nChord=10)
-        self.geometry.nom_addVolumeConstraint("volcon", leList, teList, nSpan=20, nChord=20)
-        self.geometry.nom_add_LETEConstraint(
-            "lecon",
-            0,
-            "iLow",
-            topID='j'
+        self.geometry.nom_addThicknessConstraints2D(
+            "thickcon", leList, teList, nSpan=10, nChord=10
         )
-        self.geometry.nom_add_LETEConstraint("tecon", 0, "iHigh", topID='j')
+        self.geometry.nom_addVolumeConstraint(
+            "volcon", leList, teList, nSpan=20, nChord=20
+        )
+        self.geometry.nom_add_LETEConstraint("lecon", 0, "iLow", topID="j")
+        self.geometry.nom_add_LETEConstraint("tecon", 0, "iHigh", topID="j")
         # add dvs to ivc and connect
         self.dvs.add_output("shape", val=np.array([0] * nLocal))
         self.connect("shape", ["geometry.shape"])
-
-
 
 
 ################################################################################
@@ -296,7 +337,7 @@ prob.driver.opt_settings = {
     "Iterations limit": 1500000,
     # 'Nonderivative linesearch':None,
     "Major step limit": 1e-0,
-    'Function precision':1.0e-8,
+    "Function precision": 1.0e-8,
     # 'Difference interval':1.0e-6,
     "Hessian full memory": None,
     "Hessian frequency": 200,
@@ -309,7 +350,11 @@ prob.driver.opt_settings = {
 }
 
 
-prob.model.add_design_var("shape", lower=-0.05, upper=0.05, )
+prob.model.add_design_var(
+    "shape",
+    lower=-0.05,
+    upper=0.05,
+)
 # prob.model.add_design_var("x_thermal0", lower=-0.05, upper=0.05, indices=[10])
 # prob.model.add_design_var("x_thermal0", lower=-0.05, upper=0.05, indices=[1])
 # prob.model.add_design_var("aoa", lower=-5.0, upper=10.0)
@@ -327,15 +372,14 @@ prob.model.add_constraint("geometry.volcon", lower=0.3)
 # prob.model.add_objective("cruise.T_convect",  index=1)
 # prob.model.add_objective("cruise.q_conduct_surf2vol.q_conduct",  index=1)
 # prob.model.add_objective("cruise.q_conduct",  index=1)
-prob.model.add_objective("cruise.aero_post.totheattransfer",  ref=3e3)
-prob.model.add_constraint("cruise.aero_post.cd", upper=1.0*2e-2, ref=2e-2)
+prob.model.add_objective("cruise.aero_post.totheattransfer", ref=3e3)
+prob.model.add_constraint("cruise.aero_post.cd", upper=1.0 * 2e-2, ref=2e-2)
 prob.model.add_constraint("cruise.aero_post.cl", equals=0.5)
 
 # prob.driver.recording_options["record_inputs"] = False
 # prob.driver.recording_options["record_desvars"] = True
 # prob.driver.recording_options["record_responses"] = False
 # prob.driver.recording_options["record_objectives"] = True
-
 
 
 # prob.setup(mode="rev")
@@ -347,15 +391,22 @@ if args.task == "run":
     prob.run_model()
 
     if complexify:
-        prob.model.approx_totals(method='cs', step=1e-40)
+        prob.model.approx_totals(method="cs", step=1e-40)
         from openmdao.core.total_jac import _TotalJacInfo
 
-        total_info = _TotalJacInfo(prob, "cruise.aero_post.totheattransfer", "shape", False, return_format='flat_dict', approx=True,
-                                    driver_scaling=False)
+        total_info = _TotalJacInfo(
+            prob,
+            "cruise.aero_post.totheattransfer",
+            "shape",
+            False,
+            return_format="flat_dict",
+            approx=True,
+            driver_scaling=False,
+        )
         Jfd = total_info.compute_totals_approx(initialize=True)
-        print('------------------------------------')
-        print('J cs = ', Jfd)
-        print('------------------------------------')
+        print("------------------------------------")
+        print("J cs = ", Jfd)
+        print("------------------------------------")
     else:
         # from openmdao.core.total_jac import _TotalJacInfo
         # prob._mode='rev'
@@ -367,12 +418,9 @@ if args.task == "run":
         # print('------------------------------------')
         prob.check_totals(step=1e-10)
 
-
-
     # prob.model.list_outputs(print_arrays=True)
     # prob.check_partials(compact_print=True, includes='*geometry*')
 elif args.task == "opt":
     prob.setup(mode="rev")
-
 
     prob.run_driver()

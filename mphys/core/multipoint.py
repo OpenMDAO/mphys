@@ -1,5 +1,6 @@
 import openmdao.api as om
 
+
 def set_coupling_algorithms_in_scenarios(multipoint_group):
     """
     Set the stored linear and nonlinear solver into the coupling group if the
@@ -25,8 +26,13 @@ class Multipoint(om.Group):
         self.mphys_coupling_solvers = []
         super().__init__(**kwargs)
 
-    def mphys_add_scenario(self, name, scenario, coupling_nonlinear_solver=None,
-                           coupling_linear_solver=None):
+    def mphys_add_scenario(
+        self,
+        name,
+        scenario,
+        coupling_nonlinear_solver=None,
+        coupling_linear_solver=None,
+    ):
         """
         Add an MPhys scenario
 
@@ -59,8 +65,13 @@ class MultipointParallel(om.ParallelGroup):
         self.mphys_coupling_solvers = []
         super().__init__(**kwargs)
 
-    def mphys_add_scenario(self, name, scenario, coupling_nonlinear_solver=None,
-                           coupling_linear_solver=None):
+    def mphys_add_scenario(
+        self,
+        name,
+        scenario,
+        coupling_nonlinear_solver=None,
+        coupling_linear_solver=None,
+    ):
         """
         Add an MPhys scenario
 

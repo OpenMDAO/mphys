@@ -1,10 +1,11 @@
-from docutils import nodes
-from docutils.statemachine import ViewList
-from docutils.parsers.rst import Directive
-import subprocess
-import sphinx
-from sphinx.util.nodes import nested_parse_with_titles
 import os.path
+import subprocess
+
+import sphinx
+from docutils import nodes
+from docutils.parsers.rst import Directive
+from docutils.statemachine import ViewList
+from sphinx.util.nodes import nested_parse_with_titles
 
 
 class EmbedN2Directive(Directive):
@@ -37,7 +38,7 @@ class EmbedN2Directive(Directive):
 
     def run(self):
         path_to_model = self.arguments[0]
-        n2_dims = [ 1200, 700 ]
+        n2_dims = [1200, 700]
         show_toolbar = False
 
         if len(self.arguments) > 1 and self.arguments[1]:
@@ -53,23 +54,25 @@ class EmbedN2Directive(Directive):
 
         # check that the file exists
         if not os.path.isfile(np):
-            raise IOError('File does not exist({0})'.format(np))
-        
+            raise IOError("File does not exist({0})".format(np))
+
         # Generate N2 files into the target_dir. Those files are later copied
         # into the top of the HTML hierarchy, so the HTML doc file needs a
         # relative path to them.
         target_dir = os.path.join(os.getcwd(), "_n2html")
 
-        rel_dir = os.path.relpath(os.getcwd(),
-                                  os.path.dirname(self.state.document.settings._source))
-        html_base_name = os.path.basename(path_to_model).split('.')[0] + "_n2.html"
+        rel_dir = os.path.relpath(
+            os.getcwd(), os.path.dirname(self.state.document.settings._source)
+        )
+        html_base_name = os.path.basename(path_to_model).split(".")[0] + "_n2.html"
         html_name = os.path.join(target_dir, html_base_name)
         html_rel_name = os.path.join(rel_dir, html_base_name)
         if show_toolbar:
-            html_rel_name += '#toolbar'
+            html_rel_name += "#toolbar"
 
         cmd = subprocess.Popen(
-            ['openmdao', 'n2', np, '--no_browser', '--embed', '-o' + html_name])
+            ["openmdao", "n2", np, "--no_browser", "--embed", "-o" + html_name]
+        )
         cmd_out, cmd_err = cmd.communicate()
 
         rst = ViewList()
@@ -103,6 +106,6 @@ class EmbedN2Directive(Directive):
 
 def setup(app):
     """add custom directive into Sphinx so that it is found during document parsing"""
-    app.add_directive('embed-n2', EmbedN2Directive)
+    app.add_directive("embed-n2", EmbedN2Directive)
 
-    return {'version': sphinx.__display_version__, 'parallel_read_safe': True}
+    return {"version": sphinx.__display_version__, "parallel_read_safe": True}

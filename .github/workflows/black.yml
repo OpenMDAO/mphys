@@ -1,0 +1,15 @@
+name: black
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  black:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: psf/black@stable
+        with:
+          version: "~= 22.0"

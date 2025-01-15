@@ -6,30 +6,27 @@
 @Desc    :   Test the derivatives of the geometric constraint functions
 """
 
+import os
+
 # === Standard Python modules ===
 import unittest
-import os
 
 # === External Python modules ===
 import numpy as np
 
-from mpi4py import MPI
-
 # === Extension modules ===
 import openmdao.api as om
-from openmdao.utils.assert_utils import assert_near_equal
-
-
-import os
-from mphys.multipoint import Multipoint
-
-# for geometric DVs
-from pygeo.mphys import OM_DVGEOCOMP
 
 # only try to import this so that people can run the script w/o mdolab code
 # TACS is required regardless of the structural solver used
 from adflow import ADFLOW
+from mpi4py import MPI
+from openmdao.utils.assert_utils import assert_near_equal
 
+# for geometric DVs
+from pygeo.mphys import OM_DVGEOCOMP
+
+from mphys.multipoint import Multipoint
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
 
@@ -46,7 +43,9 @@ class Top(om.Group):
         # geometry parametrization with FFD and general geometric constraints
         self.add_subsystem(
             "geo",
-            OM_DVGEOCOMP(file=os.path.join(baseDir, "../input_files/ffd.xyz"), type="ffd"),
+            OM_DVGEOCOMP(
+                file=os.path.join(baseDir, "../input_files/ffd.xyz"), type="ffd"
+            ),
         )
 
         # # create the multiphysics multipoint group.
@@ -116,7 +115,9 @@ class Top(om.Group):
         tri_points = aero_mesh._getTriangulatedMeshSurface()
 
         points = {}
-        points["aero_points"] = aero_mesh.aero_solver.getSurfaceCoordinates(includeZipper=False).flatten(order="C")
+        points["aero_points"] = aero_mesh.aero_solver.getSurfaceCoordinates(
+            includeZipper=False
+        ).flatten(order="C")
 
         # add these points to the geometry object
         self.geo.nom_add_point_dict(points)

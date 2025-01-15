@@ -1,9 +1,9 @@
 import numpy as np
 import openmdao.api as om
-
 from aero_solver import FakeAeroBuilder
-from xfer_scheme import ModalXferBuilder
 from struct_solver import ModalStructBuilder
+from xfer_scheme import ModalXferBuilder
+
 from mphys.time_domain.integator_aerostructural import IntegratorAerostructural
 
 
@@ -44,8 +44,8 @@ class Model(om.Group):
                 aero_builder=aero_builder,
                 struct_builder=struct_builder,
                 ldxfer_builder=ldxfer_builder,
-                nonlinear_solver = om.NonlinearRunOnce(),
-                linear_solver = om.LinearRunOnce()
+                nonlinear_solver=om.NonlinearRunOnce(),
+                linear_solver=om.LinearRunOnce(),
             ),
             promotes=["*"],
         )

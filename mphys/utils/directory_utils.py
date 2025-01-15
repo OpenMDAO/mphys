@@ -1,5 +1,6 @@
 import os
 
+
 class cd:
     def __init__(self, new_path: str):
         """

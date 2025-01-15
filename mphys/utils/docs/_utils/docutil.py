@@ -2,42 +2,37 @@
 A collection of functions for modifying source code that is embeded into the Sphinx documentation.
 """
 
-import sys
-import os
-import re
-import tokenize
+import ast
+import html as cgiesc
 import importlib
 import inspect
+import os
+import re
 import subprocess
+import sys
 import tempfile
-import unittest
+import tokenize
 import traceback
-import ast
-
-from docutils import nodes
-
+import unittest
 from collections import namedtuple
-
 from io import StringIO
 
+from docutils import nodes
+from openmdao.utils.general_utils import printoptions
+from redbaron import RedBaron
 from sphinx.errors import SphinxError
 from sphinx.writers.html import HTMLTranslator
 from sphinx.writers.html5 import HTML5Translator
-from redbaron import RedBaron
 
-import html as cgiesc
+sqlite_file = "feature_docs_unit_test_db.sqlite"  # name of the sqlite database file
+table_name = "feature_unit_tests"  # name of the table to be queried
 
-from openmdao.utils.general_utils import printoptions
-
-sqlite_file = 'feature_docs_unit_test_db.sqlite'    # name of the sqlite database file
-table_name = 'feature_unit_tests'   # name of the table to be queried
-
-_sub_runner = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'run_sub.py')
+_sub_runner = os.path.join(os.path.dirname(os.path.abspath(__file__)), "run_sub.py")
 
 
 # an input block consists of a block of code and a tag that marks the end of any
 # output from that code in the output stream (via inserted print('>>>>>#') statements)
-InputBlock = namedtuple('InputBlock', 'code tag')
+InputBlock = namedtuple("InputBlock", "code tag")
 
 
 class skipped_or_failed_node(nodes.Element):
@@ -53,7 +48,9 @@ def depart_skipped_or_failed_node(self, node):
         self.body.append("output only available for HTML\n")
         return
 
-    html = '<div class="cell border-box-sizing code_cell rendered"><div class="output"><div class="inner_cell"><div class="{}"><pre>{}</pre></div></div></div></div>'.format(node["kind"], node["text"])
+    html = '<div class="cell border-box-sizing code_cell rendered"><div class="output"><div class="inner_cell"><div class="{}"><pre>{}</pre></div></div></div></div>'.format(
+        node["kind"], node["text"]
+    )
     self.body.append(html)
 
 
@@ -74,15 +71,22 @@ def depart_in_or_out_node(self, node):
         self.body.append("output only available for HTML\n")
         return
     if node["kind"] == "In":
-        html = '<div class="highlight-python"><div class="highlight"><pre>{}</pre></div></div>'.format(node["text"])
+        html = '<div class="highlight-python"><div class="highlight"><pre>{}</pre></div></div>'.format(
+            node["text"]
+        )
     elif node["kind"] == "Out":
-        html = '<div class="cell border-box-sizing code_cell rendered"><div class="output_area"><pre>{}</pre></div></div>'.format(node["text"])
+        html = '<div class="cell border-box-sizing code_cell rendered"><div class="output_area"><pre>{}</pre></div></div>'.format(
+            node["text"]
+        )
 
     self.body.append(html)
 
 
 def node_setup(app):
-    app.add_node(skipped_or_failed_node, html=(visit_skipped_or_failed_node, depart_skipped_or_failed_node))
+    app.add_node(
+        skipped_or_failed_node,
+        html=(visit_skipped_or_failed_node, depart_skipped_or_failed_node),
+    )
     app.add_node(in_or_out_node, html=(visit_in_or_out_node, depart_in_or_out_node))
 
 
@@ -118,7 +122,7 @@ def remove_docstrings(source):
         if start_line > last_lineno:
             last_col = 0
         if start_col > last_col:
-            out += (" " * (start_col - last_col))
+            out += " " * (start_col - last_col)
         # This series of conditionals removes docstrings:
         if token_type == tokenize.STRING:
             if prev_toktype != tokenize.INDENT:
@@ -165,7 +169,7 @@ def remove_redbaron_node(node, index):
     try:
         node.value.remove(node.value[index])
     except Exception as e:  # no choice but to catch the general Exception
-        if str(e).startswith('It appears that you have indentation in your CommaList'):
+        if str(e).startswith("It appears that you have indentation in your CommaList"):
             pass
         else:
             raise
@@ -192,8 +196,15 @@ def replace_asserts_with_prints(src):
     rb = RedBaron(src)  # convert to RedBaron internal structure
 
     # findAll is slow, so only check the ones that are present.
-    base_assert = ['assertAlmostEqual', 'assertLess', 'assertGreater', 'assertEqual',
-                   'assert_equal_arrays', 'assertTrue', 'assertFalse']
+    base_assert = [
+        "assertAlmostEqual",
+        "assertLess",
+        "assertGreater",
+        "assertEqual",
+        "assert_equal_arrays",
+        "assertTrue",
+        "assertFalse",
+    ]
     used_assert = [item for item in base_assert if item in src]
 
     for assert_type in used_assert:
@@ -201,13 +212,13 @@ def replace_asserts_with_prints(src):
         for assert_node in assert_nodes:
             assert_node = assert_node.parent
             remove_redbaron_node(assert_node, 0)  # remove 'self' from the call
-            assert_node.value[0].replace('print')
-            if assert_type not in ['assertTrue', 'assertFalse']:
+            assert_node.value[0].replace("print")
+            if assert_type not in ["assertTrue", "assertFalse"]:
                 # remove the expected value argument
                 remove_redbaron_node(assert_node.value[1], 1)
 
-    if 'assert_rel_error' in src:
-        assert_nodes = rb.findAll("NameNode", value='assert_rel_error')
+    if "assert_rel_error" in src:
+        assert_nodes = rb.findAll("NameNode", value="assert_rel_error")
         for assert_node in assert_nodes:
             assert_node = assert_node.parent
             # If relative error tolerance is specified, there are 4 arguments
@@ -220,8 +231,8 @@ def replace_asserts_with_prints(src):
             #
             assert_node.value[0].replace("print")
 
-    if 'assert_near_equal' in src:
-        assert_nodes = rb.findAll("NameNode", value='assert_near_equal')
+    if "assert_near_equal" in src:
+        assert_nodes = rb.findAll("NameNode", value="assert_near_equal")
         for assert_node in assert_nodes:
             assert_node = assert_node.parent
             # If relative error tolerance is specified, there are 3 arguments
@@ -231,8 +242,8 @@ def replace_asserts_with_prints(src):
             remove_redbaron_node(assert_node.value[1], -1)  # remove the expected value
             assert_node.value[0].replace("print")
 
-    if 'assert_almost_equal' in src:
-        assert_nodes = rb.findAll("NameNode", value='assert_almost_equal')
+    if "assert_almost_equal" in src:
+        assert_nodes = rb.findAll("NameNode", value="assert_almost_equal")
         for assert_node in assert_nodes:
             assert_node = assert_node.parent
             # If relative error tolerance is specified, there are 3 arguments
@@ -252,7 +263,7 @@ def remove_initial_empty_lines(source):
     directive for including source code into feature doc files.
     """
 
-    idx = re.search(r'\S', source, re.MULTILINE).start()
+    idx = re.search(r"\S", source, re.MULTILINE).start()
     return source[idx:]
 
 
@@ -283,10 +294,10 @@ def get_source_code(path):
     class_obj = None
     method_obj = None
 
-    if path.endswith('.py'):
+    if path.endswith(".py"):
         if not os.path.isfile(path):
             raise SphinxError("Can't find file '%s' cwd='%s'" % (path, os.getcwd()))
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             source = f.read()
         module = None
     else:
@@ -299,9 +310,9 @@ def get_source_code(path):
 
             # Second, assume class and see if it works
             try:
-                parts = path.split('.')
+                parts = path.split(".")
 
-                module_path = '.'.join(parts[:-1])
+                module_path = ".".join(parts[:-1])
                 module = importlib.import_module(module_path)
                 class_name = parts[-1]
                 class_obj = getattr(module, class_name)
@@ -311,7 +322,7 @@ def get_source_code(path):
             except ImportError:
 
                 # else assume it is a path to a method
-                module_path = '.'.join(parts[:-2])
+                module_path = ".".join(parts[:-2])
                 module = importlib.import_module(module_path)
                 class_name = parts[-2]
                 method_name = parts[-1]
@@ -320,7 +331,13 @@ def get_source_code(path):
                 source = inspect.getsource(method_obj)
                 indent = 2
 
-    return remove_leading_trailing_whitespace_lines(source), indent, module, class_obj, method_obj
+    return (
+        remove_leading_trailing_whitespace_lines(source),
+        indent,
+        module,
+        class_obj,
+        method_obj,
+    )
 
 
 def remove_raise_skip_tests(src):
@@ -332,7 +349,7 @@ def remove_raise_skip_tests(src):
     raise_nodes = rb.findAll("RaiseNode")
     for rn in raise_nodes:
         # only the raise for SkipTest
-        if rn.value[:2].dumps() == 'unittestSkipTest':
+        if rn.value[:2].dumps() == "unittestSkipTest":
             rn.parent.value.remove(rn)
     return rb.dumps()
 
@@ -360,7 +377,7 @@ def remove_leading_trailing_whitespace_lines(src):
     imin = min(non_whitespace_lines)
     imax = max(non_whitespace_lines)
 
-    return '\n'.join(lines[imin: imax+1])
+    return "\n".join(lines[imin : imax + 1])
 
 
 def is_output_node(node):
@@ -377,21 +394,23 @@ def is_output_node(node):
     bool
         True if node may be expected to generate output, otherwise False.
     """
-    if node.type == 'print':
+    if node.type == "print":
         return True
 
     # lines with the following signatures and function names may generate output
-    output_signatures = [
-        ('name', 'name', 'call'),
-        ('name', 'name', 'name', 'call')
-    ]
+    output_signatures = [("name", "name", "call"), ("name", "name", "name", "call")]
     output_functions = [
-        'setup', 'run_model', 'run_driver',
-        'check_partials', 'check_totals',
-        'list_inputs', 'list_outputs', 'list_problem_vars'
+        "setup",
+        "run_model",
+        "run_driver",
+        "check_partials",
+        "check_totals",
+        "list_inputs",
+        "list_outputs",
+        "list_problem_vars",
     ]
 
-    if node.type == 'atomtrailers' and len(node.value) in (3, 4):
+    if node.type == "atomtrailers" and len(node.value) in (3, 4):
         sig = []
         for val in node.value:
             sig.append(val.type)
@@ -422,7 +441,7 @@ def split_source_into_input_blocks(src):
     for line in src.splitlines():
         if 'print(">>>>>' in line:
             tag = line.split('"')[1]
-            code = '\n'.join(current_block)
+            code = "\n".join(current_block)
             input_blocks.append(InputBlock(code, tag))
             current_block = []
         else:
@@ -430,8 +449,8 @@ def split_source_into_input_blocks(src):
 
     if len(current_block) > 0:
         # final input block, with no associated output
-        code = '\n'.join(current_block)
-        input_blocks.append(InputBlock(code, ''))
+        code = "\n".join(current_block)
+        input_blocks.append(InputBlock(code, ""))
 
     return input_blocks
 
@@ -450,61 +469,63 @@ def insert_output_start_stop_indicators(src):
     str
         String with output demarked.
     """
-    lines = src.split('\n')
+    lines = src.split("\n")
     print_producing = [
-        'print(',
-        '.setup(',
-        '.run_model(',
-        '.run_driver(',
-        '.check_partials(',
-        '.check_totals(',
-        '.list_inputs(',
-        '.list_outputs(',
-        '.list_sources(',
-        '.list_source_vars(',
-        '.list_problem_vars(',
-        '.list_cases(',
-        '.list_model_options(',
-        '.list_solver_options(',
+        "print(",
+        ".setup(",
+        ".run_model(",
+        ".run_driver(",
+        ".check_partials(",
+        ".check_totals(",
+        ".list_inputs(",
+        ".list_outputs(",
+        ".list_sources(",
+        ".list_source_vars(",
+        ".list_problem_vars(",
+        ".list_cases(",
+        ".list_model_options(",
+        ".list_solver_options(",
     ]
 
     newlines = []
     input_block_number = 0
     in_try = False
     in_continuation = False
-    head_indent = ''
+    head_indent = ""
     for line in lines:
         newlines.append(line)
 
         # Check if we are concluding a continuation line.
         if in_continuation:
             line = line.rstrip()
-            if not (line.endswith(',') or line.endswith('\\') or line.endswith('(')):
-                newlines.append('%sprint(">>>>>%d")' % (head_indent, input_block_number))
+            if not (line.endswith(",") or line.endswith("\\") or line.endswith("(")):
+                newlines.append(
+                    '%sprint(">>>>>%d")' % (head_indent, input_block_number)
+                )
                 input_block_number += 1
                 in_continuation = False
 
         # Don't print if we are in a try block.
         if in_try:
-            if 'except' in line:
+            if "except" in line:
                 in_try = False
             continue
 
-        if 'try:' in line:
+        if "try:" in line:
             in_try = True
             continue
 
         # Searching for 'print(' is a little ambiguous.
-        if 'set_solver_print(' in line:
+        if "set_solver_print(" in line:
             continue
 
         for item in print_producing:
             if item in line:
-                indent = ' ' * (len(line) - len(line.lstrip()))
+                indent = " " * (len(line) - len(line.lstrip()))
 
                 # Line continuations are a litle tricky.
                 line = line.rstrip()
-                if line.endswith(',') or line.endswith('\\') or line.endswith('('):
+                if line.endswith(",") or line.endswith("\\") or line.endswith("("):
                     in_continuation = True
                     head_indent = indent
                     break
@@ -513,7 +534,7 @@ def insert_output_start_stop_indicators(src):
                 input_block_number += 1
                 break
 
-    return '\n'.join(newlines)
+    return "\n".join(newlines)
 
 
 def consolidate_input_blocks(input_blocks, output_blocks):
@@ -524,22 +545,22 @@ def consolidate_input_blocks(input_blocks, output_blocks):
     Remove any leading and trailing blank lines from all input blocks.
     """
     new_input_blocks = []
-    new_block = ''
+    new_block = ""
 
     for (code, tag) in input_blocks:
         if tag not in output_blocks:
             # no output, add to new consolidated block
-            if new_block and not new_block.endswith('\n'):
-                new_block += '\n'
+            if new_block and not new_block.endswith("\n"):
+                new_block += "\n"
             new_block += code
         elif new_block:
             # add current input to new consolidated block and save
-            if new_block and not new_block.endswith('\n'):
-                new_block += '\n'
+            if new_block and not new_block.endswith("\n"):
+                new_block += "\n"
             new_block += code
             new_block = remove_leading_trailing_whitespace_lines(new_block)
             new_input_blocks.append(InputBlock(new_block, tag))
-            new_block = ''
+            new_block = ""
         else:
             # just strip leading/trailing from input block
             code = remove_leading_trailing_whitespace_lines(code)
@@ -548,7 +569,7 @@ def consolidate_input_blocks(input_blocks, output_blocks):
     # trailing input with no corresponding output
     if new_block:
         new_block = remove_leading_trailing_whitespace_lines(new_block)
-        new_input_blocks.append(InputBlock(new_block, ''))
+        new_input_blocks.append(InputBlock(new_block, ""))
 
     return new_input_blocks
 
@@ -576,8 +597,8 @@ def extract_output_blocks(run_output):
     for line in run_output.splitlines():
         if output_block is None:
             output_block = []
-        if line[:5] == '>>>>>':
-            output = ('\n'.join(output_block)).strip()
+        if line[:5] == ">>>>>":
+            output = ("\n".join(output_block)).strip()
             if output:
                 output_blocks[line] = output
             output_block = None
@@ -587,7 +608,7 @@ def extract_output_blocks(run_output):
     if output_block is not None:
         # It is possible to have trailing output
         # (e.g. if the last print_producing statement is in a try block)
-        output_blocks['Trailing'] = output_block
+        output_blocks["Trailing"] = output_block
 
     return output_blocks
 
@@ -606,6 +627,7 @@ def strip_decorators(src):
     str
         Source code minus any decorators
     """
+
     class Parser(ast.NodeVisitor):
         def __init__(self):
             self.function_node = None
@@ -633,10 +655,12 @@ def strip_decorators(src):
     if function_node.args.args:
         function_lineno = function_node.args.args[0].lineno
     else:
-        raise RuntimeError("Cannot determine line number for decorated function without args")
+        raise RuntimeError(
+            "Cannot determine line number for decorated function without args"
+        )
     lines = src.splitlines()
 
-    undecorated_src = '\n'.join(lines[function_lineno - 1:])
+    undecorated_src = "\n".join(lines[function_lineno - 1 :])
 
     return undecorated_src
 
@@ -653,7 +677,7 @@ def strip_header(src):
     src : str
         source code
     """
-    lines = src.split('\n')
+    lines = src.split("\n")
     first_len = None
     for i, line in enumerate(lines):
         n1 = len(line)
@@ -664,9 +688,9 @@ def strip_header(src):
         elif n1 == 0:
             continue
         if tab != first_len:
-            return '\n'.join(lines[i:])
+            return "\n".join(lines[i:])
 
-    return ''
+    return ""
 
 
 def dedent(src):
@@ -679,14 +703,14 @@ def dedent(src):
         source code
     """
 
-    lines = src.split('\n')
+    lines = src.split("\n")
     if lines:
         for i, line in enumerate(lines):
             lstrip = line.lstrip()
-            if lstrip: # keep going if first line(s) are blank.
+            if lstrip:  # keep going if first line(s) are blank.
                 tab = len(line) - len(lstrip)
-                return '\n'.join(l[tab:] for l in lines[i:])
-    return ''
+                return "\n".join(s[tab:] for s in lines[i:])
+    return ""
 
 
 def sync_multi_output_blocks(run_output):
@@ -722,7 +746,14 @@ def sync_multi_output_blocks(run_output):
         return {}
 
 
-def run_code(code_to_run, path, module=None, cls=None, shows_plot=False, imports_not_required=False):
+def run_code(
+    code_to_run,
+    path,
+    module=None,
+    cls=None,
+    shows_plot=False,
+    imports_not_required=False,
+):
     """
     Run the given code chunk and collect the output.
     """
@@ -733,12 +764,11 @@ def run_code(code_to_run, path, module=None, cls=None, shows_plot=False, imports
     if cls is None:
         use_mpi = False
     else:
-        try:
-            import mpi4py
-        except ImportError:
+        mpi4py_found = importlib.util.find_spec("mpi4py") is not None
+        if not mpi4py_found:
             use_mpi = False
         else:
-            N_PROCS = getattr(cls, 'N_PROCS', 1)
+            N_PROCS = getattr(cls, "N_PROCS", 1)
             use_mpi = N_PROCS > 1
 
     try:
@@ -758,31 +788,36 @@ def run_code(code_to_run, path, module=None, cls=None, shows_plot=False, imports
             env = os.environ.copy()
 
             # output will be written to one file per process
-            env['USE_PROC_FILES'] = '1'
+            env["USE_PROC_FILES"] = "1"
 
-            env['OPENMDAO_CURRENT_MODULE'] = module.__name__
-            env['OPENMDAO_CODE_TO_RUN'] = code_to_run
+            env["OPENMDAO_CURRENT_MODULE"] = module.__name__
+            env["OPENMDAO_CODE_TO_RUN"] = code_to_run
 
-            p = subprocess.Popen(['mpirun', '-n', str(N_PROCS), sys.executable, _sub_runner],
-                                 env=env)
+            p = subprocess.Popen(
+                ["mpirun", "-n", str(N_PROCS), sys.executable, _sub_runner], env=env
+            )
             p.wait()
 
             # extract output blocks from all output files & merge them
             output = []
             for i in range(N_PROCS):
-                with open('%d.out' % i) as f:
+                with open("%d.out" % i) as f:
                     output.append(f.read())
-                os.remove('%d.out' % i)
+                os.remove("%d.out" % i)
 
         elif shows_plot:
             if module is None:
                 # write code to a file so we can run it.
                 fd, code_to_run_path = tempfile.mkstemp()
-                with os.fdopen(fd, 'w') as tmp:
+                with os.fdopen(fd, "w") as tmp:
                     tmp.write(code_to_run)
                 try:
-                    p = subprocess.Popen([sys.executable, code_to_run_path],
-                                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=os.environ)
+                    p = subprocess.Popen(
+                        [sys.executable, code_to_run_path],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        env=os.environ,
+                    )
                     output, _ = p.communicate()
                     if p.returncode != 0:
                         failed = True
@@ -792,16 +827,20 @@ def run_code(code_to_run, path, module=None, cls=None, shows_plot=False, imports
             else:
                 env = os.environ.copy()
 
-                env['OPENMDAO_CURRENT_MODULE'] = module.__name__
-                env['OPENMDAO_CODE_TO_RUN'] = code_to_run
+                env["OPENMDAO_CURRENT_MODULE"] = module.__name__
+                env["OPENMDAO_CODE_TO_RUN"] = code_to_run
 
-                p = subprocess.Popen([sys.executable, _sub_runner],
-                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
+                p = subprocess.Popen(
+                    [sys.executable, _sub_runner],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    env=env,
+                )
                 output, _ = p.communicate()
                 if p.returncode != 0:
                     failed = True
 
-            output = output.decode('utf-8', 'ignore')
+            output = output.decode("utf-8", "ignore")
         else:
             # just exec() the code for serial tests.
 
@@ -817,10 +856,10 @@ def run_code(code_to_run, path, module=None, cls=None, shows_plot=False, imports
 
                 if module is None:
                     globals_dict = {
-                        '__file__': path,
-                        '__name__': '__main__',
-                        '__package__': None,
-                        '__cached__': None,
+                        "__file__": path,
+                        "__name__": "__main__",
+                        "__package__": None,
+                        "__cached__": None,
                     }
                 else:
                     if imports_not_required:
@@ -835,8 +874,8 @@ def run_code(code_to_run, path, module=None, cls=None, shows_plot=False, imports
                 except Exception as err:
                     # for actual errors, print code (with line numbers) to facilitate debugging
                     if not isinstance(err, unittest.SkipTest):
-                        for n, line in enumerate(code_to_run.split('\n')):
-                            print('%4d: %s' % (n, line), file=stderr)
+                        for n, line in enumerate(code_to_run.split("\n")):
+                            print("%4d: %s" % (n, line), file=stderr)
                     raise
                 finally:
                     sys.stdout = stdout
@@ -845,20 +884,24 @@ def run_code(code_to_run, path, module=None, cls=None, shows_plot=False, imports
             output = strout.getvalue()
 
     except subprocess.CalledProcessError as e:
-        output = e.output.decode('utf-8', 'ignore')
+        output = e.output.decode("utf-8", "ignore")
         # Get a traceback.
-        if 'raise unittest.SkipTest' in output:
-            reason_for_skip = output.splitlines()[-1][len('unittest.case.SkipTest: '):]
+        if "raise unittest.SkipTest" in output:
+            reason_for_skip = output.splitlines()[-1][len("unittest.case.SkipTest: ") :]
             output = reason_for_skip
             skipped = True
         else:
-            output = "Running of embedded code {} in docs failed due to: \n\n{}".format(path, output)
+            output = "Running of embedded code {} in docs failed due to: \n\n{}".format(
+                path, output
+            )
             failed = True
     except unittest.SkipTest as skip:
         output = str(skip)
         skipped = True
-    except Exception as exc:
-        output = "Running of embedded code {} in docs failed due to: \n\n{}".format(path, traceback.format_exc())
+    except Exception:
+        output = "Running of embedded code {} in docs failed due to: \n\n{}".format(
+            path, traceback.format_exc()
+        )
         failed = True
     finally:
         os.chdir(save_dir)
@@ -886,22 +929,24 @@ def get_interleaved_io_nodes(input_blocks, output_blocks):
 
     for (code, tag) in input_blocks:
         input_node = nodes.literal_block(code, code)
-        input_node['language'] = 'python'
+        input_node["language"] = "python"
         nodelist.append(input_node)
         if tag and tag in output_blocks:
             outp = cgiesc.escape(output_blocks[tag])
-            if (outp.strip()):
+            if outp.strip():
                 output_node = in_or_out_node(kind="Out", number=n, text=outp)
                 nodelist.append(output_node)
         n += 1
 
-    if 'Trailing' in output_blocks:
-        output_node = in_or_out_node(kind="Out", number=n, text=output_blocks['Trailing'])
+    if "Trailing" in output_blocks:
+        output_node = in_or_out_node(
+            kind="Out", number=n, text=output_blocks["Trailing"]
+        )
         nodelist.append(output_node)
 
     return nodelist
 
 
 def get_output_block_node(output_blocks):
-    output_block = '\n'.join([cgiesc.escape(ob) for ob in output_blocks])
+    output_block = "\n".join([cgiesc.escape(ob) for ob in output_blocks])
     return in_or_out_node(kind="Out", number=1, text=output_block)

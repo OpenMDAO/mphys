@@ -1,15 +1,13 @@
 # must compile funtofem and tacs in complex mode
 import numpy as np
-
 import openmdao.api as om
-
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioAeroStructural
-from vlm_solver.mphys_vlm import VlmBuilder
-from tacs.mphys import TacsBuilder
 from funtofem.mphys import MeldBuilder
+from tacs import constitutive, elements, functions
+from tacs.mphys import TacsBuilder
+from vlm_solver.mphys_vlm import VlmBuilder
 
-from tacs import elements, constitutive, functions
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioAeroStructural
 
 use_modal = False
 
@@ -26,7 +24,9 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
     # Setup (isotropic) property and constitutive objects
     prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
     # Set one thickness dv for every component
-    con = constitutive.IsoShellConstitutive(prop, t=thickness, tNum=dvNum, tlb=min_thickness, tub=max_thickness)
+    con = constitutive.IsoShellConstitutive(
+        prop, t=thickness, tNum=dvNum, tlb=min_thickness, tub=max_thickness
+    )
 
     # For each element type in this component,
     # pass back the appropriate tacs element object
@@ -35,6 +35,7 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
 
     return elem
 
+
 def problem_setup(scenario_name, fea_assembler, problem):
     """
     Helper function to add fixed forces and eval functions
@@ -42,74 +43,97 @@ def problem_setup(scenario_name, fea_assembler, problem):
     """
     # Add TACS Functions
     # Only include mass from elements that belong to pytacs components (i.e. skip concentrated masses)
-    problem.addFunction('mass', functions.StructuralMass)
-    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
+    problem.addFunction("mass", functions.StructuralMass)
+    problem.addFunction(
+        "ks_vmfailure", functions.KSFailure, safetyFactor=1.0, ksWeight=50.0
+    )
 
     # Add gravity load
     g = np.array([0.0, 0.0, -9.81])  # m/s^2
     problem.addInertialLoad(g)
 
+
 class Top(Multipoint):
     def setup(self):
         # VLM
-        mesh_file = '../input_files/debug_VLM.dat'
-        mach = 0.85,
+        mesh_file = "../input_files/debug_VLM.dat"
+        mach = (0.85,)
         aoa = 1.0
-        q_inf = 25000.
-        vel = 178.
-        nu = 3.5E-5
+        q_inf = 25000.0
+        vel = 178.0
+        nu = 3.5e-5
 
         aero_builder = VlmBuilder(mesh_file, complex_step=True)
         aero_builder.initialize(self.comm)
 
-        dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes=['*'])
-        dvs.add_output('aoa', val=aoa, units='deg')
-        dvs.add_output('mach', mach)
-        dvs.add_output('q_inf', q_inf)
-        dvs.add_output('vel', vel)
-        dvs.add_output('nu', nu)
+        dvs = self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
+        dvs.add_output("aoa", val=aoa, units="deg")
+        dvs.add_output("mach", mach)
+        dvs.add_output("q_inf", q_inf)
+        dvs.add_output("vel", vel)
+        dvs.add_output("nu", nu)
 
-        self.add_subsystem('mesh_aero', aero_builder.get_mesh_coordinate_subsystem())
+        self.add_subsystem("mesh_aero", aero_builder.get_mesh_coordinate_subsystem())
 
         # TACS
         if use_modal:
-            tacs_options['nmodes'] = 15
-            #struct_assembler = ModalStructAssembler(tacs_options)
+            tacs_options["nmodes"] = 15
+            # struct_assembler = ModalStructAssembler(tacs_options)
         else:
-            struct_builder = TacsBuilder(mesh_file='../input_files/debug.bdf', element_callback=element_callback,
-                                         problem_setup=problem_setup, check_partials=True,
-                                         coupling_loads=[MPhysVariables.Structures.Loads.AERODYNAMIC],
-                                         write_solution=False)
+            struct_builder = TacsBuilder(
+                mesh_file="../input_files/debug.bdf",
+                element_callback=element_callback,
+                problem_setup=problem_setup,
+                check_partials=True,
+                coupling_loads=[MPhysVariables.Structures.Loads.AERODYNAMIC],
+                write_solution=False,
+            )
 
         struct_builder.initialize(self.comm)
         ndv_struct = struct_builder.get_ndv()
 
-        self.add_subsystem('mesh_struct', struct_builder.get_mesh_coordinate_subsystem())
-        dvs.add_output('dv_struct', np.array(ndv_struct*[0.02]))
+        self.add_subsystem(
+            "mesh_struct", struct_builder.get_mesh_coordinate_subsystem()
+        )
+        dvs.add_output("dv_struct", np.array(ndv_struct * [0.02]))
 
         # MELD setup
         isym = 1
-        ldxfer_builder = MeldBuilder(aero_builder, struct_builder, isym=isym, check_partials=True)
+        ldxfer_builder = MeldBuilder(
+            aero_builder, struct_builder, isym=isym, check_partials=True
+        )
         ldxfer_builder.initialize(self.comm)
 
         # Scenario
         nonlinear_solver = om.NonlinearBlockGS(
-            maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14)
+            maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14
+        )
         linear_solver = om.LinearBlockGS(
-            maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14)
-        self.mphys_add_scenario('cruise', ScenarioAeroStructural(aero_builder=aero_builder,
-                                                                 struct_builder=struct_builder,
-                                                                 ldxfer_builder=ldxfer_builder),
-                                nonlinear_solver, linear_solver)
+            maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14
+        )
+        self.mphys_add_scenario(
+            "cruise",
+            ScenarioAeroStructural(
+                aero_builder=aero_builder,
+                struct_builder=struct_builder,
+                ldxfer_builder=ldxfer_builder,
+            ),
+            nonlinear_solver,
+            linear_solver,
+        )
 
-        self.connect(f'mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}',
-                    f'cruise.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}')
-        self.connect(f'mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}',
-                    f'cruise.{MPhysVariables.Structures.COORDINATES}')
+        self.connect(
+            f"mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+            f"cruise.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}",
+        )
+        self.connect(
+            f"mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}",
+            f"cruise.{MPhysVariables.Structures.COORDINATES}",
+        )
 
-        for dv in ['aoa', 'q_inf', 'vel', 'nu', 'mach']:
-            self.connect(dv, f'cruise.{dv}')
-        self.connect('dv_struct', 'cruise.dv_struct')
+        for dv in ["aoa", "q_inf", "vel", "nu", "mach"]:
+            self.connect(dv, f"cruise.{dv}")
+        self.connect("dv_struct", "cruise.dv_struct")
 
 
 prob = om.Problem()
@@ -119,4 +143,4 @@ prob.setup(force_alloc_complex=True)
 om.n2(prob, show_browser=False)
 
 prob.run_model()
-prob.check_partials(method='cs', compact_print=True)
+prob.check_partials(method="cs", compact_print=True)

@@ -4,20 +4,18 @@ Sphinx directive to embed shell command output in the docs.
 The shell command is executed and the output is captured.
 """
 
-import sys
+import html as cgiesc
 import os
-from docutils import nodes
-from docutils.parsers.rst.directives import unchanged
-
 import subprocess
+import sys
 
 import sphinx
+from docutils import nodes
 from docutils.parsers.rst import Directive
+from docutils.parsers.rst.directives import unchanged
+from sphinx.errors import SphinxError
 from sphinx.writers.html import HTMLTranslator
 from sphinx.writers.html5 import HTML5Translator
-from sphinx.errors import SphinxError
-
-import html as cgiesc
 
 
 class failed_node(nodes.Element):
@@ -40,7 +38,9 @@ def depart_failed_node(self, node):
              <div class="failed"><pre>{}</pre></div>
           </div>
        </div>
-    </div>""".format(node["text"])
+    </div>""".format(
+        node["text"]
+    )
     self.body.append(html)
 
 
@@ -64,7 +64,9 @@ def depart_cmd_node(self, node):
     html = """
     <div class="cell border-box-sizing code_cell rendered">
        <div class="output_area"><pre>{}</pre></div>
-    </div>""".format(node["text"])
+    </div>""".format(
+        node["text"]
+    )
 
     self.body.append(html)
 
@@ -89,30 +91,32 @@ class EmbedShellCmdDirective(Directive):
     has_content = False
 
     option_spec = {
-        'cmd': unchanged,        # shell command to execute
-        'dir': unchanged,        # working dir
-        'show_cmd': unchanged,   # set this to make the shell command visible
-        'stderr': unchanged      # set this to include stderr contents with the output
+        "cmd": unchanged,  # shell command to execute
+        "dir": unchanged,  # working dir
+        "show_cmd": unchanged,  # set this to make the shell command visible
+        "stderr": unchanged,  # set this to include stderr contents with the output
     }
 
     def run(self):
         """
         Create a list of document nodes to return.
         """
-        if 'cmd' in self.options:
-            cmdstr = self.options['cmd']
+        if "cmd" in self.options:
+            cmdstr = self.options["cmd"]
             cmd = cmdstr.split()
         else:
             raise SphinxError("'cmd' is not defined for embed-shell-cmd.")
 
         startdir = os.getcwd()
 
-        if 'dir' in self.options:
-            workdir = os.path.abspath(os.path.expandvars(os.path.expanduser(self.options['dir'])))
+        if "dir" in self.options:
+            workdir = os.path.abspath(
+                os.path.expandvars(os.path.expanduser(self.options["dir"]))
+            )
         else:
             workdir = os.getcwd()
 
-        if 'stderr' in self.options:
+        if "stderr" in self.options:
             stderr = subprocess.STDOUT
         else:
             stderr = None
@@ -120,17 +124,21 @@ class EmbedShellCmdDirective(Directive):
         os.chdir(workdir)
 
         try:
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT,env=os.environ).decode('utf-8', 'ignore')
+            output = subprocess.check_output(
+                cmd, stderr=subprocess.STDOUT, env=os.environ
+            ).decode("utf-8", "ignore")
         except subprocess.CalledProcessError as err:
             # Failed cases raised as a Directive warning (level 2 in docutils).
             # This way, the sphinx build does not terminate if, for example, you are building on
             # an environment where mpi or pyoptsparse are missing.
-            msg = "Running of embedded shell command '{}' in docs failed. Output was: \n{}" \
-                  .format(cmdstr, err.output.decode('utf-8'))
+            msg = "Running of embedded shell command '{}' in docs failed. Output was: \n{}".format(
+                cmdstr, err.output.decode("utf-8")
+            )
             raise self.directive_error(2, msg)
         except Exception as err:
-            msg = "Running of embedded shell command '{}' in docs failed. Output was: \n{}" \
-                  .format(cmdstr, err)
+            msg = "Running of embedded shell command '{}' in docs failed. Output was: \n{}".format(
+                cmdstr, err
+            )
             raise self.directive_error(2, msg)
         finally:
             os.chdir(startdir)
@@ -138,12 +146,12 @@ class EmbedShellCmdDirective(Directive):
         output = cgiesc.escape(output)
 
         show = True
-        if 'show_cmd' in self.options:
-            show = self.options['show_cmd'].lower().strip() == 'true'
+        if "show_cmd" in self.options:
+            show = self.options["show_cmd"].lower().strip() == "true"
 
         if show:
             input_node = nodes.literal_block(cmdstr, cmdstr)
-            input_node['language'] = 'none'
+            input_node["language"] = "none"
 
         output_node = cmd_node(text=output)
 
@@ -155,8 +163,8 @@ class EmbedShellCmdDirective(Directive):
 
 def setup(app):
     """add custom directive into Sphinx so that it is found during document parsing"""
-    app.add_directive('embed-shell-cmd', EmbedShellCmdDirective)
+    app.add_directive("embed-shell-cmd", EmbedShellCmdDirective)
     app.add_node(failed_node, html=(visit_failed_node, depart_failed_node))
     app.add_node(cmd_node, html=(visit_cmd_node, depart_cmd_node))
 
-    return {'version': sphinx.__display_version__, 'parallel_read_safe': True}
+    return {"version": sphinx.__display_version__, "parallel_read_safe": True}
