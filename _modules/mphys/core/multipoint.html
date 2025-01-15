@@ -36,6 +36,7 @@
   <h1>Source code for mphys.core.multipoint</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">openmdao.api</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">om</span>
 
+
 <span class="k">def</span><span class="w"> </span><span class="nf">set_coupling_algorithms_in_scenarios</span><span class="p">(</span><span class="n">multipoint_group</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Set the stored linear and nonlinear solver into the coupling group if the</span>
@@ -65,8 +66,13 @@
 
 <div class="viewcode-block" id="Multipoint.mphys_add_scenario">
 <a class="viewcode-back" href="../../../basics/model_hierarchy.html#mphys.Multipoint.mphys_add_scenario">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">mphys_add_scenario</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">scenario</span><span class="p">,</span> <span class="n">coupling_nonlinear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                           <span class="n">coupling_linear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mphys_add_scenario</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">,</span>
+        <span class="n">scenario</span><span class="p">,</span>
+        <span class="n">coupling_nonlinear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">coupling_linear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Add an MPhys scenario</span>
 
@@ -105,8 +111,13 @@
 
 <div class="viewcode-block" id="MultipointParallel.mphys_add_scenario">
 <a class="viewcode-back" href="../../../basics/model_hierarchy.html#mphys.MultipointParallel.mphys_add_scenario">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">mphys_add_scenario</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">scenario</span><span class="p">,</span> <span class="n">coupling_nonlinear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                           <span class="n">coupling_linear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mphys_add_scenario</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">,</span>
+        <span class="n">scenario</span><span class="p">,</span>
+        <span class="n">coupling_nonlinear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">coupling_linear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Add an MPhys scenario</span>
 

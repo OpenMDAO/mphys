@@ -36,19 +36,23 @@
   <h1>Source code for mphys.core.scenario</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">wraps</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">.mphys_group</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPhysGroup</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mphys.utils.directory_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">cd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.mphys_group</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPhysGroup</span>
+
 
 <span class="k">def</span><span class="w"> </span><span class="nf">switch_run_directory</span><span class="p">(</span><span class="n">method</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Decorator function for methods where run directory must be switched before calling</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="nd">@wraps</span><span class="p">(</span><span class="n">method</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">wrapped_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">cd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;run_directory&#39;</span><span class="p">]):</span>
+        <span class="k">with</span> <span class="n">cd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;run_directory&quot;</span><span class="p">]):</span>
             <span class="k">return</span> <span class="n">method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">wrapped_method</span>
+
 
 <div class="viewcode-block" id="Scenario">
 <a class="viewcode-back" href="../../../developers/new_multiphysics_problems.html#mphys.Scenario">[docs]</a>
@@ -60,6 +64,7 @@
 <span class="sd">    To make a Scenario for a particular type of multiphysics problem, subclass</span>
 <span class="sd">    the Scenario, and implement the `initialize` and `setup` phases of the Group.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
@@ -68,11 +73,13 @@
 <div class="viewcode-block" id="Scenario.initialize">
 <a class="viewcode-back" href="../../../developers/new_multiphysics_problems.html#mphys.Scenario.initialize">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s1">&#39;run_directory&#39;</span><span class="p">,</span>
-                             <span class="n">default</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
-                             <span class="n">types</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
-                             <span class="n">desc</span><span class="o">=</span><span class="s1">&#39;Path in which to execute subsystems in this scenario group.&#39;</span> <span class="o">+</span>
-                                  <span class="s1">&#39; The default of empty string will not change the directory.&#39;</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span>
+            <span class="s2">&quot;run_directory&quot;</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="n">types</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+            <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Path in which to execute subsystems in this scenario group.&quot;</span>
+            <span class="o">+</span> <span class="s2">&quot; The default of empty string will not change the directory.&quot;</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_mphys_scenario_setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -97,10 +104,14 @@
 
 <div class="viewcode-block" id="Scenario.mphys_add_post_subsystem">
 <a class="viewcode-back" href="../../../developers/new_multiphysics_problems.html#mphys.Scenario.mphys_add_post_subsystem">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">mphys_add_post_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">,</span>
-                                 <span class="n">promotes_inputs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                                 <span class="n">promotes_outputs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                                 <span class="n">promotes</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mphys_add_post_subsystem</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">,</span>
+        <span class="n">subsystem</span><span class="p">,</span>
+        <span class="n">promotes_inputs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">promotes_outputs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">promotes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Add a user-defined subsystem at the end of a Scenario.</span>
 <span class="sd">        Tag variables with mphys tags to promote or use the optional promotes argument.</span>
@@ -118,7 +129,9 @@
 
         <span class="c1"># we hold onto these until the end of setup() b/c we want the scenario&#39;s</span>
         <span class="c1"># setup() to add the builder subsystems before adding these</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_post_subsystems</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">,</span> <span class="n">promotes_inputs</span><span class="p">,</span> <span class="n">promotes_outputs</span><span class="p">,</span> <span class="n">promotes</span><span class="p">))</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_post_subsystems</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">,</span> <span class="n">promotes_inputs</span><span class="p">,</span> <span class="n">promotes_outputs</span><span class="p">,</span> <span class="n">promotes</span><span class="p">)</span>
+        <span class="p">)</span></div>
 
 
     <span class="nd">@switch_run_directory</span>
@@ -137,7 +150,9 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_apply_linear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_apply_linear</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_mphys_add_pre_coupling_subsystem_from_builder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">builder</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mphys_add_pre_coupling_subsystem_from_builder</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">builder</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        If the builder has a precoupling subsystem, add it to the model.</span>
 <span class="sd">        It is expected that is method is called during this scenario&#39;s`setup` phase.</span>
@@ -153,9 +168,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">subsystem</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">get_pre_coupling_subsystem</span><span class="p">(</span><span class="n">scenario_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">subsystem</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">mphys_add_subsystem</span><span class="p">(</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_pre&#39;</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mphys_add_subsystem</span><span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_pre&quot;</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_mphys_add_post_coupling_subsystem_from_builder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">builder</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mphys_add_post_coupling_subsystem_from_builder</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">builder</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        If the builder has a postcoupling subsystem, add it to the model.</span>
 <span class="sd">        It is expected that is method is called during this scenario&#39;s`setup` phase.</span>
@@ -171,22 +188,29 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">subsystem</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">get_post_coupling_subsystem</span><span class="p">(</span><span class="n">scenario_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">subsystem</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">mphys_add_subsystem</span><span class="p">(</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_post&#39;</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mphys_add_subsystem</span><span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_post&quot;</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_add_post_subsystems</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">,</span> <span class="n">promotes_inputs</span><span class="p">,</span> <span class="n">promotes_outputs</span><span class="p">,</span> <span class="n">promotes</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_subsystems</span><span class="p">:</span>
+        <span class="k">for</span> <span class="p">(</span>
+            <span class="n">name</span><span class="p">,</span>
+            <span class="n">subsystem</span><span class="p">,</span>
+            <span class="n">promotes_inputs</span><span class="p">,</span>
+            <span class="n">promotes_outputs</span><span class="p">,</span>
+            <span class="n">promotes</span><span class="p">,</span>
+        <span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_subsystems</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_no_promotes_specified</span><span class="p">(</span><span class="n">promotes_inputs</span><span class="p">,</span> <span class="n">promotes_outputs</span><span class="p">,</span> <span class="n">promotes</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">mphys_add_subsystem</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">add_subsystem</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">subsystem</span><span class="p">,</span>
-                                   <span class="n">promotes_inputs</span><span class="o">=</span><span class="n">promotes_inputs</span><span class="p">,</span>
-                                   <span class="n">promotes_outputs</span><span class="o">=</span><span class="n">promotes_outputs</span><span class="p">,</span>
-                                   <span class="n">promotes</span><span class="o">=</span><span class="n">promotes</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">add_subsystem</span><span class="p">(</span>
+                    <span class="n">name</span><span class="p">,</span>
+                    <span class="n">subsystem</span><span class="p">,</span>
+                    <span class="n">promotes_inputs</span><span class="o">=</span><span class="n">promotes_inputs</span><span class="p">,</span>
+                    <span class="n">promotes_outputs</span><span class="o">=</span><span class="n">promotes_outputs</span><span class="p">,</span>
+                    <span class="n">promotes</span><span class="o">=</span><span class="n">promotes</span><span class="p">,</span>
+                <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_no_promotes_specified</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">promotes_inputs</span><span class="p">,</span> <span class="n">promotes_outputs</span><span class="p">,</span> <span class="n">promotes</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">(</span><span class="n">promotes_inputs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span>
-                <span class="n">promotes_outputs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span>
-                <span class="n">promotes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">promotes_inputs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">promotes_outputs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">promotes</span> <span class="ow">is</span> <span class="kc">None</span></div>
 
 </pre></div>
 
