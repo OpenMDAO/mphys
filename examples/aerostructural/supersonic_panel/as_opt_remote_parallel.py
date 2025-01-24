@@ -7,6 +7,7 @@ from mphys.network.zmq_pbs import RemoteZeroMQComp
 # True=check objective/constraint derivatives, False=run optimization
 check_totals = False
 
+
 # for running scenarios on different servers in parallel
 class ParallelRemoteGroup(om.ParallelGroup):
     def initialize(self):
@@ -136,7 +137,9 @@ else:
 
     # write out data
     if prob.model.comm.rank == 0:
-        cr = om.CaseReader(f"{prob.get_outputs_dir()}/optimization_history_parallel.sql")
+        cr = om.CaseReader(
+            f"{prob.get_outputs_dir()}/optimization_history_parallel.sql"
+        )
         driver_cases = cr.list_cases("driver")
 
         case = cr.get_case(0)

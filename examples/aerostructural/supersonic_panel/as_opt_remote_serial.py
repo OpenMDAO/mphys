@@ -59,7 +59,7 @@ else:
     prob.cleanup()
 
     # write out data
-    if prob.model.comm.rank==0:
+    if prob.model.comm.rank == 0:
         cr = om.CaseReader(f"{prob.get_outputs_dir()}/optimization_history.sql")
         driver_cases = cr.list_cases("driver")
 
@@ -88,7 +88,10 @@ else:
                         str(j)
                         + " "
                         + " ".join(
-                            map(str, cr.get_case(case_id).get_constraints(scaled=False)[k])
+                            map(
+                                str,
+                                cr.get_case(case_id).get_constraints(scaled=False)[k],
+                            )
                         )
                         + "\n"
                     )
@@ -101,7 +104,10 @@ else:
                         str(j)
                         + " "
                         + " ".join(
-                            map(str, cr.get_case(case_id).get_design_vars(scaled=False)[k])
+                            map(
+                                str,
+                                cr.get_case(case_id).get_design_vars(scaled=False)[k],
+                            )
                         )
                         + "\n"
                     )
