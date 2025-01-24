@@ -61,7 +61,7 @@ class Server:
         self.prob = om.Problem()
         self.prob.model = self.get_om_group_function_pointer()
         if self.ignore_setup_warnings:
-            with warnings.catch_warnings(record=True) as w:
+            with warnings.catch_warnings(record=True):
                 self.prob.setup(mode="rev")
         else:
             self.prob.setup(mode="rev")
@@ -75,7 +75,7 @@ class Server:
 
     def _run_model(self):
         if self.ignore_runtime_warnings:
-            with warnings.catch_warnings(record=True) as w:
+            with warnings.catch_warnings(record=True):
                 self.prob.run_model()
         else:
             self.prob.run_model()
@@ -86,7 +86,7 @@ class Server:
     def _compute_totals(self):
         of, wrt = self._get_derivative_inputs_outputs()
         if self.ignore_runtime_warnings:
-            with warnings.catch_warnings(record=True) as w:
+            with warnings.catch_warnings(record=True):
                 self.derivatives = self.prob.compute_totals(of=of, wrt=wrt)
         else:
             self.derivatives = self.prob.compute_totals(of=of, wrt=wrt)
@@ -407,7 +407,7 @@ class Server:
                 self.prob.get_val(key, get_remote=True)
                 != input_dict["additional_inputs"][key]["val"]
             )
-            if type(design_changed_condition) == type(True):
+            if isinstance(design_changed_condition, bool):
                 design_changed = deepcopy(design_changed_condition)
             elif design_changed_condition.any():
                 design_changed = True
@@ -435,7 +435,7 @@ class Server:
                     self.prob.get_val(key)
                     != input_dict["additional_constants"][key]["val"]
                 )
-                if type(design_changed_condition) == type(True):
+                if isinstance(design_changed_condition, bool):
                     design_changed = deepcopy(design_changed_condition)
                 elif design_changed_condition.any():
                     design_changed = True

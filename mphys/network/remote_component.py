@@ -1,6 +1,8 @@
 import openmdao.api as om
-import json, time, os
 import numpy as np
+import json
+import time
+import os
 
 
 class RemoteComp(om.ExplicitComponent):
@@ -326,7 +328,7 @@ class RemoteComp(om.ExplicitComponent):
             if not os.path.isdir(save_dir):
                 try:
                     os.mkdir(save_dir)
-                except:
+                except Exception:
                     pass  # may have been created by now, by a parallel server
             if self._doing_derivative_evaluation(command):
                 filename = f"{save_dir}/{self.name}_{dict_type}_derivative{len(self.times_gradient)}.json"
