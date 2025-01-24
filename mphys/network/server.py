@@ -407,7 +407,7 @@ class Server:
                 self.prob.get_val(key, get_remote=True)
                 != input_dict["additional_inputs"][key]["val"]
             )
-            if type(design_changed_condition) == bool:
+            if type(design_changed_condition) == type(True):
                 design_changed = deepcopy(design_changed_condition)
             elif design_changed_condition.any():
                 design_changed = True
@@ -435,7 +435,7 @@ class Server:
                     self.prob.get_val(key)
                     != input_dict["additional_constants"][key]["val"]
                 )
-                if type(design_changed_condition) == bool:
+                if type(design_changed_condition) == type(True):
                     design_changed = deepcopy(design_changed_condition)
                 elif design_changed_condition.any():
                     design_changed = True
