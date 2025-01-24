@@ -1,9 +1,9 @@
 """ Sphinx directive for a side by side code comparison."""
 
-from docutils import nodes
-
 import sphinx
+from docutils import nodes
 from docutils.parsers.rst import Directive
+
 from mphys.utils.docs._utils.docutil import get_source_code
 
 
@@ -19,12 +19,12 @@ class ContentContainerDirective(Directive):
 
     def run(self):
         self.assert_has_content()
-        text = '\n'.join(self.content)
+        text = "\n".join(self.content)
         node = nodes.container(text)
-        node['classes'].append('rosetta_outer')
+        node["classes"].append("rosetta_outer")
 
         if self.arguments and self.arguments[0]:
-            node['classes'].append(self.arguments[0])
+            node["classes"].append(self.arguments[0])
 
         self.add_name(node)
         self.state.nested_parse(self.content, self.content_offset, node)
@@ -68,21 +68,21 @@ class EmbedCompareDirective(Directive):
         doc_nodes = []
 
         # Choose style
-        left_style = 'rosetta_left'
-        right_style = 'rosetta_right'
+        left_style = "rosetta_left"
+        right_style = "rosetta_right"
         if len(arg) == 4:
-            if arg[3] == 'style2':
-                left_style = 'rosetta_left2'
-                right_style = 'rosetta_right2'
-            elif arg[3] == 'no_compare':
+            if arg[3] == "style2":
+                left_style = "rosetta_left2"
+                right_style = "rosetta_right2"
+            elif arg[3] == "no_compare":
                 compare = False
 
         # LEFT side = Old OpenMDAO
         if compare:
-            text = '\n'.join(self.content)
+            text = "\n".join(self.content)
             left_body = nodes.literal_block(text, text)
-            left_body['language'] = 'python'
-            left_body['classes'].append(left_style)
+            left_body["language"] = "python"
+            left_body["classes"].append(left_style)
 
         # for RIGHT side, get the code block, and reduce it if requested
         right_method = arg[0]
@@ -90,7 +90,7 @@ class EmbedCompareDirective(Directive):
         if len(arg) >= 3:
             start_txt = arg[1]
             end_txt = arg[2]
-            lines = text.split('\n')
+            lines = text.split("\n")
 
             istart = 0
             for j, line in enumerate(lines):
@@ -102,7 +102,7 @@ class EmbedCompareDirective(Directive):
             iend = len(lines)
             for j, line in enumerate(lines):
                 if end_txt in line:
-                    iend = j+1
+                    iend = j + 1
                     break
 
             lines = lines[:iend]
@@ -110,20 +110,20 @@ class EmbedCompareDirective(Directive):
             # Remove the check suppression.
             for j, line in enumerate(lines):
                 if "prob.setup(check=False" in line:
-                    lines[j] = lines[j].replace('check=False, ', '')
-                    lines[j] = lines[j].replace('check=False', '')
+                    lines[j] = lines[j].replace("check=False, ", "")
+                    lines[j] = lines[j].replace("check=False", "")
 
             # prune whitespace down to match first line
-            while lines[0].startswith('    '):
+            while lines[0].startswith("    "):
                 lines = [line[4:] for line in lines]
 
-            text = '\n'.join(lines)
+            text = "\n".join(lines)
 
         # RIGHT side = Current OpenMDAO
         right_body = nodes.literal_block(text, text)
-        right_body['language'] = 'python'
+        right_body["language"] = "python"
         if compare:
-            right_body['classes'].append(right_style)
+            right_body["classes"].append(right_style)
 
         if compare:
             doc_nodes.append(left_body)
@@ -134,7 +134,7 @@ class EmbedCompareDirective(Directive):
 
 def setup(app):
     """add custom directive into Sphinx so that it is found during document parsing"""
-    app.add_directive('content-container',  ContentContainerDirective)
-    app.add_directive('embed-compare', EmbedCompareDirective)
+    app.add_directive("content-container", ContentContainerDirective)
+    app.add_directive("embed-compare", EmbedCompareDirective)
 
-    return {'version': sphinx.__display_version__, 'parallel_read_safe': True}
+    return {"version": sphinx.__display_version__, "parallel_read_safe": True}

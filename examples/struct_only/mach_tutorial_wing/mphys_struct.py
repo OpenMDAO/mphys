@@ -1,16 +1,16 @@
 # rst Imports
-from __future__ import print_function, division
+from __future__ import division, print_function
+
 import numpy as np
-from mpi4py import MPI
-
 import openmdao.api as om
-
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioStructural
+from mpi4py import MPI
+from tacs import constitutive, elements, functions
 
 # these imports will be from the respective codes' repos rather than omfsi
 from tacs.mphys import TacsBuilder
-from tacs import elements, constitutive, functions
+
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioStructural
 
 # set these for convenience
 comm = MPI.COMM_WORLD
@@ -37,7 +37,9 @@ class Top(om.Group):
         tMax = 0.05  # m
 
         # Callback function used to setup TACS element objects and DVs
-        def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
+        def element_callback(
+            dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs
+        ):
             # Setup (isotropic) property and constitutive objects
             prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
             # Set one thickness dv for every component
@@ -64,7 +66,9 @@ class Top(om.Group):
 
             # Add TACS Functions
             problem.addFunction("mass", functions.StructuralMass)
-            problem.addFunction("ks_vmfailure", functions.KSFailure, safetyFactor=1.0, ksWeight=100.0)
+            problem.addFunction(
+                "ks_vmfailure", functions.KSFailure, safetyFactor=1.0, ksWeight=100.0
+            )
 
             # Add forces to static problem
             F = fea_assembler.createVec()
@@ -72,8 +76,12 @@ class Top(om.Group):
             F[2::ndof] = 100.0
             problem.addLoadToRHS(F)
 
-        tacs_builder = TacsBuilder(mesh_file="wingbox.bdf", element_callback=element_callback,
-                                   problem_setup=problem_setup, coupled=False)
+        tacs_builder = TacsBuilder(
+            mesh_file="wingbox.bdf",
+            element_callback=element_callback,
+            problem_setup=problem_setup,
+            coupled=False,
+        )
         tacs_builder.initialize(self.comm)
 
         ################################################################################
@@ -94,8 +102,10 @@ class Top(om.Group):
         # this is the method that needs to be called for every point in this mp_group
         mp.mphys_add_scenario("s0", ScenarioStructural(struct_builder=tacs_builder))
 
-        mp.connect(f"mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}",
-                   f"s0.{MPhysVariables.Structures.COORDINATES}")
+        mp.connect(
+            f"mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}",
+            f"s0.{MPhysVariables.Structures.COORDINATES}",
+        )
 
         self.connect("dv_struct", "mp_group.s0.dv_struct")
 

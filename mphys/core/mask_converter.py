@@ -25,8 +25,13 @@ class MaskedConverter(om.ExplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare("input", desc="MaskedVariableDescription object of input that will be masked")
-        self.options.declare("output", desc="MaskedVariableDescription object of masked output")
+        self.options.declare(
+            "input",
+            desc="MaskedVariableDescription object of input that will be masked",
+        )
+        self.options.declare(
+            "output", desc="MaskedVariableDescription object of masked output"
+        )
         self.options.declare(
             "init_output",
             default=1.0,
@@ -48,7 +53,9 @@ class MaskedConverter(om.ExplicitComponent):
         output = self.options["output"]
         mask = self.options["mask"]
 
-        self.add_input(input.name, shape=input.shape, tags=input.tags, distributed=distributed)
+        self.add_input(
+            input.name, shape=input.shape, tags=input.tags, distributed=distributed
+        )
 
         if isinstance(output, list):
             if len(output) != len(mask):
@@ -117,9 +124,18 @@ class UnmaskedConverter(om.ExplicitComponent):
     """
 
     def initialize(self):
-        self.options.declare("input", desc="MaskedVariableDescription object of input that will be unmasked")
-        self.options.declare("output", desc="MaskedVariableDescription object of unmasked output")
-        self.options.declare("default_values", default=0.0, desc="default values for masked indices in output vector")
+        self.options.declare(
+            "input",
+            desc="MaskedVariableDescription object of input that will be unmasked",
+        )
+        self.options.declare(
+            "output", desc="MaskedVariableDescription object of unmasked output"
+        )
+        self.options.declare(
+            "default_values",
+            default=0.0,
+            desc="default values for masked indices in output vector",
+        )
         self.options.declare(
             "distributed",
             default=False,
@@ -143,14 +159,25 @@ class UnmaskedConverter(om.ExplicitComponent):
             for i in range(len(input) - 1):
                 for j in range(i + 1, len(input)):
                     if np.any(np.logical_and(mask[i], mask[j])):
-                        raise RuntimeWarning("Overlapping masking arrays, values will conflict.")
+                        raise RuntimeWarning(
+                            "Overlapping masking arrays, values will conflict."
+                        )
 
             for i in range(len(input)):
-                self.add_input(input[i].name, shape=input[i].shape, tags=input[i].tags, distributed=distributed)
+                self.add_input(
+                    input[i].name,
+                    shape=input[i].shape,
+                    tags=input[i].tags,
+                    distributed=distributed,
+                )
         else:
-            self.add_input(input.name, shape=input.shape, tags=input.tags, distributed=distributed)
+            self.add_input(
+                input.name, shape=input.shape, tags=input.tags, distributed=distributed
+            )
 
-        self.add_output(output.name, shape=output.shape, tags=output.tags, distributed=distributed)
+        self.add_output(
+            output.name, shape=output.shape, tags=output.tags, distributed=distributed
+        )
 
     def compute(self, inputs, outputs):
         input = self.options["input"]

@@ -1,85 +1,106 @@
 import numpy as np
 import openmdao.api as om
-from mphys import Builder, MPhysVariables
-
 from xfer import Xfer
 
-X_STRUCT = MPhysVariables.Structures.COORDINATES
-U_STRUCT = MPhysVariables.Structures.DISPLACEMENTS
-F_STRUCT = MPhysVariables.Structures.Loads.AERODYNAMIC
+from mphys import Builder
 
-X_AERO0 = MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL
-U_AERO = MPhysVariables.Aerodynamics.Surface.DISPLACEMENTS
-F_AERO = MPhysVariables.Aerodynamics.Surface.LOADS
 
 # EC which transfers displacements from structure to aero
 class DispXfer(om.ExplicitComponent):
     def initialize(self):
-        self.options.declare('solver')
+        self.options.declare("solver")
 
     def setup(self):
-        self.solver = self.options['solver']
+        self.solver = self.options["solver"]
 
-        self.add_input(X_STRUCT, shape_by_conn=True, distributed=True, tags=['mphys_coordinates'])
-        self.add_input(X_AERO0, shape_by_conn=True, distributed=True, tags=['mphys_coordinates'])
-        self.add_input(U_STRUCT, shape_by_conn=True, distributed=True, tags=['mphys_coupling'])
-        self.add_output(U_AERO, np.zeros(self.solver.aero.n_dof*self.solver.aero.n_nodes), distributed=True, tags=['mphys_coupling'])
+        self.add_input(
+            "x_struct0",
+            shape_by_conn=True,
+            distributed=True,
+            tags=["mphys_coordinates"],
+        )
+        self.add_input(
+            "x_aero0", shape_by_conn=True, distributed=True, tags=["mphys_coordinates"]
+        )
+        self.add_input(
+            "u_struct", shape_by_conn=True, distributed=True, tags=["mphys_coupling"]
+        )
+        self.add_output(
+            "u_aero",
+            np.zeros(self.solver.aero.n_dof * self.solver.aero.n_nodes),
+            distributed=True,
+            tags=["mphys_coupling"],
+        )
 
-    def compute(self,inputs,outputs):
-        self.solver.xs = inputs[X_STRUCT]
-        self.solver.xa = inputs[X_AERO0]
-        self.solver.us = inputs[U_STRUCT]
+    def compute(self, inputs, outputs):
+        self.solver.xs = inputs["x_struct0"]
+        self.solver.xa = inputs["x_aero0"]
+        self.solver.us = inputs["u_struct"]
 
-        outputs[U_AERO] = self.solver.transfer_displacements()
+        outputs["u_aero"] = self.solver.transfer_displacements()
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
-        if mode == 'rev':
-            if U_AERO in d_outputs:
+        if mode == "rev":
+            if "u_aero" in d_outputs:
                 d_xs, d_xa, d_us = self.solver.transfer_displacements_derivatives(
-                    adjoint=d_outputs[U_AERO]
+                    adjoint=d_outputs["u_aero"]
                 )
 
-                if X_STRUCT in d_inputs:
-                    d_inputs[X_STRUCT] += d_xs
-                if X_AERO0 in d_inputs:
-                    d_inputs[X_AERO0] += d_xa
-                if U_STRUCT in d_inputs:
-                    d_inputs[U_STRUCT] += d_us
+                if "x_struct0" in d_inputs:
+                    d_inputs["x_struct0"] += d_xs
+                if "x_aero0" in d_inputs:
+                    d_inputs["x_aero0"] += d_xa
+                if "u_struct" in d_inputs:
+                    d_inputs["u_struct"] += d_us
 
 
 # EC which transfers loads from aero to structure
 class LoadXfer(om.ExplicitComponent):
     def initialize(self):
-        self.options.declare('solver')
+        self.options.declare("solver")
 
     def setup(self):
-        self.solver = self.options['solver']
+        self.solver = self.options["solver"]
 
-        self.add_input(X_STRUCT, shape_by_conn=True, distributed=True, tags=['mphys_coordinates'])
-        self.add_input(X_AERO0, shape_by_conn=True, distributed=True, tags=['mphys_coordinates'])
-        self.add_input(F_AERO, shape_by_conn=True, distributed=True, tags=['mphys_coupling'])
-        self.add_output(F_STRUCT, np.zeros(self.solver.struct.n_dof*self.solver.struct.n_nodes), distributed=True, tags=['mphys_coupling'])
+        self.add_input(
+            "x_struct0",
+            shape_by_conn=True,
+            distributed=True,
+            tags=["mphys_coordinates"],
+        )
+        self.add_input(
+            "x_aero0", shape_by_conn=True, distributed=True, tags=["mphys_coordinates"]
+        )
+        self.add_input(
+            "f_aero", shape_by_conn=True, distributed=True, tags=["mphys_coupling"]
+        )
+        self.add_output(
+            "f_struct",
+            np.zeros(self.solver.struct.n_dof * self.solver.struct.n_nodes),
+            distributed=True,
+            tags=["mphys_coupling"],
+        )
 
-    def compute(self,inputs,outputs):
-        self.solver.xs = inputs[X_STRUCT]
-        self.solver.xa = inputs[X_AERO0]
-        self.solver.fa = inputs[F_AERO]
+    def compute(self, inputs, outputs):
+        self.solver.xs = inputs["x_struct0"]
+        self.solver.xa = inputs["x_aero0"]
+        self.solver.fa = inputs["f_aero"]
 
-        outputs[F_STRUCT] = self.solver.transfer_loads()
+        outputs["f_struct"] = self.solver.transfer_loads()
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
-        if mode == 'rev':
-            if F_STRUCT in d_outputs:
+        if mode == "rev":
+            if "f_struct" in d_outputs:
                 d_xs, d_xa, d_fa = self.solver.transfer_loads_derivatives(
-                    adjoint=d_outputs[F_STRUCT]
+                    adjoint=d_outputs["f_struct"]
                 )
 
-                if X_STRUCT in d_inputs:
-                    d_inputs[X_STRUCT] += d_xs
-                if X_AERO0 in d_inputs:
-                    d_inputs[X_AERO0] += d_xa
-                if F_AERO in d_inputs:
-                    d_inputs[F_AERO] += d_fa
+                if "x_struct0" in d_inputs:
+                    d_inputs["x_struct0"] += d_xs
+                if "x_aero0" in d_inputs:
+                    d_inputs["x_aero0"] += d_xa
+                if "f_aero" in d_inputs:
+                    d_inputs["f_aero"] += d_fa
 
 
 # Builder
@@ -90,9 +111,7 @@ class XferBuilder(Builder):
 
     def initialize(self, comm):
         self.solver = Xfer(
-            aero = self.aero_builder.solver,
-            struct = self.struct_builder.solver,
-            comm = comm
+            aero=self.aero_builder.solver, struct=self.struct_builder.solver, comm=comm
         )
 
     def get_coupling_group_subsystem(self, scenario_name=None):

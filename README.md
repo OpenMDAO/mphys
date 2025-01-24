@@ -1,6 +1,8 @@
 <img src="docs/logo/mphys_logo_no_background.png" alt= “MPhys” width="250">
 
 [![Unit Tests and Docs](https://github.com/OpenMDAO/mphys/actions/workflows/unit_tests_and_docs.yml/badge.svg)](https://github.com/OpenMDAO/mphys/actions/workflows/unit_tests_and_docs.yml)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
 MPhys is a package that standardizes high-fidelity multiphysics problems in OpenMDAO.
 MPhys eases the problem set up, provides straightforward extension to new disciplines, and has a library of OpenMDAO groups for multidisciplinary problems addressed by its standard.
@@ -35,7 +37,7 @@ Open-source codes with builders and components compatible with mphys:
 |------------------------------------------------------------|----------------------|--------------------------------|-------------------------------------------------------------------------|
 | [ADflow](https://github.com/mdolab/adflow)                 | 2.12.0               | Aerodynamics                   | Structured multi-block and overset CFD.                                 |
 | [DAfoam](https://github.com/mdolab/dafoam)                 | 3.2.0                | Aerodynamics                   | Discrete Adjoint with OpenFOAM.                                         |
-| [OpenAeroStruct](https://github.com/mdolab/openaerostruct) | 2.10.0               | Aerodynamics                   | Vortex lattice aerodynamics written using OpenMDAO.                     |
+| [OpenAeroStruct](https://github.com/mdolab/openaerostruct) | 2.9.1                | Aerodynamics                   | Vortex lattice aerodynamics written using OpenMDAO.                     |
 | [FunToFEM](https://github.com/smdogroup/funtofem)          | 0.3.8                | Load and Displacement Transfer | Point cloud based transfer scheme. Part of the FUNtoFEM package.        |
 | [pyCycle](https://github.com/OpenMDAO/pyCycle)             | 4.3.0                | Propulsion                     | Thermodynamic cycle modeling library for engines.                       |
 | [pyGeo](https://github.com/mdolab/pygeo)                   | 1.15.0               | Geometric Parameterization     | Wrapper for ESP, OpenVSP, and a free-form deformation parameterization. |
@@ -84,6 +86,18 @@ ffd.xyz
 to run the tests execute in the root directory
 ```bash
 testflo -v tests
+```
+
+## Code Formatting
+All pull requests automatically check for code formatting compliance using `flake8`, `black`, and `isort`.
+Before submitting a PR check code changes adheres to this formating. 
+To run `flake8`, `black`, and `isort` locally, use the folowing commands:
+```commandline
+$ pip install flake8 black isort
+$ wget https://raw.githubusercontent.com/mdolab/.github/main/.flake8 -O .flake8_mdolab  # download flake8 configuration for mdolab
+$ python -m flake8 . --append-config .flake8_mdolab --count --show-source --statistics
+$ python -m black . --check --diff
+$ python -m isort . --check-only --diff
 ```
 
 # Software Assurance Plan

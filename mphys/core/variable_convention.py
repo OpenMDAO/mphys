@@ -7,7 +7,7 @@ class MPhysVariables:
             REYNOLDS_NUMBER = "reynolds_number"
             DYNAMIC_PRESSURE = "dynamic_pressure"
 
-        #TODO add propulsion coupling variables
+        # TODO add propulsion coupling variables
 
         class Surface:
             #: displacement distribution
@@ -84,5 +84,5 @@ class MPhysVariables:
             #: node coordinates, original (no geometry changes)
             COORDINATES = "x_thermal0_mesh"
 
-    #TODO add propulsion
-    #class Propulsion:
+    # TODO add propulsion
+    # class Propulsion:

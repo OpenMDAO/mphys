@@ -9,25 +9,49 @@ from pbs4py import PBS
 from pbs4py.job import PBSJob
 from mphys.network import RemoteComp, Server, ServerManager
 
+
 class RemoteZeroMQComp(RemoteComp):
     """
     A derived RemoteComp class that uses pbs4py for HPC job management
     and ZeroMQ for network communication.
     """
+
     def initialize(self):
-        self.options.declare('pbs', "pbs4py Launcher object")
-        self.options.declare('port', default=5081, desc="port number for server/client communication")
-        self.options.declare('acceptable_port_range', default=[5081,6000], desc="port range to look through if 'port' is currently busy")
-        self.options.declare('additional_server_args', default="", desc="Optional arguments to give server, in addition to --port <port number>")
-        self.options.declare('job_expiration_max_restarts', default=None, desc="Optional maximum number of server restarts due to job expiration; unlimited by default")
+        self.options.declare("pbs", "pbs4py Launcher object")
+        self.options.declare(
+            "port", default=5081, desc="port number for server/client communication"
+        )
+        self.options.declare(
+            "acceptable_port_range",
+            default=[5081, 6000],
+            desc="port range to look through if 'port' is currently busy",
+        )
+        self.options.declare(
+            "additional_server_args",
+            default="",
+            desc="Optional arguments to give server, in addition to --port <port number>",
+        )
+        self.options.declare(
+            "job_expiration_max_restarts",
+            default=None,
+            desc="Optional maximum number of server restarts due to job expiration; unlimited by default",
+        )
         super().initialize()
-        self.server_manager = None # for avoiding reinitialization due to multiple setup calls
+        self.server_manager = (
+            None  # for avoiding reinitialization due to multiple setup calls
+        )
 
     def _send_inputs_to_server(self, remote_input_dict, command: str):
         if self._doing_derivative_evaluation(command):
-            print(f'CLIENT (subsystem {self.name}): Requesting derivative call from server', flush=True)
+            print(
+                f"CLIENT (subsystem {self.name}): Requesting derivative call from server",
+                flush=True,
+            )
         else:
-            print(f'CLIENT (subsystem {self.name}): Requesting function call from server', flush=True)
+            print(
+                f"CLIENT (subsystem {self.name}): Requesting function call from server",
+                flush=True,
+            )
         input_str = f"{command}|{str(json.dumps(remote_input_dict))}"
         self.server_manager.socket.send(input_str.encode())
 
@@ -36,13 +60,16 @@ class RemoteZeroMQComp(RemoteComp):
 
     def _setup_server_manager(self):
         if self.server_manager is None:
-            self.server_manager = MPhysZeroMQServerManager(pbs=self.options['pbs'],
-                                                           run_server_filename=self.options['run_server_filename'],
-                                                           component_name=self.name,
-                                                           port=self.options['port'],
-                                                           acceptable_port_range=self.options['acceptable_port_range'],
-                                                           additional_server_args=self.options['additional_server_args'],
-                                                           job_expiration_max_restarts=self.options['job_expiration_max_restarts'])
+            self.server_manager = MPhysZeroMQServerManager(
+                pbs=self.options["pbs"],
+                run_server_filename=self.options["run_server_filename"],
+                component_name=self.name,
+                port=self.options["port"],
+                acceptable_port_range=self.options["acceptable_port_range"],
+                additional_server_args=self.options["additional_server_args"],
+                job_expiration_max_restarts=self.options["job_expiration_max_restarts"],
+            )
+
 
 class MPhysZeroMQServerManager(ServerManager):
     """
@@ -66,15 +93,17 @@ class MPhysZeroMQServerManager(ServerManager):
     job_expiration_max_restarts : int
         Optional maximum number of server restarts due to job expiration; unlimited by default
     """
-    def __init__(self,
-                 pbs: PBS,
-                 run_server_filename: str,
-                 component_name: str,
-                 port=5081,
-                 acceptable_port_range=[5081,6000],
-                 additional_server_args='',
-                 job_expiration_max_restarts=None
-                 ):
+
+    def __init__(
+        self,
+        pbs: PBS,
+        run_server_filename: str,
+        component_name: str,
+        port=5081,
+        acceptable_port_range=[5081, 6000],
+        additional_server_args="",
+        job_expiration_max_restarts=None,
+    ):
         self.pbs = pbs
         self.run_server_filename = run_server_filename
         self.component_name = component_name
@@ -82,8 +111,10 @@ class MPhysZeroMQServerManager(ServerManager):
         self.acceptable_port_range = acceptable_port_range
         self.additional_server_args = additional_server_args
         self.job_expiration_max_restarts = job_expiration_max_restarts
-        self.queue_time_delay = 5 # seconds to wait before rechecking if a job has started
-        self.server_counter = 0 # for saving output of each server to different files
+        self.queue_time_delay = (
+            5  # seconds to wait before rechecking if a job has started
+        )
+        self.server_counter = 0  # for saving output of each server to different files
         self.job_expiration_restarts = 0
         self.start_server()
 
@@ -93,9 +124,12 @@ class MPhysZeroMQServerManager(ServerManager):
         self._launch_job()
 
     def stop_server(self):
-        print(f'CLIENT (subsystem {self.component_name}): Stopping the remote analysis server', flush=True)
-        if self.job.state=='R':
-            self.socket.send('shutdown|null'.encode())
+        print(
+            f"CLIENT (subsystem {self.component_name}): Stopping the remote analysis server",
+            flush=True,
+        )
+        if self.job.state == "R":
+            self.socket.send("shutdown|null".encode())
         self._shutdown_server()
         self.socket.close()
 
@@ -108,31 +142,42 @@ class MPhysZeroMQServerManager(ServerManager):
 
     def job_has_expired(self):
         self.job.update_job_state()
-        if self.job.state=='R':
+        if self.job.state == "R":
             return False
         else:
             if self.job_expiration_max_restarts is not None:
-                if self.job_expiration_restarts+1 > self.job_expiration_max_restarts:
+                if self.job_expiration_restarts + 1 > self.job_expiration_max_restarts:
                     self.stop_server()
-                    raise RuntimeError(f'CLIENT (subsystem {self.component_name}): Reached maximum number of job expiration restarts')
+                    raise RuntimeError(
+                        f"CLIENT (subsystem {self.component_name}): Reached maximum number of job expiration restarts"
+                    )
                 self.job_expiration_restarts += 1
-            print(f'CLIENT (subsystem {self.component_name}): Job no longer running; flagging for job restart')
+            print(
+                f"CLIENT (subsystem {self.component_name}): Job no longer running; flagging for job restart"
+            )
             return True
 
     def _port_is_in_use(self, port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            return s.connect_ex(('localhost', port))==0
+            return s.connect_ex(("localhost", port)) == 0
 
     def _initialize_connection(self):
         if self._port_is_in_use(self.port):
-            print(f'CLIENT (subsystem {self.component_name}): Port {self.port} is already in use... finding first available port in the range {self.acceptable_port_range}', flush=True)
+            print(
+                f"CLIENT (subsystem {self.component_name}): Port {self.port} is already in use... finding first available port in the range {self.acceptable_port_range}",
+                flush=True,
+            )
 
-            for port in range(self.acceptable_port_range[0],self.acceptable_port_range[1]+1):
+            for port in range(
+                self.acceptable_port_range[0], self.acceptable_port_range[1] + 1
+            ):
                 if not self._port_is_in_use(port):
                     self.port = port
                     break
             else:
-                raise RuntimeError(f'CLIENT (subsystem {self.component_name}): Could not find open port')
+                raise RuntimeError(
+                    f"CLIENT (subsystem {self.component_name}): Could not find open port"
+                )
 
         self._initialize_zmq_socket()
 
@@ -142,38 +187,55 @@ class MPhysZeroMQServerManager(ServerManager):
         self.socket.connect(f"tcp://localhost:{self.port}")
 
     def _launch_job(self):
-        print(f'CLIENT (subsystem {self.component_name}): Launching new server', flush=True)
-        python_command = (f"python {self.run_server_filename} --port {self.port} {self.additional_server_args}")
-        python_mpi_command = self.pbs.create_mpi_command(python_command, output_root_name=f'mphys_{self.component_name}_server{self.server_counter}')
-        jobid = self.pbs.launch(f'MPhys{self.port}', [python_mpi_command], blocking=False)
+        print(
+            f"CLIENT (subsystem {self.component_name}): Launching new server",
+            flush=True,
+        )
+        python_command = f"python {self.run_server_filename} --port {self.port} {self.additional_server_args}"
+        python_mpi_command = self.pbs.create_mpi_command(
+            python_command,
+            output_root_name=f"mphys_{self.component_name}_server{self.server_counter}",
+        )
+        jobid = self.pbs.launch(
+            f"MPhys{self.port}", [python_mpi_command], blocking=False
+        )
         self.job = PBSJob(jobid)
         self._wait_for_job_to_start()
         self._setup_ssh()
 
     def _wait_for_job_to_start(self):
-        print(f'CLIENT (subsystem {self.component_name}): Waiting for job to start', flush=True)
+        print(
+            f"CLIENT (subsystem {self.component_name}): Waiting for job to start",
+            flush=True,
+        )
         job_submission_time = time.time()
         self._setup_dummy_socket()
-        while self.job.state!='R':
+        while self.job.state != "R":
             time.sleep(self.queue_time_delay)
             self.job.update_job_state()
         self._stop_dummy_socket()
         self.job_start_time = time.time()
-        print(f'CLIENT (subsystem {self.component_name}): Job started (queue wait time: {(time.time()-job_submission_time)/3600} hours)', flush=True)
+        print(
+            f"CLIENT (subsystem {self.component_name}): Job started (queue wait time: {(time.time()-job_submission_time)/3600} hours)",
+            flush=True,
+        )
 
     def _setup_ssh(self):
-        ssh_command = f'ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L {self.port}:localhost:{self.port} {self.job.hostname} &'
-        self.ssh_proc = subprocess.Popen(ssh_command.split(),
-                                         stdout=subprocess.DEVNULL,
-                                         stderr=subprocess.DEVNULL)
+        ssh_command = f"ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L {self.port}:localhost:{self.port} {self.job.hostname} &"
+        self.ssh_proc = subprocess.Popen(
+            ssh_command.split(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
 
     def _shutdown_server(self):
         self.ssh_proc.kill()
-        time.sleep(0.1) # prevent full shutdown before job deletion?
+        time.sleep(0.1)  # prevent full shutdown before job deletion?
         self.job.qdel()
 
     def _setup_dummy_socket(self):
-        print(f'CLIENT (subsystem {self.component_name}): Starting dummy ZeroMQ socket to hold port {self.port} while in queue', flush=True)
+        print(
+            f"CLIENT (subsystem {self.component_name}): Starting dummy ZeroMQ socket to hold port {self.port} while in queue",
+            flush=True,
+        )
         context = zmq.Context()
         self.dummy_socket = context.socket(zmq.REP)
         self.dummy_socket.bind(f"tcp://*:{self.port}")
@@ -181,43 +243,57 @@ class MPhysZeroMQServerManager(ServerManager):
     def _stop_dummy_socket(self):
         self.dummy_socket.close()
 
+
 class MPhysZeroMQServer(Server):
     """
     A derived Server class that uses ZeroMQ for network communication.
     """
-    def __init__(self, port, get_om_group_function_pointer,
-                 ignore_setup_warnings = False,
-                 ignore_runtime_warnings = False,
-                 rerun_initial_design = False,
-                 write_n2 = False):
 
-        super().__init__(get_om_group_function_pointer, ignore_setup_warnings,
-                         ignore_runtime_warnings, rerun_initial_design, write_n2)
+    def __init__(
+        self,
+        port,
+        get_om_group_function_pointer,
+        ignore_setup_warnings=False,
+        ignore_runtime_warnings=False,
+        rerun_initial_design=False,
+        write_n2=False,
+    ):
+
+        super().__init__(
+            get_om_group_function_pointer,
+            ignore_setup_warnings,
+            ignore_runtime_warnings,
+            rerun_initial_design,
+            write_n2,
+        )
         self._setup_zeromq_socket(port)
 
     def _setup_zeromq_socket(self, port):
-        if self.comm.rank==0:
+        if self.comm.rank == 0:
             context = zmq.Context()
             self.socket = context.socket(zmq.REP)
             self.socket.bind(f"tcp://*:{port}")
 
     def _parse_incoming_message(self):
         inputs = None
-        if self.comm.rank==0:
+        if self.comm.rank == 0:
             inputs = self.socket.recv().decode()
         inputs = self.prob.model.comm.bcast(inputs)
 
         command, input_dict = inputs.split("|")
-        if command!='shutdown':
+        if command != "shutdown":
             input_dict = json.loads(input_dict)
         return command, input_dict
 
     def _send_outputs_to_client(self, output_dict: dict):
-        if self.comm.rank==0:
+        if self.comm.rank == 0:
             self.socket.send(str(json.dumps(output_dict)).encode())
 
+
 def get_default_zmq_pbs_argparser():
-    parser = argparse.ArgumentParser('Python script for launching mphys analysis server',
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--port', type=int, help='tcp port number for zeromq socket')
+    parser = argparse.ArgumentParser(
+        "Python script for launching mphys analysis server",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("--port", type=int, help="tcp port number for zeromq socket")
     return parser

@@ -8,34 +8,32 @@
 """
 
 # === Standard Python modules ===
-from __future__ import print_function, division
+from __future__ import division, print_function
+
 import os
 import unittest
 
-
 # === External Python modules ===
 import numpy as np
-from mpi4py import MPI
-from parameterized import parameterized, parameterized_class
-
 
 # === Extension modules ===
 import openmdao.api as om
-from openmdao.utils.assert_utils import assert_near_equal
-
-
-from mphys import Multipoint, MPhysVariables
-from mphys.scenarios import ScenarioAeroStructural
 
 # these imports will be from the respective codes' repos rather than mphys
 from adflow.mphys import ADflowBuilder
-from tacs.mphys import TacsBuilder
+from baseclasses import AeroProblem
 from funtofem.mphys import MeldBuilder
+from mpi4py import MPI
+from openmdao.utils.assert_utils import assert_near_equal
+from parameterized import parameterized, parameterized_class
+from tacs import constitutive, elements, functions
+from tacs.mphys import TacsBuilder
+
+from mphys import MPhysVariables, Multipoint
+from mphys.scenarios import ScenarioAeroStructural
+
 # TODO RLT needs to be updated with the new tacs wrapper
 # from rlt.mphys import RltBuilder
-
-from baseclasses import AeroProblem
-from tacs import elements, constitutive, functions
 
 
 # set these for convenience
@@ -58,7 +56,9 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
     # Setup (isotropic) property and constitutive objects
     prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
     # Set one thickness dv for every component
-    con = constitutive.IsoShellConstitutive(prop, t=thickness, tNum=dvNum, tlb=min_thickness, tub=max_thickness)
+    con = constitutive.IsoShellConstitutive(
+        prop, t=thickness, tNum=dvNum, tlb=min_thickness, tub=max_thickness
+    )
 
     # For each element type in this component,
     # pass back the appropriate tacs element object
@@ -67,6 +67,7 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
 
     return elem
 
+
 def problem_setup(scenario_name, fea_assembler, problem):
     """
     Helper function to add fixed forces and eval functions
@@ -74,8 +75,10 @@ def problem_setup(scenario_name, fea_assembler, problem):
     """
     # Add TACS Functions
     # Only include mass from elements that belong to pytacs components (i.e. skip concentrated masses)
-    problem.addFunction('mass', functions.StructuralMass)
-    problem.addFunction('ks_vmfailure', functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
+    problem.addFunction("mass", functions.StructuralMass)
+    problem.addFunction(
+        "ks_vmfailure", functions.KSFailure, safetyFactor=1.0, ksWeight=50.0
+    )
 
     # Add gravity load
     g = np.array([0.0, 0.0, -9.81])  # m/s^2
@@ -130,19 +133,29 @@ class Top(Multipoint):
         ################################################################################
         # TACS setup
         ################################################################################
-        struct_builder = TacsBuilder(mesh_file='../input_files/wingbox.bdf', element_callback=element_callback,
-                                     problem_setup=problem_setup, coupled=True)
+        struct_builder = TacsBuilder(
+            mesh_file="../input_files/wingbox.bdf",
+            element_callback=element_callback,
+            problem_setup=problem_setup,
+            coupling_loads=[MPhysVariables.Structures.Loads.AERODYNAMIC],
+        )
         struct_builder.initialize(self.comm)
 
-        self.add_subsystem("mesh_struct", struct_builder.get_mesh_coordinate_subsystem())
+        self.add_subsystem(
+            "mesh_struct", struct_builder.get_mesh_coordinate_subsystem()
+        )
 
         ################################################################################
         # Transfer scheme options
         ################################################################################
         if self.xfer_builder_class == MeldBuilder:
-            xfer_builder = self.xfer_builder_class(aero_builder, struct_builder, isym=1, check_partials=True)
+            xfer_builder = self.xfer_builder_class(
+                aero_builder, struct_builder, isym=1, check_partials=True
+            )
         else:
-            xfer_builder = self.xfer_builder_class(self.xfer_options, aero_builder, struct_builder, check_partials=True)
+            xfer_builder = self.xfer_builder_class(
+                self.xfer_options, aero_builder, struct_builder, check_partials=True
+            )
         xfer_builder.initialize(self.comm)
 
         ################################################################################
@@ -152,21 +165,31 @@ class Top(Multipoint):
         # ivc to keep the top level DVs
         dvs = self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
 
-        nonlinear_solver = om.NonlinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14)
-        linear_solver = om.LinearBlockGS(maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14)
+        nonlinear_solver = om.NonlinearBlockGS(
+            maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14
+        )
+        linear_solver = om.LinearBlockGS(
+            maxiter=25, iprint=2, use_aitken=True, rtol=1e-14, atol=1e-14
+        )
         self.mphys_add_scenario(
             "cruise",
             ScenarioAeroStructural(
-                aero_builder=aero_builder, struct_builder=struct_builder, ldxfer_builder=xfer_builder
+                aero_builder=aero_builder,
+                struct_builder=struct_builder,
+                ldxfer_builder=xfer_builder,
             ),
             nonlinear_solver,
             linear_solver,
         )
 
-        self.connect(f'mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}',
-                    f'cruise.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}')
-        self.connect(f'mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}',
-                    f'cruise.{MPhysVariables.Structures.COORDINATES}')
+        self.connect(
+            f"mesh_aero.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+            f"cruise.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}",
+        )
+        self.connect(
+            f"mesh_struct.{MPhysVariables.Structures.Mesh.COORDINATES}",
+            f"cruise.{MPhysVariables.Structures.COORDINATES}",
+        )
 
         # add the structural thickness DVs
         ndv_struct = struct_builder.get_ndv()
@@ -263,28 +286,45 @@ class TestAeroStructSolve(unittest.TestCase):
         if MPI.COMM_WORLD.rank == 0:
             print("Scenario 0")
 
-            print("xa =", np.mean(self.prob.get_val("cruise.coupling.geo_disp.x_aero", get_remote=True)))
+            print(
+                "xa =",
+                np.mean(
+                    self.prob.get_val(
+                        "cruise.coupling.geo_disp.x_aero", get_remote=True
+                    )
+                ),
+            )
             print("cl =", self.prob.get_val("cruise.aero_post.cl", get_remote=True)[0])
             print("cd =", self.prob.get_val("cruise.aero_post.cd", get_remote=True)[0])
-            print("ks_vmfailure =", self.prob.get_val("cruise.ks_vmfailure", get_remote=True)[0])
+            print(
+                "ks_vmfailure =",
+                self.prob.get_val("cruise.ks_vmfailure", get_remote=True)[0],
+            )
 
             assert_near_equal(
-                np.mean(self.prob.get_val("cruise.coupling.geo_disp.x_aero", get_remote=True)),
+                np.mean(
+                    self.prob.get_val(
+                        "cruise.coupling.geo_disp.x_aero", get_remote=True
+                    )
+                ),
                 self.ref_vals["xa"],
                 1e-6,
             )
             assert_near_equal(
-                np.mean(self.prob.get_val("cruise.aero_post.cl", get_remote=True)), self.ref_vals["cl"], 1e-6
+                np.mean(self.prob.get_val("cruise.aero_post.cl", get_remote=True)),
+                self.ref_vals["cl"],
+                1e-6,
             )
             assert_near_equal(
-                np.mean(self.prob.get_val("cruise.aero_post.cd", get_remote=True)), self.ref_vals["cd"], 1e-6
+                np.mean(self.prob.get_val("cruise.aero_post.cd", get_remote=True)),
+                self.ref_vals["cd"],
+                1e-6,
             )
             assert_near_equal(
                 np.mean(self.prob.get_val("cruise.ks_vmfailure", get_remote=True)),
                 self.ref_vals["func_struct"],
                 1e-6,
             )
-
 
 
 if __name__ == "__main__":

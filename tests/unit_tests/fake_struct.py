@@ -9,7 +9,9 @@ struct_num_nodes = 3
 class StructMeshComp(om.IndepVarComp):
     def setup(self):
         self.add_output(
-            MPhysVariables.Structures.Mesh.COORDINATES, val=np.ones(struct_num_nodes * 3), tags=["mphys_coordinates"]
+            MPhysVariables.Structures.Mesh.COORDINATES,
+            val=np.ones(struct_num_nodes * 3),
+            tags=["mphys_coordinates"],
         )
 
 
@@ -31,8 +33,12 @@ class StructCouplingComp(om.ExplicitComponent):
 
         self.add_input(self.coords_name, shape_by_conn=True, tags=["mphys_coordinates"])
         self.add_input("prestate_struct", tags=["mphys_coupling"])
-        self.add_input(self.aero_loads_name, shape_by_conn=True, tags=["mphys_coupling"])
-        self.add_output(self.disps_name, shape=struct_num_nodes * 3, tags=["mphys_coupling"])
+        self.add_input(
+            self.aero_loads_name, shape_by_conn=True, tags=["mphys_coupling"]
+        )
+        self.add_output(
+            self.disps_name, shape=struct_num_nodes * 3, tags=["mphys_coupling"]
+        )
 
     def compute(self, inputs, outputs):
         outputs[self.disps_name] = inputs[self.coords_name] + inputs["prestate_struct"]
@@ -49,7 +55,11 @@ class StructPostCouplingComp(om.ExplicitComponent):
         self.add_output("func_struct", val=1.0, tags=["mphys_result"])
 
     def compute(self, inputs, outputs):
-        outputs["func_struct"] = np.sum(inputs[self.disps_name] + inputs["prestate_struct"] + inputs[self.coords_name])
+        outputs["func_struct"] = np.sum(
+            inputs[self.disps_name]
+            + inputs["prestate_struct"]
+            + inputs[self.coords_name]
+        )
 
 
 class StructBuilder(Builder):

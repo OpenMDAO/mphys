@@ -1,44 +1,48 @@
 import numpy as np
 import openmdao.api as om
 from mpi4py import MPI
-from mphys import Builder, MPhysVariables
 
+from mphys import Builder
 
-X_AERO0_GEOM_INPUT = MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT
-X_AERO0_GEOM_OUTPUT = MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT
-
-X_STRUCT_GEOM_INPUT = MPhysVariables.Structures.Geometry.COORDINATES_INPUT
-X_STRUCT_GEOM_OUTPUT = MPhysVariables.Structures.Geometry.COORDINATES_OUTPUT
 
 # EC which morphs the geometry
 class GeometryMorph(om.ExplicitComponent):
     def initialize(self):
-        self.options.declare('names')
-        self.options.declare('n_nodes')
-
-        self.input_names = {'aero': X_AERO0_GEOM_INPUT, 'struct': X_STRUCT_GEOM_INPUT}
-        self.output_names = {'aero': X_AERO0_GEOM_OUTPUT, 'struct': X_STRUCT_GEOM_OUTPUT}
+        self.options.declare("names")
+        self.options.declare("n_nodes")
 
     def setup(self):
-        self.add_input('geometry_morph_param')
+        self.add_input("geometry_morph_param")
 
-        for name, n_nodes in zip(self.options['names'], self.options['n_nodes']):
-            self.add_input(self.input_names[name], distributed=True, shape_by_conn=True, tags=['mphys_coordinates'])
-            self.add_output(self.output_names[name], shape=n_nodes*3, distributed=True, tags=['mphys_coordinates'])
+        for name, n_nodes in zip(self.options["names"], self.options["n_nodes"]):
+            self.add_input(f"x_{name}_in", distributed=True, shape_by_conn=True)
+            self.add_output(
+                f"x_{name}0",
+                shape=n_nodes * 3,
+                distributed=True,
+                tags=["mphys_coordinates"],
+            )
 
-    def compute(self,inputs,outputs):
-        for name in self.options['names']:
-            outputs[self.output_names[name]] = inputs['geometry_morph_param']*inputs[self.input_names[name]]
+    def compute(self, inputs, outputs):
+        for name in self.options["names"]:
+            outputs[f"x_{name}0"] = (
+                inputs["geometry_morph_param"] * inputs[f"x_{name}_in"]
+            )
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
-        if mode == 'rev':
-            for name in self.options['names']:
-                if self.output_names[name] in d_outputs:
-                    if 'geometry_morph_param' in d_inputs:
-                        d_inputs['geometry_morph_param'] += self.comm.allreduce(np.sum(d_outputs[self.output_names[name]]*inputs[self.input_names[name]]), op=MPI.SUM)
+        if mode == "rev":
+            for name in self.options["names"]:
+                if f"x_{name}0" in d_outputs:
+                    if "geometry_morph_param" in d_inputs:
+                        d_inputs["geometry_morph_param"] += self.comm.allreduce(
+                            np.sum(d_outputs[f"x_{name}0"] * inputs[f"x_{name}_in"]),
+                            op=MPI.SUM,
+                        )
 
-                    if self.input_names[name] in d_inputs:
-                        d_inputs[self.input_names[name]] += d_outputs[self.output_names[name]]*inputs['geometry_morph_param']
+                    if f"x_{name}_in" in d_inputs:
+                        d_inputs[f"x_{name}_in"] += (
+                            d_outputs[f"x_{name}0"] * inputs["geometry_morph_param"]
+                        )
 
 
 # Builder

@@ -6,6 +6,7 @@ class ServerManager:
     To make a particular derived class, implement the start_server,
     stop_server, and enough_time_is_remaining functions.
     """
+
     def start_server(self):
         """
         Start the server.
