@@ -1,7 +1,8 @@
-import openmdao.api as om
 import warnings
 from copy import deepcopy
+
 import numpy as np
+import openmdao.api as om
 
 
 class Server:

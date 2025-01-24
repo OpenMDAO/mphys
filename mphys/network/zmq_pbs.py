@@ -3,10 +3,11 @@ import json
 import socket
 import subprocess
 import time
-import zmq
 
+import zmq
 from pbs4py import PBS
 from pbs4py.job import PBSJob
+
 from mphys.network import RemoteComp, Server, ServerManager
 
 
