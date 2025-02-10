@@ -16,12 +16,16 @@ class GeometryMorph(om.ExplicitComponent):
 
         self.x_names = {}
         for name, n_nodes in zip(self.options["names"], self.options["n_nodes"]):
-            if name=="aero":
-                self.x_names[name] = {"input": MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT,
-                                      "output": MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT}
-            elif name=="struct":
-                self.x_names[name] = {"input": MPhysVariables.Structures.Geometry.COORDINATES_INPUT,
-                                      "output": MPhysVariables.Structures.Geometry.COORDINATES_OUTPUT}
+            if name == "aero":
+                self.x_names[name] = {
+                    "input": MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT,
+                    "output": MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT,
+                }
+            elif name == "struct":
+                self.x_names[name] = {
+                    "input": MPhysVariables.Structures.Geometry.COORDINATES_INPUT,
+                    "output": MPhysVariables.Structures.Geometry.COORDINATES_OUTPUT,
+                }
             self.add_input(
                 self.x_names[name]["input"],
                 distributed=True,
@@ -47,13 +51,17 @@ class GeometryMorph(om.ExplicitComponent):
                 if self.x_names[name]["output"] in d_outputs:
                     if "geometry_morph_param" in d_inputs:
                         d_inputs["geometry_morph_param"] += self.comm.allreduce(
-                            np.sum(d_outputs[self.x_names[name]["output"]] * inputs[self.x_names[name]["input"]]),
+                            np.sum(
+                                d_outputs[self.x_names[name]["output"]]
+                                * inputs[self.x_names[name]["input"]]
+                            ),
                             op=MPI.SUM,
                         )
 
                     if self.x_names[name]["input"] in d_inputs:
                         d_inputs[self.x_names[name]["input"]] += (
-                            d_outputs[self.x_names[name]["output"]] * inputs["geometry_morph_param"]
+                            d_outputs[self.x_names[name]["output"]]
+                            * inputs["geometry_morph_param"]
                         )
 
 

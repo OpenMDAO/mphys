@@ -67,5 +67,6 @@ class TestDistributedSummer(unittest.TestCase):
         else:
             assert_near_equal(rel_error.fwd_rev, 0.0, tolerance=tol)
 
+
 if __name__ == "__main__":
     unittest.main()
