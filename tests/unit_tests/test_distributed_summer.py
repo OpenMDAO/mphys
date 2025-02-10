@@ -52,12 +52,12 @@ class TestDistributedSummer(unittest.TestCase):
         rel_error = partials["sumer"][("sumed_output", "dist_input1")]["rel error"]
         assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
         assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
+        assert_near_equal(rel_error.fwd_rev, 0.0, tolerance=tol)
 
         rel_error = partials["sumer"][("sumed_output", "dist_input2")]["rel error"]
         assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
         assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
+        assert_near_equal(rel_error.fwd_rev, 0.0, tolerance=tol)
 
 
 if __name__ == "__main__":
