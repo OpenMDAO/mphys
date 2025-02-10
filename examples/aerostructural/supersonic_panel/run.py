@@ -8,7 +8,7 @@ from mpi4py import MPI
 from structures_mphys import StructBuilder
 from xfer_mphys import XferBuilder
 
-from mphys import Multipoint
+from mphys import Multipoint, MPhysVariables
 from mphys.scenarios.aerostructural import ScenarioAeroStructural
 
 comm = MPI.COMM_WORLD
@@ -83,8 +83,10 @@ class Model(Multipoint):
             "geometry", geometry_builder.get_mesh_coordinate_subsystem(), promotes=["*"]
         )
 
-        self.connect("struct_mesh.x_struct0", "x_struct_in")
-        self.connect("aero_mesh.x_aero0", "x_aero_in")
+        #self.connect(f"struct_mesh.{MPhysVariables.Structures.Mesh.COORDINATES}",
+        #             MPhysVariables.Structures.Geometry.COORDINATES_INPUT)
+        #self.connect(f"aero_mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+        #             MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT)
 
         # create the run directory
         if self.comm.rank == 0:
@@ -119,10 +121,26 @@ class Model(Multipoint):
             "qdyn",
             "aoa",
             "dv_struct",
-            "x_struct0",
-            "x_aero0",
         ]:
             self.connect(var, self.scenario_name + "." + var)
+
+        self.connect(
+            f"aero_mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+            MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT,
+        )
+        self.connect(
+            MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT,
+            f"{self.scenario_name}.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}",
+        )
+
+        self.connect(
+            f"struct_mesh.{MPhysVariables.Structures.Mesh.COORDINATES}",
+            MPhysVariables.Structures.Geometry.COORDINATES_INPUT,
+        )
+        self.connect(
+            MPhysVariables.Structures.Geometry.COORDINATES_OUTPUT,
+            f"{self.scenario_name}.{MPhysVariables.Structures.COORDINATES}",
+        )
 
         # add design variables, to simplify remote setup
         self.add_design_var("geometry_morph_param", lower=0.1, upper=10.0)

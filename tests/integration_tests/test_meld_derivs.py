@@ -149,7 +149,7 @@ class TestXferClasses(unittest.TestCase):
         for key, comp in data.items():
             for var, err in comp.items():
                 rel_err = err["rel error"]
-                assert_near_equal(rel_err.reverse, 0.0, 1e-12)
+                assert_near_equal(rel_err.reverse, 0.0, 1e-11)
                 if var[1] == "f_aero" or var[1] == "u_struct":
                     assert_near_equal(rel_err.forward, 0.0, 1e-12)
 

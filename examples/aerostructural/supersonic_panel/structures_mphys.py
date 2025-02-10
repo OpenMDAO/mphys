@@ -2,7 +2,7 @@ import numpy as np
 import openmdao.api as om
 from beam_solver import Beam
 
-from mphys import Builder
+from mphys import Builder, MPhysVariables
 
 
 # IVC which returns a baseline mesh
@@ -11,8 +11,9 @@ class StructMesh(om.IndepVarComp):
         self.options.declare("x_struct0")
 
     def setup(self):
+        self.x_struct_name = MPhysVariables.Structures.Mesh.COORDINATES
         self.add_output(
-            "x_struct0",
+            self.x_struct_name,
             val=self.options["x_struct0"],
             distributed=True,
             tags=["mphys_coordinates"],
@@ -24,22 +25,26 @@ class StructSolver(om.ImplicitComponent):
     def initialize(self):
         self.options.declare("solver")
 
+        self.x_struct_name = MPhysVariables.Structures.COORDINATES
+        self.f_struct_name = MPhysVariables.Structures.Loads.AERODYNAMIC
+        self.u_struct_name = MPhysVariables.Structures.DISPLACEMENTS
+
     def setup(self):
         self.solver = self.options["solver"]
 
         self.add_input("dv_struct", shape_by_conn=True, tags=["mphys_input"])
         self.add_input(
-            "x_struct0",
+            self.x_struct_name,
             shape_by_conn=True,
             distributed=True,
             tags=["mphys_coordinates"],
         )
         self.add_input(
-            "f_struct", shape_by_conn=True, distributed=True, tags=["mphys_coupling"]
+            self.f_struct_name, shape_by_conn=True, distributed=True, tags=["mphys_coupling"]
         )
         self.add_input("modulus", 0.0, tags=["mphys_input"])
         self.add_output(
-            "u_struct",
+            self.u_struct_name,
             np.zeros(self.solver.n_dof * self.solver.n_nodes),
             distributed=True,
             tags=["mphys_coupling"],
@@ -50,59 +55,59 @@ class StructSolver(om.ImplicitComponent):
 
     def solve_nonlinear(self, inputs, outputs):
         self.solver.dv_struct = inputs["dv_struct"]
-        self.solver.xyz = inputs["x_struct0"]
+        self.solver.xyz = inputs[self.x_struct_name]
         self.solver.modulus = inputs["modulus"]
 
-        outputs["u_struct"] = self.solver.solve_system(f=inputs["f_struct"])
+        outputs[self.u_struct_name] = self.solver.solve_system(f=inputs[self.f_struct_name])
 
     def apply_nonlinear(self, inputs, outputs, residuals):
         self.solver.dv_struct = inputs["dv_struct"]
-        self.solver.xyz = inputs["x_struct0"]
+        self.solver.xyz = inputs[self.x_struct_name]
         self.solver.modulus = inputs["modulus"]
 
-        residuals["u_struct"] = self.solver.compute_residual(
-            u=outputs["u_struct"], f=inputs["f_struct"]
+        residuals[self.u_struct_name] = self.solver.compute_residual(
+            u=outputs[self.u_struct_name], f=inputs[self.f_struct_name]
         )
 
     def solve_linear(self, d_outputs, d_residuals, mode):
         if mode == "rev":
-            d_residuals["u_struct"] = self.solver.solve_system(f=d_outputs["u_struct"])
+            d_residuals[self.u_struct_name] = self.solver.solve_system(f=d_outputs[self.u_struct_name])
 
             # correct the boundary condition dof, in order to set the LHS equal to the RHS
-            self.bc_correct = self.solver.bc_correction(u=d_outputs["u_struct"])
-            d_residuals["u_struct"] += self.bc_correct
+            self.bc_correct = self.solver.bc_correction(u=d_outputs[self.u_struct_name])
+            d_residuals[self.u_struct_name] += self.bc_correct
 
     def apply_linear(self, inputs, outputs, d_inputs, d_outputs, d_residuals, mode):
         if mode == "rev":
-            if "u_struct" in d_residuals:
+            if self.u_struct_name in d_residuals:
                 self.solver.dv_struct = inputs["dv_struct"]
-                self.solver.xyz = inputs["x_struct0"]
+                self.solver.xyz = inputs[self.x_struct_name]
                 self.solver.modulus = inputs["modulus"]
 
-                adjoint = self.solver.set_adjoint(adjoint=d_residuals["u_struct"])
+                adjoint = self.solver.set_adjoint(adjoint=d_residuals[self.u_struct_name])
 
-                if "u_struct" in d_outputs:
-                    d_outputs["u_struct"] += self.solver.compute_residual(
+                if self.u_struct_name in d_outputs:
+                    d_outputs[self.u_struct_name] += self.solver.compute_residual(
                         u=adjoint, f=np.zeros_like(adjoint)
                     )
 
                     # add back in non-zero values at the bc DOFs, so the LNBGS residuals look correct
-                    d_outputs["u_struct"] += self.bc_correct
+                    d_outputs[self.u_struct_name] += self.bc_correct
 
                 (
                     d_dv_struct,
                     d_xs,
                     d_modulus,
                 ) = self.solver.compute_stiffness_derivatives(
-                    u=outputs["u_struct"], adjoint=adjoint
+                    u=outputs[self.u_struct_name], adjoint=adjoint
                 )
 
                 if "dv_struct" in d_inputs:
                     d_inputs["dv_struct"] += d_dv_struct
-                if "x_struct0" in d_inputs:
-                    d_inputs["x_struct0"] += d_xs
-                if "f_struct" in d_inputs:
-                    d_inputs["f_struct"] -= adjoint
+                if self.x_struct_name in d_inputs:
+                    d_inputs[self.x_struct_name] += d_xs
+                if self.f_struct_name in d_inputs:
+                    d_inputs[self.f_struct_name] -= adjoint
                 if "modulus" in d_inputs:
                     d_inputs["modulus"] += d_modulus
 
@@ -112,6 +117,9 @@ class StructFunction(om.ExplicitComponent):
     def initialize(self):
         self.options.declare("solver")
 
+        self.x_struct_name = MPhysVariables.Structures.COORDINATES
+        self.u_struct_name = MPhysVariables.Structures.DISPLACEMENTS
+
     def setup(self):
         self.solver = self.options["solver"]
 
@@ -119,13 +127,13 @@ class StructFunction(om.ExplicitComponent):
 
         self.add_input("dv_struct", shape_by_conn=True, tags=["mphys_input"])
         self.add_input(
-            "x_struct0",
+            self.x_struct_name,
             shape_by_conn=True,
             distributed=True,
             tags=["mphys_coordinates"],
         )
         self.add_input(
-            "u_struct", shape_by_conn=True, distributed=True, tags=["mphys_coupling"]
+            self.u_struct_name, shape_by_conn=True, distributed=True, tags=["mphys_coupling"]
         )
         self.add_input("modulus", 0.0, tags=["mphys_input"])
         self.add_input("yield_stress", 0.0, tags=["mphys_input"])
@@ -133,21 +141,21 @@ class StructFunction(om.ExplicitComponent):
 
     def compute(self, inputs, outputs):
         self.solver.dv_struct = inputs["dv_struct"]
-        self.solver.xyz = inputs["x_struct0"]
+        self.solver.xyz = inputs[self.x_struct_name]
         self.solver.modulus = inputs["modulus"]
         self.solver.yield_stress = inputs["yield_stress"]
 
         self.stress, outputs["func_struct"] = self.solver.compute_stress(
-            u=inputs["u_struct"], aggregation_parameter=self.aggregation_parameter
+            u=inputs[self.u_struct_name], aggregation_parameter=self.aggregation_parameter
         )
 
-        self.solver.write_output(u=inputs["u_struct"], stress=self.stress)
+        self.solver.write_output(u=inputs[self.u_struct_name], stress=self.stress)
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == "rev":
             if "func_struct" in d_outputs:
                 self.solver.dv_struct = inputs["dv_struct"]
-                self.solver.xyz = inputs["x_struct0"]
+                self.solver.xyz = inputs[self.x_struct_name]
                 self.solver.modulus = inputs["modulus"]
                 self.solver.yield_stress = inputs["yield_stress"]
 
@@ -158,7 +166,7 @@ class StructFunction(om.ExplicitComponent):
                     d_modulus,
                     d_yield_stress,
                 ) = self.solver.compute_stress_derivatives(
-                    u=inputs["u_struct"],
+                    u=inputs[self.u_struct_name],
                     stress=self.stress,
                     aggregation_parameter=self.aggregation_parameter,
                     adjoint=d_outputs["func_struct"],
@@ -166,10 +174,10 @@ class StructFunction(om.ExplicitComponent):
 
                 if "dv_struct" in d_inputs:
                     d_inputs["dv_struct"] += d_dv_struct
-                if "x_struct0" in d_inputs:
-                    d_inputs["x_struct0"] += d_xs
-                if "u_struct" in d_inputs:
-                    d_inputs["u_struct"] += d_us
+                if self.x_struct_name in d_inputs:
+                    d_inputs[self.x_struct_name] += d_xs
+                if self.u_struct_name in d_inputs:
+                    d_inputs[self.u_struct_name] += d_us
                 if "modulus" in d_inputs:
                     d_inputs["modulus"] += d_modulus
                 if "yield_stress" in d_inputs:
@@ -181,12 +189,14 @@ class StructMass(om.ExplicitComponent):
     def initialize(self):
         self.options.declare("solver")
 
+        self.x_struct_name = MPhysVariables.Structures.COORDINATES
+
     def setup(self):
         self.solver = self.options["solver"]
 
         self.add_input("dv_struct", shape_by_conn=True, tags=["mphys_input"])
         self.add_input(
-            "x_struct0",
+            self.x_struct_name,
             shape_by_conn=True,
             distributed=True,
             tags=["mphys_coordinates"],
@@ -196,7 +206,7 @@ class StructMass(om.ExplicitComponent):
 
     def compute(self, inputs, outputs):
         self.solver.dv_struct = inputs["dv_struct"]
-        self.solver.xyz = inputs["x_struct0"]
+        self.solver.xyz = inputs[self.x_struct_name]
         self.solver.density = inputs["density"]
 
         outputs["mass"] = self.solver.compute_mass()
@@ -205,7 +215,7 @@ class StructMass(om.ExplicitComponent):
         if mode == "rev":
             if "mass" in d_outputs:
                 self.solver.dv_struct = inputs["dv_struct"]
-                self.solver.xyz = inputs["x_struct0"]
+                self.solver.xyz = inputs[self.x_struct_name]
                 self.solver.density = inputs["density"]
 
                 d_dv_struct, d_xs, d_density = self.solver.compute_mass_derivatives(
@@ -214,8 +224,8 @@ class StructMass(om.ExplicitComponent):
 
                 if "dv_struct" in d_inputs:
                     d_inputs["dv_struct"] += d_dv_struct
-                if "x_struct0" in d_inputs:
-                    d_inputs["x_struct0"] += d_xs
+                if self.x_struct_name in d_inputs:
+                    d_inputs[self.x_struct_name] += d_xs
                 if "density" in d_inputs:
                     d_inputs["density"] += d_density
 
