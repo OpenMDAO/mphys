@@ -40,7 +40,10 @@ class StructSolver(om.ImplicitComponent):
             tags=["mphys_coordinates"],
         )
         self.add_input(
-            self.f_struct_name, shape_by_conn=True, distributed=True, tags=["mphys_coupling"]
+            self.f_struct_name,
+            shape_by_conn=True,
+            distributed=True,
+            tags=["mphys_coupling"],
         )
         self.add_input("modulus", 0.0, tags=["mphys_input"])
         self.add_output(
@@ -58,7 +61,9 @@ class StructSolver(om.ImplicitComponent):
         self.solver.xyz = inputs[self.x_struct_name]
         self.solver.modulus = inputs["modulus"]
 
-        outputs[self.u_struct_name] = self.solver.solve_system(f=inputs[self.f_struct_name])
+        outputs[self.u_struct_name] = self.solver.solve_system(
+            f=inputs[self.f_struct_name]
+        )
 
     def apply_nonlinear(self, inputs, outputs, residuals):
         self.solver.dv_struct = inputs["dv_struct"]
@@ -71,7 +76,9 @@ class StructSolver(om.ImplicitComponent):
 
     def solve_linear(self, d_outputs, d_residuals, mode):
         if mode == "rev":
-            d_residuals[self.u_struct_name] = self.solver.solve_system(f=d_outputs[self.u_struct_name])
+            d_residuals[self.u_struct_name] = self.solver.solve_system(
+                f=d_outputs[self.u_struct_name]
+            )
 
             # correct the boundary condition dof, in order to set the LHS equal to the RHS
             self.bc_correct = self.solver.bc_correction(u=d_outputs[self.u_struct_name])
@@ -84,7 +91,9 @@ class StructSolver(om.ImplicitComponent):
                 self.solver.xyz = inputs[self.x_struct_name]
                 self.solver.modulus = inputs["modulus"]
 
-                adjoint = self.solver.set_adjoint(adjoint=d_residuals[self.u_struct_name])
+                adjoint = self.solver.set_adjoint(
+                    adjoint=d_residuals[self.u_struct_name]
+                )
 
                 if self.u_struct_name in d_outputs:
                     d_outputs[self.u_struct_name] += self.solver.compute_residual(
@@ -133,7 +142,10 @@ class StructFunction(om.ExplicitComponent):
             tags=["mphys_coordinates"],
         )
         self.add_input(
-            self.u_struct_name, shape_by_conn=True, distributed=True, tags=["mphys_coupling"]
+            self.u_struct_name,
+            shape_by_conn=True,
+            distributed=True,
+            tags=["mphys_coupling"],
         )
         self.add_input("modulus", 0.0, tags=["mphys_input"])
         self.add_input("yield_stress", 0.0, tags=["mphys_input"])
@@ -146,7 +158,8 @@ class StructFunction(om.ExplicitComponent):
         self.solver.yield_stress = inputs["yield_stress"]
 
         self.stress, outputs["func_struct"] = self.solver.compute_stress(
-            u=inputs[self.u_struct_name], aggregation_parameter=self.aggregation_parameter
+            u=inputs[self.u_struct_name],
+            aggregation_parameter=self.aggregation_parameter,
         )
 
         self.solver.write_output(u=inputs[self.u_struct_name], stress=self.stress)

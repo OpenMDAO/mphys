@@ -25,10 +25,16 @@ class DispXfer(om.ExplicitComponent):
             tags=["mphys_coordinates"],
         )
         self.add_input(
-            self.x_aero0_name, shape_by_conn=True, distributed=True, tags=["mphys_coordinates"]
+            self.x_aero0_name,
+            shape_by_conn=True,
+            distributed=True,
+            tags=["mphys_coordinates"],
         )
         self.add_input(
-            self.u_struct_name, shape_by_conn=True, distributed=True, tags=["mphys_coupling"]
+            self.u_struct_name,
+            shape_by_conn=True,
+            distributed=True,
+            tags=["mphys_coupling"],
         )
         self.add_output(
             self.u_aero_name,
@@ -79,10 +85,16 @@ class LoadXfer(om.ExplicitComponent):
             tags=["mphys_coordinates"],
         )
         self.add_input(
-            self.x_aero0_name, shape_by_conn=True, distributed=True, tags=["mphys_coordinates"]
+            self.x_aero0_name,
+            shape_by_conn=True,
+            distributed=True,
+            tags=["mphys_coordinates"],
         )
         self.add_input(
-            self.f_aero_name, shape_by_conn=True, distributed=True, tags=["mphys_coupling"]
+            self.f_aero_name,
+            shape_by_conn=True,
+            distributed=True,
+            tags=["mphys_coupling"],
         )
         self.add_output(
             self.f_struct_name,

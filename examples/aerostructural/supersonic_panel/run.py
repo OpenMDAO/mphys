@@ -8,7 +8,7 @@ from mpi4py import MPI
 from structures_mphys import StructBuilder
 from xfer_mphys import XferBuilder
 
-from mphys import Multipoint, MPhysVariables
+from mphys import MPhysVariables, Multipoint
 from mphys.scenarios.aerostructural import ScenarioAeroStructural
 
 comm = MPI.COMM_WORLD
@@ -82,11 +82,6 @@ class Model(Multipoint):
         self.add_subsystem(
             "geometry", geometry_builder.get_mesh_coordinate_subsystem(), promotes=["*"]
         )
-
-        #self.connect(f"struct_mesh.{MPhysVariables.Structures.Mesh.COORDINATES}",
-        #             MPhysVariables.Structures.Geometry.COORDINATES_INPUT)
-        #self.connect(f"aero_mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
-        #             MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT)
 
         # create the run directory
         if self.comm.rank == 0:
