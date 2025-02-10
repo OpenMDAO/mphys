@@ -11,9 +11,8 @@ from xfer_mphys import XferBuilder
 from mphys import Multipoint, MultipointParallel
 from mphys.scenarios.aerostructural import ScenarioAeroStructural
 
-check_totals = (
-    False  # True=check objective/constraint derivatives, False=run optimization
-)
+# True=check objective/constraint derivatives, False=run optimization
+check_totals = False
 
 # panel geometry
 panel_chord = 0.3
@@ -22,6 +21,7 @@ panel_width = 0.01
 # panel discretization
 N_el_struct = 20
 N_el_aero = 7
+
 
 # Mphys parallel multipoint scenarios
 class AerostructParallel(MultipointParallel):
@@ -224,7 +224,7 @@ if __name__ == "__main__":
         prob.cleanup()
 
         if prob.model.comm.rank == 0:  # write out data
-            cr = om.CaseReader("optimization_history.sql")
+            cr = om.CaseReader(f"{prob.get_outputs_dir()}/optimization_history.sql")
             driver_cases = cr.list_cases("driver")
 
             case = cr.get_case(0)

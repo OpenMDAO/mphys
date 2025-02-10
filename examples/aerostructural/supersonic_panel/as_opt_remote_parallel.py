@@ -4,9 +4,9 @@ from pbs4py import PBS
 
 from mphys.network.zmq_pbs import RemoteZeroMQComp
 
-check_totals = (
-    False  # True=check objective/constraint derivatives, False=run optimization
-)
+# True=check objective/constraint derivatives, False=run optimization
+check_totals = False
+
 
 # for running scenarios on different servers in parallel
 class ParallelRemoteGroup(om.ParallelGroup):
@@ -58,9 +58,6 @@ class ParallelRemoteGroup(om.ParallelGroup):
 
 class TopLevelGroup(om.Group):
     def setup(self):
-        if self.comm.size != 2:
-            raise SystemError("Please launch with 2 processors")
-
         # IVCs that feed into both parallel groups
         self.add_subsystem("ivc", om.IndepVarComp(), promotes=["*"])
 
@@ -140,7 +137,9 @@ else:
 
     # write out data
     if prob.model.comm.rank == 0:
-        cr = om.CaseReader("optimization_history_parallel.sql")
+        cr = om.CaseReader(
+            f"{prob.get_outputs_dir()}/optimization_history_parallel.sql"
+        )
         driver_cases = cr.list_cases("driver")
 
         case = cr.get_case(0)
@@ -193,5 +192,6 @@ else:
                     )
                 f.write(" " + "\n")
 
-# shutdown each rank's server
-eval(f"prob.model.multipoint.remote_scenario{prob.model.comm.rank}.stop_server()")
+# shutdown the servers
+prob.model.multipoint.remote_scenario0.stop_server()
+prob.model.multipoint.remote_scenario1.stop_server()
