@@ -71,6 +71,7 @@ References
 .. toctree::
   :maxdepth: 1
 
+  references/citing_mphys.rst
   references/papers_using_mphys.rst
 
 Indices and tables
