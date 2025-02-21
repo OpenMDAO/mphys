@@ -30,6 +30,10 @@ Online documentation is available at [https://openmdao.github.io/mphys/](https:/
 The documentation includes N2 diagrams from the unit tests. Before building the docs, go into `tests/unit_tests` and run `python -m unittest`.
 Then go into the `docs` directory and run `make html`.
 
+# Citing MPhys
+If you use MPhys in your research, please cite the [MPhys journal paper](https://link.springer.com/article/10.1007/s00158-024-03900-0).
+A bibtex entry is provide [here](https://openmdao.github.io/mphys/references/citing_mphys.html).
+
 # Solvers compatible with MPhys
 Open-source codes with builders and components compatible with mphys:
 
@@ -90,7 +94,7 @@ testflo -v tests
 
 ## Code Formatting
 All pull requests automatically check for code formatting compliance using `flake8`, `black`, and `isort`.
-Before submitting a PR check code changes adheres to this formating. 
+Before submitting a PR check code changes adheres to this formating.
 To run `flake8`, `black`, and `isort` locally, use the folowing commands:
 ```commandline
 $ pip install flake8 black isort
