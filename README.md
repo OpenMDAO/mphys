@@ -32,7 +32,7 @@ Then go into the `docs` directory and run `make html`.
 
 # Citing MPhys
 If you use MPhys in your research, please cite the [MPhys journal paper](https://link.springer.com/article/10.1007/s00158-024-03900-0).
-A bibtex entry is provide [here](https://openmdao.github.io/mphys/references/citing_mphys.html).
+A bibtex entry is provided [here](https://openmdao.github.io/mphys/references/citing_mphys.html).
 
 # Solvers compatible with MPhys
 Open-source codes with builders and components compatible with mphys:
