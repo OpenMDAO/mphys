@@ -3,9 +3,8 @@ import argparse
 import openmdao.api as om
 from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
-
-from mphys.multipoint import Multipoint
-from mphys.scenarios.aerodynamic import ScenarioAerodynamic
+from mphys import Multipoint, MPhysVariables
+from mphys.scenarios import ScenarioAerodynamic
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--level", type=str, default="L1")
@@ -60,7 +59,7 @@ class Top(Multipoint):
         self.mphys_add_scenario(
             "cruise", ScenarioAerodynamic(aero_builder=adflow_builder)
         )
-        self.connect("mesh.x_aero0", "cruise.x_aero")
+        self.connect(f"mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}", "cruise.x_aero")
 
     def configure(self):
         aoa = 1.5
