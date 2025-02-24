@@ -81,7 +81,10 @@ class Top(Multipoint):
             "cruise1", ScenarioAerodynamic(aero_builder=adflow_builder)
         )
 
-        self.connect(f"mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}", "geometry.x_aero_in")
+        self.connect(
+            f"mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+            "geometry.x_aero_in",
+        )
         self.connect("geometry.x_aero0", ["cruise0.x_aero", "cruise1.x_aero"])
 
         # add an exec comp to average two drags

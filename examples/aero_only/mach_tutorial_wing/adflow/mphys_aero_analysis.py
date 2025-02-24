@@ -59,7 +59,10 @@ class Top(Multipoint):
         self.mphys_add_scenario(
             "cruise", ScenarioAerodynamic(aero_builder=adflow_builder)
         )
-        self.connect(f"mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}", "cruise.x_aero")
+        self.connect(
+            f"mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+            "cruise.x_aero",
+        )
 
     def configure(self):
         aoa = 1.5
