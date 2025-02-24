@@ -33,6 +33,7 @@ Then go into the `docs` directory and run `make html`.
 # Citing MPhys
 If you use MPhys in your research, please cite the [MPhys journal paper](https://link.springer.com/article/10.1007/s00158-024-03900-0).
 A bibtex entry is provide [here](https://openmdao.github.io/mphys/references/citing_mphys.html).
+A public version of the article is also available on [ResearchGate](https://www.researchgate.net/publication/387832759_MPhys_a_modular_multiphysics_library_for_coupled_simulation_and_adjoint_derivative_computation).
 
 # Solvers compatible with MPhys
 Open-source codes with builders and components compatible with mphys:
