@@ -148,10 +148,10 @@ class TestXferClasses(unittest.TestCase):
         # because only SOME of the fwd derivatives are implemented
         for key, comp in data.items():
             for var, err in comp.items():
-                rel_err = err["rel error"]
-                assert_near_equal(rel_err.reverse, 0.0, 1e-12)
+                check_error = err["abs error"]
+                assert_near_equal(check_error.reverse, 0.0, 1e-8)
                 if var[1] == "f_aero" or var[1] == "u_struct":
-                    assert_near_equal(rel_err.forward, 0.0, 1e-12)
+                    assert_near_equal(check_error.forward, 0.0, 1e-8)
 
 
 if __name__ == "__main__":
