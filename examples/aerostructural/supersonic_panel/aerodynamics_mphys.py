@@ -12,7 +12,7 @@ class AeroMesh(om.IndepVarComp):
         self.options.declare("x_aero0")
 
     def setup(self):
-        self.x_aero0_name = MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL
+        self.x_aero0_name = MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES
         self.add_output(
             self.x_aero0_name,
             val=self.options["x_aero0"],

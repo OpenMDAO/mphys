@@ -105,11 +105,7 @@ class TestOAS(unittest.TestCase):
                 err = data[comp]
                 for out_var, in_var in err:
                     with self.subTest(partial_pair=(out_var, in_var)):
-                        # If fd check magnitude is exactly zero, use abs tol
-                        if err[out_var, in_var]["magnitude"].fd == 0.0:
-                            check_error = err[out_var, in_var]["abs error"]
-                        else:
-                            check_error = err[out_var, in_var]["rel error"]
+                        check_error = err[out_var, in_var]["abs error"]
                         if check_error.reverse is None:
                             assert_near_equal(check_error.forward, 0.0, 1e-5)
                         else:
