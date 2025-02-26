@@ -211,7 +211,9 @@ class TestOAS(unittest.TestCase):
     def test_derivatives(self):
         self.prob.run_model()
         print("----------------starting check totals--------------")
-        data = self.prob.check_partials(method="cs", step=1e-50, compact_print=True, excludes=["*struct.solver"])
+        data = self.prob.check_partials(
+            method="cs", step=1e-50, compact_print=True, excludes=["*struct.solver"]
+        )
         for comp in data:
             with self.subTest(component=comp):
                 err = data[comp]
