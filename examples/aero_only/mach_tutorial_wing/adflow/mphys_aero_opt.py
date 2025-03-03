@@ -6,7 +6,7 @@ from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
 from pygeo.mphys import OM_DVGEOCOMP
 
-from mphys import Multipoint, MPhysVariables
+from mphys import MPhysVariables, Multipoint
 from mphys.scenarios import ScenarioAerodynamic
 
 parser = argparse.ArgumentParser()

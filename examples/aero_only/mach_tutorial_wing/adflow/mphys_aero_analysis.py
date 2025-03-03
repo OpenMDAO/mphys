@@ -3,7 +3,8 @@ import argparse
 import openmdao.api as om
 from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
-from mphys import Multipoint, MPhysVariables
+
+from mphys import MPhysVariables, Multipoint
 from mphys.scenarios import ScenarioAerodynamic
 
 parser = argparse.ArgumentParser()
