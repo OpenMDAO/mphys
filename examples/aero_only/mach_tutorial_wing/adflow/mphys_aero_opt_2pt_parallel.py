@@ -4,8 +4,8 @@ import openmdao.api as om
 from adflow.mphys import ADflowBuilder
 from baseclasses import AeroProblem
 
-from mphys.multipoint import MultipointParallel
-from mphys.scenarios.aerodynamic import ScenarioAerodynamic
+from mphys import MPhysVariables, MultipointParallel
+from mphys.scenarios import ScenarioAerodynamic
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--task", default="run")
