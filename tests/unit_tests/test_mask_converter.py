@@ -68,7 +68,9 @@ class TestMaskConverterSingle(unittest.TestCase):
         partials = self.prob.check_partials(compact_print=True, method="cs")
         tol = 1e-9
 
-        check_error = partials["masker"][("masked_output", "unmasked_input")]["abs error"]
+        check_error = partials["masker"][("masked_output", "unmasked_input")][
+            "abs error"
+        ]
         assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
         assert_near_equal(check_error.forward, 0.0, tolerance=tol)
         assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)

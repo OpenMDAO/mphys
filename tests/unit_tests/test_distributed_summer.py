@@ -49,15 +49,15 @@ class TestDistributedSummer(unittest.TestCase):
         partials = self.prob.check_partials(compact_print=True, method="cs")
         tol = 1e-9
 
-        rel_error = partials["sumer"][("sumed_output", "dist_input1")]["rel error"]
-        assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.fwd_rev, 0.0, tolerance=tol)
+        check_error = partials["sumer"][("sumed_output", "dist_input1")]["abs error"]
+        assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
+        assert_near_equal(check_error.forward, 0.0, tolerance=tol)
+        assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
 
-        rel_error = partials["sumer"][("sumed_output", "dist_input2")]["rel error"]
-        assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.fwd_rev, 0.0, tolerance=tol)
+        check_error = partials["sumer"][("sumed_output", "dist_input2")]["rel error"]
+        assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
+        assert_near_equal(check_error.forward, 0.0, tolerance=tol)
+        assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
 
 
 if __name__ == "__main__":
