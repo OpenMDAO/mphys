@@ -77,7 +77,7 @@ class TestDistributedConverter(unittest.TestCase):
                 check_error = err["rel error"]
             assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
             assert_near_equal(check_error.forward, 0.0, tolerance=tol)
-            assert_near_equal(check_error.forward_reverse, 0.0, tolerance=tol)
+            assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
         for out_var in ["out1", "out2"]:
             err = partials["converter"][(out_var, f"{out_var}_serial")]
             # If fd check magnitude is exactly zero, use abs tol
@@ -87,7 +87,7 @@ class TestDistributedConverter(unittest.TestCase):
                 check_error = err["rel error"]
             assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
             assert_near_equal(check_error.forward, 0.0, tolerance=tol)
-            assert_near_equal(check_error.forward_reverse, 0.0, tolerance=tol)
+            assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
 
 
 if __name__ == "__main__":
