@@ -54,7 +54,7 @@ class TestDistributedSummer(unittest.TestCase):
         assert_near_equal(check_error.forward, 0.0, tolerance=tol)
         assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
 
-        check_error = partials["sumer"][("sumed_output", "dist_input2")]["rel error"]
+        check_error = partials["sumer"][("sumed_output", "dist_input2")]["abs error"]
         assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
         assert_near_equal(check_error.forward, 0.0, tolerance=tol)
         assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
