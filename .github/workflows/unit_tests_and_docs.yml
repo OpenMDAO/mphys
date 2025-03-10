@@ -53,7 +53,7 @@ jobs:
           cd ..;
           pip install testflo;
           pip install redbaron;
-          git clone -q https://github.com/OpenMDAO/OpenMDAO;
+          git clone -q https://github.com/OpenMDAO/OpenMDAO.git;
           cd OpenMDAO;
           pip install .[all];
           cd ../mphys;
