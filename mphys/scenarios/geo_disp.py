@@ -1,6 +1,6 @@
 import openmdao.api as om
 
-from mphys import MPhysVariables
+from mphys.core import MPhysVariables
 
 
 class GeoDisp(om.ExplicitComponent):
