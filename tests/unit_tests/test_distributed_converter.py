@@ -72,30 +72,16 @@ class TestDistributedConverter(unittest.TestCase):
         tol = 1e-9
         for in_var in ["in1", "in2"]:
             err = partials["converter"][(f"{in_var}_serial", in_var)]
-            # If fd check magnitude is exactly zero, use abs tol
-            if err["magnitude"].fd == 0.0:
-                check_error = err["abs error"]
-            else:
-                check_error = err["rel error"]
+            check_error = err["abs error"]
             assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
             assert_near_equal(check_error.forward, 0.0, tolerance=tol)
-            if LooseVersion(openmdao.__version__) <= LooseVersion("3.36.0"):
-                assert_near_equal(check_error.forward_reverse, 0.0, tolerance=tol)
-            else:
-                assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
+            assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
         for out_var in ["out1", "out2"]:
             err = partials["converter"][(out_var, f"{out_var}_serial")]
-            # If fd check magnitude is exactly zero, use abs tol
-            if err["magnitude"].fd == 0.0:
-                check_error = err["abs error"]
-            else:
-                check_error = err["rel error"]
+            check_error = err["abs error"]
             assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
             assert_near_equal(check_error.forward, 0.0, tolerance=tol)
-            if LooseVersion(openmdao.__version__) <= LooseVersion("3.36.0"):
-                assert_near_equal(check_error.forward_reverse, 0.0, tolerance=tol)
-            else:
-                assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
+            assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
 
 
 if __name__ == "__main__":
