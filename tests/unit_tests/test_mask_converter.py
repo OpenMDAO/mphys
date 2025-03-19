@@ -68,17 +68,19 @@ class TestMaskConverterSingle(unittest.TestCase):
         partials = self.prob.check_partials(compact_print=True, method="cs")
         tol = 1e-9
 
-        rel_error = partials["masker"][("masked_output", "unmasked_input")]["rel error"]
-        assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
-
-        rel_error = partials["unmasker"][("unmasked_output", "masked_input")][
-            "rel error"
+        check_error = partials["masker"][("masked_output", "unmasked_input")][
+            "abs error"
         ]
-        assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
+        assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
+        assert_near_equal(check_error.forward, 0.0, tolerance=tol)
+        assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
+
+        check_error = partials["unmasker"][("unmasked_output", "masked_input")][
+            "abs error"
+        ]
+        assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
+        assert_near_equal(check_error.forward, 0.0, tolerance=tol)
+        assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
 
 
 class TestMaskConverterMulti(unittest.TestCase):
@@ -159,31 +161,31 @@ class TestMaskConverterMulti(unittest.TestCase):
         partials = self.prob.check_partials(compact_print=True, method="cs")
         tol = 1e-9
 
-        rel_error = partials["masker"][("masked_output_1", "unmasked_input")][
-            "rel error"
+        check_error = partials["masker"][("masked_output_1", "unmasked_input")][
+            "abs error"
         ]
-        assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
-        rel_error = partials["masker"][("masked_output_2", "unmasked_input")][
-            "rel error"
+        assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
+        assert_near_equal(check_error.forward, 0.0, tolerance=tol)
+        assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
+        check_error = partials["masker"][("masked_output_2", "unmasked_input")][
+            "abs error"
         ]
-        assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
+        assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
+        assert_near_equal(check_error.forward, 0.0, tolerance=tol)
+        assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
 
-        rel_error = partials["unmasker"][("unmasked_output", "masked_input_1")][
-            "rel error"
+        check_error = partials["unmasker"][("unmasked_output", "masked_input_1")][
+            "abs error"
         ]
-        assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
-        rel_error = partials["unmasker"][("unmasked_output", "masked_input_2")][
-            "rel error"
+        assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
+        assert_near_equal(check_error.forward, 0.0, tolerance=tol)
+        assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
+        check_error = partials["unmasker"][("unmasked_output", "masked_input_2")][
+            "abs error"
         ]
-        assert_near_equal(rel_error.reverse, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward, 0.0, tolerance=tol)
-        assert_near_equal(rel_error.forward_reverse, 0.0, tolerance=tol)
+        assert_near_equal(check_error.reverse, 0.0, tolerance=tol)
+        assert_near_equal(check_error.forward, 0.0, tolerance=tol)
+        assert_near_equal(check_error.fwd_rev, 0.0, tolerance=tol)
 
 
 if __name__ == "__main__":

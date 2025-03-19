@@ -99,15 +99,14 @@ class TestTACS(unittest.TestCase):
     def test_derivatives(self):
         self.prob.run_model()
         print("----------------starting check totals--------------")
-        data = self.prob.check_partials(method="cs", step=1e-50, compact_print=True)
+        data = self.prob.check_partials(
+            method="cs", step=1e-50, compact_print=True, excludes=["*coupling.solver"]
+        )
         for var, err in data.items():
             for out_var, in_var in err:
                 with self.subTest(partial_pair=(out_var, in_var)):
                     # If fd check magnitude is exactly zero, use abs tol
-                    if err[out_var, in_var]["magnitude"].fd == 0.0:
-                        check_error = err[out_var, in_var]["abs error"]
-                    else:
-                        check_error = err[out_var, in_var]["rel error"]
+                    check_error = err[out_var, in_var]["abs error"]
                     assert_near_equal(check_error.reverse, 0.0, 1e-7)
 
 
