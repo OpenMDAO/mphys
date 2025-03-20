@@ -1,6 +1,8 @@
 import unittest
+from distutils.version import LooseVersion
 
 import numpy as np
+import openmdao
 import openmdao.api as om
 from common_methods import CommonMethods
 from mpi4py import MPI
