@@ -106,85 +106,91 @@ Wall times for function and gradient calls are saved, and when the maximum previ
 <td><p>[‘bool’]</p></td>
 <td><p>If True, force nonlinear operations on this component to be included in the optimization loop even if this component is not relevant to the design variables and responses.</p></td>
 </tr>
-<tr class="row-odd"><td><p>derivs_method</p></td>
+<tr class="row-odd"><td><p>default_shape</p></td>
+<td><p>(1,)</p></td>
+<td><p>N/A</p></td>
+<td><p>[‘tuple’]</p></td>
+<td><p>Default shape for variables that do not set val to a non-scalar value or set shape, set shape_by_conn, copy_shape, or compute_shape. Default is (1,).</p></td>
+</tr>
+<tr class="row-even"><td><p>derivs_method</p></td>
 <td><p>N/A</p></td>
 <td><p>[‘jax’, ‘cs’, ‘fd’, None]</p></td>
 <td><p>N/A</p></td>
 <td><p>The method to use for computing derivatives</p></td>
 </tr>
-<tr class="row-even"><td><p>distributed</p></td>
+<tr class="row-odd"><td><p>distributed</p></td>
 <td><p>False</p></td>
 <td><p>[True, False]</p></td>
 <td><p>[‘bool’]</p></td>
 <td><p>If True, set all variables in this component as distributed across multiple processes</p></td>
 </tr>
-<tr class="row-odd"><td><p>dump_json</p></td>
+<tr class="row-even"><td><p>dump_json</p></td>
 <td><p>False</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>dump input/output json file in client</p></td>
 </tr>
-<tr class="row-even"><td><p>dump_separate_json</p></td>
+<tr class="row-odd"><td><p>dump_separate_json</p></td>
 <td><p>False</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>dump a separate input/output json file for each evaluation</p></td>
 </tr>
-<tr class="row-odd"><td><p>pbs</p></td>
+<tr class="row-even"><td><p>pbs</p></td>
 <td><p>pbs4py Launcher object</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>port</p></td>
+<tr class="row-odd"><td><p>port</p></td>
 <td><p>5081</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>port number for server/client communication</p></td>
 </tr>
-<tr class="row-odd"><td><p>reboot_only_on_function_call</p></td>
+<tr class="row-even"><td><p>reboot_only_on_function_call</p></td>
 <td><p>True</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>only allows server reboot before function call, not gradient call. Avoids having to rerun forward solution on next job, but shortens current job time</p></td>
 </tr>
-<tr class="row-even"><td><p>run_root_only</p></td>
+<tr class="row-odd"><td><p>run_root_only</p></td>
 <td><p>False</p></td>
 <td><p>[True, False]</p></td>
 <td><p>[‘bool’]</p></td>
 <td><p>If True, call compute, compute_partials, linearize, apply_linear, apply_nonlinear, solve_linear, solve_nonlinear, and compute_jacvec_product only on rank 0 and broadcast the results to the other ranks.</p></td>
 </tr>
-<tr class="row-odd"><td><p>run_server_filename</p></td>
+<tr class="row-even"><td><p>run_server_filename</p></td>
 <td><p>mphys_server.py</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>python file that will launch the Server class</p></td>
 </tr>
-<tr class="row-even"><td><p>time_estimate_buffer</p></td>
+<tr class="row-odd"><td><p>time_estimate_buffer</p></td>
 <td><p>0.0</p></td>
 <td><p>N/A</p></td>
 <td><p>[‘float’]</p></td>
 <td><p>constant time in seconds to add to model evaluation esimate. When using parallel remote components with very different evaluation times, setting to slowest component’s estimated evaluation time avoids having the faster component’s job expire while the slower one is being evaluated</p></td>
 </tr>
-<tr class="row-odd"><td><p>time_estimate_multiplier</p></td>
+<tr class="row-even"><td><p>time_estimate_multiplier</p></td>
 <td><p>2.0</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>when determining whether to reboot the server, estimate model run time as this times max prior run time</p></td>
 </tr>
-<tr class="row-even"><td><p>use_derivative_coloring</p></td>
+<tr class="row-odd"><td><p>use_derivative_coloring</p></td>
 <td><p>False</p></td>
 <td><p>[True, False]</p></td>
 <td><p>[‘bool’]</p></td>
 <td><p>assign derivative coloring to objective/constraints. Only for cases with parallel servers</p></td>
 </tr>
-<tr class="row-odd"><td><p>use_jit</p></td>
+<tr class="row-even"><td><p>use_jit</p></td>
 <td><p>True</p></td>
 <td><p>[True, False]</p></td>
 <td><p>[‘bool’]</p></td>
-<td><p>If True, attempt to use jit on compute_primal, assuming jax or some other AD package is active.</p></td>
+<td><p>If True, attempt to use jit on compute_primal, assuming jax or some other AD package capable of jitting is active.</p></td>
 </tr>
-<tr class="row-even"><td><p>var_naming_dot_replacement</p></td>
+<tr class="row-odd"><td><p>var_naming_dot_replacement</p></td>
 <td><p>:</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
