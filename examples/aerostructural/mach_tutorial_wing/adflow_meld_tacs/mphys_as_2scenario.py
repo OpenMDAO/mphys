@@ -140,6 +140,7 @@ class Top(Multipoint):
             self.connect("dv_struct", f"{scenario}.dv_struct")
 
     def configure(self):
+        super().configure() # adds linear and nonlinear solvers defined in setup
         # create the aero problems for both analysis point.
         # this is custom to the ADflow based approach we chose here.
         # any solver can have their own custom approach here, and we don't
