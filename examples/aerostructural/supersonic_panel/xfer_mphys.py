@@ -2,7 +2,7 @@ import numpy as np
 import openmdao.api as om
 from xfer import Xfer
 
-from mphys import Builder
+from mphys import Builder, MPhysVariables
 
 
 # EC which transfers displacements from structure to aero
@@ -10,48 +10,59 @@ class DispXfer(om.ExplicitComponent):
     def initialize(self):
         self.options.declare("solver")
 
+        self.x_struct_name = MPhysVariables.Structures.COORDINATES
+        self.x_aero0_name = MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL
+        self.u_struct_name = MPhysVariables.Structures.DISPLACEMENTS
+        self.u_aero_name = MPhysVariables.Aerodynamics.Surface.DISPLACEMENTS
+
     def setup(self):
         self.solver = self.options["solver"]
 
         self.add_input(
-            "x_struct0",
+            self.x_struct_name,
             shape_by_conn=True,
             distributed=True,
             tags=["mphys_coordinates"],
         )
         self.add_input(
-            "x_aero0", shape_by_conn=True, distributed=True, tags=["mphys_coordinates"]
+            self.x_aero0_name,
+            shape_by_conn=True,
+            distributed=True,
+            tags=["mphys_coordinates"],
         )
         self.add_input(
-            "u_struct", shape_by_conn=True, distributed=True, tags=["mphys_coupling"]
+            self.u_struct_name,
+            shape_by_conn=True,
+            distributed=True,
+            tags=["mphys_coupling"],
         )
         self.add_output(
-            "u_aero",
+            self.u_aero_name,
             np.zeros(self.solver.aero.n_dof * self.solver.aero.n_nodes),
             distributed=True,
             tags=["mphys_coupling"],
         )
 
     def compute(self, inputs, outputs):
-        self.solver.xs = inputs["x_struct0"]
-        self.solver.xa = inputs["x_aero0"]
-        self.solver.us = inputs["u_struct"]
+        self.solver.xs = inputs[self.x_struct_name]
+        self.solver.xa = inputs[self.x_aero0_name]
+        self.solver.us = inputs[self.u_struct_name]
 
-        outputs["u_aero"] = self.solver.transfer_displacements()
+        outputs[self.u_aero_name] = self.solver.transfer_displacements()
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == "rev":
-            if "u_aero" in d_outputs:
+            if self.u_aero_name in d_outputs:
                 d_xs, d_xa, d_us = self.solver.transfer_displacements_derivatives(
-                    adjoint=d_outputs["u_aero"]
+                    adjoint=d_outputs[self.u_aero_name]
                 )
 
-                if "x_struct0" in d_inputs:
-                    d_inputs["x_struct0"] += d_xs
-                if "x_aero0" in d_inputs:
-                    d_inputs["x_aero0"] += d_xa
-                if "u_struct" in d_inputs:
-                    d_inputs["u_struct"] += d_us
+                if self.x_struct_name in d_inputs:
+                    d_inputs[self.x_struct_name] += d_xs
+                if self.x_aero0_name in d_inputs:
+                    d_inputs[self.x_aero0_name] += d_xa
+                if self.u_struct_name in d_inputs:
+                    d_inputs[self.u_struct_name] += d_us
 
 
 # EC which transfers loads from aero to structure
@@ -59,48 +70,59 @@ class LoadXfer(om.ExplicitComponent):
     def initialize(self):
         self.options.declare("solver")
 
+        self.x_aero0_name = MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL
+        self.x_struct_name = MPhysVariables.Structures.COORDINATES
+        self.f_aero_name = MPhysVariables.Aerodynamics.Surface.LOADS
+        self.f_struct_name = MPhysVariables.Structures.Loads.AERODYNAMIC
+
     def setup(self):
         self.solver = self.options["solver"]
 
         self.add_input(
-            "x_struct0",
+            self.x_struct_name,
             shape_by_conn=True,
             distributed=True,
             tags=["mphys_coordinates"],
         )
         self.add_input(
-            "x_aero0", shape_by_conn=True, distributed=True, tags=["mphys_coordinates"]
+            self.x_aero0_name,
+            shape_by_conn=True,
+            distributed=True,
+            tags=["mphys_coordinates"],
         )
         self.add_input(
-            "f_aero", shape_by_conn=True, distributed=True, tags=["mphys_coupling"]
+            self.f_aero_name,
+            shape_by_conn=True,
+            distributed=True,
+            tags=["mphys_coupling"],
         )
         self.add_output(
-            "f_struct",
+            self.f_struct_name,
             np.zeros(self.solver.struct.n_dof * self.solver.struct.n_nodes),
             distributed=True,
             tags=["mphys_coupling"],
         )
 
     def compute(self, inputs, outputs):
-        self.solver.xs = inputs["x_struct0"]
-        self.solver.xa = inputs["x_aero0"]
-        self.solver.fa = inputs["f_aero"]
+        self.solver.xs = inputs[self.x_struct_name]
+        self.solver.xa = inputs[self.x_aero0_name]
+        self.solver.fa = inputs[self.f_aero_name]
 
-        outputs["f_struct"] = self.solver.transfer_loads()
+        outputs[self.f_struct_name] = self.solver.transfer_loads()
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == "rev":
-            if "f_struct" in d_outputs:
+            if self.f_struct_name in d_outputs:
                 d_xs, d_xa, d_fa = self.solver.transfer_loads_derivatives(
-                    adjoint=d_outputs["f_struct"]
+                    adjoint=d_outputs[self.f_struct_name]
                 )
 
-                if "x_struct0" in d_inputs:
-                    d_inputs["x_struct0"] += d_xs
-                if "x_aero0" in d_inputs:
-                    d_inputs["x_aero0"] += d_xa
-                if "f_aero" in d_inputs:
-                    d_inputs["f_aero"] += d_fa
+                if self.x_struct_name in d_inputs:
+                    d_inputs[self.x_struct_name] += d_xs
+                if self.x_aero0_name in d_inputs:
+                    d_inputs[self.x_aero0_name] += d_xa
+                if self.f_aero_name in d_inputs:
+                    d_inputs[self.f_aero_name] += d_fa
 
 
 # Builder

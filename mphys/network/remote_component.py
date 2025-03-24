@@ -18,7 +18,8 @@ class RemoteComp(om.ExplicitComponent):
 
     def stop_server(self):
         # shortcut for stopping server from top level
-        self.server_manager.stop_server()
+        if self.server_manager is not None:
+            self.server_manager.stop_server()
 
     def initialize(self):
         self.options.declare(
@@ -71,6 +72,12 @@ class RemoteComp(om.ExplicitComponent):
             desc="additional outputs not defined as objective/constraints in the remote component",
         )
         self.options.declare(
+            "additional_remote_constants",
+            default=[],
+            types=list,
+            desc="same as additional_remote_inputs, but derivatives wrt constants will not be computed",
+        )
+        self.options.declare(
             "use_derivative_coloring",
             default=False,
             types=bool,
@@ -78,42 +85,51 @@ class RemoteComp(om.ExplicitComponent):
         )
 
     def setup(self):
-        if self.comm.size > 1:
-            raise SystemError(
-                "Using Remote Component on more than 1 rank is not supported"
-            )
-        self.time_estimate_multiplier = self.options["time_estimate_multiplier"]
-        self.time_estimate_buffer = self.options["time_estimate_buffer"]
-        self.reboot_only_on_function_call = self.options["reboot_only_on_function_call"]
-        self.dump_json = self.options["dump_json"]
-        self.dump_separate_json = self.options["dump_separate_json"]
         self.var_naming_dot_replacement = self.options["var_naming_dot_replacement"]
-        self.additional_remote_inputs = self.options["additional_remote_inputs"]
-        self.additional_remote_outputs = self.options["additional_remote_outputs"]
         self.use_derivative_coloring = self.options["use_derivative_coloring"]
         self.derivative_coloring_num = 0
-        if self.dump_separate_json:
-            self.dump_json = True
 
-        self._setup_server_manager()
+        output_dict = None
+        if self.comm.rank == 0:
+            self.time_estimate_multiplier = self.options["time_estimate_multiplier"]
+            self.time_estimate_buffer = self.options["time_estimate_buffer"]
+            self.reboot_only_on_function_call = self.options[
+                "reboot_only_on_function_call"
+            ]
+            self.dump_json = self.options["dump_json"]
+            self.dump_separate_json = self.options["dump_separate_json"]
+            self.additional_remote_inputs = self.options["additional_remote_inputs"]
+            self.additional_remote_outputs = self.options["additional_remote_outputs"]
+            self.additional_remote_constants = self.options[
+                "additional_remote_constants"
+            ]
+            self.last_analysis_completed_time = (
+                time.time()
+            )  # for tracking down time between function/gradient calls
+            if self.dump_separate_json:
+                self.dump_json = True
 
-        # for tracking model times, and determining whether to relaunch servers
-        self.times_function = np.array([])
-        self.times_gradient = np.array([])
+            self._setup_server_manager()
 
-        # get baseline model
-        print(
-            f"CLIENT (subsystem {self.name}): Running model from setup to get design problem info",
-            flush=True,
-        )
-        output_dict = self.evaluate_model(
-            command="initialize",
-            remote_input_dict={
-                "additional_inputs": self.additional_remote_inputs,
-                "additional_outputs": self.additional_remote_outputs,
-                "component_name": self.name,
-            },
-        )
+            # for tracking model times, and determining whether to relaunch servers
+            self.times_function = np.array([])
+            self.times_gradient = np.array([])
+
+            # get baseline model
+            print(
+                f"CLIENT (subsystem {self.name}): Running model from setup to get design problem info",
+                flush=True,
+            )
+            output_dict = self.evaluate_model(
+                command="initialize",
+                remote_input_dict={
+                    "additional_inputs": self.additional_remote_inputs,
+                    "additional_outputs": self.additional_remote_outputs,
+                    "additional_constants": self.additional_remote_constants,
+                    "component_name": self.name,
+                },
+            )
+        output_dict = self.comm.bcast(output_dict)
 
         self._add_design_inputs_from_baseline_model(output_dict)
         self._add_objectives_from_baseline_model(output_dict)
@@ -121,14 +137,18 @@ class RemoteComp(om.ExplicitComponent):
 
         self._add_additional_inputs_from_baseline_model(output_dict)
         self._add_additional_outputs_from_baseline_model(output_dict)
+        self._add_additional_constants_from_baseline_model(output_dict)
 
         self.declare_partials("*", "*")
 
     def compute(self, inputs, outputs):
-        input_dict = self._create_input_dict_for_server(inputs)
-        remote_dict = self.evaluate_model(
-            remote_input_dict=input_dict, command="evaluate"
-        )
+        remote_dict = None
+        if self.comm.rank == 0:
+            input_dict = self._create_input_dict_for_server(inputs)
+            remote_dict = self.evaluate_model(
+                remote_input_dict=input_dict, command="evaluate"
+            )
+        remote_dict = self.comm.bcast(remote_dict)
 
         self._assign_objectives_from_remote_output(remote_dict, outputs)
         self._assign_constraints_from_remote_output(remote_dict, outputs)
@@ -137,10 +157,13 @@ class RemoteComp(om.ExplicitComponent):
     def compute_partials(self, inputs, partials):
         # NOTE: this will not use of and wrt inputs, if given in outer script's compute_totals/check_totals
 
-        input_dict = self._create_input_dict_for_server(inputs)
-        remote_dict = self.evaluate_model(
-            remote_input_dict=input_dict, command="evaluate derivatives"
-        )
+        remote_dict = None
+        if self.comm.rank == 0:
+            input_dict = self._create_input_dict_for_server(inputs)
+            remote_dict = self.evaluate_model(
+                remote_input_dict=input_dict, command="evaluate derivatives"
+            )
+        remote_dict = self.comm.bcast(remote_dict)
 
         self._assign_objective_partials_from_remote_output(remote_dict, partials)
         self._assign_constraint_partials_from_remote_output(remote_dict, partials)
@@ -154,14 +177,18 @@ class RemoteComp(om.ExplicitComponent):
         if self.dump_json:
             self._dump_json(remote_input_dict, command)
 
+        down_time = time.time() - self.last_analysis_completed_time
         model_start_time = time.time()
         self._send_inputs_to_server(remote_input_dict, command)
         remote_output_dict = self._receive_outputs_from_server()
 
         model_time_elapsed = time.time() - model_start_time
+        self.last_analysis_completed_time = time.time()
 
         if self.dump_json:
-            remote_output_dict.update({"wall_time": model_time_elapsed})
+            remote_output_dict.update(
+                {"wall_time": model_time_elapsed, "down_time": down_time}
+            )
             self._dump_json(remote_output_dict, command)
 
         if self._doing_derivative_evaluation(command):
@@ -226,19 +253,24 @@ class RemoteComp(om.ExplicitComponent):
         input_dict = {
             "design_vars": {},
             "additional_inputs": {},
+            "additional_constants": {},
             "additional_outputs": self.additional_remote_outputs,
             "component_name": self.name,
         }
         for dv in self.design_var_keys:
-            input_dict["design_vars"][
-                dv.replace(".", self.var_naming_dot_replacement)
-            ] = {
+            input_dict["design_vars"][dv] = {
                 "val": inputs[dv.replace(".", self.var_naming_dot_replacement)].tolist()
             }
         for input in self.additional_remote_inputs:
             input_dict["additional_inputs"][input] = {
                 "val": inputs[
                     input.replace(".", self.var_naming_dot_replacement)
+                ].tolist()
+            }
+        for constant in self.additional_remote_constants:
+            input_dict["additional_constants"][constant] = {
+                "val": inputs[
+                    constant.replace(".", self.var_naming_dot_replacement)
                 ].tolist()
             }
         return input_dict
@@ -253,6 +285,8 @@ class RemoteComp(om.ExplicitComponent):
         return len(self.times_gradient) == 0
 
     def _need_to_restart_server(self, command: str):
+        if self.server_manager.job_has_expired():
+            return True
         if self._doing_derivative_evaluation(command):
             if (
                 self._is_first_gradient_evaluation()
@@ -295,7 +329,7 @@ class RemoteComp(om.ExplicitComponent):
             if not os.path.isdir(save_dir):
                 try:
                     os.mkdir(save_dir)
-                except OSError:
+                except Exception:
                     pass  # may have been created by now, by a parallel server
             if self._doing_derivative_evaluation(command):
                 filename = f"{save_dir}/{self.name}_{dict_type}_derivative{len(self.times_gradient)}.json"
@@ -332,6 +366,16 @@ class RemoteComp(om.ExplicitComponent):
                 output_dict["additional_inputs"][input]["val"],
             )
 
+    def _add_additional_constants_from_baseline_model(self, output_dict):
+        self.additional_remote_constants = list(
+            output_dict["additional_constants"].keys()
+        )
+        for constant in self.additional_remote_constants:
+            self.add_input(
+                constant.replace(".", self.var_naming_dot_replacement),
+                output_dict["additional_constants"][constant]["val"],
+            )
+
     def _add_additional_outputs_from_baseline_model(self, output_dict):
         self.additional_remote_outputs = list(output_dict["additional_outputs"].keys())
         for output in self.additional_remote_outputs:
@@ -352,9 +396,11 @@ class RemoteComp(om.ExplicitComponent):
                 ref0=output_dict["objective"][obj]["ref0"],
                 scaler=output_dict["objective"][obj]["scaler"],
                 adder=output_dict["objective"][obj]["adder"],
-                parallel_deriv_color=f"color{self.derivative_coloring_num}"
-                if self.use_derivative_coloring
-                else None,
+                parallel_deriv_color=(
+                    f"color{self.derivative_coloring_num}"
+                    if self.use_derivative_coloring
+                    else None
+                ),
             )
             self.derivative_coloring_num += 1
 
@@ -374,9 +420,11 @@ class RemoteComp(om.ExplicitComponent):
                     equals=output_dict["constraints"][con]["equals"],
                     scaler=output_dict["constraints"][con]["scaler"],
                     adder=output_dict["constraints"][con]["adder"],
-                    parallel_deriv_color=f"color{self.derivative_coloring_num}"
-                    if self.use_derivative_coloring
-                    else None,
+                    parallel_deriv_color=(
+                        f"color{self.derivative_coloring_num}"
+                        if self.use_derivative_coloring
+                        else None
+                    ),
                 )
             else:
                 if (
@@ -391,9 +439,11 @@ class RemoteComp(om.ExplicitComponent):
                         upper=output_dict["constraints"][con]["upper"],
                         scaler=output_dict["constraints"][con]["scaler"],
                         adder=output_dict["constraints"][con]["adder"],
-                        parallel_deriv_color=f"color{self.derivative_coloring_num}"
-                        if self.use_derivative_coloring
-                        else None,
+                        parallel_deriv_color=(
+                            f"color{self.derivative_coloring_num}"
+                            if self.use_derivative_coloring
+                            else None
+                        ),
                     )
                 elif (
                     output_dict["constraints"][con]["lower"] > -1e20
@@ -405,9 +455,11 @@ class RemoteComp(om.ExplicitComponent):
                         lower=output_dict["constraints"][con]["lower"],
                         scaler=output_dict["constraints"][con]["scaler"],
                         adder=output_dict["constraints"][con]["adder"],
-                        parallel_deriv_color=f"color{self.derivative_coloring_num}"
-                        if self.use_derivative_coloring
-                        else None,
+                        parallel_deriv_color=(
+                            f"color{self.derivative_coloring_num}"
+                            if self.use_derivative_coloring
+                            else None
+                        ),
                     )
                 else:  # enforce upper bound
                     self.add_constraint(
@@ -417,9 +469,11 @@ class RemoteComp(om.ExplicitComponent):
                         upper=output_dict["constraints"][con]["upper"],
                         scaler=output_dict["constraints"][con]["scaler"],
                         adder=output_dict["constraints"][con]["adder"],
-                        parallel_deriv_color=f"color{self.derivative_coloring_num}"
-                        if self.use_derivative_coloring
-                        else None,
+                        parallel_deriv_color=(
+                            f"color{self.derivative_coloring_num}"
+                            if self.use_derivative_coloring
+                            else None
+                        ),
                     )
             self.derivative_coloring_num += 1
 

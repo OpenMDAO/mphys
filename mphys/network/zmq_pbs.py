@@ -32,6 +32,11 @@ class RemoteZeroMQComp(RemoteComp):
             default="",
             desc="Optional arguments to give server, in addition to --port <port number>",
         )
+        self.options.declare(
+            "job_expiration_max_restarts",
+            default=None,
+            desc="Optional maximum number of server restarts due to job expiration; unlimited by default",
+        )
         super().initialize()
         self.server_manager = (
             None  # for avoiding reinitialization due to multiple setup calls
@@ -63,6 +68,7 @@ class RemoteZeroMQComp(RemoteComp):
                 port=self.options["port"],
                 acceptable_port_range=self.options["acceptable_port_range"],
                 additional_server_args=self.options["additional_server_args"],
+                job_expiration_max_restarts=self.options["job_expiration_max_restarts"],
             )
 
 
@@ -85,6 +91,8 @@ class MPhysZeroMQServerManager(ServerManager):
         Range of alternative port numbers if specified port is already in use
     additional_server_args : str
         Optional arguments to give server, in addition to --port <port number>
+    job_expiration_max_restarts : int
+        Optional maximum number of server restarts due to job expiration; unlimited by default
     """
 
     def __init__(
@@ -95,6 +103,7 @@ class MPhysZeroMQServerManager(ServerManager):
         port=5081,
         acceptable_port_range=[5081, 6000],
         additional_server_args="",
+        job_expiration_max_restarts=None,
     ):
         self.pbs = pbs
         self.run_server_filename = run_server_filename
@@ -102,10 +111,12 @@ class MPhysZeroMQServerManager(ServerManager):
         self.port = port
         self.acceptable_port_range = acceptable_port_range
         self.additional_server_args = additional_server_args
+        self.job_expiration_max_restarts = job_expiration_max_restarts
         self.queue_time_delay = (
             5  # seconds to wait before rechecking if a job has started
         )
         self.server_counter = 0  # for saving output of each server to different files
+        self.job_expiration_restarts = 0
         self.start_server()
 
     def start_server(self):
@@ -118,7 +129,8 @@ class MPhysZeroMQServerManager(ServerManager):
             f"CLIENT (subsystem {self.component_name}): Stopping the remote analysis server",
             flush=True,
         )
-        self.socket.send("shutdown|null".encode())
+        if self.job.state == "R":
+            self.socket.send("shutdown|null".encode())
         self._shutdown_server()
         self.socket.close()
 
@@ -128,6 +140,23 @@ class MPhysZeroMQServerManager(ServerManager):
             return False
         else:
             return estimated_model_time < self.job.walltime_remaining
+
+    def job_has_expired(self):
+        self.job.update_job_state()
+        if self.job.state == "R":
+            return False
+        else:
+            if self.job_expiration_max_restarts is not None:
+                if self.job_expiration_restarts + 1 > self.job_expiration_max_restarts:
+                    self.stop_server()
+                    raise RuntimeError(
+                        f"CLIENT (subsystem {self.component_name}): Reached maximum number of job expiration restarts"
+                    )
+                self.job_expiration_restarts += 1
+            print(
+                f"CLIENT (subsystem {self.component_name}): Job no longer running; flagging for job restart"
+            )
+            return True
 
     def _port_is_in_use(self, port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -181,11 +210,11 @@ class MPhysZeroMQServerManager(ServerManager):
             flush=True,
         )
         job_submission_time = time.time()
-        self._setup_placeholder_ssh()
+        self._setup_dummy_socket()
         while self.job.state != "R":
             time.sleep(self.queue_time_delay)
             self.job.update_job_state()
-        self._stop_placeholder_ssh()
+        self._stop_dummy_socket()
         self.job_start_time = time.time()
         print(
             f"CLIENT (subsystem {self.component_name}): Job started (queue wait time: {(time.time()-job_submission_time)/3600} hours)",
@@ -203,18 +232,17 @@ class MPhysZeroMQServerManager(ServerManager):
         time.sleep(0.1)  # prevent full shutdown before job deletion?
         self.job.qdel()
 
-    def _setup_placeholder_ssh(self):
+    def _setup_dummy_socket(self):
         print(
-            f"CLIENT (subsystem {self.component_name}): Starting placeholder process to hold port {self.port} while in queue",
+            f"CLIENT (subsystem {self.component_name}): Starting dummy ZeroMQ socket to hold port {self.port} while in queue",
             flush=True,
         )
-        ssh_command = f"ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L {self.port}:localhost:{self.port} {socket.gethostname()} &"
-        self.ssh_proc = subprocess.Popen(
-            ssh_command.split(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
+        context = zmq.Context()
+        self.dummy_socket = context.socket(zmq.REP)
+        self.dummy_socket.bind(f"tcp://*:{self.port}")
 
-    def _stop_placeholder_ssh(self):
-        self.ssh_proc.kill()
+    def _stop_dummy_socket(self):
+        self.dummy_socket.close()
 
 
 class MPhysZeroMQServer(Server):
@@ -229,6 +257,7 @@ class MPhysZeroMQServer(Server):
         ignore_setup_warnings=False,
         ignore_runtime_warnings=False,
         rerun_initial_design=False,
+        write_n2=False,
     ):
 
         super().__init__(
@@ -236,18 +265,19 @@ class MPhysZeroMQServer(Server):
             ignore_setup_warnings,
             ignore_runtime_warnings,
             rerun_initial_design,
+            write_n2,
         )
         self._setup_zeromq_socket(port)
 
     def _setup_zeromq_socket(self, port):
-        if self.rank == 0:
+        if self.comm.rank == 0:
             context = zmq.Context()
             self.socket = context.socket(zmq.REP)
             self.socket.bind(f"tcp://*:{port}")
 
     def _parse_incoming_message(self):
         inputs = None
-        if self.rank == 0:
+        if self.comm.rank == 0:
             inputs = self.socket.recv().decode()
         inputs = self.prob.model.comm.bcast(inputs)
 
@@ -257,7 +287,7 @@ class MPhysZeroMQServer(Server):
         return command, input_dict
 
     def _send_outputs_to_client(self, output_dict: dict):
-        if self.rank == 0:
+        if self.comm.rank == 0:
             self.socket.send(str(json.dumps(output_dict)).encode())
 
 

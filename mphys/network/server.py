@@ -1,5 +1,7 @@
 import warnings
+from copy import deepcopy
 
+import numpy as np
 import openmdao.api as om
 
 
@@ -31,6 +33,7 @@ class Server:
         ignore_setup_warnings=False,
         ignore_runtime_warnings=False,
         rerun_initial_design=False,
+        write_n2=False,
     ):
 
         self.get_om_group_function_pointer = get_om_group_function_pointer
@@ -43,7 +46,9 @@ class Server:
         self.derivatives = None
         self.additional_inputs = None
         self.additional_outputs = None
+        self.additional_constants = None
         self.design_counter = 0  # more debugging info for client side json dumping
+        self.write_n2 = write_n2
 
         self._load_the_model()
 
@@ -61,11 +66,11 @@ class Server:
                 self.prob.setup(mode="rev")
         else:
             self.prob.setup(mode="rev")
-        self.rank = self.prob.model.comm.rank
+        self.comm = self.prob.model.comm
 
         # temporary fix for MELD initialization issue
         if self.rerun_initial_design:
-            if self.rank == 0:
+            if self.comm.rank == 0:
                 print("SERVER: Evaluating baseline design", flush=True)
             self._run_model()
 
@@ -106,7 +111,7 @@ class Server:
         remote_output_dict["design_vars"] = {}
         for dv in design_vars.keys():
             remote_output_dict["design_vars"][dv] = {
-                "val": self.prob.get_val(dv),
+                "val": self.prob.get_val(dv, get_remote=True),
                 "ref": design_vars[dv]["ref"],
                 "ref0": design_vars[dv]["ref0"],
                 "lower": design_vars[dv]["lower"],
@@ -134,12 +139,26 @@ class Server:
         remote_output_dict["additional_inputs"] = {}
         for input in self.additional_inputs:
             remote_output_dict["additional_inputs"][input] = {
-                "val": self.prob.get_val(input)
+                "val": self.prob.get_val(input, get_remote=True)
             }
             if hasattr(remote_output_dict["additional_inputs"][input]["val"], "tolist"):
                 remote_output_dict["additional_inputs"][input][
                     "val"
                 ] = remote_output_dict["additional_inputs"][input]["val"].tolist()
+        return remote_output_dict
+
+    def _gather_additional_constants_from_om_problem(self, remote_output_dict={}):
+        remote_output_dict["additional_constants"] = {}
+        for constant in self.additional_constants:
+            remote_output_dict["additional_constants"][constant] = {
+                "val": self.prob.get_val(constant)
+            }
+            if hasattr(
+                remote_output_dict["additional_constants"][constant]["val"], "tolist"
+            ):
+                remote_output_dict["additional_constants"][constant][
+                    "val"
+                ] = remote_output_dict["additional_constants"][constant]["val"].tolist()
         return remote_output_dict
 
     def _gather_design_outputs_from_om_problem(self, remote_output_dict={}):
@@ -350,6 +369,9 @@ class Server:
         remote_output_dict = self._gather_additional_outputs_from_om_problem(
             remote_output_dict
         )
+        remote_output_dict = self._gather_additional_constants_from_om_problem(
+            remote_output_dict
+        )
         if self.derivatives is not None:
             remote_output_dict = self._gather_design_derivatives_from_om_problem(
                 remote_output_dict
@@ -370,7 +392,10 @@ class Server:
     def _set_design_variables_into_the_server_problem(self, input_dict):
         design_changed = False
         for key in input_dict["design_vars"].keys():
-            if (self.prob.get_val(key) != input_dict["design_vars"][key]["val"]).any():
+            if (
+                self.prob.get_val(key, get_remote=True)
+                != input_dict["design_vars"][key]["val"]
+            ).any():
                 design_changed = True
             self.prob.set_val(key, input_dict["design_vars"][key]["val"])
         return design_changed
@@ -379,18 +404,53 @@ class Server:
         self, input_dict, design_changed
     ):
         for key in input_dict["additional_inputs"].keys():
-            if (
-                self.prob.get_val(key) != input_dict["additional_inputs"][key]["val"]
-            ).any():
+            design_changed_condition = (
+                self.prob.get_val(key, get_remote=True)
+                != input_dict["additional_inputs"][key]["val"]
+            )
+            if isinstance(design_changed_condition, bool):
+                design_changed = deepcopy(design_changed_condition)
+            elif design_changed_condition.any():
                 design_changed = True
-            self.prob.set_val(key, input_dict["additional_inputs"][key]["val"])
+            if (
+                np.array(input_dict["additional_inputs"][key]["val"]).shape
+                == self.prob.get_val(key, get_remote=True).shape
+            ):
+                self.prob.set_val(key, input_dict["additional_inputs"][key]["val"])
+            elif self.comm.rank == 0:
+                print(
+                    f"SERVER: shape of additional input {key} differs from actual input size... ignoring.",
+                    flush=True,
+                )
         return design_changed
+
+    def _set_additional_constants_into_the_server_problem(
+        self, input_dict, design_changed
+    ):
+        for key in input_dict["additional_constants"].keys():
+            if (
+                np.array(input_dict["additional_constants"][key]["val"]).shape
+                == self.prob.get_val(key).shape
+            ):
+                design_changed_condition = (
+                    self.prob.get_val(key)
+                    != input_dict["additional_constants"][key]["val"]
+                )
+                if isinstance(design_changed_condition, bool):
+                    design_changed = deepcopy(design_changed_condition)
+                elif design_changed_condition.any():
+                    design_changed = True
+                self.prob.set_val(key, input_dict["additional_constants"][key]["val"])
+        return max(self.comm.allgather(design_changed))
 
     def _save_additional_variable_names(self, input_dict):
         self.additional_inputs = input_dict["additional_inputs"]
         self.additional_outputs = input_dict["additional_outputs"]
+        self.additional_constants = input_dict["additional_constants"]
         if hasattr(self.additional_inputs, "keys"):
             self.additional_inputs = list(self.additional_inputs.keys())
+        if hasattr(self.additional_constants, "keys"):
+            self.additional_constants = list(self.additional_constants.keys())
 
     def run(self):
         """
@@ -398,27 +458,27 @@ class Server:
         """
         while True:
 
-            if self.rank == 0:
+            if self.comm.rank == 0:
                 print("SERVER: Waiting for new design...", flush=True)
 
             command, input_dict = self._parse_incoming_message()
 
             # interpret command (options are "shutdown", "initialize", "evaluate", or "evaluate derivatives")
             if command == "shutdown":
-                if self.rank == 0:
+                if self.comm.rank == 0:
                     print("SERVER: Received signal to shutdown", flush=True)
                 break
 
             self._save_additional_variable_names(input_dict)
 
             if command == "initialize":  # evaluate baseline model for RemoteComp setup
-                if self.rank == 0:
+                if self.comm.rank == 0:
                     print(
                         "SERVER: Initialization requested... using baseline design",
                         flush=True,
                     )
                 if self.current_design_has_been_evaluated:
-                    if self.rank == 0:
+                    if self.comm.rank == 0:
                         print(
                             "SERVER: Design already evaluated, skipping run_model",
                             flush=True,
@@ -432,38 +492,41 @@ class Server:
                 design_changed = self._set_additional_inputs_into_the_server_problem(
                     input_dict, design_changed
                 )
+                design_changed = self._set_additional_constants_into_the_server_problem(
+                    input_dict, design_changed
+                )
                 if design_changed:
                     self.current_design_has_been_evaluated = False
                     self.current_derivatives_have_been_evaluated = False
 
             if command == "evaluate derivatives":  # compute derivatives
                 if self.current_derivatives_have_been_evaluated:
-                    if self.rank == 0:
+                    if self.comm.rank == 0:
                         print(
                             "SERVER: Derivatives already evaluated, skipping compute_totals",
                             flush=True,
                         )
                 else:
                     if not self.current_design_has_been_evaluated:
-                        if self.rank == 0:
+                        if self.comm.rank == 0:
                             print(
                                 "SERVER: Derivative needed, but design has changed... evaluating forward solution first",
                                 flush=True,
                             )
                         self._run_model()
-                    if self.rank == 0:
+                    if self.comm.rank == 0:
                         print("SERVER: Evaluating derivatives", flush=True)
                     self._compute_totals()
 
             elif command == "evaluate":  # run model
                 if self.current_design_has_been_evaluated:
-                    if self.rank == 0:
+                    if self.comm.rank == 0:
                         print(
                             "SERVER: Design already evaluated, skipping run_model",
                             flush=True,
                         )
                 else:
-                    if self.rank == 0:
+                    if self.comm.rank == 0:
                         print("SERVER: Evaluating design", flush=True)
                     self._run_model()
 
@@ -472,8 +535,9 @@ class Server:
             self._send_outputs_to_client(output_dict)
 
             # write current n2 with values
-            om.n2(
-                self.prob,
-                show_browser=False,
-                outfile=f"n2_inner_analysis_{input_dict['component_name']}.html",
-            )
+            if self.write_n2:
+                om.n2(
+                    self.prob,
+                    show_browser=False,
+                    outfile=f"n2_inner_analysis_{input_dict['component_name']}.html",
+                )

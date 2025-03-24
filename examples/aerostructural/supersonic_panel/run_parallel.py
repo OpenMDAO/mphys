@@ -20,6 +20,7 @@ panel_width = 0.01
 N_el_struct = 20
 N_el_aero = 7
 
+
 # Mphys parallel multipoint scenarios
 class AerostructParallel(MultipointParallel):
     # class AerostructParallel(Multipoint):

@@ -3,9 +3,8 @@ from pbs4py import PBS
 
 from mphys.network.zmq_pbs import RemoteZeroMQComp
 
-check_totals = (
-    False  # True=check objective/constraint derivatives, False=run optimization
-)
+# True=check objective/constraint derivatives, False=run optimization
+check_totals = False
 
 # initialize pbs4py
 pbs = PBS.k4(time=1)
@@ -60,59 +59,66 @@ else:
     prob.cleanup()
 
     # write out data
-    cr = om.CaseReader("optimization_history.sql")
-    driver_cases = cr.list_cases("driver")
+    if prob.model.comm.rank == 0:
+        cr = om.CaseReader(f"{prob.get_outputs_dir()}/optimization_history.sql")
+        driver_cases = cr.list_cases("driver")
 
-    case = cr.get_case(0)
-    cons = case.get_constraints()
-    dvs = case.get_design_vars()
-    objs = case.get_objectives()
+        case = cr.get_case(0)
+        cons = case.get_constraints()
+        dvs = case.get_design_vars()
+        objs = case.get_objectives()
 
-    with open("optimization_history.dat", "w+") as f:
+        with open("optimization_history.dat", "w+") as f:
 
-        for i, k in enumerate(objs.keys()):
-            f.write("objective: " + k + "\n")
-            for j, case_id in enumerate(driver_cases):
-                f.write(
-                    str(j)
-                    + " "
-                    + str(cr.get_case(case_id).get_objectives(scaled=False)[k][0])
-                    + "\n"
-                )
-            f.write(" " + "\n")
-
-        for i, k in enumerate(cons.keys()):
-            f.write("constraint: " + k + "\n")
-            for j, case_id in enumerate(driver_cases):
-                f.write(
-                    str(j)
-                    + " "
-                    + " ".join(
-                        map(str, cr.get_case(case_id).get_constraints(scaled=False)[k])
+            for i, k in enumerate(objs.keys()):
+                f.write("objective: " + k + "\n")
+                for j, case_id in enumerate(driver_cases):
+                    f.write(
+                        str(j)
+                        + " "
+                        + str(cr.get_case(case_id).get_objectives(scaled=False)[k][0])
+                        + "\n"
                     )
-                    + "\n"
-                )
-            f.write(" " + "\n")
+                f.write(" " + "\n")
 
-        for i, k in enumerate(dvs.keys()):
-            f.write("DV: " + k + "\n")
-            for j, case_id in enumerate(driver_cases):
-                f.write(
-                    str(j)
-                    + " "
-                    + " ".join(
-                        map(str, cr.get_case(case_id).get_design_vars(scaled=False)[k])
+            for i, k in enumerate(cons.keys()):
+                f.write("constraint: " + k + "\n")
+                for j, case_id in enumerate(driver_cases):
+                    f.write(
+                        str(j)
+                        + " "
+                        + " ".join(
+                            map(
+                                str,
+                                cr.get_case(case_id).get_constraints(scaled=False)[k],
+                            )
+                        )
+                        + "\n"
                     )
-                    + "\n"
-                )
+                f.write(" " + "\n")
+
+            for i, k in enumerate(dvs.keys()):
+                f.write("DV: " + k + "\n")
+                for j, case_id in enumerate(driver_cases):
+                    f.write(
+                        str(j)
+                        + " "
+                        + " ".join(
+                            map(
+                                str,
+                                cr.get_case(case_id).get_design_vars(scaled=False)[k],
+                            )
+                        )
+                        + "\n"
+                    )
+                f.write(" " + "\n")
+
+            f.write("run times, function\n")
+            for i in range(len(prob.model.remote.times_function)):
+                f.write(f"{prob.model.remote.times_function[i]}\n")
             f.write(" " + "\n")
 
-        f.write("run times, function\n")
-        for i in range(len(prob.model.remote.times_function)):
-            f.write(f"{prob.model.remote.times_function[i]}\n")
-        f.write(" " + "\n")
-
-        f.write("run times, gradient\n")
-        for i in range(len(prob.model.remote.times_gradient)):
-            f.write(f"{prob.model.remote.times_gradient[i]}\n")
-        f.write(" " + "\n")
+            f.write("run times, gradient\n")
+            for i in range(len(prob.model.remote.times_gradient)):
+                f.write(f"{prob.model.remote.times_gradient[i]}\n")
+            f.write(" " + "\n")
