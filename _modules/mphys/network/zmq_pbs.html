@@ -72,6 +72,11 @@
             <span class="n">default</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
             <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Optional arguments to give server, in addition to --port &lt;port number&gt;&quot;</span><span class="p">,</span>
         <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span>
+            <span class="s2">&quot;job_expiration_max_restarts&quot;</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Optional maximum number of server restarts due to job expiration; unlimited by default&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span> <span class="o">=</span> <span class="p">(</span>
             <span class="kc">None</span>  <span class="c1"># for avoiding reinitialization due to multiple setup calls</span>
@@ -104,6 +109,7 @@
                 <span class="n">port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;port&quot;</span><span class="p">],</span>
                 <span class="n">acceptable_port_range</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;acceptable_port_range&quot;</span><span class="p">],</span>
                 <span class="n">additional_server_args</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;additional_server_args&quot;</span><span class="p">],</span>
+                <span class="n">job_expiration_max_restarts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;job_expiration_max_restarts&quot;</span><span class="p">],</span>
             <span class="p">)</span></div>
 
 
@@ -129,6 +135,8 @@
 <span class="sd">        Range of alternative port numbers if specified port is already in use</span>
 <span class="sd">    additional_server_args : str</span>
 <span class="sd">        Optional arguments to give server, in addition to --port &lt;port number&gt;</span>
+<span class="sd">    job_expiration_max_restarts : int</span>
+<span class="sd">        Optional maximum number of server restarts due to job expiration; unlimited by default</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -139,6 +147,7 @@
         <span class="n">port</span><span class="o">=</span><span class="mi">5081</span><span class="p">,</span>
         <span class="n">acceptable_port_range</span><span class="o">=</span><span class="p">[</span><span class="mi">5081</span><span class="p">,</span> <span class="mi">6000</span><span class="p">],</span>
         <span class="n">additional_server_args</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="n">job_expiration_max_restarts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pbs</span> <span class="o">=</span> <span class="n">pbs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">run_server_filename</span> <span class="o">=</span> <span class="n">run_server_filename</span>
@@ -146,10 +155,12 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">port</span> <span class="o">=</span> <span class="n">port</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">acceptable_port_range</span> <span class="o">=</span> <span class="n">acceptable_port_range</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">additional_server_args</span> <span class="o">=</span> <span class="n">additional_server_args</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">job_expiration_max_restarts</span> <span class="o">=</span> <span class="n">job_expiration_max_restarts</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">queue_time_delay</span> <span class="o">=</span> <span class="p">(</span>
             <span class="mi">5</span>  <span class="c1"># seconds to wait before rechecking if a job has started</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">server_counter</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># for saving output of each server to different files</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">job_expiration_restarts</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">start_server</span><span class="p">()</span>
 
 <div class="viewcode-block" id="MPhysZeroMQServerManager.start_server">
@@ -167,7 +178,8 @@
             <span class="sa">f</span><span class="s2">&quot;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s2">): Stopping the remote analysis server&quot;</span><span class="p">,</span>
             <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="s2">&quot;shutdown|null&quot;</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">&quot;R&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="s2">&quot;shutdown|null&quot;</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_server</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
@@ -180,6 +192,26 @@
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">estimated_model_time</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">walltime_remaining</span></div>
+
+
+<div class="viewcode-block" id="MPhysZeroMQServerManager.job_has_expired">
+<a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.zmq_pbs.MPhysZeroMQServerManager.job_has_expired">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">job_has_expired</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">update_job_state</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">&quot;R&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">job_expiration_max_restarts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">job_expiration_restarts</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">job_expiration_max_restarts</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">stop_server</span><span class="p">()</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s2">): Reached maximum number of job expiration restarts&quot;</span>
+                    <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">job_expiration_restarts</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s2">): Job no longer running; flagging for job restart&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_port_is_in_use</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
@@ -234,11 +266,11 @@
             <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">job_submission_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_setup_placeholder_ssh</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setup_dummy_socket</span><span class="p">()</span>
         <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="s2">&quot;R&quot;</span><span class="p">:</span>
             <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_time_delay</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">update_job_state</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_placeholder_ssh</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_dummy_socket</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">job_start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="nb">print</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s2">): Job started (queue wait time: </span><span class="si">{</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">job_submission_time</span><span class="p">)</span><span class="o">/</span><span class="mi">3600</span><span class="si">}</span><span class="s2"> hours)&quot;</span><span class="p">,</span>
@@ -256,18 +288,17 @@
         <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>  <span class="c1"># prevent full shutdown before job deletion?</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">qdel</span><span class="p">()</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_setup_placeholder_ssh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_setup_dummy_socket</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">print</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s2">): Starting placeholder process to hold port </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2"> while in queue&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s2">): Starting dummy ZeroMQ socket to hold port </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2"> while in queue&quot;</span><span class="p">,</span>
             <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">ssh_command</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">:localhost:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">socket</span><span class="o">.</span><span class="n">gethostname</span><span class="p">()</span><span class="si">}</span><span class="s2"> &amp;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ssh_proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
-            <span class="n">ssh_command</span><span class="o">.</span><span class="n">split</span><span class="p">(),</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span>
-        <span class="p">)</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="n">zmq</span><span class="o">.</span><span class="n">Context</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dummy_socket</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">zmq</span><span class="o">.</span><span class="n">REP</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dummy_socket</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tcp://*:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_stop_placeholder_ssh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ssh_proc</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span></div>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_stop_dummy_socket</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dummy_socket</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 
 
@@ -285,6 +316,7 @@
         <span class="n">ignore_setup_warnings</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">ignore_runtime_warnings</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">rerun_initial_design</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">write_n2</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
 
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
@@ -292,18 +324,19 @@
             <span class="n">ignore_setup_warnings</span><span class="p">,</span>
             <span class="n">ignore_runtime_warnings</span><span class="p">,</span>
             <span class="n">rerun_initial_design</span><span class="p">,</span>
+            <span class="n">write_n2</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_setup_zeromq_socket</span><span class="p">(</span><span class="n">port</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_setup_zeromq_socket</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">context</span> <span class="o">=</span> <span class="n">zmq</span><span class="o">.</span><span class="n">Context</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">socket</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">zmq</span><span class="o">.</span><span class="n">REP</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tcp://*:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_parse_incoming_message</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">inputs</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
         <span class="n">inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
 
@@ -313,7 +346,7 @@
         <span class="k">return</span> <span class="n">command</span><span class="p">,</span> <span class="n">input_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_send_outputs_to_client</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">output_dict</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span></div>
 
 

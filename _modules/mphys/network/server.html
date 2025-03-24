@@ -35,7 +35,9 @@
             
   <h1>Source code for mphys.network.server</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">openmdao.api</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">om</span>
 
 
@@ -69,6 +71,7 @@
         <span class="n">ignore_setup_warnings</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">ignore_runtime_warnings</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">rerun_initial_design</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">write_n2</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">get_om_group_function_pointer</span> <span class="o">=</span> <span class="n">get_om_group_function_pointer</span>
@@ -81,7 +84,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">additional_outputs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">additional_constants</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">design_counter</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># more debugging info for client side json dumping</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_n2</span> <span class="o">=</span> <span class="n">write_n2</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_load_the_model</span><span class="p">()</span>
 
@@ -99,11 +104,11 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rev&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rev&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">comm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">comm</span>
 
         <span class="c1"># temporary fix for MELD initialization issue</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rerun_initial_design</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SERVER: Evaluating baseline design&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_run_model</span><span class="p">()</span>
 
@@ -144,7 +149,7 @@
         <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">dv</span> <span class="ow">in</span> <span class="n">design_vars</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">dv</span><span class="p">),</span>
+                <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">dv</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
                 <span class="s2">&quot;ref&quot;</span><span class="p">:</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">&quot;ref&quot;</span><span class="p">],</span>
                 <span class="s2">&quot;ref0&quot;</span><span class="p">:</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">&quot;ref0&quot;</span><span class="p">],</span>
                 <span class="s2">&quot;lower&quot;</span><span class="p">:</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">&quot;lower&quot;</span><span class="p">],</span>
@@ -172,12 +177,26 @@
         <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="nb">input</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span><span class="p">:</span>
             <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="nb">input</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+                <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="p">}</span>
             <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="nb">input</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">],</span> <span class="s2">&quot;tolist&quot;</span><span class="p">):</span>
                 <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="nb">input</span><span class="p">][</span>
                     <span class="s2">&quot;val&quot;</span>
                 <span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="nb">input</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">remote_output_dict</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gather_additional_constants_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="o">=</span><span class="p">{}):</span>
+        <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">constant</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_constants</span><span class="p">:</span>
+            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">constant</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">constant</span><span class="p">)</span>
+            <span class="p">}</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span>
+                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">constant</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">],</span> <span class="s2">&quot;tolist&quot;</span>
+            <span class="p">):</span>
+                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">constant</span><span class="p">][</span>
+                    <span class="s2">&quot;val&quot;</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">constant</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_design_outputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="o">=</span><span class="p">{}):</span>
@@ -388,6 +407,9 @@
         <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gather_additional_outputs_from_om_problem</span><span class="p">(</span>
             <span class="n">remote_output_dict</span>
         <span class="p">)</span>
+        <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gather_additional_constants_from_om_problem</span><span class="p">(</span>
+            <span class="n">remote_output_dict</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gather_design_derivatives_from_om_problem</span><span class="p">(</span>
                 <span class="n">remote_output_dict</span>
@@ -408,7 +430,10 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_set_design_variables_into_the_server_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
         <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">!=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="o">!=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
                 <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">set_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">design_changed</span>
@@ -417,18 +442,53 @@
         <span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">,</span> <span class="n">design_changed</span>
     <span class="p">):</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">!=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">design_changed_condition</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="o">!=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">design_changed_condition</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+                <span class="n">design_changed</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">design_changed_condition</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">design_changed_condition</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
                 <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">set_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">shape</span>
+                <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
+            <span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">set_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">])</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;SERVER: shape of additional input </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> differs from actual input size... ignoring.&quot;</span><span class="p">,</span>
+                    <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
         <span class="k">return</span> <span class="n">design_changed</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_additional_constants_into_the_server_problem</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">,</span> <span class="n">design_changed</span>
+    <span class="p">):</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">shape</span>
+                <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
+            <span class="p">):</span>
+                <span class="n">design_changed_condition</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                    <span class="o">!=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">design_changed_condition</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+                    <span class="n">design_changed</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">design_changed_condition</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">design_changed_condition</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                    <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">set_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">allgather</span><span class="p">(</span><span class="n">design_changed</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_save_additional_variable_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span> <span class="o">=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">additional_outputs</span> <span class="o">=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_outputs&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">additional_constants</span> <span class="o">=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span><span class="p">,</span> <span class="s2">&quot;keys&quot;</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_constants</span><span class="p">,</span> <span class="s2">&quot;keys&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">additional_constants</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_constants</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
 
 <div class="viewcode-block" id="Server.run">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server.Server.run">[docs]</a>
@@ -438,27 +498,27 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
 
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SERVER: Waiting for new design...&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
             <span class="n">command</span><span class="p">,</span> <span class="n">input_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_incoming_message</span><span class="p">()</span>
 
             <span class="c1"># interpret command (options are &quot;shutdown&quot;, &quot;initialize&quot;, &quot;evaluate&quot;, or &quot;evaluate derivatives&quot;)</span>
             <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">:</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SERVER: Received signal to shutdown&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                 <span class="k">break</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_save_additional_variable_names</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;initialize&quot;</span><span class="p">:</span>  <span class="c1"># evaluate baseline model for RemoteComp setup</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="nb">print</span><span class="p">(</span>
                         <span class="s2">&quot;SERVER: Initialization requested... using baseline design&quot;</span><span class="p">,</span>
                         <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_design_has_been_evaluated</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="nb">print</span><span class="p">(</span>
                             <span class="s2">&quot;SERVER: Design already evaluated, skipping run_model&quot;</span><span class="p">,</span>
                             <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -472,38 +532,41 @@
                 <span class="n">design_changed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_additional_inputs_into_the_server_problem</span><span class="p">(</span>
                     <span class="n">input_dict</span><span class="p">,</span> <span class="n">design_changed</span>
                 <span class="p">)</span>
+                <span class="n">design_changed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_additional_constants_into_the_server_problem</span><span class="p">(</span>
+                    <span class="n">input_dict</span><span class="p">,</span> <span class="n">design_changed</span>
+                <span class="p">)</span>
                 <span class="k">if</span> <span class="n">design_changed</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">current_design_has_been_evaluated</span> <span class="o">=</span> <span class="kc">False</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">current_derivatives_have_been_evaluated</span> <span class="o">=</span> <span class="kc">False</span>
 
             <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;evaluate derivatives&quot;</span><span class="p">:</span>  <span class="c1"># compute derivatives</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_derivatives_have_been_evaluated</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="nb">print</span><span class="p">(</span>
                             <span class="s2">&quot;SERVER: Derivatives already evaluated, skipping compute_totals&quot;</span><span class="p">,</span>
                             <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                         <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_design_has_been_evaluated</span><span class="p">:</span>
-                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                             <span class="nb">print</span><span class="p">(</span>
                                 <span class="s2">&quot;SERVER: Derivative needed, but design has changed... evaluating forward solution first&quot;</span><span class="p">,</span>
                                 <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                             <span class="p">)</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_run_model</span><span class="p">()</span>
-                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SERVER: Evaluating derivatives&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_compute_totals</span><span class="p">()</span>
 
             <span class="k">elif</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;evaluate&quot;</span><span class="p">:</span>  <span class="c1"># run model</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_design_has_been_evaluated</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="nb">print</span><span class="p">(</span>
                             <span class="s2">&quot;SERVER: Design already evaluated, skipping run_model&quot;</span><span class="p">,</span>
                             <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                         <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SERVER: Evaluating design&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_run_model</span><span class="p">()</span>
 
@@ -512,11 +575,12 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_send_outputs_to_client</span><span class="p">(</span><span class="n">output_dict</span><span class="p">)</span>
 
             <span class="c1"># write current n2 with values</span>
-            <span class="n">om</span><span class="o">.</span><span class="n">n2</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="p">,</span>
-                <span class="n">show_browser</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                <span class="n">outfile</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;n2_inner_analysis_</span><span class="si">{</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;component_name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">.html&quot;</span><span class="p">,</span>
-            <span class="p">)</span></div>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_n2</span><span class="p">:</span>
+                <span class="n">om</span><span class="o">.</span><span class="n">n2</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="p">,</span>
+                    <span class="n">show_browser</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">outfile</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;n2_inner_analysis_</span><span class="si">{</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;component_name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">.html&quot;</span><span class="p">,</span>
+                <span class="p">)</span></div>
 </div>
 
 </pre></div>

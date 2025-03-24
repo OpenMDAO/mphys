@@ -56,7 +56,8 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">stop_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># shortcut for stopping server from top level</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span><span class="o">.</span><span class="n">stop_server</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span><span class="o">.</span><span class="n">stop_server</span><span class="p">()</span>
 
 <div class="viewcode-block" id="RemoteComp.initialize">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.remote_component.RemoteComp.initialize">[docs]</a>
@@ -111,6 +112,12 @@
             <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;additional outputs not defined as objective/constraints in the remote component&quot;</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span>
+            <span class="s2">&quot;additional_remote_constants&quot;</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="p">[],</span>
+            <span class="n">types</span><span class="o">=</span><span class="nb">list</span><span class="p">,</span>
+            <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;same as additional_remote_inputs, but derivatives wrt constants will not be computed&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span>
             <span class="s2">&quot;use_derivative_coloring&quot;</span><span class="p">,</span>
             <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
             <span class="n">types</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span>
@@ -121,42 +128,51 @@
 <div class="viewcode-block" id="RemoteComp.setup">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.remote_component.RemoteComp.setup">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">SystemError</span><span class="p">(</span>
-                <span class="s2">&quot;Using Remote Component on more than 1 rank is not supported&quot;</span>
-            <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">time_estimate_multiplier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;time_estimate_multiplier&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">time_estimate_buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;time_estimate_buffer&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">reboot_only_on_function_call</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;reboot_only_on_function_call&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dump_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;dump_json&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dump_separate_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;dump_separate_json&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">var_naming_dot_replacement</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;var_naming_dot_replacement&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;additional_remote_inputs&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;additional_remote_outputs&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">use_derivative_coloring</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;use_derivative_coloring&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dump_separate_json</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">dump_json</span> <span class="o">=</span> <span class="kc">True</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_setup_server_manager</span><span class="p">()</span>
+        <span class="n">output_dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">time_estimate_multiplier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;time_estimate_multiplier&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">time_estimate_buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;time_estimate_buffer&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reboot_only_on_function_call</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span>
+                <span class="s2">&quot;reboot_only_on_function_call&quot;</span>
+            <span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dump_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;dump_json&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dump_separate_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;dump_separate_json&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;additional_remote_inputs&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;additional_remote_outputs&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_constants</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span>
+                <span class="s2">&quot;additional_remote_constants&quot;</span>
+            <span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">last_analysis_completed_time</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="p">)</span>  <span class="c1"># for tracking down time between function/gradient calls</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dump_separate_json</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dump_json</span> <span class="o">=</span> <span class="kc">True</span>
 
-        <span class="c1"># for tracking model times, and determining whether to relaunch servers</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">times_function</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">times_gradient</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_setup_server_manager</span><span class="p">()</span>
 
-        <span class="c1"># get baseline model</span>
-        <span class="nb">print</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">): Running model from setup to get design problem info&quot;</span><span class="p">,</span>
-            <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_model</span><span class="p">(</span>
-            <span class="n">command</span><span class="o">=</span><span class="s2">&quot;initialize&quot;</span><span class="p">,</span>
-            <span class="n">remote_input_dict</span><span class="o">=</span><span class="p">{</span>
-                <span class="s2">&quot;additional_inputs&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_inputs</span><span class="p">,</span>
-                <span class="s2">&quot;additional_outputs&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_outputs</span><span class="p">,</span>
-                <span class="s2">&quot;component_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-            <span class="p">},</span>
-        <span class="p">)</span>
+            <span class="c1"># for tracking model times, and determining whether to relaunch servers</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">times_function</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">times_gradient</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
+
+            <span class="c1"># get baseline model</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">): Running model from setup to get design problem info&quot;</span><span class="p">,</span>
+                <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_model</span><span class="p">(</span>
+                <span class="n">command</span><span class="o">=</span><span class="s2">&quot;initialize&quot;</span><span class="p">,</span>
+                <span class="n">remote_input_dict</span><span class="o">=</span><span class="p">{</span>
+                    <span class="s2">&quot;additional_inputs&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_inputs</span><span class="p">,</span>
+                    <span class="s2">&quot;additional_outputs&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_outputs</span><span class="p">,</span>
+                    <span class="s2">&quot;additional_constants&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_constants</span><span class="p">,</span>
+                    <span class="s2">&quot;component_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+        <span class="n">output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">output_dict</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_add_design_inputs_from_baseline_model</span><span class="p">(</span><span class="n">output_dict</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_add_objectives_from_baseline_model</span><span class="p">(</span><span class="n">output_dict</span><span class="p">)</span>
@@ -164,6 +180,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_add_additional_inputs_from_baseline_model</span><span class="p">(</span><span class="n">output_dict</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_add_additional_outputs_from_baseline_model</span><span class="p">(</span><span class="n">output_dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add_additional_constants_from_baseline_model</span><span class="p">(</span><span class="n">output_dict</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">declare_partials</span><span class="p">(</span><span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">)</span></div>
 
@@ -171,10 +188,13 @@
 <div class="viewcode-block" id="RemoteComp.compute">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.remote_component.RemoteComp.compute">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">compute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="p">):</span>
-        <span class="n">input_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_input_dict_for_server</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
-        <span class="n">remote_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_model</span><span class="p">(</span>
-            <span class="n">remote_input_dict</span><span class="o">=</span><span class="n">input_dict</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="s2">&quot;evaluate&quot;</span>
-        <span class="p">)</span>
+        <span class="n">remote_dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">input_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_input_dict_for_server</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+            <span class="n">remote_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_model</span><span class="p">(</span>
+                <span class="n">remote_input_dict</span><span class="o">=</span><span class="n">input_dict</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="s2">&quot;evaluate&quot;</span>
+            <span class="p">)</span>
+        <span class="n">remote_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">remote_dict</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_assign_objectives_from_remote_output</span><span class="p">(</span><span class="n">remote_dict</span><span class="p">,</span> <span class="n">outputs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_assign_constraints_from_remote_output</span><span class="p">(</span><span class="n">remote_dict</span><span class="p">,</span> <span class="n">outputs</span><span class="p">)</span>
@@ -186,10 +206,13 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_partials</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">partials</span><span class="p">):</span>
         <span class="c1"># NOTE: this will not use of and wrt inputs, if given in outer script&#39;s compute_totals/check_totals</span>
 
-        <span class="n">input_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_input_dict_for_server</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
-        <span class="n">remote_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_model</span><span class="p">(</span>
-            <span class="n">remote_input_dict</span><span class="o">=</span><span class="n">input_dict</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="s2">&quot;evaluate derivatives&quot;</span>
-        <span class="p">)</span>
+        <span class="n">remote_dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">input_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_input_dict_for_server</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+            <span class="n">remote_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_model</span><span class="p">(</span>
+                <span class="n">remote_input_dict</span><span class="o">=</span><span class="n">input_dict</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="s2">&quot;evaluate derivatives&quot;</span>
+            <span class="p">)</span>
+        <span class="n">remote_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">remote_dict</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_assign_objective_partials_from_remote_output</span><span class="p">(</span><span class="n">remote_dict</span><span class="p">,</span> <span class="n">partials</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_assign_constraint_partials_from_remote_output</span><span class="p">(</span><span class="n">remote_dict</span><span class="p">,</span> <span class="n">partials</span><span class="p">)</span>
@@ -204,14 +227,18 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dump_json</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_dump_json</span><span class="p">(</span><span class="n">remote_input_dict</span><span class="p">,</span> <span class="n">command</span><span class="p">)</span>
 
+        <span class="n">down_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_analysis_completed_time</span>
         <span class="n">model_start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_send_inputs_to_server</span><span class="p">(</span><span class="n">remote_input_dict</span><span class="p">,</span> <span class="n">command</span><span class="p">)</span>
         <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_receive_outputs_from_server</span><span class="p">()</span>
 
         <span class="n">model_time_elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">model_start_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_analysis_completed_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dump_json</span><span class="p">:</span>
-            <span class="n">remote_output_dict</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;wall_time&quot;</span><span class="p">:</span> <span class="n">model_time_elapsed</span><span class="p">})</span>
+            <span class="n">remote_output_dict</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                <span class="p">{</span><span class="s2">&quot;wall_time&quot;</span><span class="p">:</span> <span class="n">model_time_elapsed</span><span class="p">,</span> <span class="s2">&quot;down_time&quot;</span><span class="p">:</span> <span class="n">down_time</span><span class="p">}</span>
+            <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_dump_json</span><span class="p">(</span><span class="n">remote_output_dict</span><span class="p">,</span> <span class="n">command</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_doing_derivative_evaluation</span><span class="p">(</span><span class="n">command</span><span class="p">):</span>
@@ -276,19 +303,24 @@
         <span class="n">input_dict</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;design_vars&quot;</span><span class="p">:</span> <span class="p">{},</span>
             <span class="s2">&quot;additional_inputs&quot;</span><span class="p">:</span> <span class="p">{},</span>
+            <span class="s2">&quot;additional_constants&quot;</span><span class="p">:</span> <span class="p">{},</span>
             <span class="s2">&quot;additional_outputs&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_outputs</span><span class="p">,</span>
             <span class="s2">&quot;component_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="k">for</span> <span class="n">dv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">design_var_keys</span><span class="p">:</span>
-            <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span>
-                <span class="n">dv</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">var_naming_dot_replacement</span><span class="p">)</span>
-            <span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="n">inputs</span><span class="p">[</span><span class="n">dv</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">var_naming_dot_replacement</span><span class="p">)]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
             <span class="p">}</span>
         <span class="k">for</span> <span class="nb">input</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_inputs</span><span class="p">:</span>
             <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="nb">input</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="n">inputs</span><span class="p">[</span>
                     <span class="nb">input</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">var_naming_dot_replacement</span><span class="p">)</span>
+                <span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="p">}</span>
+        <span class="k">for</span> <span class="n">constant</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_constants</span><span class="p">:</span>
+            <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">constant</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="n">inputs</span><span class="p">[</span>
+                    <span class="n">constant</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">var_naming_dot_replacement</span><span class="p">)</span>
                 <span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
             <span class="p">}</span>
         <span class="k">return</span> <span class="n">input_dict</span>
@@ -303,6 +335,8 @@
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times_gradient</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_need_to_restart_server</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span><span class="o">.</span><span class="n">job_has_expired</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">True</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_doing_derivative_evaluation</span><span class="p">(</span><span class="n">command</span><span class="p">):</span>
             <span class="k">if</span> <span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_is_first_gradient_evaluation</span><span class="p">()</span>
@@ -345,7 +379,7 @@
             <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">save_dir</span><span class="p">):</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">save_dir</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
                     <span class="k">pass</span>  <span class="c1"># may have been created by now, by a parallel server</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_doing_derivative_evaluation</span><span class="p">(</span><span class="n">command</span><span class="p">):</span>
                 <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">save_dir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">dict_type</span><span class="si">}</span><span class="s2">_derivative</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times_gradient</span><span class="p">)</span><span class="si">}</span><span class="s2">.json&quot;</span>
@@ -382,6 +416,16 @@
                 <span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="nb">input</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">],</span>
             <span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_add_additional_constants_from_baseline_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_dict</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_constants</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">constant</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_constants</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_input</span><span class="p">(</span>
+                <span class="n">constant</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">var_naming_dot_replacement</span><span class="p">),</span>
+                <span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">constant</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">],</span>
+            <span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_add_additional_outputs_from_baseline_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_dict</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_outputs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;additional_outputs&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
         <span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_outputs</span><span class="p">:</span>
@@ -402,9 +446,11 @@
                 <span class="n">ref0</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;objective&quot;</span><span class="p">][</span><span class="n">obj</span><span class="p">][</span><span class="s2">&quot;ref0&quot;</span><span class="p">],</span>
                 <span class="n">scaler</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;objective&quot;</span><span class="p">][</span><span class="n">obj</span><span class="p">][</span><span class="s2">&quot;scaler&quot;</span><span class="p">],</span>
                 <span class="n">adder</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;objective&quot;</span><span class="p">][</span><span class="n">obj</span><span class="p">][</span><span class="s2">&quot;adder&quot;</span><span class="p">],</span>
-                <span class="n">parallel_deriv_color</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;color</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_derivative_coloring</span>
-                <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">parallel_deriv_color</span><span class="o">=</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;color</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_derivative_coloring</span>
+                    <span class="k">else</span> <span class="kc">None</span>
+                <span class="p">),</span>
             <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span> <span class="o">+=</span> <span class="mi">1</span>
 
@@ -424,9 +470,11 @@
                     <span class="n">equals</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">][</span><span class="n">con</span><span class="p">][</span><span class="s2">&quot;equals&quot;</span><span class="p">],</span>
                     <span class="n">scaler</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">][</span><span class="n">con</span><span class="p">][</span><span class="s2">&quot;scaler&quot;</span><span class="p">],</span>
                     <span class="n">adder</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">][</span><span class="n">con</span><span class="p">][</span><span class="s2">&quot;adder&quot;</span><span class="p">],</span>
-                    <span class="n">parallel_deriv_color</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;color</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span><span class="si">}</span><span class="s2">&quot;</span>
-                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_derivative_coloring</span>
-                    <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">parallel_deriv_color</span><span class="o">=</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;color</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_derivative_coloring</span>
+                        <span class="k">else</span> <span class="kc">None</span>
+                    <span class="p">),</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">if</span> <span class="p">(</span>
@@ -441,9 +489,11 @@
                         <span class="n">upper</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">][</span><span class="n">con</span><span class="p">][</span><span class="s2">&quot;upper&quot;</span><span class="p">],</span>
                         <span class="n">scaler</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">][</span><span class="n">con</span><span class="p">][</span><span class="s2">&quot;scaler&quot;</span><span class="p">],</span>
                         <span class="n">adder</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">][</span><span class="n">con</span><span class="p">][</span><span class="s2">&quot;adder&quot;</span><span class="p">],</span>
-                        <span class="n">parallel_deriv_color</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;color</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span><span class="si">}</span><span class="s2">&quot;</span>
-                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_derivative_coloring</span>
-                        <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">parallel_deriv_color</span><span class="o">=</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;color</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span><span class="si">}</span><span class="s2">&quot;</span>
+                            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_derivative_coloring</span>
+                            <span class="k">else</span> <span class="kc">None</span>
+                        <span class="p">),</span>
                     <span class="p">)</span>
                 <span class="k">elif</span> <span class="p">(</span>
                     <span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">][</span><span class="n">con</span><span class="p">][</span><span class="s2">&quot;lower&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mf">1e20</span>
@@ -455,9 +505,11 @@
                         <span class="n">lower</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">][</span><span class="n">con</span><span class="p">][</span><span class="s2">&quot;lower&quot;</span><span class="p">],</span>
                         <span class="n">scaler</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">][</span><span class="n">con</span><span class="p">][</span><span class="s2">&quot;scaler&quot;</span><span class="p">],</span>
                         <span class="n">adder</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">][</span><span class="n">con</span><span class="p">][</span><span class="s2">&quot;adder&quot;</span><span class="p">],</span>
-                        <span class="n">parallel_deriv_color</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;color</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span><span class="si">}</span><span class="s2">&quot;</span>
-                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_derivative_coloring</span>
-                        <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">parallel_deriv_color</span><span class="o">=</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;color</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span><span class="si">}</span><span class="s2">&quot;</span>
+                            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_derivative_coloring</span>
+                            <span class="k">else</span> <span class="kc">None</span>
+                        <span class="p">),</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>  <span class="c1"># enforce upper bound</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">add_constraint</span><span class="p">(</span>
@@ -467,9 +519,11 @@
                         <span class="n">upper</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">][</span><span class="n">con</span><span class="p">][</span><span class="s2">&quot;upper&quot;</span><span class="p">],</span>
                         <span class="n">scaler</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">][</span><span class="n">con</span><span class="p">][</span><span class="s2">&quot;scaler&quot;</span><span class="p">],</span>
                         <span class="n">adder</span><span class="o">=</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">][</span><span class="n">con</span><span class="p">][</span><span class="s2">&quot;adder&quot;</span><span class="p">],</span>
-                        <span class="n">parallel_deriv_color</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;color</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span><span class="si">}</span><span class="s2">&quot;</span>
-                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_derivative_coloring</span>
-                        <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">parallel_deriv_color</span><span class="o">=</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;color</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span><span class="si">}</span><span class="s2">&quot;</span>
+                            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_derivative_coloring</span>
+                            <span class="k">else</span> <span class="kc">None</span>
+                        <span class="p">),</span>
                     <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span> <span class="o">+=</span> <span class="mi">1</span>
 
