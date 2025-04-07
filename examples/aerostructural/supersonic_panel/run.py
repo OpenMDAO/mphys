@@ -4,31 +4,26 @@ import numpy as np
 import openmdao.api as om
 from aerodynamics_mphys import AeroBuilder
 from geometry_morph import GeometryBuilder
-from mpi4py import MPI
 from structures_mphys import StructBuilder
 from xfer_mphys import XferBuilder
 
 from mphys import MPhysVariables, Multipoint
 from mphys.scenarios.aerostructural import ScenarioAeroStructural
 
-comm = MPI.COMM_WORLD
-rank = comm.rank
 
-# panel geometry
-panel_chord = 0.3
-panel_width = 0.01
-
-# panel discretization
-N_el_struct = 20
-N_el_aero = 7
-
-
-# Mphys
 class Model(Multipoint):
     def initialize(self):
         self.options.declare("scenario_name", default="aerostructural")
 
     def setup(self):
+        # panel geometry
+        panel_chord = 0.3
+        panel_width = 0.01
+
+        # panel discretization
+        N_el_struct = 20
+        N_el_aero = 7
+
         self.scenario_name = self.options["scenario_name"]
 
         # ivc
@@ -44,6 +39,16 @@ class Model(Multipoint):
         # create dv_struct, which is the thickness of each structural element
         thickness = 0.001 * np.ones(N_el_struct)
         self.ivc.add_output("dv_struct", thickness)
+
+        ivc_vars = [
+            "modulus",
+            "yield_stress",
+            "density",
+            "mach",
+            "qdyn",
+            "aoa",
+            "dv_struct",
+        ]
 
         # structure setup and builder
         structure_setup = {
@@ -71,17 +76,22 @@ class Model(Multipoint):
         )
         xfer_builder.initialize(self.comm)
 
-        # geometry
-        builders = {"struct": struct_builder, "aero": aero_builder}
-        geometry_builder = GeometryBuilder(builders)
+        # geometry builder
+        geometry_builder = GeometryBuilder()
+        geometry_builder.add_discipline(
+            struct_builder, MPhysVariables.Structures.Geometry
+        )
+        geometry_builder.add_discipline(
+            aero_builder, MPhysVariables.Aerodynamics.Surface.Geometry
+        )
+        geometry_builder.initialize(self.comm)
 
         self.add_subsystem(
             "struct_mesh", struct_builder.get_mesh_coordinate_subsystem()
         )
         self.add_subsystem("aero_mesh", aero_builder.get_mesh_coordinate_subsystem())
-        self.add_subsystem(
-            "geometry", geometry_builder.get_mesh_coordinate_subsystem(), promotes=["*"]
-        )
+        self.add_subsystem("geometry", geometry_builder.get_mesh_coordinate_subsystem())
+        self.connect("geometry_morph_param", "geometry.geometry_morph_param")
 
         # create the run directory
         if self.comm.rank == 0:
@@ -108,32 +118,24 @@ class Model(Multipoint):
             coupling_linear_solver=linear_solver,
         )
 
-        for var in [
-            "modulus",
-            "yield_stress",
-            "density",
-            "mach",
-            "qdyn",
-            "aoa",
-            "dv_struct",
-        ]:
-            self.connect(var, self.scenario_name + "." + var)
+        for var in ivc_vars:
+            self.connect(var, f"{self.scenario_name}.{var}")
 
         self.connect(
             f"aero_mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
-            MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT,
+            f"geometry.{MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT}",
         )
         self.connect(
-            MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT,
-            f"{self.scenario_name}.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}",
+            f"struct_mesh.{MPhysVariables.Structures.Mesh.COORDINATES}",
+            f"geometry.{MPhysVariables.Structures.Geometry.COORDINATES_INPUT}",
         )
 
         self.connect(
-            f"struct_mesh.{MPhysVariables.Structures.Mesh.COORDINATES}",
-            MPhysVariables.Structures.Geometry.COORDINATES_INPUT,
+            f"geometry.{MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT}",
+            f"{self.scenario_name}.{MPhysVariables.Aerodynamics.Surface.COORDINATES_INITIAL}",
         )
         self.connect(
-            MPhysVariables.Structures.Geometry.COORDINATES_OUTPUT,
+            f"geometry.{MPhysVariables.Structures.Geometry.COORDINATES_OUTPUT}",
             f"{self.scenario_name}.{MPhysVariables.Structures.COORDINATES}",
         )
 

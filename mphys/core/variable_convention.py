@@ -1,3 +1,16 @@
+class MPhysGeometry:
+    """
+    Base class Geometry names so that the geometry inputs and outputs are
+    consistent across disciplines
+    """
+
+    #: node coordinates, input to geometry subsystem
+    COORDINATES_INPUT = "xdiscipline0_geometry_input"
+
+    #: node coordinates, output of geometry subsystem
+    COORDINATES_OUTPUT = "xdiscipline0_geometry_output"
+
+
 class MPhysVariables:
     class Aerodynamics:
         class FlowConditions:
@@ -28,7 +41,7 @@ class MPhysVariables:
             #: current node coordinates, deformed by geometry and/or structures
             COORDINATES = "x_aero"
 
-            class Geometry:
+            class Geometry(MPhysGeometry):
                 #: node coordinates, input to geometry subsystem
                 COORDINATES_INPUT = "x_aero0_geometry_input"
 
@@ -51,7 +64,7 @@ class MPhysVariables:
         #: Coordinates at start of analysis
         COORDINATES = "x_struct0"
 
-        class Geometry:
+        class Geometry(MPhysGeometry):
             #: node coordinates, input to geometry subsystem
             COORDINATES_INPUT = "x_struct0_geometry_input"
 
@@ -73,7 +86,7 @@ class MPhysVariables:
             #: heat flux * local surface area at mesh nodes
             AERODYNAMIC = "q_aero_thermal"
 
-        class Geometry:
+        class Geometry(MPhysGeometry):
             #: node coordinates, input to geometry subsystem
             COORDINATES_INPUT = "x_thermal0_geometry_input"
 

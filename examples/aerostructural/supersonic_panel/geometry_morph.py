@@ -1,81 +1,79 @@
+from typing import List
+
 import numpy as np
 import openmdao.api as om
 from mpi4py import MPI
 
-from mphys import Builder, MPhysVariables
+from mphys import Builder, MPhysGeometry
 
 
-# EC which morphs the geometry
 class GeometryMorph(om.ExplicitComponent):
     def initialize(self):
-        self.options.declare("names")
-        self.options.declare("n_nodes")
+        self.options.declare(
+            "discipline_geometries",
+            types=list,
+            desc="list of MPhysGeometry classes for the disciplines from the MPhys variable convention",
+        )
+        self.options.declare(
+            "discipline_builders",
+            types=list,
+            desc="list of Builder classes for the disciplines",
+        )
 
     def setup(self):
         self.add_input("geometry_morph_param")
+        self.discipline_geometries: List[MPhysGeometry] = self.options[
+            "discipline_geometries"
+        ]
+        discipline_builders: List[Builder] = self.options["discipline_builders"]
 
-        self.x_names = {}
-        for name, n_nodes in zip(self.options["names"], self.options["n_nodes"]):
-            if name == "aero":
-                self.x_names[name] = {
-                    "input": MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT,
-                    "output": MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_OUTPUT,
-                }
-            elif name == "struct":
-                self.x_names[name] = {
-                    "input": MPhysVariables.Structures.Geometry.COORDINATES_INPUT,
-                    "output": MPhysVariables.Structures.Geometry.COORDINATES_OUTPUT,
-                }
-            self.add_input(
-                self.x_names[name]["input"],
-                distributed=True,
-                shape_by_conn=True,
-                tags=["mphys_coordinates"],
-            )
+        for geom, builder in zip(self.discipline_geometries, discipline_builders):
+            self.add_input(geom.COORDINATES_INPUT, distributed=True, shape_by_conn=True)
+
             self.add_output(
-                self.x_names[name]["output"],
-                shape=n_nodes * 3,
+                geom.COORDINATES_OUTPUT,
+                shape=3 * builder.get_number_of_nodes(),
                 distributed=True,
                 tags=["mphys_coordinates"],
             )
 
     def compute(self, inputs, outputs):
-        for name in self.options["names"]:
-            outputs[self.x_names[name]["output"]] = (
-                inputs["geometry_morph_param"] * inputs[self.x_names[name]["input"]]
+        for discip in self.discipline_geometries:
+            outputs[discip.COORDINATES_OUTPUT] = (
+                inputs["geometry_morph_param"] * inputs[discip.COORDINATES_INPUT]
             )
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == "rev":
-            for name in self.options["names"]:
-                if self.x_names[name]["output"] in d_outputs:
+            for discip in self.discipline_geometries:
+                if discip.COORDINATES_OUTPUT in d_outputs:
                     if "geometry_morph_param" in d_inputs:
                         d_inputs["geometry_morph_param"] += self.comm.allreduce(
                             np.sum(
-                                d_outputs[self.x_names[name]["output"]]
-                                * inputs[self.x_names[name]["input"]]
+                                d_outputs[discip.COORDINATES_OUTPUT]
+                                * inputs[discip.COORDINATES_INPUT]
                             ),
                             op=MPI.SUM,
                         )
 
-                    if self.x_names[name]["input"] in d_inputs:
-                        d_inputs[self.x_names[name]["input"]] += (
-                            d_outputs[self.x_names[name]["output"]]
+                    if discip.COORDINATES_INPUT in d_inputs:
+                        d_inputs[discip.COORDINATES_INPUT] += (
+                            d_outputs[discip.COORDINATES_OUTPUT]
                             * inputs["geometry_morph_param"]
                         )
 
 
-# Builder
 class GeometryBuilder(Builder):
-    def __init__(self, builders):
-        self.builders = builders
-        self.names = None
+    def __init__(self, discipline_builders=None, discipline_geometries=None):
+        self.discipline_builders = discipline_builders or []
+        self.discipline_geometries = discipline_geometries or []
+
+    def add_discipline(self, builder: Builder, geometry):
+        self.discipline_geometries.append(geometry)
+        self.discipline_builders.append(builder)
 
     def get_mesh_coordinate_subsystem(self, scenario_name=None):
-        if self.names is None:
-            self.names = []
-            self.n_nodes = []
-            for name, builder in self.builders.items():
-                self.names.append(name)
-                self.n_nodes.append(builder.get_number_of_nodes())
-        return GeometryMorph(names=self.names, n_nodes=self.n_nodes)
+        return GeometryMorph(
+            discipline_builders=self.discipline_builders,
+            discipline_geometries=self.discipline_geometries,
+        )

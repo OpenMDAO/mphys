@@ -12,4 +12,4 @@ from .mask_converter import (
 from .mphys_group import MPhysGroup
 from .multipoint import Multipoint, MultipointParallel
 from .scenario import Scenario
-from .variable_convention import MPhysVariables
+from .variable_convention import MPhysGeometry, MPhysVariables
