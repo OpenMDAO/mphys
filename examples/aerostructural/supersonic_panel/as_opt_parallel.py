@@ -8,11 +8,8 @@ from openmdao.core.constants import _DEFAULT_OUT_STREAM
 from structures_mphys import StructBuilder
 from xfer_mphys import XferBuilder
 
-from mphys import Multipoint, MultipointParallel
+from mphys import MPhysVariables, MultipointParallel
 from mphys.scenarios.aerostructural import ScenarioAeroStructural
-
-# True=check objective/constraint derivatives, False=run optimization
-check_totals = False
 
 # panel geometry
 panel_chord = 0.3
@@ -23,7 +20,6 @@ N_el_struct = 20
 N_el_aero = 7
 
 
-# Mphys parallel multipoint scenarios
 class AerostructParallel(MultipointParallel):
     def initialize(self):
         self.options.declare("aero_builder")
@@ -108,8 +104,13 @@ class Model(om.Group):
         )
 
         # geometry
-        builders = {"struct": struct_builder, "aero": aero_builder}
-        geometry_builder = GeometryBuilder(builders)
+        geometry_builder = GeometryBuilder()
+        geometry_builder.add_discipline(
+            struct_builder, MPhysVariables.Structures.Geometry
+        )
+        geometry_builder.add_discipline(
+            aero_builder, MPhysVariables.Aerodynamics.Surface.Geometry
+        )
 
         # add parallel multipoint group
         self.add_subsystem(
@@ -125,11 +126,9 @@ class Model(om.Group):
 
         for i in range(len(self.scenario_names)):
 
-            # connect scalar inputs to the scenario
             for var in ["modulus", "yield_stress", "density", "dv_struct"]:
                 self.connect(var, "multipoint." + self.scenario_names[i] + "." + var)
 
-            # connect vector inputs
             for var in ["mach", "qdyn", "aoa"]:
                 self.connect(
                     var,
@@ -137,7 +136,6 @@ class Model(om.Group):
                     src_indices=[i],
                 )
 
-            # connect top-level geom parameter
             self.connect(
                 "geometry_morph_param",
                 "multipoint."
@@ -145,18 +143,17 @@ class Model(om.Group):
                 + ".geometry.geometry_morph_param",
             )
 
-        # add design vars
         self.add_design_var("geometry_morph_param", lower=0.1, upper=10.0)
         self.add_design_var("dv_struct", lower=1.0e-4, upper=1.0e-2, ref=1.0e-3)
         self.add_design_var("aoa", lower=-20.0, upper=20.0)
 
-        # add objective/constraints
         self.add_objective(f"multipoint.{self.scenario_names[0]}.mass", ref=0.01)
         self.add_constraint(
             f"multipoint.{self.scenario_names[0]}.func_struct",
             upper=1.0,
             parallel_deriv_color="struct_cons",
         )  # run func_struct derivatives in parallel
+
         self.add_constraint(
             f"multipoint.{self.scenario_names[1]}.func_struct",
             upper=1.0,
@@ -168,6 +165,7 @@ class Model(om.Group):
             ref=0.1,
             parallel_deriv_color="lift_cons",
         )  # run C_L derivatives in parallel
+
         self.add_constraint(
             f"multipoint.{self.scenario_names[1]}.C_L",
             lower=0.45,
@@ -180,101 +178,92 @@ def get_model(scenario_names):
     return Model(scenario_names=scenario_names)
 
 
-# run model and check derivatives
-if __name__ == "__main__":
+def run_check_totals(prob: om.Problem):
+    prob.setup(mode="rev")
+    om.n2(prob, show_browser=False, outfile="n2.html")
+    prob.run_model()
+    prob.check_totals(
+        step_calc="rel_avg",
+        compact_print=True,
+        directional=False,
+        show_progress=True,
+        out_stream=None if prob.model.comm.rank > 0 else _DEFAULT_OUT_STREAM,
+    )
+
+
+def run_optimization(prob: om.Problem):
+    prob.driver = om.ScipyOptimizeDriver(
+        debug_print=["nl_cons", "objs", "desvars", "totals"]
+    )
+    prob.driver.options["optimizer"] = "SLSQP"
+    prob.driver.options["tol"] = 1e-5
+    prob.driver.options["disp"] = True
+    prob.driver.options["maxiter"] = 300
+
+    # add optimization recorder
+    prob.driver.recording_options["record_objectives"] = True
+    prob.driver.recording_options["record_constraints"] = True
+    prob.driver.recording_options["record_desvars"] = True
+    prob.driver.recording_options["record_derivatives"] = True
+
+    recorder = om.SqliteRecorder("optimization_history.sql")
+    prob.driver.add_recorder(recorder)
+
+    # run the optimization
+    prob.setup(mode="rev")
+    prob.run_driver()
+    prob.cleanup()
+
+    write_out_optimization_data(prob, "optimization_history.sql")
+
+
+def write_out_optimization_data(prob: om.Problem, sql_file: str):
+    if prob.model.comm.rank == 0:
+        cr = om.CaseReader(f"{prob.get_outputs_dir()}/{sql_file}")
+        driver_cases = cr.list_cases("driver")
+
+        case = cr.get_case(0)
+        cons = case.get_constraints()
+        dvs = case.get_design_vars()
+        objs = case.get_objectives()
+
+        with open("optimization_history.dat", "w+") as f:
+            for i, k in enumerate(objs.keys()):
+                f.write("objective: " + k + "\n")
+                for j, case_id in enumerate(driver_cases):
+                    f.write(
+                        f"{j} {cr.get_case(case_id).get_objectives(scaled=False)[k][0]}\n"
+                    )
+                f.write("\n")
+
+            for i, k in enumerate(cons.keys()):
+                f.write("constraint: " + k + "\n")
+                for j, case_id in enumerate(driver_cases):
+                    constraints = cr.get_case(case_id).get_constraints(scaled=False)[k]
+                    line = f"{j} {' '.join(map(str, constraints))}\n"
+                    f.write(line)
+                f.write("\n")
+
+            for i, k in enumerate(dvs.keys()):
+                f.write("DV: " + k + "\n")
+                for j, case_id in enumerate(driver_cases):
+                    design_vars = cr.get_case(case_id).get_design_vars(scaled=False)[k]
+                    line = f"{j} {' '.join(map(str, design_vars))}\n"
+                    f.write(line)
+
+
+def main():
+
+    check_totals = False
 
     prob = om.Problem()
     prob.model = Model()
 
     if check_totals:
-        prob.setup(mode="rev")
-        om.n2(prob, show_browser=False, outfile="n2.html")
-        prob.run_model()
-        prob.check_totals(
-            step_calc="rel_avg",
-            compact_print=True,
-            directional=False,
-            show_progress=True,
-            out_stream=None if prob.model.comm.rank > 0 else _DEFAULT_OUT_STREAM,
-        )
-
+        run_check_totals(prob)
     else:
+        run_optimization(prob)
 
-        # setup optimization driver
-        prob.driver = om.ScipyOptimizeDriver(
-            debug_print=["nl_cons", "objs", "desvars", "totals"]
-        )
-        prob.driver.options["optimizer"] = "SLSQP"
-        prob.driver.options["tol"] = 1e-5
-        prob.driver.options["disp"] = True
-        prob.driver.options["maxiter"] = 300
 
-        # add optimization recorder
-        prob.driver.recording_options["record_objectives"] = True
-        prob.driver.recording_options["record_constraints"] = True
-        prob.driver.recording_options["record_desvars"] = True
-        prob.driver.recording_options["record_derivatives"] = True
-
-        recorder = om.SqliteRecorder("optimization_history.sql")
-        prob.driver.add_recorder(recorder)
-
-        # run the optimization
-        prob.setup(mode="rev")
-        prob.run_driver()
-        prob.cleanup()
-
-        if prob.model.comm.rank == 0:  # write out data
-            cr = om.CaseReader(f"{prob.get_outputs_dir()}/optimization_history.sql")
-            driver_cases = cr.list_cases("driver")
-
-            case = cr.get_case(0)
-            cons = case.get_constraints()
-            dvs = case.get_design_vars()
-            objs = case.get_objectives()
-
-            f = open("optimization_history.dat", "w+")
-
-            for i, k in enumerate(objs.keys()):
-                f.write("objective: " + k + "\n")
-                for j, case_id in enumerate(driver_cases):
-                    f.write(
-                        str(j)
-                        + " "
-                        + str(cr.get_case(case_id).get_objectives(scaled=False)[k][0])
-                        + "\n"
-                    )
-                f.write(" " + "\n")
-
-            for i, k in enumerate(cons.keys()):
-                f.write("constraint: " + k + "\n")
-                for j, case_id in enumerate(driver_cases):
-                    f.write(
-                        str(j)
-                        + " "
-                        + " ".join(
-                            map(
-                                str,
-                                cr.get_case(case_id).get_constraints(scaled=False)[k],
-                            )
-                        )
-                        + "\n"
-                    )
-                f.write(" " + "\n")
-
-            for i, k in enumerate(dvs.keys()):
-                f.write("DV: " + k + "\n")
-                for j, case_id in enumerate(driver_cases):
-                    f.write(
-                        str(j)
-                        + " "
-                        + " ".join(
-                            map(
-                                str,
-                                cr.get_case(case_id).get_design_vars(scaled=False)[k],
-                            )
-                        )
-                        + "\n"
-                    )
-                f.write(" " + "\n")
-
-            f.close()
+if __name__ == "__main__":
+    main()

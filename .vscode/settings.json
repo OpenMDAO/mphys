@@ -1,16 +1,10 @@
 {
-    "python.formatting.provider": "black",
-    "python.testing.unittestArgs": [
-        "-v",
-        "-s",
-        "./tests/unit_tests",
-        "-p",
-        "test*.py"
-    ],
-    "python.testing.pytestEnabled": false,
-    "python.testing.nosetestsEnabled": false,
-    "python.testing.unittestEnabled": true,
-    "python.analysis.useImportHeuristic": true,
-    "esbonio.server.enabled": true,
-    "esbonio.sphinx.confDir": "${workspaceFolder}/docs"
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true, // black on save
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "always" // isort on save
+        }
+    },
+    "flake8.args": ["--config", ".flake8"]
 }

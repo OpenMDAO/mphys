@@ -6,7 +6,7 @@ from mpi4py import MPI
 from structures_mphys import StructBuilder
 from xfer_mphys import XferBuilder
 
-from mphys import Multipoint, MultipointParallel
+from mphys import MPhysVariables, MultipointParallel
 from mphys.scenarios.aerostructural import ScenarioAeroStructural
 
 comm = MPI.COMM_WORLD
@@ -21,9 +21,7 @@ N_el_struct = 20
 N_el_aero = 7
 
 
-# Mphys parallel multipoint scenarios
 class AerostructParallel(MultipointParallel):
-    # class AerostructParallel(Multipoint):
     def __init__(
         self,
         aero_builder=None,
@@ -61,11 +59,8 @@ class AerostructParallel(MultipointParallel):
             )
 
 
-# OM group
 class Model(om.Group):
     def setup(self):
-
-        # ivc
         self.add_subsystem("ivc", om.IndepVarComp(), promotes=["*"])
         self.ivc.add_output("modulus", val=70e9)
         self.ivc.add_output("yield_stress", val=270e6)
@@ -100,14 +95,17 @@ class Model(om.Group):
             aero_builder=aero_builder, struct_builder=struct_builder
         )
 
-        # geometry
-        builders = {"struct": struct_builder, "aero": aero_builder}
-        geometry_builder = GeometryBuilder(builders)
+        # geometry builder
+        geometry_builder = GeometryBuilder()
+        geometry_builder.add_discipline(
+            struct_builder, MPhysVariables.Structures.Geometry
+        )
+        geometry_builder.add_discipline(
+            aero_builder, MPhysVariables.Aerodynamics.Surface.Geometry
+        )
 
-        # list of scenario names
         scenario_names = ["aerostructural1", "aerostructural2"]
 
-        # add parallel multipoint group
         self.add_subsystem(
             "multipoint",
             AerostructParallel(
@@ -120,27 +118,21 @@ class Model(om.Group):
         )
 
         for i in range(len(scenario_names)):
-
-            # connect scalar inputs to the scenario
             for var in ["modulus", "yield_stress", "density", "dv_struct"]:
                 self.connect(var, "multipoint." + scenario_names[i] + "." + var)
 
-            # connect vector inputs
             for var in ["mach", "qdyn", "aoa"]:
                 self.connect(
                     var, "multipoint." + scenario_names[i] + "." + var, src_indices=[i]
                 )
 
-            # connect top-level geom parameter
             self.connect(
                 "geometry_morph_param",
                 "multipoint." + scenario_names[i] + ".geometry.geometry_morph_param",
             )
 
 
-# run model and check derivatives
-if __name__ == "__main__":
-
+def main():
     prob = om.Problem()
     prob.model = Model()
     prob.setup(mode="rev")
@@ -192,3 +184,7 @@ if __name__ == "__main__":
     )
 
     prob.check_partials(compact_print=True, step_calc="rel_avg")
+
+
+if __name__ == "__main__":
+    main()
