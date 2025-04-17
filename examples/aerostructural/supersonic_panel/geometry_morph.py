@@ -28,7 +28,12 @@ class GeometryMorph(om.ExplicitComponent):
         discipline_builders: List[Builder] = self.options["discipline_builders"]
 
         for geom, builder in zip(self.discipline_geometries, discipline_builders):
-            self.add_input(geom.COORDINATES_INPUT, distributed=True, shape_by_conn=True)
+            self.add_input(
+                geom.COORDINATES_INPUT,
+                distributed=True,
+                shape_by_conn=True,
+                tags=["mphys_coordinates"],
+            )
 
             self.add_output(
                 geom.COORDINATES_OUTPUT,

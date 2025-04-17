@@ -78,3 +78,7 @@ def main():
         run_check_totals(prob)
     else:
         run_optimization(prob)
+
+
+if __name__ == "__main__":
+    main()
