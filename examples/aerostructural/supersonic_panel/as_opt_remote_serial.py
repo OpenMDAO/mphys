@@ -42,18 +42,20 @@ def run_optimization(prob: om.Problem):
     prob.model.remote.stop_server()
     prob.cleanup()
 
-    write_out_optimization_data(prob, sql_file)
+    if prob.model.comm.rank==0:
 
-    with open(sql_file, "a") as f:
-        f.write("run times, function\n")
-        for i in range(len(prob.model.remote.times_function)):
-            f.write(f"{prob.model.remote.times_function[i]}\n")
-        f.write(" " + "\n")
+        write_out_optimization_data(prob, sql_file)
 
-        f.write("run times, gradient\n")
-        for i in range(len(prob.model.remote.times_gradient)):
-            f.write(f"{prob.model.remote.times_gradient[i]}\n")
-        f.write(" " + "\n")
+        with open(sql_file, "a") as f:
+            f.write("run times, function\n")
+            for i in range(len(prob.model.remote.times_function)):
+                f.write(f"{prob.model.remote.times_function[i]}\n")
+            f.write(" " + "\n")
+
+            f.write("run times, gradient\n")
+            for i in range(len(prob.model.remote.times_gradient)):
+                f.write(f"{prob.model.remote.times_gradient[i]}\n")
+            f.write(" " + "\n")
 
 
 def main():
