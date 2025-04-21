@@ -42,7 +42,7 @@ def run_optimization(prob: om.Problem):
     prob.model.remote.stop_server()
     prob.cleanup()
 
-    if prob.model.comm.rank==0:
+    if prob.model.comm.rank == 0:
 
         write_out_optimization_data(prob, sql_file)
 
