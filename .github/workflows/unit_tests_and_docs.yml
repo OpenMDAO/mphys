@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install, run unit test, build docs
         run: |
@@ -39,7 +39,7 @@ jobs:
           echo "=============================================================";
           source $CONDA/etc/profile.d/conda.sh;
           echo $CONDA/bin >> $GITHUB_PATH;
-          conda create -n OpenMDAO -c conda-forge python=3.12 mamba=1.5.1 -q -y;
+          conda create -n OpenMDAO -c conda-forge python=3.13 mamba=2.0.5 -q -y;
           conda activate OpenMDAO;
           pip install --upgrade pip;
           conda install numpy=2.2 scipy=1.15 -q -y;
