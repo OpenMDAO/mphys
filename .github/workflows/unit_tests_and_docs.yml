@@ -46,7 +46,7 @@ jobs:
           echo "=============================================================";
           echo "Install PETSc";
           echo "=============================================================";
-          conda install -c conda-forge mpi4py petsc4py=3.21 -q -y;
+          conda install -c conda-forge mpi4py=3.1 petsc4py=3.21 -q -y;
           echo "=============================================================";
           echo "Install OpenMDAO";
           echo "=============================================================";
@@ -58,6 +58,11 @@ jobs:
           pip install .[all];
           cd ../mphys;
           pip install -e .[all];
+
+          echo "=============================================================";
+          echo "Install optional dependencies";
+          echo "=============================================================";
+          conda install -c "smdogroup/label/complex" -c smdogroup -c conda-forge "tacs>=3.8.0" "funtofem>=0.3.8" -q -y;
 
           echo "============================================================="
           echo "Check MPI and PETSc installation"
@@ -79,10 +84,6 @@ jobs:
           python -c "import numpy as np; print(np.array([1,1,1]))"
           echo "-----------------------"
 
-          echo "=============================================================";
-          echo "Install optional dependencies";
-          echo "=============================================================";
-          conda install -c "smdogroup/label/complex" -c smdogroup -c conda-forge "tacs>=3.8.0" "funtofem>=0.3.8" -q -y;
           pip install openaerostruct;
           echo "=============================================================";
           echo "List installed packages/versions";
