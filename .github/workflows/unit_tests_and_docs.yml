@@ -75,6 +75,9 @@ jobs:
                                  x = petsc4py.PETSc.Vec().createWithArray(numpy.ones(5)*comm.rank, comm=comm);  \
                                  print(x.getArray())"
           echo "-----------------------"
+          echo "Quick test of numpy:"
+          python -c "import numpy as np; print(np.array([1,1,1]))"
+          echo "-----------------------"
 
           echo "=============================================================";
           echo "Install optional dependencies";
