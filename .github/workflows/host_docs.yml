@@ -34,14 +34,14 @@ jobs:
           echo "=============================================================";
           source $CONDA/etc/profile.d/conda.sh;
           echo $CONDA/bin >> $GITHUB_PATH;
-          conda create -n OpenMDAO -c conda-forge python=3.12 mamba=2.0.5 -q -y;
+          conda create -n OpenMDAO -c conda-forge python=3.12 mamba=2.0 -q -y;
           conda activate OpenMDAO;
           pip install --upgrade pip
           conda install numpy=2.2 scipy=1.15 -q -y;
           echo "=============================================================";
           echo "Install PETSc";
           echo "=============================================================";
-          conda install mpi4py petsc4py=3.21.5 -q -y;
+          conda install -c conda-forge mpi4py petsc4py=3.21 -q -y;
           echo "=============================================================";
           echo "Install OpenMDAO";
           echo "=============================================================";
