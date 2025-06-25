@@ -82,7 +82,7 @@ jobs:
           echo "=============================================================";
           echo "Install optional dependencies";
           echo "=============================================================";
-          conda install -c "smdogroup/label/complex" -c smdogroup -c conda-forge "tacs>=3.8.0" "funtofem>=0.3.8" -q -y;
+          #conda install -c "smdogroup/label/complex" -c smdogroup -c conda-forge "tacs>=3.8.0" "funtofem>=0.3.8" -q -y;
 
           pip install openaerostruct;
           echo "=============================================================";
