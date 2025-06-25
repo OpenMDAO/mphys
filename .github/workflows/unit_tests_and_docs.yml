@@ -59,11 +59,6 @@ jobs:
           cd ../mphys;
           pip install -e .[all];
 
-          echo "=============================================================";
-          echo "Install optional dependencies";
-          echo "=============================================================";
-          conda install -c "smdogroup/label/complex" -c smdogroup -c conda-forge "tacs>=3.8.0" "funtofem>=0.3.8" -q -y;
-
           echo "============================================================="
           echo "Check MPI and PETSc installation"
           echo "============================================================="
@@ -83,6 +78,11 @@ jobs:
           echo "Quick test of numpy:"
           python -c "import numpy as np; print(np.array([1,1,1]))"
           echo "-----------------------"
+
+          echo "=============================================================";
+          echo "Install optional dependencies";
+          echo "=============================================================";
+          conda install -c "smdogroup/label/complex" -c smdogroup -c conda-forge "tacs>=3.8.0" "funtofem>=0.3.8" -q -y;
 
           pip install openaerostruct;
           echo "=============================================================";
