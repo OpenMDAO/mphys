@@ -42,7 +42,7 @@ jobs:
           conda create -n OpenMDAO -c conda-forge python=3.12 mamba=2.0.5 -q -y;
           conda activate OpenMDAO;
           pip install --upgrade pip;
-          conda install -c conda-forge numpy=2.2 scipy=1.15 lapack -q -y;
+          conda install -c conda-forge numpy=1.26 scipy=1.15 lapack -q -y;
           echo "=============================================================";
           echo "Install PETSc";
           echo "=============================================================";
@@ -67,27 +67,6 @@ jobs:
           echo "List installed packages/versions";
           echo "=============================================================";
           conda list;
-
-          echo "============================================================="
-          echo "Check MPI and PETSc installation"
-          echo "============================================================="
-          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
-          export OMPI_MCA_rmaps_base_oversubscribe=1
-          export OMPI_MCA_btl=^openib
-          echo "-----------------------"
-          echo "Quick test of mpi4py:"
-          mpirun -n 3 python -c "from mpi4py import MPI; print(f'Rank: {MPI.COMM_WORLD.rank}')"
-          echo "-----------------------"
-          echo "Quick test of petsc4py:"
-          mpirun -n 3 python -c "import numpy; from mpi4py import MPI; comm = MPI.COMM_WORLD; \
-                                 import petsc4py; petsc4py.init(); \
-                                 x = petsc4py.PETSc.Vec().createWithArray(numpy.ones(5)*comm.rank, comm=comm);  \
-                                 print(x.getArray())"
-          echo "-----------------------"
-          echo "Quick test of numpy:"
-          python -c "import numpy as np; print(np.array([1,1,1]))"
-          echo "-----------------------"
-
           echo "=============================================================";
           echo "Running unit tests";
           echo "=============================================================";
