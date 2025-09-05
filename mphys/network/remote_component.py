@@ -346,6 +346,7 @@ class RemoteComp(om.ExplicitComponent):
             self.add_input(
                 dv.replace(".", self.var_naming_dot_replacement),
                 output_dict["design_vars"][dv]["val"],
+                units=output_dict["design_vars"][dv]["units"],
             )
             if dv not in self._design_vars.keys():
                 self.add_design_var(
@@ -364,6 +365,7 @@ class RemoteComp(om.ExplicitComponent):
             self.add_input(
                 input.replace(".", self.var_naming_dot_replacement),
                 output_dict["additional_inputs"][input]["val"],
+                units=output_dict["additional_inputs"][input]["units"],
             )
 
     def _add_additional_constants_from_baseline_model(self, output_dict):
@@ -374,6 +376,7 @@ class RemoteComp(om.ExplicitComponent):
             self.add_input(
                 constant.replace(".", self.var_naming_dot_replacement),
                 output_dict["additional_constants"][constant]["val"],
+                units=output_dict["additional_constants"][constant]["units"],
             )
 
     def _add_additional_outputs_from_baseline_model(self, output_dict):
@@ -382,6 +385,7 @@ class RemoteComp(om.ExplicitComponent):
             self.add_output(
                 output.replace(".", self.var_naming_dot_replacement),
                 output_dict["additional_outputs"][output]["val"],
+                units=output_dict["additional_outputs"][output]["units"],
             )
 
     def _add_objectives_from_baseline_model(self, output_dict):
@@ -389,6 +393,7 @@ class RemoteComp(om.ExplicitComponent):
             self.add_output(
                 obj.replace(".", self.var_naming_dot_replacement),
                 output_dict["objective"][obj]["val"],
+                units=output_dict["objective"][obj]["units"],
             )
             self.add_objective(
                 obj.replace(".", self.var_naming_dot_replacement),
@@ -409,6 +414,7 @@ class RemoteComp(om.ExplicitComponent):
             self.add_output(
                 con.replace(".", self.var_naming_dot_replacement),
                 output_dict["constraints"][con]["val"],
+                units=output_dict["constraints"][con]["units"],
             )
             if (
                 output_dict["constraints"][con]["equals"] is not None
