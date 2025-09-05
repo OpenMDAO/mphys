@@ -49,6 +49,7 @@ class Server:
         self.additional_constants = None
         self.design_counter = 0  # more debugging info for client side json dumping
         self.write_n2 = write_n2
+        self.metadata = None
 
         self._load_the_model()
 
@@ -135,11 +136,19 @@ class Server:
                     ][dv][key].tolist()
         return remote_output_dict
 
+    def _get_variable_units(self, prom_variable_name):
+        if self.metadata is None:
+            self.metadata = self.prob.model.get_io_metadata(return_rel_names=True)
+        for variable_name in self.metadata.keys():
+            if self.metadata[variable_name]['prom_name']==prom_variable_name:
+                return self.metadata[variable_name]['units']
+
     def _gather_additional_inputs_from_om_problem(self, remote_output_dict={}):
         remote_output_dict["additional_inputs"] = {}
         for input in self.additional_inputs:
             remote_output_dict["additional_inputs"][input] = {
-                "val": self.prob.get_val(input, get_remote=True)
+                "val": self.prob.get_val(input, get_remote=True),
+                "units": self._get_variable_units(input),
             }
             if hasattr(remote_output_dict["additional_inputs"][input]["val"], "tolist"):
                 remote_output_dict["additional_inputs"][input][
@@ -151,7 +160,8 @@ class Server:
         remote_output_dict["additional_constants"] = {}
         for constant in self.additional_constants:
             remote_output_dict["additional_constants"][constant] = {
-                "val": self.prob.get_val(constant)
+                "val": self.prob.get_val(constant),
+                "units": self._get_variable_units(constant),
             }
             if hasattr(
                 remote_output_dict["additional_constants"][constant]["val"], "tolist"
@@ -175,6 +185,7 @@ class Server:
                 "val": self.prob.get_val(r, get_remote=True),
                 "ref": responses[r]["ref"],
                 "ref0": responses[r]["ref0"],
+                "units": responses[r]['units'],
             }
             remote_output_dict[response_type][r] = self._set_reference_vals(
                 remote_output_dict[response_type][r], responses[r]
@@ -286,7 +297,8 @@ class Server:
         remote_output_dict["additional_outputs"] = {}
         for output in self.additional_outputs:
             remote_output_dict["additional_outputs"][output] = {
-                "val": self.prob.get_val(output, get_remote=True)
+                "val": self.prob.get_val(output, get_remote=True),
+                "units": self._get_variable_units(output),
             }
             if hasattr(
                 remote_output_dict["additional_outputs"][output]["val"], "tolist"
