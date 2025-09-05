@@ -122,10 +122,10 @@ class Server:
             remote_output_dict["design_vars"][dv] = self._set_reference_vals(
                 remote_output_dict["design_vars"][dv], design_vars[dv]
             )
-            remote_output_dict["design_vars"][
-                dv
-            ] = self._apply_reference_vals_to_desvar_bounds(
-                remote_output_dict["design_vars"][dv]
+            remote_output_dict["design_vars"][dv] = (
+                self._apply_reference_vals_to_desvar_bounds(
+                    remote_output_dict["design_vars"][dv]
+                )
             )
 
             # convert to lists for json input/output
@@ -140,8 +140,8 @@ class Server:
         if self.metadata is None:
             self.metadata = self.prob.model.get_io_metadata(return_rel_names=True)
         for variable_name in self.metadata.keys():
-            if self.metadata[variable_name]['prom_name']==prom_variable_name:
-                return self.metadata[variable_name]['units']
+            if self.metadata[variable_name]["prom_name"] == prom_variable_name:
+                return self.metadata[variable_name]["units"]
 
     def _gather_additional_inputs_from_om_problem(self, remote_output_dict={}):
         remote_output_dict["additional_inputs"] = {}
@@ -151,9 +151,9 @@ class Server:
                 "units": self._get_variable_units(input),
             }
             if hasattr(remote_output_dict["additional_inputs"][input]["val"], "tolist"):
-                remote_output_dict["additional_inputs"][input][
-                    "val"
-                ] = remote_output_dict["additional_inputs"][input]["val"].tolist()
+                remote_output_dict["additional_inputs"][input]["val"] = (
+                    remote_output_dict["additional_inputs"][input]["val"].tolist()
+                )
         return remote_output_dict
 
     def _gather_additional_constants_from_om_problem(self, remote_output_dict={}):
@@ -166,9 +166,9 @@ class Server:
             if hasattr(
                 remote_output_dict["additional_constants"][constant]["val"], "tolist"
             ):
-                remote_output_dict["additional_constants"][constant][
-                    "val"
-                ] = remote_output_dict["additional_constants"][constant]["val"].tolist()
+                remote_output_dict["additional_constants"][constant]["val"] = (
+                    remote_output_dict["additional_constants"][constant]["val"].tolist()
+                )
         return remote_output_dict
 
     def _gather_design_outputs_from_om_problem(self, remote_output_dict={}):
@@ -185,7 +185,7 @@ class Server:
                 "val": self.prob.get_val(r, get_remote=True),
                 "ref": responses[r]["ref"],
                 "ref0": responses[r]["ref0"],
-                "units": responses[r]['units'],
+                "units": responses[r]["units"],
             }
             remote_output_dict[response_type][r] = self._set_reference_vals(
                 remote_output_dict[response_type][r], responses[r]
@@ -199,10 +199,10 @@ class Server:
                         "equals": responses[r]["equals"],
                     }
                 )
-                remote_output_dict[response_type][
-                    r
-                ] = self._apply_reference_vals_to_constraint_bounds(
-                    remote_output_dict[response_type][r]
+                remote_output_dict[response_type][r] = (
+                    self._apply_reference_vals_to_constraint_bounds(
+                        remote_output_dict[response_type][r]
+                    )
                 )
 
             # convert to lists for json input/output
@@ -303,9 +303,9 @@ class Server:
             if hasattr(
                 remote_output_dict["additional_outputs"][output]["val"], "tolist"
             ):
-                remote_output_dict["additional_outputs"][output][
-                    "val"
-                ] = remote_output_dict["additional_outputs"][output]["val"].tolist()
+                remote_output_dict["additional_outputs"][output]["val"] = (
+                    remote_output_dict["additional_outputs"][output]["val"].tolist()
+                )
         return remote_output_dict
 
     def _gather_design_derivatives_from_om_problem(self, remote_output_dict):
