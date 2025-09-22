@@ -426,6 +426,7 @@ class RemoteComp(om.ExplicitComponent):
                     equals=output_dict["constraints"][con]["equals"],
                     scaler=output_dict["constraints"][con]["scaler"],
                     adder=output_dict["constraints"][con]["adder"],
+                    linear=output_dict["constraints"][con]["linear"],
                     parallel_deriv_color=(
                         f"color{self.derivative_coloring_num}"
                         if self.use_derivative_coloring
@@ -445,6 +446,7 @@ class RemoteComp(om.ExplicitComponent):
                         upper=output_dict["constraints"][con]["upper"],
                         scaler=output_dict["constraints"][con]["scaler"],
                         adder=output_dict["constraints"][con]["adder"],
+                        linear=output_dict["constraints"][con]["linear"],
                         parallel_deriv_color=(
                             f"color{self.derivative_coloring_num}"
                             if self.use_derivative_coloring
@@ -461,6 +463,7 @@ class RemoteComp(om.ExplicitComponent):
                         lower=output_dict["constraints"][con]["lower"],
                         scaler=output_dict["constraints"][con]["scaler"],
                         adder=output_dict["constraints"][con]["adder"],
+                        linear=output_dict["constraints"][con]["linear"],
                         parallel_deriv_color=(
                             f"color{self.derivative_coloring_num}"
                             if self.use_derivative_coloring
@@ -475,6 +478,7 @@ class RemoteComp(om.ExplicitComponent):
                         upper=output_dict["constraints"][con]["upper"],
                         scaler=output_dict["constraints"][con]["scaler"],
                         adder=output_dict["constraints"][con]["adder"],
+                        linear=output_dict["constraints"][con]["linear"],
                         parallel_deriv_color=(
                             f"color{self.derivative_coloring_num}"
                             if self.use_derivative_coloring

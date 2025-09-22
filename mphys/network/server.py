@@ -197,6 +197,7 @@ class Server:
                         "lower": responses[r]["lower"],
                         "upper": responses[r]["upper"],
                         "equals": responses[r]["equals"],
+                        "linear": responses[r]["linear"],
                     }
                 )
                 remote_output_dict[response_type][
