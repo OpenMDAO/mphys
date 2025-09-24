@@ -341,9 +341,7 @@ class Server:
 
             # wrt design vars
             for dv in design_vars.keys():
-                deriv = self.derivatives[
-                    (output, design_vars[dv]["source"])
-                ]
+                deriv = self.derivatives[(output, design_vars[dv]["source"])]
                 if hasattr(deriv, "tolist"):
                     deriv = deriv.tolist()
                 remote_output_dict["additional_outputs"][output]["derivatives"][
