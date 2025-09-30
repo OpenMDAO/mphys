@@ -57,6 +57,11 @@ jobs:
           cd OpenMDAO;
           pip install .[all];
           cd ../mphys;
+
+          echo "=============================================================";
+          echo "Install MPhys";
+          echo "=============================================================";
+
           pip install -e .[all];
           echo "=============================================================";
           echo "Install optional dependencies";
