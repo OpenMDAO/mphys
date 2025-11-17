@@ -7,7 +7,7 @@
 MPhys is a package that standardizes high-fidelity multiphysics problems in OpenMDAO.
 MPhys eases the problem set up, provides straightforward extension to new disciplines, and has a library of OpenMDAO groups for multidisciplinary problems addressed by its standard.
 
-While MPhys does provide these conventions, it is not absolutely necessary to follow these guidelines in order to solve these types of problems with OpenMDAO given its very general coupling capability.
+While MPhys does provide these conventions, it is not necessary to follow these guidelines in order to solve these types of problems with OpenMDAO given its very general coupling capability.
 However, by following the MPhys conventions, the usage of OpenMDAO for multiphysics analysis will be modular across developer groups.
 This eases technology transfer and collaboration in this area of research.
 The standardization strives for modularity of multiphysics problems with large parallel physics codes.

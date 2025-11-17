@@ -55,7 +55,7 @@ jobs:
           pip install redbaron;
           git clone -q https://github.com/OpenMDAO/OpenMDAO.git;
           cd OpenMDAO;
-          pip install .[all];
+          pip install .[test];
           cd ../mphys;
           pip install -e .[all];
           echo "=============================================================";
