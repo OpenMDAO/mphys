@@ -95,20 +95,23 @@ class Server:
         self.current_derivatives_have_been_evaluated = True
 
     def _get_derivative_inputs_outputs(self):
+        responses = self.prob.model.get_constraints()
+        responses.update(self.prob.model.get_objectives())
+        design_vars = self.prob.model.get_design_vars()
         of = []
-        for r in self.prob.model._responses.keys():
-            of += [self.prob.model._responses[r]["source"]]
+        for r in responses.keys():
+            of += [responses[r]["source"]]
         of += self.additional_outputs
 
         wrt = []
-        for dv in self.prob.model._design_vars.keys():
-            wrt += [self.prob.model._design_vars[dv]["source"]]
+        for dv in design_vars.keys():
+            wrt += [design_vars[dv]["source"]]
         wrt += self.additional_inputs
 
         return of, wrt
 
     def _gather_design_inputs_from_om_problem(self, remote_output_dict={}):
-        design_vars = self.prob.model._design_vars
+        design_vars = self.prob.model.get_design_vars()
         remote_output_dict["design_vars"] = {}
         for dv in design_vars.keys():
             remote_output_dict["design_vars"][dv] = {
@@ -172,7 +175,8 @@ class Server:
         return remote_output_dict
 
     def _gather_design_outputs_from_om_problem(self, remote_output_dict={}):
-        responses = self.prob.model._responses
+        responses = self.prob.model.get_constraints()
+        responses.update(self.prob.model.get_objectives())
         remote_output_dict.update({"objective": {}, "constraints": {}})
         for r in responses.keys():
 
@@ -197,6 +201,7 @@ class Server:
                         "lower": responses[r]["lower"],
                         "upper": responses[r]["upper"],
                         "equals": responses[r]["equals"],
+                        "linear": responses[r]["linear"],
                     }
                 )
                 remote_output_dict[response_type][
@@ -309,8 +314,9 @@ class Server:
         return remote_output_dict
 
     def _gather_design_derivatives_from_om_problem(self, remote_output_dict):
-        design_vars = self.prob.model._design_vars
-        responses = self.prob.model._responses
+        design_vars = self.prob.model.get_design_vars()
+        responses = self.prob.model.get_constraints()
+        responses.update(self.prob.model.get_objectives())
         for r in responses.keys():
 
             if responses[r]["type"] == "obj":
@@ -329,14 +335,13 @@ class Server:
         return remote_output_dict
 
     def _gather_additional_output_derivatives_from_om_problem(self, remote_output_dict):
+        design_vars = self.prob.model.get_design_vars()
         for output in self.additional_outputs:
             remote_output_dict["additional_outputs"][output]["derivatives"] = {}
 
             # wrt design vars
-            for dv in self.prob.model._design_vars.keys():
-                deriv = self.derivatives[
-                    (output, self.prob.model._design_vars[dv]["source"])
-                ]
+            for dv in design_vars.keys():
+                deriv = self.derivatives[(output, design_vars[dv]["source"])]
                 if hasattr(deriv, "tolist"):
                     deriv = deriv.tolist()
                 remote_output_dict["additional_outputs"][output]["derivatives"][
@@ -355,7 +360,8 @@ class Server:
         return remote_output_dict
 
     def _gather_additional_input_derivatives_from_om_problem(self, remote_output_dict):
-        responses = self.prob.model._responses
+        responses = self.prob.model.get_constraints()
+        responses.update(self.prob.model.get_objectives())
         for r in responses.keys():
 
             if responses[r]["type"] == "obj":
