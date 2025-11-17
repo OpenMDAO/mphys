@@ -133,20 +133,23 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">current_derivatives_have_been_evaluated</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_derivative_inputs_outputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_constraints</span><span class="p">()</span>
+        <span class="n">responses</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_objectives</span><span class="p">())</span>
+        <span class="n">design_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_design_vars</span><span class="p">()</span>
         <span class="n">of</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_responses</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="n">of</span> <span class="o">+=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;source&quot;</span><span class="p">]]</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">responses</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">of</span> <span class="o">+=</span> <span class="p">[</span><span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;source&quot;</span><span class="p">]]</span>
         <span class="n">of</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_outputs</span>
 
         <span class="n">wrt</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">dv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_design_vars</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="n">wrt</span> <span class="o">+=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">&quot;source&quot;</span><span class="p">]]</span>
+        <span class="k">for</span> <span class="n">dv</span> <span class="ow">in</span> <span class="n">design_vars</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">wrt</span> <span class="o">+=</span> <span class="p">[</span><span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">&quot;source&quot;</span><span class="p">]]</span>
         <span class="n">wrt</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span>
 
         <span class="k">return</span> <span class="n">of</span><span class="p">,</span> <span class="n">wrt</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_design_inputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="o">=</span><span class="p">{}):</span>
-        <span class="n">design_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_design_vars</span>
+        <span class="n">design_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_design_vars</span><span class="p">()</span>
         <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">dv</span> <span class="ow">in</span> <span class="n">design_vars</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
@@ -210,7 +213,8 @@
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_design_outputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="o">=</span><span class="p">{}):</span>
-        <span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_responses</span>
+        <span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_constraints</span><span class="p">()</span>
+        <span class="n">responses</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_objectives</span><span class="p">())</span>
         <span class="n">remote_output_dict</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;objective&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="s2">&quot;constraints&quot;</span><span class="p">:</span> <span class="p">{}})</span>
         <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">responses</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
 
@@ -235,6 +239,7 @@
                         <span class="s2">&quot;lower&quot;</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;lower&quot;</span><span class="p">],</span>
                         <span class="s2">&quot;upper&quot;</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;upper&quot;</span><span class="p">],</span>
                         <span class="s2">&quot;equals&quot;</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;equals&quot;</span><span class="p">],</span>
+                        <span class="s2">&quot;linear&quot;</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;linear&quot;</span><span class="p">],</span>
                     <span class="p">}</span>
                 <span class="p">)</span>
                 <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span>
@@ -347,8 +352,9 @@
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_design_derivatives_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="p">):</span>
-        <span class="n">design_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_design_vars</span>
-        <span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_responses</span>
+        <span class="n">design_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_design_vars</span><span class="p">()</span>
+        <span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_constraints</span><span class="p">()</span>
+        <span class="n">responses</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_objectives</span><span class="p">())</span>
         <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">responses</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
 
             <span class="k">if</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;obj&quot;</span><span class="p">:</span>
@@ -367,14 +373,13 @@
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_additional_output_derivatives_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="p">):</span>
+        <span class="n">design_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_design_vars</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_outputs</span><span class="p">:</span>
             <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_outputs&quot;</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s2">&quot;derivatives&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
             <span class="c1"># wrt design vars</span>
-            <span class="k">for</span> <span class="n">dv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_design_vars</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="n">deriv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span><span class="p">[</span>
-                    <span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">&quot;source&quot;</span><span class="p">])</span>
-                <span class="p">]</span>
+            <span class="k">for</span> <span class="n">dv</span> <span class="ow">in</span> <span class="n">design_vars</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">deriv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span><span class="p">[(</span><span class="n">output</span><span class="p">,</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">&quot;source&quot;</span><span class="p">])]</span>
                 <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="s2">&quot;tolist&quot;</span><span class="p">):</span>
                     <span class="n">deriv</span> <span class="o">=</span> <span class="n">deriv</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
                 <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_outputs&quot;</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s2">&quot;derivatives&quot;</span><span class="p">][</span>
@@ -393,7 +398,8 @@
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_additional_input_derivatives_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="p">):</span>
-        <span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_responses</span>
+        <span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_constraints</span><span class="p">()</span>
+        <span class="n">responses</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_objectives</span><span class="p">())</span>
         <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">responses</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
 
             <span class="k">if</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;obj&quot;</span><span class="p">:</span>
