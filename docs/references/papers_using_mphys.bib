@@ -26,6 +26,30 @@
   abstract = {Electrified aircraft benefit from the versatile ways electric motors can be integrated with an airframe. However, thermal management is needed to move waste heat out of the motors because the heat is not expelled with the exhaust as in a conventional engine. Plate-fin, fin, and surface heat exchangers are incorporated as air-side heat exchangers for electrified aircraft thermal management systems. Typically, analytic tools are used to design heat exchangers within these categories. However, analytic tools lack the fidelity required for detailed shaping and assessment of general heat exchanger configurations. Tools based on first principles, such as finite element analysis or computational fluid dynamics, can verify heat exchanger performance but are too costly to use in a manual design loop. Shape optimization can be used with first-principles-based models to design heat exchangers without limiting the geometry to those previously well studied. In this work, we apply this methodology to design a heat sink for the high-lift motor of an electric technology demonstrator, the X-57 Maxwell. We use a gradient-based optimizer to modify the thickness distribution of the heat sink to find designs that minimize drag while meeting the heat load constraint. To model the heat transfer from the motor, we use both convection-only and conjugate heat transfer models and compare the resulting differences in the optimized shapes. We found that the convection-only model under-predicted heat rejection and thus led to larger than necessary heat sinks when used in optimization. To study the effect of the heat load on the design, we compare the heat sinks designed for the baseline motor and heat sinks designed for less efficient motors. Our study results show how the heat exchanger's geometry changes from uniformly thick to designs with fins as the heat load increases. Furthermore, we found that the variation in drag across designs is driven by differences in the pressure drag due to flow separation. Finally, we conclude with a comparison of the optimized designs to those representing more simple fin designs and find that the optimized designs have fins that are shifted forward to reduce the adverse pressure gradient, which mitigates separation on the aft part of the fin. The developed shape optimization method could also be applied to improve other heat exchangers, specifically those designed to reject relatively low amounts of heat.}
 }
 
+@Article{Stanford2024,
+    author  = {Bret K. Stanford and Andrew S. Thelen and Kevin E. Jacobson},
+    title   = {Fixed- and free-mode flutter derivatives during aeroelastic optimization},
+    doi     = {10.2514/1.J064166},
+    journal = {AIAA Journal},
+    month   = {December},
+    year    = {2024},
+    volume  = {62},
+    number  = {12},
+    pages   = {4645--4653}
+}
+
+@Article{Stanford2025,
+    author  = {Bret K. Stanford and Andrew S. Thelen and Kevin E. Jacobson},
+    title   = {Multifidelity optimization with transonic flutter constraints},
+    doi     = {10.2514/1.J065151},
+    journal = {AIAA Journal},
+    month   = {November},
+    year    = {2025},
+    volume  = {63},
+    number  = {11},
+    pages   = {4772--4781}
+}
+
 @article{Yildirim2022a,
   author   = {Anil Yildirim and Justin S. Gray and Charles A. Mader and Joaquim R. R. A. Martins},
   title    = {Boundary Layer Ingestion Benefit for the {STARC}-{ABL} Concept},
@@ -259,6 +283,17 @@
   abstract  = {Many urban air mobility vehicle designs are under development, featuring configurations that combine propellers with wings, tails, fuselage, and additional appendages. These complex geometries introduce physical phenomena such as propeller-wing and propeller-propeller interactions. Understanding these phenomena and optimizing a vehicle design considering their effects can lead to improved efficiency throughout a vehicle's mission. This work considers the NASA urban air mobility tiltwing concept vehicle and analyzes the performance of its wing considering varying numbers of propellers. The tiltwing's wing is analyzed and subsequently optimized for zero to five propellers to understand the potential for wing design improvements. This work finds that the tiltwing vehicle in cruise flight does benefit from wing-mounted propellers, however the strongest improvement in efficiency is found with a single propeller at the wingtip, with decreasing benefit as the number of propellers is increased. While this work considers only aerodynamic shape optimization without structural and packaging constraints or power plant design, it provides quantitative and qualitative insight into the advantages and disadvantages of distributed propulsors in cruise flight. Additionally, this work shows that while aerodynamic shape optimization is a useful tool for improving wing performance, considering propeller-wing interaction effects leads to a negligible improvement in optimized design.}
 }
 
+@inproceedings{Pacini2023b,
+  author    = {Pacini, Bernardo and Prajapati, Malhar and Duraisamy, Karthik and Martins, Joaquim R. R. A. and He, Ping},
+  title     = {Multipoint Aerostructural Optimization for Urban Air Mobility Vehicle Design},
+  booktitle = {AIAA Scitech Forum 2023},
+  doi       = {10.2514/6.2023-0326},
+  keywords  = {xsede, MPhys},
+  month     = {January},
+  year      = {2023},
+  abstract  = {Many urban air mobility vehicle designs include several rotors and propellers integrated with complex fuselage, wing, and appendage geometries. These designs feature advanced technologies that demand further modeling and understanding of optimization tradeoffs. Given the complexity of the vehicle geometries being developed as well as the advanced materials used for integral components, aerostructural analysis and optimization can provide insight into the performance of urban air mobility vehicles, and how the structure and lifting surfaces can be designed to further improve vehicle efficiency. This work details an aerostructural optimization toolchain built with the MACH and OpenMDAO tools, embedded within the high-fidelity modeling and optimization framework called MPhys. This multiphysics analysis and optimization framework is used to perform aerostructural optimization of advanced vehicles, using DAFoam, a discrete adjoint implementation for OpenFOAM, as well as TACS, a finite element solver developed for gradient-based optimization of composite structures. These tools are applied to the NASA tiltwing concept vehicle to optimize the design of the wing considering structural deflection.}
+}
+
 % AIAA Aviation 2023
 
 @inproceedings{AbdulKaiyoom2023b,
@@ -308,17 +343,6 @@
   abstract  = {To improve performance and reduce fuel consumption, we must address tightly connected aeropropulsive effects in the development of new and existing propulsion technologies. Aeropropulsive design optimization considers the multidisciplinary coupled interactions between aerodynamics, thermodynamics, and geometry. Mixed-fidelity aeropropulsive methods integrate high-fidelity aerodynamic solvers with zero-dimensional thermodynamic cycle modeling. Combined with gradient-based optimization, this approach is a computationally efficient design tool that can accommodate large design spaces with many design variables and constraints. Previously, we developed a novel hybrid aeropropulsive coupling method for turbofan engines and demonstrated its feasibility using a single-design-point problem. In this work, we improve upon the prior approach and perform the first successful coupled aeropropulsive optimization of a high-bypass turbofan. We analyze the optimized turbofan design and validate the corrections to the hybrid coupling scheme. The updated coupling methods are a significant advancement in aeropropulsive optimization that enable the design of tightly integrated propulsion systems considering thermodynamic and aerodynamic performance.}
 }
 
-@inproceedings{Pacini2023b,
-  author    = {Pacini, Bernardo and Prajapati, Malhar and Duraisamy, Karthik and Martins, Joaquim R. R. A. and He, Ping},
-  title     = {Multipoint Aerostructural Optimization for Urban Air Mobility Vehicle Design},
-  booktitle = {AIAA Scitech Forum 2023},
-  doi       = {10.2514/6.2023-0326},
-  keywords  = {xsede, MPhys},
-  month     = {January},
-  year      = {2023},
-  abstract  = {Many urban air mobility vehicle designs include several rotors and propellers integrated with complex fuselage, wing, and appendage geometries. These designs feature advanced technologies that demand further modeling and understanding of optimization tradeoffs. Given the complexity of the vehicle geometries being developed as well as the advanced materials used for integral components, aerostructural analysis and optimization can provide insight into the performance of urban air mobility vehicles, and how the structure and lifting surfaces can be designed to further improve vehicle efficiency. This work details an aerostructural optimization toolchain built with the MACH and OpenMDAO tools, embedded within the high-fidelity modeling and optimization framework called MPhys. This multiphysics analysis and optimization framework is used to perform aerostructural optimization of advanced vehicles, using DAFoam, a discrete adjoint implementation for OpenFOAM, as well as TACS, a finite element solver developed for gradient-based optimization of composite structures. These tools are applied to the NASA tiltwing concept vehicle to optimize the design of the wing considering structural deflection.}
-}
-
 @inproceedings{Pacini2023c,
   author    = {Pacini, Bernardo and Prajapati, Malhar and Duraisamy, Karthik and Martins, Joaquim R. R. A. and He, Ping},
   title     = {Towards Mixed-Fidelity Aero-Structural-Acoustic Optimization for Urban Air Mobility Vehicle Design},
@@ -344,6 +368,37 @@
   abstract  = {The increasing flexibility of modern aircraft wings makes the consideration of aeroelasticity increasingly important in the earliest stages of the design process. In response to this need, the past decades have seen significant advances in the development of tools for the numerical optimization of aircraft wings considering aeroelastic interactions. These aeroelastic optimization tools optimize the structural sizing, and occasionally surface geometry, of a wing, subject to constraints such as structural failure and flutter stability, computed using aeroelastic analyses. The models used by these tools range from simple lifting line and beam models to RANS CFD and shell finite element models, each with their advantages and drawbacks. However, there have been few, if any, efforts to compare these different frameworks, mainly due to a lack of open benchmark models. In this paper, we propose a new benchmark model intended to be accessible to different researchers while remaining relevant to industrial use cases in modern transport aircraft. The proposed model consists of a wing-only outer mold line, based on that of a small single-aisle transport aircraft, and a moderately detailed conformal wingbox model. We also define a set of aeroelastic optimization problems of varying complexity, ranging from a structural sizing problem with fixed geometry to more complex problems involving optimization of the structural sizing and geometry for minimum fuel burn. We present results for each of the three optimization problems generated using RANS CFD, a shell finite element model, and the MPhys multiphysics coupling library. We show that allowing the wing planform to vary from the baseline results in a 17.5% reduction in fuel burn. These models and optimization problems are intended to act as a starting point for discussions on the choice of benchmark problems for the aeroelastic optimization community.}
 }
 
+@InProceedings{Jacobson2024,
+    author      = {Kevin Jacobson and Andrew Thelen and Bret Stanford},
+    title       = {Linearized frequency-domain gust analysis and adjoint-based sensitivities},
+    address     = {Orlando, FL},
+    booktitle   = {AIAA SciTech Forum},
+    doi         = {10.2514/6.2024-2591},
+    month       = {January},
+    year        = {2024}
+}
+
+@InProceedings{Thelen2024a,
+    author      = {Andrew Thelen and Bret Stanford and Kevin Jacobson},
+    title       = {Flutter and stochastic gust constraint studies of the undeflected CRM using MPhys},
+    address     = {Orlando, FL},
+    booktitle   = {AIAA SciTech Forum},
+    doi         = {10.2514/6.2024-2774},
+    month       = {January},
+    year        = {2024}
+}
+
+% IFASD 2024
+
+@InProceedings{Thelen2024b,
+    author    = {Andrew S. Thelen and Kevin E. Jacobson and Bret K. Stanford},
+    title     = {Gradient-based optimization of the common research model wing subject to CFD-based gust and flutter constraints},
+    address   = {The Hague, The Netherlands},
+    booktitle = {International Forum on Aeroelasticity and Structural Dynamics},
+    month     = {June},
+    year      = {2024}
+}
+
 % AIAA SciTech 2025
 @inproceedings{AGray2025a,
   author    = {Alasdair C. Gray and Joaquim R. R. A. Martins},
@@ -356,4 +411,25 @@
   pdfurl    = {https://www.researchgate.net/profile/Alasdair-Christison-Gray/publication/387668601_Aerostructural_Optimization_of_the_Simple_Transonic_Wing_Using_MPhys_ADflow_and_TACS/links/677722afc1b01354650b7322/Aerostructural-Optimization-of-the-Simple-Transonic-Wing-Using-MPhys-ADflow-and-TACS.pdf},
   year      = {2025},
   abstract  = {The past decades have seen significant advances in the development of tools for the numerical optimization of aircraft wings considering aeroelastic interactions. These aeroelastic optimization tools optimize the structural sizing, and occasionally surface geometry, of a wing, subject to constraints such as structural failure and flutter stability, computed using aeroelastic analyses. The models used by these tools range from simple lifting line and beam models to RANS CFD and shell finite element models, each with their advantages and drawbacks. Recently, the High-Fidelity Aeroelastic Optimization Benchmark Working Group has been formed to bring together practitioners across the field in order to compare their methods on a common set of optimization problems. In this paper, we present solutions to all three benchmark problems using a set of open source codes developed for high-fidelity gradient-based design optimization. In Case~1, we generate a feasible wingbox design under aeroelastic loads, in Case~2 we improve the fuel burn over a nominal mission by 3\% by optimizing the wing twist and section shapes along with the structural sizing, and in Case~3 adding planform variables results in a doubling of the wing's aspect ratio and at 10.1\% reduction in fuel burn.}
+}
+
+@InProceedings{Jacobson2025,
+    author      = {Kevin Jacobson and Bret Stanford and Andrew Thelen},
+    title       = {Investigations of an Aeroelastic Optimization Benchmark Problem with MPhys and FUN3D},
+    address     = {Orlando, FL},
+    booktitle   = {AIAA SciTech Forum},
+    doi         = {10.2514/6.2025-2812},
+    month       = {January},
+    year        = {2025}
+}
+
+% AIAA AVIATION 2025
+@InProceedings{Thelen2025,
+    author      = {Andrew Thelen and Bret Stanford and Kevin Jacobson},
+    title       = {Leveraging a Doublet Lattice Correction Method to Expedite Linearized Frequency-Domain Optimizations in MPhys},
+    address     = {Las Vegas, NV},
+    booktitle   = {AIAA AVIATION Forum},
+    doi         = {10.2514/6.2025-3552},
+    month       = {July},
+    year        = {2025}
 }
