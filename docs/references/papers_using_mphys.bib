@@ -3,41 +3,53 @@
 %===============
 
 @article{thelen2022,
-  title = {Multi-Fidelity Gradient-Based Optimization for High-Dimensional Aeroelastic Configurations},
-  author = {Thelen, Andrew S. and Bryson, Dean E. and Stanford, Bret K. and Beran, Philip S.},
-  doi = {10.3390/a15040131},
+  title   = {Multi-Fidelity Gradient-Based Optimization for High-Dimensional Aeroelastic Configurations},
+  author  = {Thelen, Andrew S. and Bryson, Dean E. and Stanford, Bret K. and Beran, Philip S.},
+  doi     = {10.3390/a15040131},
   journal = {Algorithms},
-  volume = {15},
-  number = {4},
-  month = {April},
-  year = {2022}
+  volume  = {15},
+  number  = {4},
+  month   = {April},
+  year    = {2022}
 }
 
-@Article{Anibal2022,
-    author      = {Joshua Anibal and Charles A. Mader and Joaquim R. R. A. Martins},
-    title       = {Aerodynamic shape optimization of an electric aircraft motor surface heat exchanger with conjugate heat transfer constraint},
-    doi         = {10.1016/j.ijheatmasstransfer.2022.122689},
-    journal     = {International Journal of Heat and Mass Transfer},
-    keywords    = {mphys},
-    month       = {June},
-    pages       = {122689},
-    volume      = {189},
-    year        = {2022},
-    abstract    = {Electrified aircraft benefit from the versatile ways electric motors can be integrated with an airframe. However, thermal management is needed to move waste heat out of the motors because the heat is not expelled with the exhaust as in a conventional engine. Plate-fin, fin, and surface heat exchangers are incorporated as air-side heat exchangers for electrified aircraft thermal management systems. Typically, analytic tools are used to design heat exchangers within these categories. However, analytic tools lack the fidelity required for detailed shaping and assessment of general heat exchanger configurations. Tools based on first principles, such as finite element analysis or computational fluid dynamics, can verify heat exchanger performance but are too costly to use in a manual design loop. Shape optimization can be used with first-principles-based models to design heat exchangers without limiting the geometry to those previously well studied. In this work, we apply this methodology to design a heat sink for the high-lift motor of an electric technology demonstrator, the X-57 Maxwell. We use a gradient-based optimizer to modify the thickness distribution of the heat sink to find designs that minimize drag while meeting the heat load constraint. To model the heat transfer from the motor, we use both convection-only and conjugate heat transfer models and compare the resulting differences in the optimized shapes. We found that the convection-only model under-predicted heat rejection and thus led to larger than necessary heat sinks when used in optimization. To study the effect of the heat load on the design, we compare the heat sinks designed for the baseline motor and heat sinks designed for less efficient motors. Our study results show how the heat exchanger's geometry changes from uniformly thick to designs with fins as the heat load increases. Furthermore, we found that the variation in drag across designs is driven by differences in the pressure drag due to flow separation. Finally, we conclude with a comparison of the optimized designs to those representing more simple fin designs and find that the optimized designs have fins that are shifted forward to reduce the adverse pressure gradient, which mitigates separation on the aft part of the fin. The developed shape optimization method could also be applied to improve other heat exchangers, specifically those designed to reject relatively low amounts of heat.}
+@article{Anibal2022,
+  author   = {Joshua Anibal and Charles A. Mader and Joaquim R. R. A. Martins},
+  title    = {Aerodynamic shape optimization of an electric aircraft motor surface heat exchanger with conjugate heat transfer constraint},
+  doi      = {10.1016/j.ijheatmasstransfer.2022.122689},
+  journal  = {International Journal of Heat and Mass Transfer},
+  keywords = {mphys},
+  month    = {June},
+  pages    = {122689},
+  volume   = {189},
+  year     = {2022},
+  abstract = {Electrified aircraft benefit from the versatile ways electric motors can be integrated with an airframe. However, thermal management is needed to move waste heat out of the motors because the heat is not expelled with the exhaust as in a conventional engine. Plate-fin, fin, and surface heat exchangers are incorporated as air-side heat exchangers for electrified aircraft thermal management systems. Typically, analytic tools are used to design heat exchangers within these categories. However, analytic tools lack the fidelity required for detailed shaping and assessment of general heat exchanger configurations. Tools based on first principles, such as finite element analysis or computational fluid dynamics, can verify heat exchanger performance but are too costly to use in a manual design loop. Shape optimization can be used with first-principles-based models to design heat exchangers without limiting the geometry to those previously well studied. In this work, we apply this methodology to design a heat sink for the high-lift motor of an electric technology demonstrator, the X-57 Maxwell. We use a gradient-based optimizer to modify the thickness distribution of the heat sink to find designs that minimize drag while meeting the heat load constraint. To model the heat transfer from the motor, we use both convection-only and conjugate heat transfer models and compare the resulting differences in the optimized shapes. We found that the convection-only model under-predicted heat rejection and thus led to larger than necessary heat sinks when used in optimization. To study the effect of the heat load on the design, we compare the heat sinks designed for the baseline motor and heat sinks designed for less efficient motors. Our study results show how the heat exchanger's geometry changes from uniformly thick to designs with fins as the heat load increases. Furthermore, we found that the variation in drag across designs is driven by differences in the pressure drag due to flow separation. Finally, we conclude with a comparison of the optimized designs to those representing more simple fin designs and find that the optimized designs have fins that are shifted forward to reduce the adverse pressure gradient, which mitigates separation on the aft part of the fin. The developed shape optimization method could also be applied to improve other heat exchangers, specifically those designed to reject relatively low amounts of heat.}
 }
 
-@Article{Yildirim2022a,
-    author      = {Anil Yildirim and Justin S. Gray and Charles A. Mader and Joaquim R. R. A. Martins},
-    title       = {Boundary Layer Ingestion Benefit for the {STARC}-{ABL} Concept},
-    doi         = {10.2514/1.C036103},
-    journal     = {Journal of Aircraft},
-    keywords    = {aeroprop, ank, openmdao, xsede, mphys},
-    month       = {July},
-    number      = {4},
-    pages       = {896--911},
-    volume      = {59},
-    year        = {2022},
-    abstract    = {Boundary-layer ingestion (BLI) offers the potential for significant fuel burn reduction by exploiting tightly coupled aeropropulsive effects. NASA's Single-aisle Turboelectric Aircraft with Aft Boundary-Layer propulsion (STARC-ABL) concept employs BLI on an electrically powered tail cone thruster to take advantage of the technology on what is otherwise a conventional airframe. Despite the traditional airframe of this concept, aeropropulsive integration is critical to the BLI propulsor's performance. Therefore, it is vital to employ tightly coupled aeropropulsive models to design BLI systems. In this work, 3-D RANS simulations are used to model the aerodynamics, and 1-D thermodynamic cycle analyses are used to model the propulsion system. The two models are tightly coupled using NASA's OpenMDAO framework, enabling efficient design optimization through gradient-based optimization with analytic derivatives. Using this coupled aeropropulsive framework, 18 computational fluid dynamics (CFD)-based aeropropulsive design optimizations are performed to study the power requirements of the BLI configuration and a reference podded configuration where the electric fan ingests freestream air. This study provides the first set of CFD-based performance data for the STARC-ABL concept across the design space of BLI fan size and pressure ratio. The results quantify the power savings through BLI compared to a traditional propulsion system.}
+@article{Yildirim2022a,
+  author   = {Anil Yildirim and Justin S. Gray and Charles A. Mader and Joaquim R. R. A. Martins},
+  title    = {Boundary Layer Ingestion Benefit for the {STARC}-{ABL} Concept},
+  doi      = {10.2514/1.C036103},
+  journal  = {Journal of Aircraft},
+  keywords = {aeroprop, ank, openmdao, xsede, mphys},
+  month    = {July},
+  number   = {4},
+  pages    = {896--911},
+  volume   = {59},
+  year     = {2022},
+  abstract = {Boundary-layer ingestion (BLI) offers the potential for significant fuel burn reduction by exploiting tightly coupled aeropropulsive effects. NASA's Single-aisle Turboelectric Aircraft with Aft Boundary-Layer propulsion (STARC-ABL) concept employs BLI on an electrically powered tail cone thruster to take advantage of the technology on what is otherwise a conventional airframe. Despite the traditional airframe of this concept, aeropropulsive integration is critical to the BLI propulsor's performance. Therefore, it is vital to employ tightly coupled aeropropulsive models to design BLI systems. In this work, 3-D RANS simulations are used to model the aerodynamics, and 1-D thermodynamic cycle analyses are used to model the propulsion system. The two models are tightly coupled using NASA's OpenMDAO framework, enabling efficient design optimization through gradient-based optimization with analytic derivatives. Using this coupled aeropropulsive framework, 18 computational fluid dynamics (CFD)-based aeropropulsive design optimizations are performed to study the power requirements of the BLI configuration and a reference podded configuration where the electric fan ingests freestream air. This study provides the first set of CFD-based performance data for the STARC-ABL concept across the design space of BLI fan size and pressure ratio. The results quantify the power savings through BLI compared to a traditional propulsion system.}
+}
+
+@article{AGray2025c,
+  author   = {Alasdair C. Gray and Graeme J. Kennedy and Joaquim R. R. A. Martins},
+  title    = {Geometrically Nonlinear High-fidelity Aerostructural Optimization for Highly Flexible Wings},
+  journal  = {Structural and Multidisciplinary Optimization},
+  year     = {2025},
+  month    = {12},
+  volume   = {69},
+  number   = {6},
+  keywords = {xsede, ank, OpenMDAO, MPhys},
+  doi      = {10.1007/s00158-025-04181-x}
 }
 
 %=======
@@ -71,6 +83,16 @@
   note    = {https://deepblue.lib.umich.edu/handle/2027.42/171375}
 }
 
+@phdthesis{AGray2025b,
+  author  = {Alasdair C. Gray},
+  title   = {Geometrically Nonlinear Methods for High-Fidelity {MDO} of Very Flexible Aircraft},
+  address = {Ann Arbor, MI},
+  doi     = {10.7302/26927},
+  month   = {6},
+  school  = {University of Michigan},
+  year    = {2025}
+}
+
 
 %==================
 % Conference Papers
@@ -78,29 +100,29 @@
 
 % AIAA SciTech 2020
 
-@InProceedings{Anibal2020a,
-    author      = {Josh L. Anibal and Charles A. Mader and Joaquim R. R. A. Martins},
-    title       = {Aerothermal Optimization of {X}-57 High-Lift Motor Nacelle},
-    address     = {Orlando, FL},
-    booktitle   = {AIAA SciTech Forum},
-    doi         = {10.2514/6.2020-2115},
-    keywords    = {ank,mphys},
-    month       = {January},
-    organization= {AIAA},
-    pdfurl      = {https://www.researchgate.net/profile/Joshua_Anibal/publication/338398667_Aerothermal_Optimization_of_X-57_High-Lift_Motor_Nacelle/links/5e4b02cb92851c7f7f43ccae/Aerothermal-Optimization-of-X-57-High-Lift-Motor-Nacelle.pdf},
-    year        = {2020}
+@inproceedings{Anibal2020a,
+  author       = {Josh L. Anibal and Charles A. Mader and Joaquim R. R. A. Martins},
+  title        = {Aerothermal Optimization of {X}-57 High-Lift Motor Nacelle},
+  address      = {Orlando, FL},
+  booktitle    = {AIAA SciTech Forum},
+  doi          = {10.2514/6.2020-2115},
+  keywords     = {ank,mphys},
+  month        = {January},
+  organization = {AIAA},
+  pdfurl       = {https://www.researchgate.net/profile/Joshua_Anibal/publication/338398667_Aerothermal_Optimization_of_X-57_High-Lift_Motor_Nacelle/links/5e4b02cb92851c7f7f43ccae/Aerothermal-Optimization-of-X-57-High-Lift-Motor-Nacelle.pdf},
+  year         = {2020}
 }
 
 % AIAA Aviation 2021
 
-@InProceedings{Yildirim2021c,
-    author      = {Anil Yildirim and Justin S. Gray and Charles A. Mader and Joaquim R. R. A. Martins},
-    title       = {Coupled Aeropropulsive Design Optimization of a Podded Electric Propulsor},
-    booktitle   = {AIAA Aviation Forum},
-    doi         = {10.2514/6.2021-3032},
-    keywords    = {ank, aeroprop, openmdao, mphys, beststudentpaper},
-    month       = {August},
-    year        = {2021}
+@inproceedings{Yildirim2021c,
+  author    = {Anil Yildirim and Justin S. Gray and Charles A. Mader and Joaquim R. R. A. Martins},
+  title     = {Coupled Aeropropulsive Design Optimization of a Podded Electric Propulsor},
+  booktitle = {AIAA Aviation Forum},
+  doi       = {10.2514/6.2021-3032},
+  keywords  = {ank, aeroprop, openmdao, mphys, beststudentpaper},
+  month     = {August},
+  year      = {2021}
 }
 
 % AIAA SciTech 2022
@@ -142,10 +164,10 @@
 }
 
 @inproceedings{Thelen2022_ifasd,
-  author = {Thelen, A.S. and Bryson, D.E. and Stanford, B.K. and Beran, P.S.},
-  title = {Aeroelastic Optimization Studies of an Aircraft Jig Shape using Gradient-Based Multi-Fidelity Methods},
+  author    = {Thelen, A.S. and Bryson, D.E. and Stanford, B.K. and Beran, P.S.},
+  title     = {Aeroelastic Optimization Studies of an Aircraft Jig Shape using Gradient-Based Multi-Fidelity Methods},
   booktitle = {International Forum on Aeroelasticity and Structural Dynamics},
-  year = {2022}
+  year      = {2022}
 }
 
 % AIAA Aviation 2022
@@ -159,40 +181,40 @@
   year      = {2022}
 }
 
-@InProceedings{Anibal2022a,
-    author      = {Josh L. Anibal and Joaquim R. R. A. Martins},
-    title       = {{CFD}-based shape optimization of a plate-fin heat exchanger},
-    booktitle   = {AIAA AVIATION 2022 Forum},
-    doi         = {10.2514/6.2022-3930},
-    keywords    = {mphys},
-    month       = {June},
-    year        = {2022},
-    abstract    = {Aerodynamic shape optimization has become a well-established process, with designers routinely performing wing and full aircraft optimizations with hundreds of geometric design variables. However, with increased geometric design freedom comes increased optimization difficulty. These optimizations tend to converge very slowly, often taking many hundreds of design iterations. In addition, designers have to manually obtain suitable design variable scaling through trial and error in order to have a well-behaved optimization problem, which is a tedious and time-consuming task. In this work, we propose a sensitivity-based geometric parameterization approach that, while keeping the same optimization problem, maps the design space onto one which is better suited for gradient-based optimization. At the same time, we can automatically determine appropriate design variable scaling such that the new optimization problem can be solved more rapidly. We demonstrate the approach on aerodynamic optimizations, and show improved convergence behaviour compared to the traditional approach.}
+@inproceedings{Anibal2022a,
+  author    = {Josh L. Anibal and Joaquim R. R. A. Martins},
+  title     = {{CFD}-based shape optimization of a plate-fin heat exchanger},
+  booktitle = {AIAA AVIATION 2022 Forum},
+  doi       = {10.2514/6.2022-3930},
+  keywords  = {mphys},
+  month     = {June},
+  year      = {2022},
+  abstract  = {Aerodynamic shape optimization has become a well-established process, with designers routinely performing wing and full aircraft optimizations with hundreds of geometric design variables. However, with increased geometric design freedom comes increased optimization difficulty. These optimizations tend to converge very slowly, often taking many hundreds of design iterations. In addition, designers have to manually obtain suitable design variable scaling through trial and error in order to have a well-behaved optimization problem, which is a tedious and time-consuming task. In this work, we propose a sensitivity-based geometric parameterization approach that, while keeping the same optimization problem, maps the design space onto one which is better suited for gradient-based optimization. At the same time, we can automatically determine appropriate design variable scaling such that the new optimization problem can be solved more rapidly. We demonstrate the approach on aerodynamic optimizations, and show improved convergence behaviour compared to the traditional approach.}
 }
 
 % ICCFD 2022
 
-@InProceedings{Yildirim2022b,
-    author      = {Anil Yildirim and Justin S. Gray and Joaquim R. R. A. Martins},
-    title       = {A Nonlinear {S}chur Complement Solver for {CFD}-Based Multidisciplinary Models},
-    booktitle   = {Eleventh International Conference on Computational Fluid Dynamics},
-    keywords    = {ank, openmdao, aeroprop, mphys},
-    month       = {July},
-    note        = {ICCFD11-0702},
-    url         = {https://www.iccfd.org/iccfd11/assets/pdf/papers/ICCFD11_Paper-0702.pdf},
-    year        = {2022}
+@inproceedings{Yildirim2022b,
+  author    = {Anil Yildirim and Justin S. Gray and Joaquim R. R. A. Martins},
+  title     = {A Nonlinear {S}chur Complement Solver for {CFD}-Based Multidisciplinary Models},
+  booktitle = {Eleventh International Conference on Computational Fluid Dynamics},
+  keywords  = {ank, openmdao, aeroprop, mphys},
+  month     = {July},
+  note      = {ICCFD11-0702},
+  url       = {https://www.iccfd.org/iccfd11/assets/pdf/papers/ICCFD11_Paper-0702.pdf},
+  year      = {2022}
 }
 
 % ICAS 2022
 
-@InProceedings{Lamkin2022,
-    author      = {Andrew H.R. Lamkin and Anil Yildirim and Joaquim R. R. A. Martins},
-    title       = {Coupled aeropropulsive analysis and optimization of a high bypass turbofan engine},
-    booktitle   = {33rd Congress of the International Council of the Aeronautical Sciences},
-    keywords    = {CCAVD,mphys},
-    month       = {September},
-    year        = {2022},
-    abstract    = {Advances in aeropropulsive design optimization provide new capabilities for the study of tightly integrated propulsion systems. New techniques that couple CFD solvers to thermodynamic cycle analyses showed increased robustness and proved the viability of a fully coupled approach using gradient-based optimization. However, existing work in this area has been limited to simple benchmark cases and does not contain complete engine models. In this study, we extend these methodologies beyond an electrically driven propulsor to consider a complete high-bypass turbofan engine. The high-bypass turbofan model incorporates CFD and thermodynamic cycle sub-systems into a unified model for aeropropulsive design optimization by utilizing multiple coupling techniques from prior benchmark aeropropulsive cases. We present a high-bypass turbofan design optimized for thrust specific fuel consumption with respect to coupling, geometric, and practical design constraints using this coupled approach. The integration of high-fidelity aerodynamic shape optimization with one-dimensional cycle modeling on a large scale is a major milestone for coupled propulsion system design. These developments advance the use of coupled aeropropulsive optimization earlier in the design cycle for propulsion systems.}
+@inproceedings{Lamkin2022,
+  author    = {Andrew H.R. Lamkin and Anil Yildirim and Joaquim R. R. A. Martins},
+  title     = {Coupled aeropropulsive analysis and optimization of a high bypass turbofan engine},
+  booktitle = {33rd Congress of the International Council of the Aeronautical Sciences},
+  keywords  = {CCAVD,mphys},
+  month     = {September},
+  year      = {2022},
+  abstract  = {Advances in aeropropulsive design optimization provide new capabilities for the study of tightly integrated propulsion systems. New techniques that couple CFD solvers to thermodynamic cycle analyses showed increased robustness and proved the viability of a fully coupled approach using gradient-based optimization. However, existing work in this area has been limited to simple benchmark cases and does not contain complete engine models. In this study, we extend these methodologies beyond an electrically driven propulsor to consider a complete high-bypass turbofan engine. The high-bypass turbofan model incorporates CFD and thermodynamic cycle sub-systems into a unified model for aeropropulsive design optimization by utilizing multiple coupling techniques from prior benchmark aeropropulsive cases. We present a high-bypass turbofan design optimized for thrust specific fuel consumption with respect to coupling, geometric, and practical design constraints using this coupled approach. The integration of high-fidelity aerodynamic shape optimization with one-dimensional cycle modeling on a large scale is a major milestone for coupled propulsion system design. These developments advance the use of coupled aeropropulsive optimization earlier in the design cycle for propulsion systems.}
 }
 
 % AIAA SciTech 2023
@@ -215,95 +237,123 @@
   year      = {2023}
 }
 
-@InProceedings{AbdulKaiyoom2023a,
-    author      = {M. A. Saja Abdul-Kaiyoom and Anil Yildirim and and Joaquim R. R. A. Martins},
-    title       = {Coupled Aeropropulsive Design Optimization of an Over-Wing Nacelle Configuration},
-    booktitle   = {AIAA SciTech Forum},
-    doi         = {10.2514/6.2023-0327},
-    keywords    = {aeropropulsion, openmdao, xsede,MPhys},
-    month       = {January},
-    year        = {2023},
-    abstract    = {Optimal nacelle placement is critical to commercial or transport aircraft designs that use engines mounted with nacelles. Over-wing nacelle (OWN) configuration has a high potential to improve upon the conventional under-wing nacelle (UWN) configuration. OWN configurations have two critical benefits when compared to the conventional UWN configuration: 1. they ease the integration of high BPR and ultra-high BPR engines by alleviating ground clearance issues, and 2. they provide a significant amount of noise reduction because the wing blocks the noise of the fan and the jet. Despite their advantages, the OWN technology is not used in practical aircraft designs due to the difficulties in the aeropropulsive integration of the propulsion system. In this work, we propose using a coupled aeropropulsive design optimization framework to study the aeropropulsive integration for OWN configurations. The coupling behavior between the aerodynamics of the wing and the propulsion system is extremely important. Especially in OWN configurations, the propulsion system is highly influenced by the aerodynamic performance of the wing. In this paper, we address the design problem of coupling between the aerodynamic and the propulsion system. We also explore wide range of design space to achieve the best practical design. The changes in wing shape are insignificant when the OWN configuration is optimized for different FPR. Wing in OWN performs better when the propulsor is close to the wing's root; however, the overall drag increases when the propulsor is close to the root. This increases the shaft power need. In addition, nacelle placement at the aft of the trailing edge shows better performance than forward of the trailing edge of the wing. These advancements in design optimization capabilities will be critical in the future design of OWN configurations to achieve more environmentally sustainable aircraft designs.}
+@inproceedings{AbdulKaiyoom2023a,
+  author    = {M. A. Saja Abdul-Kaiyoom and Anil Yildirim and and Joaquim R. R. A. Martins},
+  title     = {Coupled Aeropropulsive Design Optimization of an Over-Wing Nacelle Configuration},
+  booktitle = {AIAA SciTech Forum},
+  doi       = {10.2514/6.2023-0327},
+  keywords  = {aeropropulsion, openmdao, xsede,MPhys},
+  month     = {January},
+  year      = {2023},
+  abstract  = {Optimal nacelle placement is critical to commercial or transport aircraft designs that use engines mounted with nacelles. Over-wing nacelle (OWN) configuration has a high potential to improve upon the conventional under-wing nacelle (UWN) configuration. OWN configurations have two critical benefits when compared to the conventional UWN configuration: 1. they ease the integration of high BPR and ultra-high BPR engines by alleviating ground clearance issues, and 2. they provide a significant amount of noise reduction because the wing blocks the noise of the fan and the jet. Despite their advantages, the OWN technology is not used in practical aircraft designs due to the difficulties in the aeropropulsive integration of the propulsion system. In this work, we propose using a coupled aeropropulsive design optimization framework to study the aeropropulsive integration for OWN configurations. The coupling behavior between the aerodynamics of the wing and the propulsion system is extremely important. Especially in OWN configurations, the propulsion system is highly influenced by the aerodynamic performance of the wing. In this paper, we address the design problem of coupling between the aerodynamic and the propulsion system. We also explore wide range of design space to achieve the best practical design. The changes in wing shape are insignificant when the OWN configuration is optimized for different FPR. Wing in OWN performs better when the propulsor is close to the wing's root; however, the overall drag increases when the propulsor is close to the root. This increases the shaft power need. In addition, nacelle placement at the aft of the trailing edge shows better performance than forward of the trailing edge of the wing. These advancements in design optimization capabilities will be critical in the future design of OWN configurations to achieve more environmentally sustainable aircraft designs.}
 }
 
-@InProceedings{Pacini2023a,
-    author      = {Pacini, Bernardo and Prajapati, Malhar and Duraisamy, Karthik and Martins, Joaquim R. R. A. and He, Ping},
-    title       = {Understanding Distributed Propulsion on the {NASA} Tiltwing Concept Vehicle with Aerodynamic Shape Optimization},
-    booktitle   = {AIAA Scitech Forum 2023},
-    doi         = {10.2514/6.2023-0143},
-    keywords    = {xsede,MPhys},
-    month       = {January},
-    year        = {2023},
-    abstract    = {Many urban air mobility vehicle designs are under development, featuring configurations that combine propellers with wings, tails, fuselage, and additional appendages. These complex geometries introduce physical phenomena such as propeller-wing and propeller-propeller interactions. Understanding these phenomena and optimizing a vehicle design considering their effects can lead to improved efficiency throughout a vehicle's mission. This work considers the NASA urban air mobility tiltwing concept vehicle and analyzes the performance of its wing considering varying numbers of propellers. The tiltwing's wing is analyzed and subsequently optimized for zero to five propellers to understand the potential for wing design improvements. This work finds that the tiltwing vehicle in cruise flight does benefit from wing-mounted propellers, however the strongest improvement in efficiency is found with a single propeller at the wingtip, with decreasing benefit as the number of propellers is increased. While this work considers only aerodynamic shape optimization without structural and packaging constraints or power plant design, it provides quantitative and qualitative insight into the advantages and disadvantages of distributed propulsors in cruise flight. Additionally, this work shows that while aerodynamic shape optimization is a useful tool for improving wing performance, considering propeller-wing interaction effects leads to a negligible improvement in optimized design.}
+@inproceedings{Pacini2023a,
+  author    = {Pacini, Bernardo and Prajapati, Malhar and Duraisamy, Karthik and Martins, Joaquim R. R. A. and He, Ping},
+  title     = {Understanding Distributed Propulsion on the {NASA} Tiltwing Concept Vehicle with Aerodynamic Shape Optimization},
+  booktitle = {AIAA Scitech Forum 2023},
+  doi       = {10.2514/6.2023-0143},
+  keywords  = {xsede,MPhys},
+  month     = {January},
+  year      = {2023},
+  abstract  = {Many urban air mobility vehicle designs are under development, featuring configurations that combine propellers with wings, tails, fuselage, and additional appendages. These complex geometries introduce physical phenomena such as propeller-wing and propeller-propeller interactions. Understanding these phenomena and optimizing a vehicle design considering their effects can lead to improved efficiency throughout a vehicle's mission. This work considers the NASA urban air mobility tiltwing concept vehicle and analyzes the performance of its wing considering varying numbers of propellers. The tiltwing's wing is analyzed and subsequently optimized for zero to five propellers to understand the potential for wing design improvements. This work finds that the tiltwing vehicle in cruise flight does benefit from wing-mounted propellers, however the strongest improvement in efficiency is found with a single propeller at the wingtip, with decreasing benefit as the number of propellers is increased. While this work considers only aerodynamic shape optimization without structural and packaging constraints or power plant design, it provides quantitative and qualitative insight into the advantages and disadvantages of distributed propulsors in cruise flight. Additionally, this work shows that while aerodynamic shape optimization is a useful tool for improving wing performance, considering propeller-wing interaction effects leads to a negligible improvement in optimized design.}
 }
 
 % AIAA Aviation 2023
 
-@InProceedings{AbdulKaiyoom2023b,
-    author      = {M. A. Saja Abdul-Kaiyoom and Anil Yildirim and Joaquim R. R. A. Martins},
-    title       = {{RANS}-Based Multipoint Aeropropulsive Design Optimization of an Over-Wing Nacelle Configuration},
-    address     = {San Diego, CA},
-    booktitle   = {AIAA Aviation Forum},
-    doi         = {10.2514/6.2023-3588},
-    keywords    = {xsede, pleiades, ank, OpenMDAO, MPhys, ADflow, pyCycle},
-    month       = {June},
-    year        = {2023},
-    abstract    = {Over-wing nacelle (OWN) configurations have two advantages over the traditional under-wing nacelle (UWN) configurations: 1. they make it easier to integrate high bypass ratio (BPR) and ultra-high BPR engines by removing ground clearance concerns, and 2. they significantly reduce noise because the wing blocks the noise of the fan and the jet. Despite their benefits, OWN technology is not widely used in real aircraft designs because of the challenges and lack of research in aeropropulsive integration of the propulsion system. In this work, we present multipoint aeropropulsive design optimizations of an OWN configuration to address several scenarios. To effectively design the propulsor in OWN, we consider on-design and off-design formulations of engine design concepts. In this work, we present one single-point optimization and three multipoint optimizations. In the multipoint optimizations, the objective is to minimize the shaft power at cruise conditions subject to constraints. To compare the performance degradation of single-point optimization, we performed several sub-optimizations to reflect the multipoint cases. The single-point optimal design required additional 0.4\% shaft power across the cruise conditions when compared to the multipoint optimization with 3 cruise points. In addition, distortion-constrained and distortion-unconstrained optimizations were performed at the take-off scenario. By modifying the inlet shape of the nacelle, the distortion-constrained optimization effectively reduces the distortion in the take-off scenario at the outermost radial ring over the fan by penalizing the cruise performance. The multipoint optimizations in this work highlight a number of significant design effects. An effective design is produced by including the required flight conditions and specifying the proper objective and constraints in the OWN multipoint problem. These design optimization capabilities will be crucial in determining the viability of novel propulsion concepts for next-generation OWN aircraft.}
+@inproceedings{AbdulKaiyoom2023b,
+  author    = {M. A. Saja Abdul-Kaiyoom and Anil Yildirim and Joaquim R. R. A. Martins},
+  title     = {{RANS}-Based Multipoint Aeropropulsive Design Optimization of an Over-Wing Nacelle Configuration},
+  address   = {San Diego, CA},
+  booktitle = {AIAA Aviation Forum},
+  doi       = {10.2514/6.2023-3588},
+  keywords  = {xsede, pleiades, ank, OpenMDAO, MPhys, ADflow, pyCycle},
+  month     = {June},
+  year      = {2023},
+  abstract  = {Over-wing nacelle (OWN) configurations have two advantages over the traditional under-wing nacelle (UWN) configurations: 1. they make it easier to integrate high bypass ratio (BPR) and ultra-high BPR engines by removing ground clearance concerns, and 2. they significantly reduce noise because the wing blocks the noise of the fan and the jet. Despite their benefits, OWN technology is not widely used in real aircraft designs because of the challenges and lack of research in aeropropulsive integration of the propulsion system. In this work, we present multipoint aeropropulsive design optimizations of an OWN configuration to address several scenarios. To effectively design the propulsor in OWN, we consider on-design and off-design formulations of engine design concepts. In this work, we present one single-point optimization and three multipoint optimizations. In the multipoint optimizations, the objective is to minimize the shaft power at cruise conditions subject to constraints. To compare the performance degradation of single-point optimization, we performed several sub-optimizations to reflect the multipoint cases. The single-point optimal design required additional 0.4\% shaft power across the cruise conditions when compared to the multipoint optimization with 3 cruise points. In addition, distortion-constrained and distortion-unconstrained optimizations were performed at the take-off scenario. By modifying the inlet shape of the nacelle, the distortion-constrained optimization effectively reduces the distortion in the take-off scenario at the outermost radial ring over the fan by penalizing the cruise performance. The multipoint optimizations in this work highlight a number of significant design effects. An effective design is produced by including the required flight conditions and specifying the proper objective and constraints in the OWN multipoint problem. These design optimization capabilities will be crucial in determining the viability of novel propulsion concepts for next-generation OWN aircraft.}
 }
 
-@InProceedings{AGray2023b,
-    author      = {Alasdair C. Gray and Graeme J. Kennedy and Joaquim R. R. A. Martins},
-    title       = {Geometrically Nonlinear High-fidelity Aerostructural Optimization Including Geometric Design Variables},
-    address     = {San Diego, CA},
-    booktitle   = {AIAA Aviation Forum},
-    doi         = {10.2514/6.2023-3316},
-    keywords    = {xsede, ank, OpenMDAO, MPhys},
-    month       = {June},
-    year        = {2023}
+@inproceedings{AGray2023b,
+  author    = {Alasdair C. Gray and Graeme J. Kennedy and Joaquim R. R. A. Martins},
+  title     = {Geometrically Nonlinear High-fidelity Aerostructural Optimization Including Geometric Design Variables},
+  address   = {San Diego, CA},
+  booktitle = {AIAA Aviation Forum},
+  doi       = {10.2514/6.2023-3316},
+  keywords  = {xsede, ank, OpenMDAO, MPhys},
+  month     = {June},
+  year      = {2023}
 }
 
-@InProceedings{Hajdik2023b,
-    author      = {Hannah M. Hajdik and Bernardo Pacini and Anil Yildirim and Benjamin J. Brelje and Joaquim R. R. A. Martins},
-    title       = {Combined systems packaging and aerodynamic shape optimization of a full aircraft configuration},
-    address     = {San Diego, CA},
-    booktitle   = {AIAA Aviation Forum},
-    doi         = {10.2514/6.2023-3589},
-    keywords    = {OpenMDAO, MPhys, packaging},
-    month       = {June},
-    year        = {2023},
-    abstract    = {Aerodynamic shape optimization is a valuable tool for aircraft design, but geometric constraints have had limited design freedom or have failed to capture spatial integration requirements in sufficient detail. Using a detailed representation of an aircraft's systems and payload geometries in a packaging constraint allows for more accurate and higher-performance spatial integration. We use a previously developed general and differentible packaging constraint formulated for gradient-based optimization for aerodynamic shape optimization of a full aircraft configuration. We explore the design of the NASA tiltwing concept vehicle with aerodynamic shape optimization using packaging constraints to examine the tradeoffs between aerodynamics and mission performance. The resulting design can be more targeted to our design requirements than one that can be achieved with conventional geometric constraints.}
+@inproceedings{Hajdik2023b,
+  author    = {Hannah M. Hajdik and Bernardo Pacini and Anil Yildirim and Benjamin J. Brelje and Joaquim R. R. A. Martins},
+  title     = {Combined systems packaging and aerodynamic shape optimization of a full aircraft configuration},
+  address   = {San Diego, CA},
+  booktitle = {AIAA Aviation Forum},
+  doi       = {10.2514/6.2023-3589},
+  keywords  = {OpenMDAO, MPhys, packaging},
+  month     = {June},
+  year      = {2023},
+  abstract  = {Aerodynamic shape optimization is a valuable tool for aircraft design, but geometric constraints have had limited design freedom or have failed to capture spatial integration requirements in sufficient detail. Using a detailed representation of an aircraft's systems and payload geometries in a packaging constraint allows for more accurate and higher-performance spatial integration. We use a previously developed general and differentible packaging constraint formulated for gradient-based optimization for aerodynamic shape optimization of a full aircraft configuration. We explore the design of the NASA tiltwing concept vehicle with aerodynamic shape optimization using packaging constraints to examine the tradeoffs between aerodynamics and mission performance. The resulting design can be more targeted to our design requirements than one that can be achieved with conventional geometric constraints.}
 }
 
-@InProceedings{Lamkin2023,
-    author      = {Andrew H. R. Lamkin and Anil Yildirim and Joaquim R. R. A. Martins and Nathan A. Wukie},
-    title       = {Advancements in Coupled Aeropropulsive Design Optimization for High-Bypass Turbofan Engines},
-    address     = {San Diego, CA},
-    booktitle   = {AIAA Aviation Forum},
-    doi         = {10.2514/6.2023-3591},
-    keywords    = {openmdao, mphys, ank, aeroprop, pleiades},
-    month       = {June},
-    year        = {2023},
-    abstract    = {To improve performance and reduce fuel consumption, we must address tightly connected aeropropulsive effects in the development of new and existing propulsion technologies. Aeropropulsive design optimization considers the multidisciplinary coupled interactions between aerodynamics, thermodynamics, and geometry. Mixed-fidelity aeropropulsive methods integrate high-fidelity aerodynamic solvers with zero-dimensional thermodynamic cycle modeling. Combined with gradient-based optimization, this approach is a computationally efficient design tool that can accommodate large design spaces with many design variables and constraints. Previously, we developed a novel hybrid aeropropulsive coupling method for turbofan engines and demonstrated its feasibility using a single-design-point problem. In this work, we improve upon the prior approach and perform the first successful coupled aeropropulsive optimization of a high-bypass turbofan. We analyze the optimized turbofan design and validate the corrections to the hybrid coupling scheme. The updated coupling methods are a significant advancement in aeropropulsive optimization that enable the design of tightly integrated propulsion systems considering thermodynamic and aerodynamic performance.}
+@inproceedings{Lamkin2023,
+  author    = {Andrew H. R. Lamkin and Anil Yildirim and Joaquim R. R. A. Martins and Nathan A. Wukie},
+  title     = {Advancements in Coupled Aeropropulsive Design Optimization for High-Bypass Turbofan Engines},
+  address   = {San Diego, CA},
+  booktitle = {AIAA Aviation Forum},
+  doi       = {10.2514/6.2023-3591},
+  keywords  = {openmdao, mphys, ank, aeroprop, pleiades},
+  month     = {June},
+  year      = {2023},
+  abstract  = {To improve performance and reduce fuel consumption, we must address tightly connected aeropropulsive effects in the development of new and existing propulsion technologies. Aeropropulsive design optimization considers the multidisciplinary coupled interactions between aerodynamics, thermodynamics, and geometry. Mixed-fidelity aeropropulsive methods integrate high-fidelity aerodynamic solvers with zero-dimensional thermodynamic cycle modeling. Combined with gradient-based optimization, this approach is a computationally efficient design tool that can accommodate large design spaces with many design variables and constraints. Previously, we developed a novel hybrid aeropropulsive coupling method for turbofan engines and demonstrated its feasibility using a single-design-point problem. In this work, we improve upon the prior approach and perform the first successful coupled aeropropulsive optimization of a high-bypass turbofan. We analyze the optimized turbofan design and validate the corrections to the hybrid coupling scheme. The updated coupling methods are a significant advancement in aeropropulsive optimization that enable the design of tightly integrated propulsion systems considering thermodynamic and aerodynamic performance.}
 }
 
-@InProceedings{Pacini2023b,
-    author      = {Pacini, Bernardo and Prajapati, Malhar and Duraisamy, Karthik and Martins, Joaquim R. R. A. and He, Ping},
-    title       = {Multipoint Aerostructural Optimization for Urban Air Mobility Vehicle Design},
-    booktitle   = {AIAA Scitech Forum 2023},
-    doi         = {10.2514/6.2023-0326},
-    keywords    = {xsede, MPhys},
-    month       = {January},
-    year        = {2023},
-    abstract    = {Many urban air mobility vehicle designs include several rotors and propellers integrated with complex fuselage, wing, and appendage geometries. These designs feature advanced technologies that demand further modeling and understanding of optimization tradeoffs. Given the complexity of the vehicle geometries being developed as well as the advanced materials used for integral components, aerostructural analysis and optimization can provide insight into the performance of urban air mobility vehicles, and how the structure and lifting surfaces can be designed to further improve vehicle efficiency. This work details an aerostructural optimization toolchain built with the MACH and OpenMDAO tools, embedded within the high-fidelity modeling and optimization framework called MPhys. This multiphysics analysis and optimization framework is used to perform aerostructural optimization of advanced vehicles, using DAFoam, a discrete adjoint implementation for OpenFOAM, as well as TACS, a finite element solver developed for gradient-based optimization of composite structures. These tools are applied to the NASA tiltwing concept vehicle to optimize the design of the wing considering structural deflection.}
+@inproceedings{Pacini2023b,
+  author    = {Pacini, Bernardo and Prajapati, Malhar and Duraisamy, Karthik and Martins, Joaquim R. R. A. and He, Ping},
+  title     = {Multipoint Aerostructural Optimization for Urban Air Mobility Vehicle Design},
+  booktitle = {AIAA Scitech Forum 2023},
+  doi       = {10.2514/6.2023-0326},
+  keywords  = {xsede, MPhys},
+  month     = {January},
+  year      = {2023},
+  abstract  = {Many urban air mobility vehicle designs include several rotors and propellers integrated with complex fuselage, wing, and appendage geometries. These designs feature advanced technologies that demand further modeling and understanding of optimization tradeoffs. Given the complexity of the vehicle geometries being developed as well as the advanced materials used for integral components, aerostructural analysis and optimization can provide insight into the performance of urban air mobility vehicles, and how the structure and lifting surfaces can be designed to further improve vehicle efficiency. This work details an aerostructural optimization toolchain built with the MACH and OpenMDAO tools, embedded within the high-fidelity modeling and optimization framework called MPhys. This multiphysics analysis and optimization framework is used to perform aerostructural optimization of advanced vehicles, using DAFoam, a discrete adjoint implementation for OpenFOAM, as well as TACS, a finite element solver developed for gradient-based optimization of composite structures. These tools are applied to the NASA tiltwing concept vehicle to optimize the design of the wing considering structural deflection.}
 }
 
-@InProceedings{Pacini2023c,
-    author      = {Pacini, Bernardo and Prajapati, Malhar and Duraisamy, Karthik and Martins, Joaquim R. R. A. and He, Ping},
-    title       = {Towards Mixed-Fidelity Aero-Structural-Acoustic Optimization for Urban Air Mobility Vehicle Design},
-    booktitle   = {AIAA Aviation Forum},
-    doi         = {10.2514/6.2023-3905},
-    keywords    = {MPhys},
-    month       = {June},
-    year        = {2023},
-    abstract    = {Many urban air mobility vehicle designs feature propellers integrated with fuselage, wings, and other appendages. These vehicle designs are based on complex configurations with novel propulsion systems and flight technology. The tightly coupled nature of the systems in these vehicles and the novel technologies within them create opportunities for vehicle analysis and optimization. Furthermore, the geometries being developed are unique, utilizing advanced materials for integral components. Aerodynamic, structural, and acoustic analysis and optimization can provide insight into their performance, and how the propellers, structures, and lifting surfaces can be designed to further improve vehicle efficiency considering operational constraints. This work details an aero-structural-acoustic optimization toolchain built with the MACH and OpenMDAO tools, embedded within the modeling and optimization framework called MPhys. This analysis and optimization framework utilizes multiple model fidelities, including hybrid blade element momentum theory, computational fluid dynamics, finite-element modeling, and an aeroacoustic analogy. With this toolchain, this work presents gradient-based aero-structural-acoustic optimization, minimizing required flight power while ensuring structural integrity and respecting acoustic considerations. The toolchain is applied to the NASA tiltwing concept vehicle to optimize the wing and propeller designs, yielding a 17.8\% reduction in required power for cruise flight while considering aerodynamic, structural, and acoustic constraints. This aero-structural-acoustic optimization framework can help make vehicle designs more efficient, lighter, and quieter.}
+@inproceedings{Pacini2023c,
+  author    = {Pacini, Bernardo and Prajapati, Malhar and Duraisamy, Karthik and Martins, Joaquim R. R. A. and He, Ping},
+  title     = {Towards Mixed-Fidelity Aero-Structural-Acoustic Optimization for Urban Air Mobility Vehicle Design},
+  booktitle = {AIAA Aviation Forum},
+  doi       = {10.2514/6.2023-3905},
+  keywords  = {MPhys},
+  month     = {June},
+  year      = {2023},
+  abstract  = {Many urban air mobility vehicle designs feature propellers integrated with fuselage, wings, and other appendages. These vehicle designs are based on complex configurations with novel propulsion systems and flight technology. The tightly coupled nature of the systems in these vehicles and the novel technologies within them create opportunities for vehicle analysis and optimization. Furthermore, the geometries being developed are unique, utilizing advanced materials for integral components. Aerodynamic, structural, and acoustic analysis and optimization can provide insight into their performance, and how the propellers, structures, and lifting surfaces can be designed to further improve vehicle efficiency considering operational constraints. This work details an aero-structural-acoustic optimization toolchain built with the MACH and OpenMDAO tools, embedded within the modeling and optimization framework called MPhys. This analysis and optimization framework utilizes multiple model fidelities, including hybrid blade element momentum theory, computational fluid dynamics, finite-element modeling, and an aeroacoustic analogy. With this toolchain, this work presents gradient-based aero-structural-acoustic optimization, minimizing required flight power while ensuring structural integrity and respecting acoustic considerations. The toolchain is applied to the NASA tiltwing concept vehicle to optimize the wing and propeller designs, yielding a 17.8\% reduction in required power for cruise flight while considering aerodynamic, structural, and acoustic constraints. This aero-structural-acoustic optimization framework can help make vehicle designs more efficient, lighter, and quieter.}
+}
+
+% AIAA SciTech 2024
+@inproceedings{AGray2024a,
+  author    = {Alasdair C. Gray and Joaquim R. R. A. Martins},
+  title     = {A Proposed Benchmark Model for Practical Aerostructural Optimization of Aircraft Wings},
+  address   = {Orlando, FL},
+  booktitle = {AIAA SciTech Forum},
+  doi       = {10.2514/6.2024-2775},
+  keywords  = {xsede, ank, OpenMDAO, MPhys},
+  month     = {January},
+  pdfurl    = {https://www.researchgate.net/profile/Alasdair-Christison-Gray/publication/377154425_A_Proposed_Benchmark_Model_for_Practical_Aeroelastic_Optimization_of_Aircraft_Wings/links/659763a12468df72d3fad247/A-Proposed-Benchmark-Model-for-Practical-Aeroelastic-Optimization-of-Aircraft-Wings.pdf},
+  year      = {2024},
+  abstract  = {The increasing flexibility of modern aircraft wings makes the consideration of aeroelasticity increasingly important in the earliest stages of the design process. In response to this need, the past decades have seen significant advances in the development of tools for the numerical optimization of aircraft wings considering aeroelastic interactions. These aeroelastic optimization tools optimize the structural sizing, and occasionally surface geometry, of a wing, subject to constraints such as structural failure and flutter stability, computed using aeroelastic analyses. The models used by these tools range from simple lifting line and beam models to RANS CFD and shell finite element models, each with their advantages and drawbacks. However, there have been few, if any, efforts to compare these different frameworks, mainly due to a lack of open benchmark models. In this paper, we propose a new benchmark model intended to be accessible to different researchers while remaining relevant to industrial use cases in modern transport aircraft. The proposed model consists of a wing-only outer mold line, based on that of a small single-aisle transport aircraft, and a moderately detailed conformal wingbox model. We also define a set of aeroelastic optimization problems of varying complexity, ranging from a structural sizing problem with fixed geometry to more complex problems involving optimization of the structural sizing and geometry for minimum fuel burn. We present results for each of the three optimization problems generated using RANS CFD, a shell finite element model, and the MPhys multiphysics coupling library. We show that allowing the wing planform to vary from the baseline results in a 17.5% reduction in fuel burn. These models and optimization problems are intended to act as a starting point for discussions on the choice of benchmark problems for the aeroelastic optimization community.}
+}
+
+% AIAA SciTech 2025
+@inproceedings{AGray2025a,
+  author    = {Alasdair C. Gray and Joaquim R. R. A. Martins},
+  title     = {Aerostructural Optimization of the Simple Transonic Wing Using {MPhys}, {ADflow}, and {TACS}},
+  address   = {Orlando, FL},
+  booktitle = {AIAA SciTech Forum},
+  doi       = {10.2514/6.2025-2813},
+  keywords  = {xsede, ank, OpenMDAO, MPhys},
+  month     = {January},
+  pdfurl    = {https://www.researchgate.net/profile/Alasdair-Christison-Gray/publication/387668601_Aerostructural_Optimization_of_the_Simple_Transonic_Wing_Using_MPhys_ADflow_and_TACS/links/677722afc1b01354650b7322/Aerostructural-Optimization-of-the-Simple-Transonic-Wing-Using-MPhys-ADflow-and-TACS.pdf},
+  year      = {2025},
+  abstract  = {The past decades have seen significant advances in the development of tools for the numerical optimization of aircraft wings considering aeroelastic interactions. These aeroelastic optimization tools optimize the structural sizing, and occasionally surface geometry, of a wing, subject to constraints such as structural failure and flutter stability, computed using aeroelastic analyses. The models used by these tools range from simple lifting line and beam models to RANS CFD and shell finite element models, each with their advantages and drawbacks. Recently, the High-Fidelity Aeroelastic Optimization Benchmark Working Group has been formed to bring together practitioners across the field in order to compare their methods on a common set of optimization problems. In this paper, we present solutions to all three benchmark problems using a set of open source codes developed for high-fidelity gradient-based design optimization. In Case~1, we generate a feasible wingbox design under aeroelastic loads, in Case~2 we improve the fuel burn over a nominal mission by 3\% by optimizing the wing twist and section shapes along with the structural sizing, and in Case~3 adding planform variables results in a doubling of the wing's aspect ratio and at 10.1\% reduction in fuel burn.}
 }
