@@ -14,11 +14,26 @@ class MPhysGeometry:
 class MPhysVariables:
     class Aerodynamics:
         class FlowConditions:
+            """
+            Reference flow quantities
+            """
+
             ANGLE_OF_ATTACK = "angle_of_attack"
             YAW_ANGLE = "yaw_angle"
             MACH_NUMBER = "mach_number"
             REYNOLDS_NUMBER = "reynolds_number"
             DYNAMIC_PRESSURE = "dynamic_pressure"
+
+        class ReferenceGeometry:
+            """
+            Reference geometric quantities for nondimensionalizing forces and
+            moments such as lift cofficient or moment coefficient
+            """
+
+            REF_AREA = "ref_area"
+            REF_LENGTH_X = "ref_length_x"
+            REF_LENGTH_Y = "ref_length_y"
+            MOMENT_CENTER = "moment_center"
 
         # TODO add propulsion coupling variables
 
