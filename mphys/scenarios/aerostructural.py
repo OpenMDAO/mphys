@@ -140,17 +140,17 @@ class ScenarioAeroStructural(Scenario):
                 MPhysVariables.Structures.COORDINATES,
             )
         else:
-            self.add_subsystem(
+            self.mphys_add_subsystem(
                 "aero_mesh", aero_builder.get_mesh_coordinate_subsystem(self.name)
             )
-            self.add_subsystem(
+            self.mphys_add_subsystem(
                 "struct_mesh", struct_builder.get_mesh_coordinate_subsystem(self.name)
             )
             self.mphys_add_subsystem(
                 "geometry", geometry_builder.get_mesh_coordinate_subsystem(self.name)
             )
             self.connect(
-                f"aero_mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+                MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES,
                 MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT,
             )
             self.connect(
@@ -159,7 +159,7 @@ class ScenarioAeroStructural(Scenario):
             )
 
             self.connect(
-                f"struct_mesh.{MPhysVariables.Structures.Mesh.COORDINATES}",
+                MPhysVariables.Structures.Mesh.COORDINATES,
                 MPhysVariables.Structures.Geometry.COORDINATES_INPUT,
             )
             self.connect(
