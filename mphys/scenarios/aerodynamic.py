@@ -37,7 +37,7 @@ class ScenarioAerodynamic(Scenario):
 
             if geometry_builder is not None:
                 geometry_builder.initialize(self.comm)
-                self.add_subsystem(
+                self.mphys_add_subsystem(
                     "mesh", aero_builder.get_mesh_coordinate_subsystem(self.name)
                 )
                 self.mphys_add_subsystem(
@@ -45,7 +45,7 @@ class ScenarioAerodynamic(Scenario):
                     geometry_builder.get_mesh_coordinate_subsystem(self.name),
                 )
                 self.connect(
-                    f"mesh.{MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES}",
+                    MPhysVariables.Aerodynamics.Surface.Mesh.COORDINATES,
                     MPhysVariables.Aerodynamics.Surface.Geometry.COORDINATES_INPUT,
                 )
                 self.connect(
