@@ -417,7 +417,7 @@ class Server:
                     != input_dict["design_vars"][key]["val"]
                 ).any():
                     design_changed = True
-            except Exception as e:
+            except Exception:
                 design_changed = True
             self.prob.set_val(key, input_dict["design_vars"][key]["val"])
         return self.comm.allreduce(design_changed, op=MPI.LOR)
