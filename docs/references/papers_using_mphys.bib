@@ -408,7 +408,7 @@
   doi       = {10.2514/6.2025-2813},
   keywords  = {xsede, ank, OpenMDAO, MPhys},
   month     = {January},
-  pdfurl    = {https://www.researchgate.net/profile/Alasdair-Christison-Gray/publication/387668601_Aerostructural_Optimization_of_the_Simple_Transonic_Wing_Using_MPhys_ADflow_and_TACS/links/677722afc1b01354650b7322/Aerostructural-Optimization-of-the-Simple-Transonic-Wing-Using-MPhys-ADflow-and-TACS.pdf},
+  url       = {https://www.researchgate.net/profile/Alasdair-Christison-Gray/publication/387668601_Aerostructural_Optimization_of_the_Simple_Transonic_Wing_Using_MPhys_ADflow_and_TACS/links/677722afc1b01354650b7322/Aerostructural-Optimization-of-the-Simple-Transonic-Wing-Using-MPhys-ADflow-and-TACS.pdf},
   year      = {2025},
   abstract  = {The past decades have seen significant advances in the development of tools for the numerical optimization of aircraft wings considering aeroelastic interactions. These aeroelastic optimization tools optimize the structural sizing, and occasionally surface geometry, of a wing, subject to constraints such as structural failure and flutter stability, computed using aeroelastic analyses. The models used by these tools range from simple lifting line and beam models to RANS CFD and shell finite element models, each with their advantages and drawbacks. Recently, the High-Fidelity Aeroelastic Optimization Benchmark Working Group has been formed to bring together practitioners across the field in order to compare their methods on a common set of optimization problems. In this paper, we present solutions to all three benchmark problems using a set of open source codes developed for high-fidelity gradient-based design optimization. In Case~1, we generate a feasible wingbox design under aeroelastic loads, in Case~2 we improve the fuel burn over a nominal mission by 3\% by optimizing the wing twist and section shapes along with the structural sizing, and in Case~3 adding planform variables results in a doubling of the wing's aspect ratio and at 10.1\% reduction in fuel burn.}
 }
@@ -424,17 +424,30 @@
 }
 
 % AIAA AVIATION 2025
-@InProceedings{Thelen2025,
-  author      = {Andrew Thelen and Bret Stanford and Kevin Jacobson},
-  title       = {Leveraging a Doublet Lattice Correction Method to Expedite Linearized Frequency-Domain Optimizations in MPhys},
-  address     = {Las Vegas, NV},
-  booktitle   = {AIAA AVIATION Forum},
-  doi         = {10.2514/6.2025-3552},
-  month       = {July},
-  year        = {2025}
+@inproceedings{Thelen2025,
+  author    = {Andrew Thelen and Bret Stanford and Kevin Jacobson},
+  title     = {Leveraging a Doublet Lattice Correction Method to Expedite Linearized Frequency-Domain Optimizations in MPhys},
+  address   = {Las Vegas, NV},
+  booktitle = {AIAA AVIATION Forum},
+  doi       = {10.2514/6.2025-3552},
+  month     = {July},
+  year      = {2025}
 }
 
 % AIAA SciTech 2026
+@inproceedings{AGray2026,
+  author    = {Alasdair C. Gray and Joaquim R. R. A. Martins},
+  title     = {Aerostructural Optimization of the {S}imple {T}ransonic {W}ing Considering Buffet and Takeoff Performance},
+  address   = {Orlando, FL},
+  booktitle = {AIAA SciTech Forum},
+  doi       = {10.2514/6.2026-1010},
+  keywords  = {ank, OpenMDAO, MPhys},
+  month     = {January},
+  url       = {https://www.researchgate.net/profile/Alasdair-Christison-Gray/publication/398800374_Aerostructural_Optimization_of_the_Simple_Transonic_Wing_Considering_Buffet_and_Takeoff_Performance/links/694335c406a9ab54f847ec9a/Aerostructural-Optimization-of-the-Simple-Transonic-Wing-Considering-Buffet-and-Takeoff-Performance.pdf},
+  year      = {2026},
+  abstract  = {The past decades have seen significant advances in the development of tools for the numerical optimization of aircraft wings considering aeroelastic interactions. These aeroelastic optimization tools optimize the structural sizing, and occasionally surface geometry, of a wing, subject to constraints such as structural failure and flutter stability, computed using aeroelastic analyses. Recently, the High-Fidelity Aeroelastic Optimization Benchmark Working Group has been formed to bring together practitioners across the field and compare their methods on a common set of optimization problems based on a benchmark model known as the Simple Transonic Wing. Building on the success of our special session at SciTech 2025, the working group has continued to develop the benchmark problems, adding new constraints to the optimization problems with the aim of producing more realistic designs. In this paper, we present our solution to the latest and most complex of these benchmark problems which includes new constraints on buffet onset, takeoff performance, and ground loads. We find that satisfying these new constraints requires a thinner wing with a larger planform area and a lower aspect ratio compared to our previous results. We also find that designing the wing considering buffet onset increases the wing's optimum cruise Mach number significantly beyond the value it is optimized to operate at.}
+}
+
 @InProceedings{Thelen2026,
   author    = {Andrew Thelen and Bret Stanford and Kevin Jacobson},
   title     = {An Approach to Modeling Aeroservoelasticity in MPhys},
