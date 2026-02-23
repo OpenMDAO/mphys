@@ -36,6 +36,6 @@ setup(
     author_email="",
     zip_safe=False,
     packages=find_packages(),
-    install_requires=["numpy", "openmdao >= 3.25, != 3.27.0"],
+    install_requires=["numpy", "openmdao >= 3.25, != 3.27.0, != 3.42.0"],
     extras_require=optional_dependencies,
 )
