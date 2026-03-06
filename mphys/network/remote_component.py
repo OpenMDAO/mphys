@@ -1,9 +1,25 @@
 import json
 import os
 import time
+from functools import wraps
 
 import numpy as np
 import openmdao.api as om
+
+from mphys.utils.directory_utils import cd
+
+
+def switch_run_directory(method):
+    """
+    Decorator function for methods where run directory must be switched before calling
+    """
+
+    @wraps(method)
+    def wrapped_method(self, *args, **kwargs):
+        with cd(self.options["run_directory"]):
+            return method(self, *args, **kwargs)
+
+    return wrapped_method
 
 
 class RemoteComp(om.ExplicitComponent):
@@ -83,7 +99,15 @@ class RemoteComp(om.ExplicitComponent):
             types=bool,
             desc="assign derivative coloring to objective/constraints. Only for cases with parallel servers",
         )
+        self.options.declare(
+            "run_directory",
+            default="",
+            types=str,
+            desc="Path in which to execute this remote component."
+            + " The default of empty string will not change the directory.",
+        )
 
+    @switch_run_directory
     def setup(self):
         self.var_naming_dot_replacement = self.options["var_naming_dot_replacement"]
         self.use_derivative_coloring = self.options["use_derivative_coloring"]
@@ -141,6 +165,7 @@ class RemoteComp(om.ExplicitComponent):
 
         self.declare_partials("*", "*")
 
+    @switch_run_directory
     def compute(self, inputs, outputs):
         remote_dict = None
         if self.comm.rank == 0:
@@ -154,6 +179,7 @@ class RemoteComp(om.ExplicitComponent):
         self._assign_constraints_from_remote_output(remote_dict, outputs)
         self._assign_additional_outputs_from_remote_output(remote_dict, outputs)
 
+    @switch_run_directory
     def compute_partials(self, inputs, partials):
         # NOTE: this will not use of and wrt inputs, if given in outer script's compute_totals/check_totals
 
