@@ -161,7 +161,9 @@ class RemoteComp(om.ExplicitComponent):
             )
         output_dict = self.comm.bcast(output_dict)
         self.output_dict = output_dict  # save to access design info
-        self.skip_objective_constraint_definition = self.options["skip_objective_constraint_definition"]
+        self.skip_objective_constraint_definition = self.options[
+            "skip_objective_constraint_definition"
+        ]
 
         self._add_design_inputs_from_baseline_model(output_dict)
         self._add_objectives_from_baseline_model(output_dict)
