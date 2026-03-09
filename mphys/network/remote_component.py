@@ -106,6 +106,12 @@ class RemoteComp(om.ExplicitComponent):
             desc="Path in which to execute this remote component."
             + " The default of empty string will not change the directory.",
         )
+        self.options.declare(
+            "skip_objective_constraint_definition",
+            default=False,
+            types=bool,
+            desc="Skip the objective/constraint definition. The quantities will still be added to outputs",
+        )
 
     @switch_run_directory
     def setup(self):
@@ -155,6 +161,7 @@ class RemoteComp(om.ExplicitComponent):
             )
         output_dict = self.comm.bcast(output_dict)
         self.output_dict = output_dict  # save to access design info
+        self.skip_objective_constraint_definition = self.options["skip_objective_constraint_definition"]
 
         self._add_design_inputs_from_baseline_model(output_dict)
         self._add_objectives_from_baseline_model(output_dict)
@@ -422,19 +429,20 @@ class RemoteComp(om.ExplicitComponent):
                 output_dict["objective"][obj]["val"],
                 units=output_dict["objective"][obj]["units"],
             )
-            self.add_objective(
-                obj.replace(".", self.var_naming_dot_replacement),
-                ref=output_dict["objective"][obj]["ref"],
-                ref0=output_dict["objective"][obj]["ref0"],
-                scaler=output_dict["objective"][obj]["scaler"],
-                adder=output_dict["objective"][obj]["adder"],
-                parallel_deriv_color=(
-                    f"color{self.derivative_coloring_num}"
-                    if self.use_derivative_coloring
-                    else None
-                ),
-            )
-            self.derivative_coloring_num += 1
+            if not self.skip_objective_constraint_definition:
+                self.add_objective(
+                    obj.replace(".", self.var_naming_dot_replacement),
+                    ref=output_dict["objective"][obj]["ref"],
+                    ref0=output_dict["objective"][obj]["ref0"],
+                    scaler=output_dict["objective"][obj]["scaler"],
+                    adder=output_dict["objective"][obj]["adder"],
+                    parallel_deriv_color=(
+                        f"color{self.derivative_coloring_num}"
+                        if self.use_derivative_coloring
+                        else None
+                    ),
+                )
+                self.derivative_coloring_num += 1
 
     def _add_constraints_from_baseline_model(self, output_dict):
         for con in output_dict["constraints"].keys():
@@ -443,34 +451,15 @@ class RemoteComp(om.ExplicitComponent):
                 output_dict["constraints"][con]["val"],
                 units=output_dict["constraints"][con]["units"],
             )
-            if (
-                output_dict["constraints"][con]["equals"] is not None
-            ):  # equality constraint
-                self.add_constraint(
-                    con.replace(".", self.var_naming_dot_replacement),
-                    ref=output_dict["constraints"][con]["ref"],
-                    ref0=output_dict["constraints"][con]["ref0"],
-                    equals=output_dict["constraints"][con]["equals"],
-                    scaler=output_dict["constraints"][con]["scaler"],
-                    adder=output_dict["constraints"][con]["adder"],
-                    linear=output_dict["constraints"][con]["linear"],
-                    parallel_deriv_color=(
-                        f"color{self.derivative_coloring_num}"
-                        if self.use_derivative_coloring
-                        else None
-                    ),
-                )
-            else:
+            if not self.skip_objective_constraint_definition:
                 if (
-                    output_dict["constraints"][con]["lower"] > -1e20
-                    and output_dict["constraints"][con]["upper"] < 1e20
-                ):  # enforce lower and upper bounds
+                    output_dict["constraints"][con]["equals"] is not None
+                ):  # equality constraint
                     self.add_constraint(
                         con.replace(".", self.var_naming_dot_replacement),
                         ref=output_dict["constraints"][con]["ref"],
                         ref0=output_dict["constraints"][con]["ref0"],
-                        lower=output_dict["constraints"][con]["lower"],
-                        upper=output_dict["constraints"][con]["upper"],
+                        equals=output_dict["constraints"][con]["equals"],
                         scaler=output_dict["constraints"][con]["scaler"],
                         adder=output_dict["constraints"][con]["adder"],
                         linear=output_dict["constraints"][con]["linear"],
@@ -480,39 +469,59 @@ class RemoteComp(om.ExplicitComponent):
                             else None
                         ),
                     )
-                elif (
-                    output_dict["constraints"][con]["lower"] > -1e20
-                ):  # enforce lower bound
-                    self.add_constraint(
-                        con.replace(".", self.var_naming_dot_replacement),
-                        ref=output_dict["constraints"][con]["ref"],
-                        ref0=output_dict["constraints"][con]["ref0"],
-                        lower=output_dict["constraints"][con]["lower"],
-                        scaler=output_dict["constraints"][con]["scaler"],
-                        adder=output_dict["constraints"][con]["adder"],
-                        linear=output_dict["constraints"][con]["linear"],
-                        parallel_deriv_color=(
-                            f"color{self.derivative_coloring_num}"
-                            if self.use_derivative_coloring
-                            else None
-                        ),
-                    )
-                else:  # enforce upper bound
-                    self.add_constraint(
-                        con.replace(".", self.var_naming_dot_replacement),
-                        ref=output_dict["constraints"][con]["ref"],
-                        ref0=output_dict["constraints"][con]["ref0"],
-                        upper=output_dict["constraints"][con]["upper"],
-                        scaler=output_dict["constraints"][con]["scaler"],
-                        adder=output_dict["constraints"][con]["adder"],
-                        linear=output_dict["constraints"][con]["linear"],
-                        parallel_deriv_color=(
-                            f"color{self.derivative_coloring_num}"
-                            if self.use_derivative_coloring
-                            else None
-                        ),
-                    )
-            self.derivative_coloring_num += 1
+                else:
+                    if (
+                        output_dict["constraints"][con]["lower"] > -1e20
+                        and output_dict["constraints"][con]["upper"] < 1e20
+                    ):  # enforce lower and upper bounds
+                        self.add_constraint(
+                            con.replace(".", self.var_naming_dot_replacement),
+                            ref=output_dict["constraints"][con]["ref"],
+                            ref0=output_dict["constraints"][con]["ref0"],
+                            lower=output_dict["constraints"][con]["lower"],
+                            upper=output_dict["constraints"][con]["upper"],
+                            scaler=output_dict["constraints"][con]["scaler"],
+                            adder=output_dict["constraints"][con]["adder"],
+                            linear=output_dict["constraints"][con]["linear"],
+                            parallel_deriv_color=(
+                                f"color{self.derivative_coloring_num}"
+                                if self.use_derivative_coloring
+                                else None
+                            ),
+                        )
+                    elif (
+                        output_dict["constraints"][con]["lower"] > -1e20
+                    ):  # enforce lower bound
+                        self.add_constraint(
+                            con.replace(".", self.var_naming_dot_replacement),
+                            ref=output_dict["constraints"][con]["ref"],
+                            ref0=output_dict["constraints"][con]["ref0"],
+                            lower=output_dict["constraints"][con]["lower"],
+                            scaler=output_dict["constraints"][con]["scaler"],
+                            adder=output_dict["constraints"][con]["adder"],
+                            linear=output_dict["constraints"][con]["linear"],
+                            parallel_deriv_color=(
+                                f"color{self.derivative_coloring_num}"
+                                if self.use_derivative_coloring
+                                else None
+                            ),
+                        )
+                    else:  # enforce upper bound
+                        self.add_constraint(
+                            con.replace(".", self.var_naming_dot_replacement),
+                            ref=output_dict["constraints"][con]["ref"],
+                            ref0=output_dict["constraints"][con]["ref0"],
+                            upper=output_dict["constraints"][con]["upper"],
+                            scaler=output_dict["constraints"][con]["scaler"],
+                            adder=output_dict["constraints"][con]["adder"],
+                            linear=output_dict["constraints"][con]["linear"],
+                            parallel_deriv_color=(
+                                f"color{self.derivative_coloring_num}"
+                                if self.use_derivative_coloring
+                                else None
+                            ),
+                        )
+                self.derivative_coloring_num += 1
 
     def _assign_objectives_from_remote_output(self, remote_dict, outputs):
         for obj in remote_dict["objective"].keys():
