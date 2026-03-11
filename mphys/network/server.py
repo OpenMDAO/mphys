@@ -49,7 +49,8 @@ class Server:
         self.additional_constants = None
         self.design_counter = 0  # more debugging info for client side json dumping
         self.write_n2 = write_n2
-        self.metadata = None
+        self.metadata = None  # needed to match units on server vs. client side
+        self.coloring_info = None  # needed to recompute coloring with additional inputs/outputs
 
         self._load_the_model()
 
@@ -86,32 +87,49 @@ class Server:
         self.design_counter += 1
 
     def _compute_totals(self):
-        of, wrt = self._get_derivative_inputs_outputs()
+        ofs, wrts = self._get_derivative_inputs_outputs()
+        if self.coloring_info is None:
+            self._recompute_coloring(ofs, wrts)
         if self.ignore_runtime_warnings:
             with warnings.catch_warnings(record=True):
-                self.derivatives = self.prob.compute_totals(of=of, wrt=wrt)
+                self.derivatives = self.prob.compute_totals(
+                                        of=ofs,
+                                        wrt=wrts,
+                                        coloring_info=self.coloring_info,
+                                        debug_print=True if self.comm.rank==0 else False)
         else:
-            self.derivatives = self.prob.compute_totals(of=of, wrt=wrt)
+            self.derivatives = self.prob.compute_totals(
+                                    of=ofs,
+                                    wrt=wrts,
+                                    coloring_info=self.coloring_info,
+                                    debug_print=True if self.comm.rank==0 else False)
         self.current_derivatives_have_been_evaluated = True
 
+    def _recompute_coloring(self, of, wrt):
+        # of/wrt given explicitly due to potential additional inputs/outputs,
+        # but OM only setup to use coloring with default of/wrt, so we need to
+        # recompute coloring to enable parallel derivative calculation
+        self.coloring_info = self.prob.driver._coloring_info
+        of_metadata, wrt_metadata, _ = self.prob.model._get_totals_metadata(
+                                            driver=self.prob.driver,
+                                            of=of,
+                                            wrt=wrt)
+        self.coloring_info.coloring = self.prob.get_total_coloring(
+                                            self.coloring_info,
+                                            of=of_metadata,
+                                            wrt=wrt_metadata,
+                                            run_model=False)
+
     def _get_derivative_inputs_outputs(self):
-        responses = self.prob.model.get_constraints()
-        responses.update(self.prob.model.get_objectives())
-        design_vars = self.prob.model.get_design_vars()
-        of = []
-        for r in responses.keys():
-            of += [responses[r]["source"]]
-        of += self.additional_outputs
-
-        wrt = []
-        for dv in design_vars.keys():
-            wrt += [design_vars[dv]["source"]]
-        wrt += self.additional_inputs
-
-        return of, wrt
+        responses = self.prob.model.get_constraints(use_prom_ivc=True)
+        responses.update(self.prob.model.get_objectives(use_prom_ivc=True))
+        design_vars = self.prob.model.get_design_vars(use_prom_ivc=True)
+        ofs = list(responses.keys()) + self.additional_outputs
+        wrts = list(design_vars.keys()) + self.additional_inputs
+        return ofs, wrts
 
     def _gather_design_inputs_from_om_problem(self, remote_output_dict={}):
-        design_vars = self.prob.model.get_design_vars()
+        design_vars = self.prob.model.get_design_vars(use_prom_ivc=True)
         remote_output_dict["design_vars"] = {}
         for dv in design_vars.keys():
             remote_output_dict["design_vars"][dv] = {
@@ -175,8 +193,8 @@ class Server:
         return remote_output_dict
 
     def _gather_design_outputs_from_om_problem(self, remote_output_dict={}):
-        responses = self.prob.model.get_constraints()
-        responses.update(self.prob.model.get_objectives())
+        responses = self.prob.model.get_constraints(use_prom_ivc=True)
+        responses.update(self.prob.model.get_objectives(use_prom_ivc=True))
         remote_output_dict.update({"objective": {}, "constraints": {}})
         for r in responses.keys():
 
@@ -314,9 +332,9 @@ class Server:
         return remote_output_dict
 
     def _gather_design_derivatives_from_om_problem(self, remote_output_dict):
-        design_vars = self.prob.model.get_design_vars()
-        responses = self.prob.model.get_constraints()
-        responses.update(self.prob.model.get_objectives())
+        design_vars = self.prob.model.get_design_vars(use_prom_ivc=True)
+        responses = self.prob.model.get_constraints(use_prom_ivc=True)
+        responses.update(self.prob.model.get_objectives(use_prom_ivc=True))
         for r in responses.keys():
 
             if responses[r]["type"] == "obj":
@@ -326,22 +344,20 @@ class Server:
 
             remote_output_dict[response_type][r]["derivatives"] = {}
             for dv in design_vars.keys():
-                deriv = self.derivatives[
-                    (responses[r]["source"], design_vars[dv]["source"])
-                ]
+                deriv = self.derivatives[(r, dv)]
                 if hasattr(deriv, "tolist"):
                     deriv = deriv.tolist()
                 remote_output_dict[response_type][r]["derivatives"][dv] = deriv
         return remote_output_dict
 
     def _gather_additional_output_derivatives_from_om_problem(self, remote_output_dict):
-        design_vars = self.prob.model.get_design_vars()
+        design_vars = self.prob.model.get_design_vars(use_prom_ivc=True)
         for output in self.additional_outputs:
             remote_output_dict["additional_outputs"][output]["derivatives"] = {}
 
             # wrt design vars
             for dv in design_vars.keys():
-                deriv = self.derivatives[(output, design_vars[dv]["source"])]
+                deriv = self.derivatives[(output, dv)]
                 if hasattr(deriv, "tolist"):
                     deriv = deriv.tolist()
                 remote_output_dict["additional_outputs"][output]["derivatives"][
@@ -360,8 +376,8 @@ class Server:
         return remote_output_dict
 
     def _gather_additional_input_derivatives_from_om_problem(self, remote_output_dict):
-        responses = self.prob.model.get_constraints()
-        responses.update(self.prob.model.get_objectives())
+        responses = self.prob.model.get_constraints(use_prom_ivc=True)
+        responses.update(self.prob.model.get_objectives(use_prom_ivc=True))
         for r in responses.keys():
 
             if responses[r]["type"] == "obj":
@@ -370,7 +386,7 @@ class Server:
                 response_type = "constraints"
 
             for dv in self.additional_inputs:
-                deriv = self.derivatives[(responses[r]["source"], dv)]
+                deriv = self.derivatives[(r, dv)]
                 if hasattr(deriv, "tolist"):
                     deriv = deriv.tolist()
                 remote_output_dict[response_type][r]["derivatives"][dv] = deriv
