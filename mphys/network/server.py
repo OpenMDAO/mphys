@@ -50,7 +50,9 @@ class Server:
         self.design_counter = 0  # more debugging info for client side json dumping
         self.write_n2 = write_n2
         self.metadata = None  # needed to match units on server vs. client side
-        self.coloring_info = None  # needed to recompute coloring with additional inputs/outputs
+        self.coloring_info = (
+            None  # needed to recompute coloring with additional inputs/outputs
+        )
 
         self._load_the_model()
 
@@ -93,16 +95,18 @@ class Server:
         if self.ignore_runtime_warnings:
             with warnings.catch_warnings(record=True):
                 self.derivatives = self.prob.compute_totals(
-                                        of=ofs,
-                                        wrt=wrts,
-                                        coloring_info=self.coloring_info,
-                                        debug_print=True if self.comm.rank == 0 else False)
+                    of=ofs,
+                    wrt=wrts,
+                    coloring_info=self.coloring_info,
+                    debug_print=True if self.comm.rank == 0 else False,
+                )
         else:
             self.derivatives = self.prob.compute_totals(
-                                    of=ofs,
-                                    wrt=wrts,
-                                    coloring_info=self.coloring_info,
-                                    debug_print=True if self.comm.rank == 0 else False)
+                of=ofs,
+                wrt=wrts,
+                coloring_info=self.coloring_info,
+                debug_print=True if self.comm.rank == 0 else False,
+            )
         self.current_derivatives_have_been_evaluated = True
 
     def _recompute_coloring(self, of, wrt):
@@ -111,14 +115,11 @@ class Server:
         # recompute coloring to enable parallel derivative calculation
         self.coloring_info = self.prob.driver._coloring_info
         of_metadata, wrt_metadata, _ = self.prob.model._get_totals_metadata(
-                                            driver=self.prob.driver,
-                                            of=of,
-                                            wrt=wrt)
+            driver=self.prob.driver, of=of, wrt=wrt
+        )
         self.coloring_info.coloring = self.prob.get_total_coloring(
-                                            self.coloring_info,
-                                            of=of_metadata,
-                                            wrt=wrt_metadata,
-                                            run_model=False)
+            self.coloring_info, of=of_metadata, wrt=wrt_metadata, run_model=False
+        )
 
     def _get_derivative_inputs_outputs(self):
         responses = self.prob.model.get_constraints(use_prom_ivc=True)
