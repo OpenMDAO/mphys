@@ -96,13 +96,13 @@ class Server:
                                         of=ofs,
                                         wrt=wrts,
                                         coloring_info=self.coloring_info,
-                                        debug_print=True if self.comm.rank==0 else False)
+                                        debug_print=True if self.comm.rank == 0 else False)
         else:
             self.derivatives = self.prob.compute_totals(
                                     of=ofs,
                                     wrt=wrts,
                                     coloring_info=self.coloring_info,
-                                    debug_print=True if self.comm.rank==0 else False)
+                                    debug_print=True if self.comm.rank == 0 else False)
         self.current_derivatives_have_been_evaluated = True
 
     def _recompute_coloring(self, of, wrt):
