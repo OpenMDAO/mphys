@@ -166,17 +166,29 @@ Wall times for function and gradient calls are saved, and when the maximum previ
 <td><p>N/A</p></td>
 <td><p>only allows server reboot before function call, not gradient call. Avoids having to rerun forward solution on next job, but shortens current job time</p></td>
 </tr>
-<tr class="row-odd"><td><p>run_root_only</p></td>
+<tr class="row-odd"><td><p>run_directory</p></td>
+<td></td>
+<td><p>N/A</p></td>
+<td><p>[‘str’]</p></td>
+<td><p>Path in which to execute this remote component. The default of empty string will not change the directory.</p></td>
+</tr>
+<tr class="row-even"><td><p>run_root_only</p></td>
 <td><p>False</p></td>
 <td><p>[True, False]</p></td>
 <td><p>[‘bool’]</p></td>
 <td><p>If True, call compute, compute_partials, linearize, apply_linear, apply_nonlinear, solve_linear, solve_nonlinear, and compute_jacvec_product only on rank 0 and broadcast the results to the other ranks.</p></td>
 </tr>
-<tr class="row-even"><td><p>run_server_filename</p></td>
+<tr class="row-odd"><td><p>run_server_filename</p></td>
 <td><p>mphys_server.py</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>python file that will launch the Server class</p></td>
+</tr>
+<tr class="row-even"><td><p>skip_objective_constraint_definition</p></td>
+<td><p>False</p></td>
+<td><p>[True, False]</p></td>
+<td><p>[‘bool’]</p></td>
+<td><p>Skip the objective/constraint definition. The quantities will still be added to outputs</p></td>
 </tr>
 <tr class="row-odd"><td><p>time_estimate_buffer</p></td>
 <td><p>0.0</p></td>
