@@ -114,15 +114,15 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         outputs["CM_Z"] = m_z / (q_inf * area * span)
 
     def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
-        aoa = inputs[AOA_NAME]
-        yaw = inputs[YAW_NAME]
-        area = inputs[REF_AREA_NAME]
-        q_inf = inputs[QINF_NAME]
-        xc = inputs[MOMENT_CENTER_NAME][0]
-        yc = inputs[MOMENT_CENTER_NAME][1]
-        zc = inputs[MOMENT_CENTER_NAME][2]
-        c = inputs[REF_LENGTH_X_NAME]
-        span = inputs[REF_LENGTH_Y_NAME]
+        aoa = inputs[AOA_NAME].flat[0]
+        yaw = inputs[YAW_NAME].flat[0]
+        area = inputs[REF_AREA_NAME].flat[0]
+        q_inf = inputs[QINF_NAME].flat[0]
+        xc = inputs[MOMENT_CENTER_NAME][0].flat[0]
+        yc = inputs[MOMENT_CENTER_NAME][1].flat[0]
+        zc = inputs[MOMENT_CENTER_NAME][2].flat[0]
+        c = inputs[REF_LENGTH_X_NAME].flat[0]
+        span = inputs[REF_LENGTH_Y_NAME].flat[0]
 
         x = inputs[X_AERO_NAME][0::3]
         y = inputs[X_AERO_NAME][1::3]
@@ -132,9 +132,9 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
         fy = inputs[F_AERO_NAME][1::3]
         fz = inputs[F_AERO_NAME][2::3]
 
-        fx_total = self.comm.allreduce(np.sum(fx))
-        fy_total = self.comm.allreduce(np.sum(fy))
-        fz_total = self.comm.allreduce(np.sum(fz))
+        fx_total = self.comm.allreduce(np.sum(fx)).flat[0]
+        fy_total = self.comm.allreduce(np.sum(fy)).flat[0]
+        fz_total = self.comm.allreduce(np.sum(fz)).flat[0]
 
         lift = -fx_total * np.sin(aoa) + fz_total * np.cos(aoa)
         drag = (
@@ -143,9 +143,9 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
             + fz_total * np.sin(aoa) * np.cos(yaw)
         )
 
-        m_x = self.comm.allreduce(np.dot(fz, (y - yc)) - np.dot(fy, (z - zc)))
-        m_y = self.comm.allreduce(-np.dot(fz, (x - xc)) + np.dot(fx, (z - zc)))
-        m_z = self.comm.allreduce(np.dot(fy, (x - xc)) - np.dot(fx, (y - yc)))
+        m_x = self.comm.allreduce(np.dot(fz, (y - yc)) - np.dot(fy, (z - zc))).flat[0]
+        m_y = self.comm.allreduce(-np.dot(fz, (x - xc)) + np.dot(fx, (z - zc))).flat[0]
+        m_z = self.comm.allreduce(np.dot(fy, (x - xc)) - np.dot(fx, (y - yc))).flat[0]
 
         if mode == "fwd":
             if AOA_NAME in d_inputs:
@@ -196,7 +196,7 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                     d_outputs["C_D"] += drag * d_nondim
                 if "CM_X" in d_outputs:
                     d_outputs["CM_X"] += m_x * d_nondim / span
-                if "CM_X" in d_outputs:
+                if "CM_Y" in d_outputs:
                     d_outputs["CM_Y"] += m_y * d_nondim / c
                 if "CM_Z" in d_outputs:
                     d_outputs["CM_Z"] += m_z * d_nondim / span
@@ -250,7 +250,7 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                     d_outputs["C_D"] += drag * d_nondim
                 if "CM_X" in d_outputs:
                     d_outputs["CM_X"] += m_x * d_nondim / span
-                if "CM_X" in d_outputs:
+                if "CM_Y" in d_outputs:
                     d_outputs["CM_Y"] += m_y * d_nondim / c
                 if "CM_Z" in d_outputs:
                     d_outputs["CM_Z"] += m_z * d_nondim / span
@@ -377,41 +377,47 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                     d_inputs[REF_AREA_NAME] += d_outputs["C_D"] * drag * d_nondim
                 if "CM_X" in d_outputs:
                     d_inputs[REF_AREA_NAME] += d_outputs["CM_X"] * m_x * d_nondim / span
-                if "CM_X" in d_outputs:
+                if "CM_Y" in d_outputs:
                     d_inputs[REF_AREA_NAME] += d_outputs["CM_Y"] * m_y * d_nondim / c
                 if "CM_Z" in d_outputs:
                     d_inputs[REF_AREA_NAME] += d_outputs["CM_Z"] * m_z * d_nondim / span
 
             if MOMENT_CENTER_NAME in d_inputs:
                 if "M_X" in d_outputs:
-                    d_inputs[MOMENT_CENTER_NAME][1] += -fz_total * d_outputs["M_X"]
-                    d_inputs[MOMENT_CENTER_NAME][2] += fy_total * d_outputs["M_X"]
+                    dm_x = d_outputs["M_X"].flat[0]
+                    d_inputs[MOMENT_CENTER_NAME][1] += -fz_total * dm_x
+                    d_inputs[MOMENT_CENTER_NAME][2] += fy_total * dm_x
                 if "M_Y" in d_outputs:
-                    d_inputs[MOMENT_CENTER_NAME][0] += fz_total * d_outputs["M_Y"]
-                    d_inputs[MOMENT_CENTER_NAME][2] += -fx_total * d_outputs["M_Y"]
+                    dm_y = d_outputs["M_Y"].flat[0]
+                    d_inputs[MOMENT_CENTER_NAME][0] += fz_total * dm_y
+                    d_inputs[MOMENT_CENTER_NAME][2] += -fx_total * dm_y
                 if "M_Z" in d_outputs:
-                    d_inputs[MOMENT_CENTER_NAME][0] += -fy_total * d_outputs["M_Z"]
-                    d_inputs[MOMENT_CENTER_NAME][1] += fx_total * d_outputs["M_Z"]
+                    dm_z = d_outputs["M_Z"].flat[0]
+                    d_inputs[MOMENT_CENTER_NAME][0] += -fy_total * dm_z
+                    d_inputs[MOMENT_CENTER_NAME][1] += fx_total * dm_z
                 if "CM_X" in d_outputs:
+                    dcm_x = d_outputs["CM_X"].flat[0]
                     d_inputs[MOMENT_CENTER_NAME][1] += (
-                        -fz_total * d_outputs["CM_X"] / (q_inf * area * span)
+                        -fz_total * dcm_x / (q_inf * area * span)
                     )
                     d_inputs[MOMENT_CENTER_NAME][2] += (
-                        fy_total * d_outputs["CM_X"] / (q_inf * area * span)
+                        fy_total * dcm_x / (q_inf * area * span)
                     )
                 if "CM_Y" in d_outputs:
+                    dcm_y = d_outputs["CM_Y"].flat[0]
                     d_inputs[MOMENT_CENTER_NAME][0] += (
-                        fz_total * d_outputs["CM_Y"] / (q_inf * area * c)
+                        fz_total * dcm_y / (q_inf * area * c)
                     )
                     d_inputs[MOMENT_CENTER_NAME][2] += (
-                        -fx_total * d_outputs["CM_Y"] / (q_inf * area * c)
+                        -fx_total * dcm_y / (q_inf * area * c)
                     )
                 if "CM_Z" in d_outputs:
+                    dcm_z = d_outputs["CM_Z"].flat[0]
                     d_inputs[MOMENT_CENTER_NAME][0] += (
-                        -fy_total * d_outputs["CM_Z"] / (q_inf * area * span)
+                        -fy_total * dcm_z / (q_inf * area * span)
                     )
                     d_inputs[MOMENT_CENTER_NAME][1] += (
-                        fx_total * d_outputs["CM_Z"] / (q_inf * area * span)
+                        fx_total * dcm_z / (q_inf * area * span)
                     )
             if REF_LENGTH_X_NAME in d_inputs:
                 d_nondim = -1.0 / (q_inf * area * c**2.0)
@@ -439,7 +445,7 @@ class IntegratedSurfaceForces(om.ExplicitComponent):
                     d_inputs[QINF_NAME] += d_outputs["C_D"] * drag * d_nondim
                 if "CM_X" in d_outputs:
                     d_inputs[QINF_NAME] += d_outputs["CM_X"] * m_x * d_nondim / span
-                if "CM_X" in d_outputs:
+                if "CM_Y" in d_outputs:
                     d_inputs[QINF_NAME] += d_outputs["CM_Y"] * m_y * d_nondim / c
                 if "CM_Z" in d_outputs:
                     d_inputs[QINF_NAME] += d_outputs["CM_Z"] * m_z * d_nondim / span
