@@ -3,6 +3,7 @@ from copy import deepcopy
 
 import numpy as np
 import openmdao.api as om
+from mpi4py import MPI
 
 
 class Server:
@@ -427,13 +428,26 @@ class Server:
     def _set_design_variables_into_the_server_problem(self, input_dict):
         design_changed = False
         for key in input_dict["design_vars"].keys():
-            if (
-                self.prob.get_val(key, get_remote=True)
-                != input_dict["design_vars"][key]["val"]
-            ).any():
+            try:
+                if (
+                    self.prob.get_val(key, get_remote=True)
+                    != input_dict["design_vars"][key]["val"]
+                ).any():
+                    design_changed = True
+            except Exception as e:
+                print(
+                    f"SERVER: Unable to get val of {key} due to the following error:",
+                    flush=True,
+                )
+                print(e, flush=True)
+                print(
+                    "This can occur with certain versions of OpenMDAO upon server restart, typically due to "
+                    + "IVCs/DVs defined within parallel groups. Assuming design has changed...",
+                    flush=True,
+                )
                 design_changed = True
             self.prob.set_val(key, input_dict["design_vars"][key]["val"])
-        return design_changed
+        return self.comm.allreduce(design_changed, op=MPI.LOR)
 
     def _set_additional_inputs_into_the_server_problem(
         self, input_dict, design_changed
