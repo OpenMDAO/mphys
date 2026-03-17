@@ -39,6 +39,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">openmdao.api</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">om</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span>
 
 
 <div class="viewcode-block" id="Server">
@@ -465,13 +466,26 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_set_design_variables_into_the_server_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
         <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                <span class="o">!=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="o">!=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                    <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;SERVER: Unable to get val of </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> due to the following error:&quot;</span><span class="p">,</span>
+                    <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="s2">&quot;This can occur with certain versions of OpenMDAO upon server restart, typically due to &quot;</span>
+                    <span class="o">+</span> <span class="s2">&quot;IVCs/DVs defined within parallel groups. Assuming design has changed...&quot;</span><span class="p">,</span>
+                    <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
                 <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">set_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">])</span>
-        <span class="k">return</span> <span class="n">design_changed</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">design_changed</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">LOR</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_set_additional_inputs_into_the_server_problem</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">,</span> <span class="n">design_changed</span>
