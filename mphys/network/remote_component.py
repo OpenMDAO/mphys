@@ -484,9 +484,10 @@ class RemoteComp(om.ExplicitComponent):
                         ),
                     )
                 else:
-                    if (
-                        self._lower_bound_used(output_dict["constraints"][con]["lower"])
-                        and self._upper_bound_used(output_dict["constraints"][con]["upper"])
+                    if self._lower_bound_used(
+                        output_dict["constraints"][con]["lower"]
+                    ) and self._upper_bound_used(
+                        output_dict["constraints"][con]["upper"]
                     ):  # enforce lower and upper bounds
                         self.add_constraint(
                             con.replace(".", self.var_naming_dot_replacement),
@@ -503,8 +504,8 @@ class RemoteComp(om.ExplicitComponent):
                                 else None
                             ),
                         )
-                    elif (
-                        self._lower_bound_used(output_dict["constraints"][con]["lower"])
+                    elif self._lower_bound_used(
+                        output_dict["constraints"][con]["lower"]
                     ):  # enforce lower bound
                         self.add_constraint(
                             con.replace(".", self.var_naming_dot_replacement),
