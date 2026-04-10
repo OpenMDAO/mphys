@@ -276,6 +276,18 @@ class Server:
             )
         return desvar_dict
 
+    def _lower_bound_used(self, bound):
+        if hasattr(bound, "__len__"):
+            return (bound > -1e20).any()
+        else:
+            return bound
+
+    def _upper_bound_used(self, bound):
+        if hasattr(bound, "__len__"):
+            return (bound < 1e20).any()
+        else:
+            return bound
+
     def _apply_reference_vals_to_constraint_bounds(self, constraint_dict):
         if (
             constraint_dict["adder"] is None and constraint_dict["scaler"] is None
@@ -287,13 +299,13 @@ class Server:
                     + constraint_dict["ref0"]
                 )
             else:
-                if constraint_dict["lower"] > -1e20:
+                if self._lower_bound_used(constraint_dict["lower"]):
                     constraint_dict["lower"] = (
                         constraint_dict["lower"]
                         * (constraint_dict["ref"] - constraint_dict["ref0"])
                         + constraint_dict["ref0"]
                     )
-                if constraint_dict["upper"] < 1e20:
+                if self._upper_bound_used(constraint_dict["upper"]):
                     constraint_dict["upper"] = (
                         constraint_dict["upper"]
                         * (constraint_dict["ref"] - constraint_dict["ref0"])
@@ -306,12 +318,12 @@ class Server:
                     - constraint_dict["adder"]
                 )
             else:
-                if constraint_dict["lower"] > -1e20:
+                if self._lower_bound_used(constraint_dict["lower"]):
                     constraint_dict["lower"] = (
                         constraint_dict["lower"] / constraint_dict["scaler"]
                         - constraint_dict["adder"]
                     )
-                if constraint_dict["upper"] < 1e20:
+                if self._upper_bound_used(constraint_dict["upper"]):
                     constraint_dict["upper"] = (
                         constraint_dict["upper"] / constraint_dict["scaler"]
                         - constraint_dict["adder"]
