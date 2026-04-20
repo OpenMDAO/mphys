@@ -446,6 +446,18 @@ class RemoteComp(om.ExplicitComponent):
                 )
                 self.derivative_coloring_num += 1
 
+    def _lower_bound_used(self, bound):
+        if hasattr(bound, "__len__"):
+            return (np.array(bound) > -1e20).any()
+        else:
+            return bound
+
+    def _upper_bound_used(self, bound):
+        if hasattr(bound, "__len__"):
+            return (np.array(bound) < 1e20).any()
+        else:
+            return bound
+
     def _add_constraints_from_baseline_model(self, output_dict):
         for con in output_dict["constraints"].keys():
             self.add_output(
@@ -472,9 +484,10 @@ class RemoteComp(om.ExplicitComponent):
                         ),
                     )
                 else:
-                    if (
-                        output_dict["constraints"][con]["lower"] > -1e20
-                        and output_dict["constraints"][con]["upper"] < 1e20
+                    if self._lower_bound_used(
+                        output_dict["constraints"][con]["lower"]
+                    ) and self._upper_bound_used(
+                        output_dict["constraints"][con]["upper"]
                     ):  # enforce lower and upper bounds
                         self.add_constraint(
                             con.replace(".", self.var_naming_dot_replacement),
@@ -491,8 +504,8 @@ class RemoteComp(om.ExplicitComponent):
                                 else None
                             ),
                         )
-                    elif (
-                        output_dict["constraints"][con]["lower"] > -1e20
+                    elif self._lower_bound_used(
+                        output_dict["constraints"][con]["lower"]
                     ):  # enforce lower bound
                         self.add_constraint(
                             con.replace(".", self.var_naming_dot_replacement),
