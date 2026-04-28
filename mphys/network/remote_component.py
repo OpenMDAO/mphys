@@ -450,13 +450,13 @@ class RemoteComp(om.ExplicitComponent):
         if hasattr(bound, "__len__"):
             return (np.array(bound) > -1e20).any()
         else:
-            return bound
+            return bound > -1e20
 
     def _upper_bound_used(self, bound):
         if hasattr(bound, "__len__"):
             return (np.array(bound) < 1e20).any()
         else:
-            return bound
+            return bound < 1e20
 
     def _add_constraints_from_baseline_model(self, output_dict):
         for con in output_dict["constraints"].keys():
