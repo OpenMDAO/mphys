@@ -60,10 +60,25 @@ def run_optimization(prob: om.Problem):
 
 def main():
     check_totals = False
+    hpc = "k" # nas or k
 
-    pbs = PBS.k4(time=1)
-    pbs.mpiexec = "mpirun"
-    pbs.requested_number_of_nodes = 1
+    if hpc == "nas":
+
+        pbs = PBS.nas(
+            profile_filename='~/.bashrc',
+            #group_list=None, # add group list here
+            proc_type='rom',
+            requested_number_of_nodes=1,
+            time=1,
+        )
+
+    elif hpc == "k":
+
+        pbs = PBS.k4(
+            profile_filename='~/.bashrc',
+            requested_number_of_nodes=1,
+            time=1,
+        )
 
     prob = om.Problem()
     prob.model.add_subsystem(
