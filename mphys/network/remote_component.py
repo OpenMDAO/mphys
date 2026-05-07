@@ -240,7 +240,7 @@ class RemoteComp(om.ExplicitComponent):
         else:
             self.times_function = np.hstack([self.times_function, model_time_elapsed])
 
-        if command != "initialize" and self.stop_server_for_down_time > 0:
+        if self.stop_server_for_down_time > 0:
             if self.stop_server_for_down_time == 1 or (
                 self.stop_server_for_down_time == 2
                 and self._doing_derivative_evaluation(command)
