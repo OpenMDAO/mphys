@@ -125,6 +125,7 @@ class RemoteComp(om.ExplicitComponent):
         self.var_naming_dot_replacement = self.options["var_naming_dot_replacement"]
         self.use_derivative_coloring = self.options["use_derivative_coloring"]
         self.derivative_coloring_num = 0
+        self.stop_server_for_down_time = self.options["stop_server_for_down_time"]
 
         output_dict = None
         if self.comm.rank == 0:
@@ -171,7 +172,6 @@ class RemoteComp(om.ExplicitComponent):
         self.skip_objective_constraint_definition = self.options[
             "skip_objective_constraint_definition"
         ]
-        self.stop_server_for_down_time = self.options["stop_server_for_down_time"]
 
         self._add_design_inputs_from_baseline_model(output_dict)
         self._add_objectives_from_baseline_model(output_dict)
