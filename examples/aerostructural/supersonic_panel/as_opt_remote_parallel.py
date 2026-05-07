@@ -15,9 +15,7 @@ class ParallelRemoteGroup(om.ParallelGroup):
         for i in range(self.options["num_scenarios"]):
 
             pbs_launcher = PBS.k4(
-                profile_filename='~/.bashrc',
-                requested_number_of_nodes=1,
-                time=1
+                profile_filename="~/.bashrc", requested_number_of_nodes=1, time=1
             )
             pbs_launcher.mpiexec = "mpirun"
             pbs_launcher.requested_number_of_nodes = 1

@@ -171,9 +171,7 @@ class RemoteComp(om.ExplicitComponent):
         self.skip_objective_constraint_definition = self.options[
             "skip_objective_constraint_definition"
         ]
-        self.stop_server_for_down_time = self.options[
-            "stop_server_for_down_time"
-        ]
+        self.stop_server_for_down_time = self.options["stop_server_for_down_time"]
 
         self._add_design_inputs_from_baseline_model(output_dict)
         self._add_objectives_from_baseline_model(output_dict)
@@ -243,9 +241,14 @@ class RemoteComp(om.ExplicitComponent):
             self.times_function = np.hstack([self.times_function, model_time_elapsed])
 
         if command != "initialize" and self.stop_server_for_down_time > 0:
-            if self.stop_server_for_down_time == 1 or (self.stop_server_for_down_time == 2 and self._doing_derivative_evaluation(command)):
+            if self.stop_server_for_down_time == 1 or (
+                self.stop_server_for_down_time == 2
+                and self._doing_derivative_evaluation(command)
+            ):
                 if self.comm.rank == 0:
-                    print(f"CLIENT (subsystem {self.name}): Stopping server's HPC job for down time")
+                    print(
+                        f"CLIENT (subsystem {self.name}): Stopping server's HPC job for down time"
+                    )
                 self.server_manager.stop_server()
 
         return remote_output_dict
