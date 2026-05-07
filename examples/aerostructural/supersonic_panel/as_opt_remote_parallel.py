@@ -14,7 +14,9 @@ class ParallelRemoteGroup(om.ParallelGroup):
         # NOTE: make sure setup isn't called multiple times, otherwise the first jobs/port forwarding will go unused and you'll have to stop them manually
         for i in range(self.options["num_scenarios"]):
 
-            pbs_launcher = PBS.k4(time=1)
+            pbs_launcher = PBS.k4(
+                profile_filename="~/.bashrc", requested_number_of_nodes=1, time=1
+            )
             pbs_launcher.mpiexec = "mpirun"
             pbs_launcher.requested_number_of_nodes = 1
 

@@ -112,12 +112,20 @@ class RemoteComp(om.ExplicitComponent):
             types=bool,
             desc="Skip the objective/constraint definition. The quantities will still be added to outputs",
         )
+        self.options.declare(
+            "stop_server_for_down_time",
+            default=0,
+            types=int,
+            desc="Stop server after evaluation, in case significant down time is expected afterwards. Allows user to conserve HPC "
+            + "SBUs in certain applications. 0=never, 1=after first function call, 2=after first derivative call.",
+        )
 
     @switch_run_directory
     def setup(self):
         self.var_naming_dot_replacement = self.options["var_naming_dot_replacement"]
         self.use_derivative_coloring = self.options["use_derivative_coloring"]
         self.derivative_coloring_num = 0
+        self.stop_server_for_down_time = self.options["stop_server_for_down_time"]
 
         output_dict = None
         if self.comm.rank == 0:
@@ -231,6 +239,17 @@ class RemoteComp(om.ExplicitComponent):
             self.times_gradient = np.hstack([self.times_gradient, model_time_elapsed])
         else:
             self.times_function = np.hstack([self.times_function, model_time_elapsed])
+
+        if self.stop_server_for_down_time > 0:
+            if self.stop_server_for_down_time == 1 or (
+                self.stop_server_for_down_time == 2
+                and self._doing_derivative_evaluation(command)
+            ):
+                if self.comm.rank == 0:
+                    print(
+                        f"CLIENT (subsystem {self.name}): Stopping server's HPC job for down time"
+                    )
+                self.server_manager.stop_server()
 
         return remote_output_dict
 
@@ -450,13 +469,13 @@ class RemoteComp(om.ExplicitComponent):
         if hasattr(bound, "__len__"):
             return (np.array(bound) > -1e20).any()
         else:
-            return bound
+            return bound > -1e20
 
     def _upper_bound_used(self, bound):
         if hasattr(bound, "__len__"):
             return (np.array(bound) < 1e20).any()
         else:
-            return bound
+            return bound < 1e20
 
     def _add_constraints_from_baseline_model(self, output_dict):
         for con in output_dict["constraints"].keys():

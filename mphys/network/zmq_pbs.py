@@ -123,16 +123,19 @@ class MPhysZeroMQServerManager(ServerManager):
         self._initialize_connection()
         self.server_counter += 1
         self._launch_job()
+        self.server_stopped = False
 
     def stop_server(self):
-        print(
-            f"CLIENT (subsystem {self.component_name}): Stopping the remote analysis server",
-            flush=True,
-        )
-        if self.job.state == "R":
-            self.socket.send("shutdown|null".encode())
-        self._shutdown_server()
-        self.socket.close()
+        if not self.server_stopped:
+            print(
+                f"CLIENT (subsystem {self.component_name}): Stopping the remote analysis server",
+                flush=True,
+            )
+            if self.job.state == "R":
+                self.socket.send("shutdown|null".encode())
+            self._shutdown_server()
+            self.socket.close()
+            self.server_stopped = True
 
     def enough_time_is_remaining(self, estimated_model_time):
         self.job.update_job_state()
@@ -143,7 +146,7 @@ class MPhysZeroMQServerManager(ServerManager):
 
     def job_has_expired(self):
         self.job.update_job_state()
-        if self.job.state == "R":
+        if self.job.state == "R" and not self.server_stopped:
             return False
         else:
             if self.job_expiration_max_restarts is not None:
