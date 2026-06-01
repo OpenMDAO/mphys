@@ -151,6 +151,13 @@
             <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
             <span class="n">types</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span>
             <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Skip the objective/constraint definition. The quantities will still be added to outputs&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span>
+            <span class="s2">&quot;stop_server_for_down_time&quot;</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">types</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+            <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Stop server after evaluation, in case significant down time is expected afterwards. Allows user to conserve HPC &quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;SBUs in certain applications. 0=never, 1=after first function call, 2=after first derivative call.&quot;</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -161,6 +168,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">var_naming_dot_replacement</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;var_naming_dot_replacement&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">use_derivative_coloring</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;use_derivative_coloring&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_server_for_down_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;stop_server_for_down_time&quot;</span><span class="p">]</span>
 
         <span class="n">output_dict</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -281,6 +289,17 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">times_gradient</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">times_gradient</span><span class="p">,</span> <span class="n">model_time_elapsed</span><span class="p">])</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">times_function</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">times_function</span><span class="p">,</span> <span class="n">model_time_elapsed</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop_server_for_down_time</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop_server_for_down_time</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stop_server_for_down_time</span> <span class="o">==</span> <span class="mi">2</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_doing_derivative_evaluation</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">): Stopping server&#39;s HPC job for down time&quot;</span>
+                    <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span><span class="o">.</span><span class="n">stop_server</span><span class="p">()</span>
 
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
@@ -500,13 +519,13 @@
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">bound</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bound</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mf">1e20</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">bound</span>
+            <span class="k">return</span> <span class="n">bound</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mf">1e20</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_upper_bound_used</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bound</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">bound</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bound</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e20</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">bound</span>
+            <span class="k">return</span> <span class="n">bound</span> <span class="o">&lt;</span> <span class="mf">1e20</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_add_constraints_from_baseline_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_dict</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">con</span> <span class="ow">in</span> <span class="n">output_dict</span><span class="p">[</span><span class="s2">&quot;constraints&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
