@@ -38,12 +38,12 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">set_coupling_algorithms_in_scenarios</span><span class="p">(</span><span class="n">multipoint_group</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Set the stored linear and nonlinear solver into the coupling group if the</span>
 <span class="sd">    scenario exists on this proc.</span>
 <span class="sd">    Shared method between multipoint and multipoint parallel groups.</span>
 <span class="sd">    Called during configure().</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">for</span> <span class="n">scenario</span><span class="p">,</span> <span class="n">solvers</span> <span class="ow">in</span> <span class="n">multipoint_group</span><span class="o">.</span><span class="n">mphys_coupling_solvers</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">solvers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">scenario</span><span class="o">.</span><span class="n">comm</span><span class="p">:</span>
             <span class="n">scenario</span><span class="o">.</span><span class="n">coupling</span><span class="o">.</span><span class="n">nonlinear_solver</span> <span class="o">=</span> <span class="n">solvers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -55,10 +55,10 @@
 <div class="viewcode-block" id="Multipoint">
 <a class="viewcode-back" href="../../../basics/model_hierarchy.html#mphys.Multipoint">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Multipoint</span><span class="p">(</span><span class="n">om</span><span class="o">.</span><span class="n">Group</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    An extension of the standard OpenMDAO group that adds the :func:`~mphys_add_scenario` method.</span>
 <span class="sd">    For sequential evaluations of the MPhys scenarios.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mphys_coupling_solvers</span> <span class="o">=</span> <span class="p">[]</span>
@@ -73,7 +73,7 @@
         <span class="n">coupling_nonlinear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">coupling_linear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Add an MPhys scenario</span>
 
 <span class="sd">        Parameters</span>
@@ -86,7 +86,7 @@
 <span class="sd">            The nonlinear solver to assign to the coupling group primal problem</span>
 <span class="sd">        coupling_linear_solver: openmdao.solvers.solver.LinearSolver</span>
 <span class="sd">            The linear solver to to assign to the coupling group sensitivity problem</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">solver_tuple</span> <span class="o">=</span> <span class="p">(</span><span class="n">coupling_nonlinear_solver</span><span class="p">,</span> <span class="n">coupling_linear_solver</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mphys_coupling_solvers</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">scenario</span><span class="p">,</span> <span class="n">solver_tuple</span><span class="p">))</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_subsystem</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">scenario</span><span class="p">)</span></div>
@@ -100,10 +100,10 @@
 <div class="viewcode-block" id="MultipointParallel">
 <a class="viewcode-back" href="../../../basics/model_hierarchy.html#mphys.MultipointParallel">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">MultipointParallel</span><span class="p">(</span><span class="n">om</span><span class="o">.</span><span class="n">ParallelGroup</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    An OpenMDAO parallel group that adds the :func:`~mphys_add_scenario` method.</span>
 <span class="sd">    For simultaneous evaluations of the MPhys scenarios.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mphys_coupling_solvers</span> <span class="o">=</span> <span class="p">[]</span>
@@ -118,7 +118,7 @@
         <span class="n">coupling_nonlinear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">coupling_linear_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Add an MPhys scenario</span>
 
 <span class="sd">        Parameters</span>
@@ -131,7 +131,7 @@
 <span class="sd">            The nonlinear solver to assign to the coupling group primal problem</span>
 <span class="sd">        coupling_linear_solver: openmdao.solvers.solver.LinearSolver</span>
 <span class="sd">            The linear solver to to assign to the coupling group sensitivity problem</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">solver_tuple</span> <span class="o">=</span> <span class="p">(</span><span class="n">coupling_nonlinear_solver</span><span class="p">,</span> <span class="n">coupling_linear_solver</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mphys_coupling_solvers</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">scenario</span><span class="p">,</span> <span class="n">solver_tuple</span><span class="p">))</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_subsystem</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">scenario</span><span class="p">)</span></div>

@@ -142,85 +142,91 @@ Wall times for function and gradient calls are saved, and when the maximum previ
 <td><p>N/A</p></td>
 <td><p>dump a separate input/output json file for each evaluation</p></td>
 </tr>
-<tr class="row-odd"><td><p>job_expiration_max_restarts</p></td>
+<tr class="row-odd"><td><p>forward_through_frontend</p></td>
+<td><p>False</p></td>
+<td><p>N/A</p></td>
+<td><p>N/A</p></td>
+<td><p>whether to have ssh port forwarding jump through frontend node, in case compute nodes cannot communicate</p></td>
+</tr>
+<tr class="row-even"><td><p>job_expiration_max_restarts</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>Optional maximum number of server restarts due to job expiration; unlimited by default</p></td>
 </tr>
-<tr class="row-even"><td><p>pbs</p></td>
+<tr class="row-odd"><td><p>pbs</p></td>
 <td><p>pbs4py Launcher object</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>port</p></td>
+<tr class="row-even"><td><p>port</p></td>
 <td><p>5081</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>port number for server/client communication</p></td>
 </tr>
-<tr class="row-even"><td><p>reboot_only_on_function_call</p></td>
+<tr class="row-odd"><td><p>reboot_only_on_function_call</p></td>
 <td><p>True</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>only allows server reboot before function call, not gradient call. Avoids having to rerun forward solution on next job, but shortens current job time</p></td>
 </tr>
-<tr class="row-odd"><td><p>run_directory</p></td>
+<tr class="row-even"><td><p>run_directory</p></td>
 <td></td>
 <td><p>N/A</p></td>
 <td><p>[‘str’]</p></td>
 <td><p>Path in which to execute this remote component. The default of empty string will not change the directory.</p></td>
 </tr>
-<tr class="row-even"><td><p>run_root_only</p></td>
+<tr class="row-odd"><td><p>run_root_only</p></td>
 <td><p>False</p></td>
 <td><p>[True, False]</p></td>
 <td><p>[‘bool’]</p></td>
 <td><p>If True, call compute, compute_partials, linearize, apply_linear, apply_nonlinear, solve_linear, solve_nonlinear, and compute_jacvec_product only on rank 0 and broadcast the results to the other ranks.</p></td>
 </tr>
-<tr class="row-odd"><td><p>run_server_filename</p></td>
+<tr class="row-even"><td><p>run_server_filename</p></td>
 <td><p>mphys_server.py</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>python file that will launch the Server class</p></td>
 </tr>
-<tr class="row-even"><td><p>skip_objective_constraint_definition</p></td>
+<tr class="row-odd"><td><p>skip_objective_constraint_definition</p></td>
 <td><p>False</p></td>
 <td><p>[True, False]</p></td>
 <td><p>[‘bool’]</p></td>
 <td><p>Skip the objective/constraint definition. The quantities will still be added to outputs</p></td>
 </tr>
-<tr class="row-odd"><td><p>stop_server_for_down_time</p></td>
+<tr class="row-even"><td><p>stop_server_for_down_time</p></td>
 <td><p>0</p></td>
 <td><p>N/A</p></td>
 <td><p>[‘int’]</p></td>
 <td><p>Stop server after evaluation, in case significant down time is expected afterwards. Allows user to conserve HPC SBUs in certain applications. 0=never, 1=after first function call, 2=after first derivative call.</p></td>
 </tr>
-<tr class="row-even"><td><p>time_estimate_buffer</p></td>
+<tr class="row-odd"><td><p>time_estimate_buffer</p></td>
 <td><p>0.0</p></td>
 <td><p>N/A</p></td>
 <td><p>[‘float’]</p></td>
 <td><p>constant time in seconds to add to model evaluation esimate. When using parallel remote components with very different evaluation times, setting to slowest component’s estimated evaluation time avoids having the faster component’s job expire while the slower one is being evaluated</p></td>
 </tr>
-<tr class="row-odd"><td><p>time_estimate_multiplier</p></td>
+<tr class="row-even"><td><p>time_estimate_multiplier</p></td>
 <td><p>2.0</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
 <td><p>when determining whether to reboot the server, estimate model run time as this times max prior run time</p></td>
 </tr>
-<tr class="row-even"><td><p>use_derivative_coloring</p></td>
+<tr class="row-odd"><td><p>use_derivative_coloring</p></td>
 <td><p>False</p></td>
 <td><p>[True, False]</p></td>
 <td><p>[‘bool’]</p></td>
 <td><p>assign derivative coloring to objective/constraints. Only for cases with parallel servers</p></td>
 </tr>
-<tr class="row-odd"><td><p>use_jit</p></td>
+<tr class="row-even"><td><p>use_jit</p></td>
 <td><p>True</p></td>
 <td><p>[True, False]</p></td>
 <td><p>[‘bool’]</p></td>
 <td><p>If True, attempt to use jit on compute_primal, assuming jax or some other AD package capable of jitting is active.</p></td>
 </tr>
-<tr class="row-even"><td><p>var_naming_dot_replacement</p></td>
+<tr class="row-odd"><td><p>var_naming_dot_replacement</p></td>
 <td><p>:</p></td>
 <td><p>N/A</p></td>
 <td><p>N/A</p></td>
@@ -431,7 +437,7 @@ and ZeroMQ for network communication.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="mphys.network.zmq_pbs.MPhysZeroMQServerManager">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mphys.network.zmq_pbs.</span></span><span class="sig-name descname"><span class="pre">MPhysZeroMQServerManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pbs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PBS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">run_server_filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">component_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5081</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acceptable_port_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[5081,</span> <span class="pre">6000]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">additional_server_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">job_expiration_max_restarts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/zmq_pbs.html#MPhysZeroMQServerManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.zmq_pbs.MPhysZeroMQServerManager" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mphys.network.zmq_pbs.</span></span><span class="sig-name descname"><span class="pre">MPhysZeroMQServerManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pbs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PBS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">run_server_filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">component_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5081</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acceptable_port_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[5081,</span> <span class="pre">6000]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">forward_through_frontend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">additional_server_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">job_expiration_max_restarts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mphys/network/zmq_pbs.html#MPhysZeroMQServerManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mphys.network.zmq_pbs.MPhysZeroMQServerManager" title="Link to this definition">¶</a></dt>
 <dd><p>A derived ServerManager class that uses pbs4py for HPC job management
 and ZeroMQ for network communication.</p>
 <dl class="field-list">
@@ -446,6 +452,8 @@ and ZeroMQ for network communication.</p>
 <dt><strong>port</strong><span class="classifier">int</span></dt><dd><p>Desired port number for ssh port forwarding</p>
 </dd>
 <dt><strong>acceptable_port_range</strong><span class="classifier">list</span></dt><dd><p>Range of alternative port numbers if specified port is already in use</p>
+</dd>
+<dt><strong>forward_through_frontend: bool</strong></dt><dd><p>Setup ssh forwarding to jump through frontend node ($PBS_O_HOST). For cases where compute nodes cannot communicate</p>
 </dd>
 <dt><strong>additional_server_args</strong><span class="classifier">str</span></dt><dd><p>Optional arguments to give server, in addition to –port &lt;port number&gt;</p>
 </dd>

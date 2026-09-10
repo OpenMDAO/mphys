@@ -37,36 +37,36 @@
 <div class="viewcode-block" id="ServerManager">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server_manager.ServerManager">[docs]</a>
 <span></span><span class="k">class</span><span class="w"> </span><span class="nc">ServerManager</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    A class used by the client-side RemoteComp to facilitate communication</span>
 <span class="sd">    with the remote, server-side OpenMDAO problem.</span>
 
 <span class="sd">    To make a particular derived class, implement the start_server,</span>
 <span class="sd">    stop_server, and enough_time_is_remaining functions.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="ServerManager.start_server">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server_manager.ServerManager.start_server">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">start_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Start the server.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">pass</span></div>
 
 
 <div class="viewcode-block" id="ServerManager.stop_server">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server_manager.ServerManager.stop_server">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">stop_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Stop the server.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">pass</span></div>
 
 
 <div class="viewcode-block" id="ServerManager.enough_time_is_remaining">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server_manager.ServerManager.enough_time_is_remaining">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">enough_time_is_remaining</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">estimated_model_time</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Check if the current HPC job has enough time remaining</span>
 <span class="sd">        to run the next analysis.</span>
 
@@ -74,16 +74,16 @@
 <span class="sd">        ----------</span>
 <span class="sd">        estimated_model_time : float</span>
 <span class="sd">            How much time the new analysis is estimated to take</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="kc">True</span></div>
 
 
 <div class="viewcode-block" id="ServerManager.job_has_expired">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server_manager.ServerManager.job_has_expired">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">job_has_expired</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Check if the job has run out of time.</span>
-<span class="sd">        &quot;&quot;&quot;</span></div>
+<span class="sd">        """</span></div>
 </div>
 
 </pre></div>

@@ -45,7 +45,7 @@
 <div class="viewcode-block" id="Server">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server.Server">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Server</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    A class that serves as an OpenMDAO model analysis server. Launched</span>
 <span class="sd">    by a server run file by the ServerManager and runs on an HPC job,</span>
 <span class="sd">    awaiting design variables to evaluate and sending back resulting</span>
@@ -64,7 +64,7 @@
 <span class="sd">        Whether to ignore OpenMDAO runtime warnings</span>
 <span class="sd">    rerun_initial_design : bool</span>
 <span class="sd">        Whether to evaluate the baseline design upon starup</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -106,15 +106,15 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_om_group_function_pointer</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ignore_setup_warnings</span><span class="p">:</span>
             <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">(</span><span class="n">record</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rev&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">"rev"</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rev&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">"rev"</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">comm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">comm</span>
 
         <span class="c1"># temporary fix for MELD initialization issue</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rerun_initial_design</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SERVER: Evaluating baseline design&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">"SERVER: Evaluating baseline design"</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_run_model</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -170,30 +170,30 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_design_inputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="o">=</span><span class="p">{}):</span>
         <span class="n">design_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_design_vars</span><span class="p">(</span><span class="n">use_prom_ivc</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">dv</span> <span class="ow">in</span> <span class="n">design_vars</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">dv</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="s2">&quot;ref&quot;</span><span class="p">:</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">&quot;ref&quot;</span><span class="p">],</span>
-                <span class="s2">&quot;ref0&quot;</span><span class="p">:</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">&quot;ref0&quot;</span><span class="p">],</span>
-                <span class="s2">&quot;lower&quot;</span><span class="p">:</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">&quot;lower&quot;</span><span class="p">],</span>
-                <span class="s2">&quot;upper&quot;</span><span class="p">:</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">&quot;upper&quot;</span><span class="p">],</span>
-                <span class="s2">&quot;units&quot;</span><span class="p">:</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">&quot;units&quot;</span><span class="p">],</span>
+            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">"val"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">dv</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="s2">"ref"</span><span class="p">:</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">"ref"</span><span class="p">],</span>
+                <span class="s2">"ref0"</span><span class="p">:</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">"ref0"</span><span class="p">],</span>
+                <span class="s2">"lower"</span><span class="p">:</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">"lower"</span><span class="p">],</span>
+                <span class="s2">"upper"</span><span class="p">:</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">"upper"</span><span class="p">],</span>
+                <span class="s2">"units"</span><span class="p">:</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">][</span><span class="s2">"units"</span><span class="p">],</span>
             <span class="p">}</span>
-            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_reference_vals</span><span class="p">(</span>
-                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">dv</span><span class="p">],</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">]</span>
+            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_reference_vals</span><span class="p">(</span>
+                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">][</span><span class="n">dv</span><span class="p">],</span> <span class="n">design_vars</span><span class="p">[</span><span class="n">dv</span><span class="p">]</span>
             <span class="p">)</span>
-            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span>
+            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">][</span>
                 <span class="n">dv</span>
             <span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_reference_vals_to_desvar_bounds</span><span class="p">(</span>
-                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span>
+                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span>
             <span class="p">)</span>
 
             <span class="c1"># convert to lists for json input/output</span>
-            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">dv</span><span class="p">][</span><span class="n">key</span><span class="p">],</span> <span class="s2">&quot;tolist&quot;</span><span class="p">):</span>
-                    <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">dv</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span>
-                        <span class="s2">&quot;design_vars&quot;</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">][</span><span class="n">dv</span><span class="p">][</span><span class="n">key</span><span class="p">],</span> <span class="s2">"tolist"</span><span class="p">):</span>
+                    <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">][</span><span class="n">dv</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span>
+                        <span class="s2">"design_vars"</span>
                     <span class="p">][</span><span class="n">dv</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
@@ -201,65 +201,65 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_io_metadata</span><span class="p">(</span><span class="n">return_rel_names</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">variable_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="n">variable_name</span><span class="p">][</span><span class="s2">&quot;prom_name&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">prom_variable_name</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="n">variable_name</span><span class="p">][</span><span class="s2">&quot;units&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="n">variable_name</span><span class="p">][</span><span class="s2">"prom_name"</span><span class="p">]</span> <span class="o">==</span> <span class="n">prom_variable_name</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="n">variable_name</span><span class="p">][</span><span class="s2">"units"</span><span class="p">]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_additional_inputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="o">=</span><span class="p">{}):</span>
-        <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_inputs"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="nb">input</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span><span class="p">:</span>
-            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="nb">input</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="s2">&quot;units&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_variable_units</span><span class="p">(</span><span class="nb">input</span><span class="p">),</span>
+            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_inputs"</span><span class="p">][</span><span class="nb">input</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">"val"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="s2">"units"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_variable_units</span><span class="p">(</span><span class="nb">input</span><span class="p">),</span>
             <span class="p">}</span>
-            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="nb">input</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">],</span> <span class="s2">&quot;tolist&quot;</span><span class="p">):</span>
-                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="nb">input</span><span class="p">][</span>
-                    <span class="s2">&quot;val&quot;</span>
-                <span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="nb">input</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_inputs"</span><span class="p">][</span><span class="nb">input</span><span class="p">][</span><span class="s2">"val"</span><span class="p">],</span> <span class="s2">"tolist"</span><span class="p">):</span>
+                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_inputs"</span><span class="p">][</span><span class="nb">input</span><span class="p">][</span>
+                    <span class="s2">"val"</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_inputs"</span><span class="p">][</span><span class="nb">input</span><span class="p">][</span><span class="s2">"val"</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_additional_constants_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="o">=</span><span class="p">{}):</span>
-        <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_constants"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">constant</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_constants</span><span class="p">:</span>
-            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">constant</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">constant</span><span class="p">),</span>
-                <span class="s2">&quot;units&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_variable_units</span><span class="p">(</span><span class="n">constant</span><span class="p">),</span>
+            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_constants"</span><span class="p">][</span><span class="n">constant</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">"val"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">constant</span><span class="p">),</span>
+                <span class="s2">"units"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_variable_units</span><span class="p">(</span><span class="n">constant</span><span class="p">),</span>
             <span class="p">}</span>
             <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span>
-                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">constant</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">],</span> <span class="s2">&quot;tolist&quot;</span>
+                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_constants"</span><span class="p">][</span><span class="n">constant</span><span class="p">][</span><span class="s2">"val"</span><span class="p">],</span> <span class="s2">"tolist"</span>
             <span class="p">):</span>
-                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">constant</span><span class="p">][</span>
-                    <span class="s2">&quot;val&quot;</span>
-                <span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">constant</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_constants"</span><span class="p">][</span><span class="n">constant</span><span class="p">][</span>
+                    <span class="s2">"val"</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_constants"</span><span class="p">][</span><span class="n">constant</span><span class="p">][</span><span class="s2">"val"</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_design_outputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="o">=</span><span class="p">{}):</span>
         <span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_constraints</span><span class="p">(</span><span class="n">use_prom_ivc</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">responses</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_objectives</span><span class="p">(</span><span class="n">use_prom_ivc</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
-        <span class="n">remote_output_dict</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;objective&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="s2">&quot;constraints&quot;</span><span class="p">:</span> <span class="p">{}})</span>
+        <span class="n">remote_output_dict</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">"objective"</span><span class="p">:</span> <span class="p">{},</span> <span class="s2">"constraints"</span><span class="p">:</span> <span class="p">{}})</span>
         <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">responses</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
 
-            <span class="k">if</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;obj&quot;</span><span class="p">:</span>
-                <span class="n">response_type</span> <span class="o">=</span> <span class="s2">&quot;objective&quot;</span>
-            <span class="k">elif</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;con&quot;</span><span class="p">:</span>
-                <span class="n">response_type</span> <span class="o">=</span> <span class="s2">&quot;constraints&quot;</span>
+            <span class="k">if</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"obj"</span><span class="p">:</span>
+                <span class="n">response_type</span> <span class="o">=</span> <span class="s2">"objective"</span>
+            <span class="k">elif</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"con"</span><span class="p">:</span>
+                <span class="n">response_type</span> <span class="o">=</span> <span class="s2">"constraints"</span>
 
             <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="s2">&quot;ref&quot;</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;ref&quot;</span><span class="p">],</span>
-                <span class="s2">&quot;ref0&quot;</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;ref0&quot;</span><span class="p">],</span>
-                <span class="s2">&quot;units&quot;</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;units&quot;</span><span class="p">],</span>
+                <span class="s2">"val"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="s2">"ref"</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">"ref"</span><span class="p">],</span>
+                <span class="s2">"ref0"</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">"ref0"</span><span class="p">],</span>
+                <span class="s2">"units"</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">"units"</span><span class="p">],</span>
             <span class="p">}</span>
             <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_reference_vals</span><span class="p">(</span>
                 <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">],</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">]</span>
             <span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">response_type</span> <span class="o">==</span> <span class="s2">&quot;constraints&quot;</span><span class="p">:</span>  <span class="c1"># get constraint bounds</span>
+            <span class="k">if</span> <span class="n">response_type</span> <span class="o">==</span> <span class="s2">"constraints"</span><span class="p">:</span>  <span class="c1"># get constraint bounds</span>
                 <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
                     <span class="p">{</span>
-                        <span class="s2">&quot;lower&quot;</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;lower&quot;</span><span class="p">],</span>
-                        <span class="s2">&quot;upper&quot;</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;upper&quot;</span><span class="p">],</span>
-                        <span class="s2">&quot;equals&quot;</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;equals&quot;</span><span class="p">],</span>
-                        <span class="s2">&quot;linear&quot;</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;linear&quot;</span><span class="p">],</span>
+                        <span class="s2">"lower"</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">"lower"</span><span class="p">],</span>
+                        <span class="s2">"upper"</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">"upper"</span><span class="p">],</span>
+                        <span class="s2">"equals"</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">"equals"</span><span class="p">],</span>
+                        <span class="s2">"linear"</span><span class="p">:</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">"linear"</span><span class="p">],</span>
                     <span class="p">}</span>
                 <span class="p">)</span>
                 <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span>
@@ -270,7 +270,7 @@
 
             <span class="c1"># convert to lists for json input/output</span>
             <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="n">key</span><span class="p">],</span> <span class="s2">&quot;tolist&quot;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="n">key</span><span class="p">],</span> <span class="s2">"tolist"</span><span class="p">):</span>
                     <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span>
                         <span class="n">response_type</span>
                     <span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
@@ -278,109 +278,109 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_set_reference_vals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_dict</span><span class="p">,</span> <span class="n">om_dict</span><span class="p">):</span>
         <span class="k">if</span> <span class="p">(</span>
-            <span class="n">remote_dict</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">remote_dict</span><span class="p">[</span><span class="s2">&quot;ref0&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="n">remote_dict</span><span class="p">[</span><span class="s2">"ref"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">remote_dict</span><span class="p">[</span><span class="s2">"ref0"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="p">):</span>  <span class="c1"># using ref/ref0</span>
-            <span class="n">remote_dict</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;scaler&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;adder&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span>
-            <span class="k">if</span> <span class="n">remote_dict</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">remote_dict</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
-            <span class="k">if</span> <span class="n">remote_dict</span><span class="p">[</span><span class="s2">&quot;ref0&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">remote_dict</span><span class="p">[</span><span class="s2">&quot;ref0&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">remote_dict</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">"scaler"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">"adder"</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span>
+            <span class="k">if</span> <span class="n">remote_dict</span><span class="p">[</span><span class="s2">"ref"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">remote_dict</span><span class="p">[</span><span class="s2">"ref"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="k">if</span> <span class="n">remote_dict</span><span class="p">[</span><span class="s2">"ref0"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">remote_dict</span><span class="p">[</span><span class="s2">"ref0"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">else</span><span class="p">:</span>  <span class="c1"># using adder/scaler</span>
-            <span class="n">remote_dict</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;scaler&quot;</span><span class="p">:</span> <span class="n">om_dict</span><span class="p">[</span><span class="s2">&quot;scaler&quot;</span><span class="p">],</span> <span class="s2">&quot;adder&quot;</span><span class="p">:</span> <span class="n">om_dict</span><span class="p">[</span><span class="s2">&quot;adder&quot;</span><span class="p">]})</span>
-            <span class="k">if</span> <span class="n">remote_dict</span><span class="p">[</span><span class="s2">&quot;scaler&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">remote_dict</span><span class="p">[</span><span class="s2">&quot;scaler&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
-            <span class="k">if</span> <span class="n">remote_dict</span><span class="p">[</span><span class="s2">&quot;adder&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">remote_dict</span><span class="p">[</span><span class="s2">&quot;adder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">remote_dict</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">"scaler"</span><span class="p">:</span> <span class="n">om_dict</span><span class="p">[</span><span class="s2">"scaler"</span><span class="p">],</span> <span class="s2">"adder"</span><span class="p">:</span> <span class="n">om_dict</span><span class="p">[</span><span class="s2">"adder"</span><span class="p">]})</span>
+            <span class="k">if</span> <span class="n">remote_dict</span><span class="p">[</span><span class="s2">"scaler"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">remote_dict</span><span class="p">[</span><span class="s2">"scaler"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="k">if</span> <span class="n">remote_dict</span><span class="p">[</span><span class="s2">"adder"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">remote_dict</span><span class="p">[</span><span class="s2">"adder"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">return</span> <span class="n">remote_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_apply_reference_vals_to_desvar_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">desvar_dict</span><span class="p">):</span>
         <span class="k">if</span> <span class="p">(</span>
-            <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;adder&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;scaler&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"adder"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"scaler"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span>
         <span class="p">):</span>  <span class="c1"># using ref/ref0</span>
-            <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;lower&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;lower&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;ref0&quot;</span><span class="p">])</span>
-                <span class="o">+</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;ref0&quot;</span><span class="p">]</span>
+            <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"lower"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"lower"</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"ref"</span><span class="p">]</span> <span class="o">-</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"ref0"</span><span class="p">])</span>
+                <span class="o">+</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"ref0"</span><span class="p">]</span>
             <span class="p">)</span>
-            <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;upper&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;upper&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;ref0&quot;</span><span class="p">])</span>
-                <span class="o">+</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;ref0&quot;</span><span class="p">]</span>
+            <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"upper"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"upper"</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"ref"</span><span class="p">]</span> <span class="o">-</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"ref0"</span><span class="p">])</span>
+                <span class="o">+</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"ref0"</span><span class="p">]</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>  <span class="c1"># using adder/scaler</span>
-            <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;lower&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;lower&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;scaler&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;adder&quot;</span><span class="p">]</span>
+            <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"lower"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"lower"</span><span class="p">]</span> <span class="o">/</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"scaler"</span><span class="p">]</span> <span class="o">-</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"adder"</span><span class="p">]</span>
             <span class="p">)</span>
-            <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;upper&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;upper&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;scaler&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">&quot;adder&quot;</span><span class="p">]</span>
+            <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"upper"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"upper"</span><span class="p">]</span> <span class="o">/</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"scaler"</span><span class="p">]</span> <span class="o">-</span> <span class="n">desvar_dict</span><span class="p">[</span><span class="s2">"adder"</span><span class="p">]</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">desvar_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_lower_bound_used</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bound</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">bound</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">bound</span><span class="p">,</span> <span class="s2">"__len__"</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">(</span><span class="n">bound</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mf">1e20</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">bound</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_upper_bound_used</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bound</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">bound</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">bound</span><span class="p">,</span> <span class="s2">"__len__"</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">(</span><span class="n">bound</span> <span class="o">&lt;</span> <span class="mf">1e20</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">bound</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_apply_reference_vals_to_constraint_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constraint_dict</span><span class="p">):</span>
         <span class="k">if</span> <span class="p">(</span>
-            <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;adder&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;scaler&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"adder"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"scaler"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span>
         <span class="p">):</span>  <span class="c1"># using ref/ref0</span>
-            <span class="k">if</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;equals&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># equality constraint</span>
-                <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;equals&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;equals&quot;</span><span class="p">]</span>
-                    <span class="o">*</span> <span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;ref0&quot;</span><span class="p">])</span>
-                    <span class="o">+</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;ref0&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"equals"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># equality constraint</span>
+                <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"equals"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"equals"</span><span class="p">]</span>
+                    <span class="o">*</span> <span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"ref"</span><span class="p">]</span> <span class="o">-</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"ref0"</span><span class="p">])</span>
+                    <span class="o">+</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"ref0"</span><span class="p">]</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower_bound_used</span><span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;lower&quot;</span><span class="p">]):</span>
-                    <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;lower&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                        <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;lower&quot;</span><span class="p">]</span>
-                        <span class="o">*</span> <span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;ref0&quot;</span><span class="p">])</span>
-                        <span class="o">+</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;ref0&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower_bound_used</span><span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"lower"</span><span class="p">]):</span>
+                    <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"lower"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"lower"</span><span class="p">]</span>
+                        <span class="o">*</span> <span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"ref"</span><span class="p">]</span> <span class="o">-</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"ref0"</span><span class="p">])</span>
+                        <span class="o">+</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"ref0"</span><span class="p">]</span>
                     <span class="p">)</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_upper_bound_used</span><span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;upper&quot;</span><span class="p">]):</span>
-                    <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;upper&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                        <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;upper&quot;</span><span class="p">]</span>
-                        <span class="o">*</span> <span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;ref0&quot;</span><span class="p">])</span>
-                        <span class="o">+</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;ref0&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_upper_bound_used</span><span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"upper"</span><span class="p">]):</span>
+                    <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"upper"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"upper"</span><span class="p">]</span>
+                        <span class="o">*</span> <span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"ref"</span><span class="p">]</span> <span class="o">-</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"ref0"</span><span class="p">])</span>
+                        <span class="o">+</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"ref0"</span><span class="p">]</span>
                     <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>  <span class="c1"># using adder/scaler</span>
-            <span class="k">if</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;equals&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># equality constraint</span>
-                <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;equals&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;equals&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;scaler&quot;</span><span class="p">]</span>
-                    <span class="o">-</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;adder&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"equals"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># equality constraint</span>
+                <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"equals"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"equals"</span><span class="p">]</span> <span class="o">/</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"scaler"</span><span class="p">]</span>
+                    <span class="o">-</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"adder"</span><span class="p">]</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower_bound_used</span><span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;lower&quot;</span><span class="p">]):</span>
-                    <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;lower&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                        <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;lower&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;scaler&quot;</span><span class="p">]</span>
-                        <span class="o">-</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;adder&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower_bound_used</span><span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"lower"</span><span class="p">]):</span>
+                    <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"lower"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"lower"</span><span class="p">]</span> <span class="o">/</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"scaler"</span><span class="p">]</span>
+                        <span class="o">-</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"adder"</span><span class="p">]</span>
                     <span class="p">)</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_upper_bound_used</span><span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;upper&quot;</span><span class="p">]):</span>
-                    <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;upper&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                        <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;upper&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;scaler&quot;</span><span class="p">]</span>
-                        <span class="o">-</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">&quot;adder&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_upper_bound_used</span><span class="p">(</span><span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"upper"</span><span class="p">]):</span>
+                    <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"upper"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"upper"</span><span class="p">]</span> <span class="o">/</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"scaler"</span><span class="p">]</span>
+                        <span class="o">-</span> <span class="n">constraint_dict</span><span class="p">[</span><span class="s2">"adder"</span><span class="p">]</span>
                     <span class="p">)</span>
         <span class="k">return</span> <span class="n">constraint_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_additional_outputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="o">=</span><span class="p">{}):</span>
-        <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_outputs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_outputs"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_outputs</span><span class="p">:</span>
-            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_outputs&quot;</span><span class="p">][</span><span class="n">output</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="s2">&quot;units&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_variable_units</span><span class="p">(</span><span class="n">output</span><span class="p">),</span>
+            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_outputs"</span><span class="p">][</span><span class="n">output</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">"val"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="s2">"units"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_variable_units</span><span class="p">(</span><span class="n">output</span><span class="p">),</span>
             <span class="p">}</span>
             <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span>
-                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_outputs&quot;</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">],</span> <span class="s2">&quot;tolist&quot;</span>
+                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_outputs"</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s2">"val"</span><span class="p">],</span> <span class="s2">"tolist"</span>
             <span class="p">):</span>
-                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_outputs&quot;</span><span class="p">][</span><span class="n">output</span><span class="p">][</span>
-                    <span class="s2">&quot;val&quot;</span>
-                <span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_outputs&quot;</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_outputs"</span><span class="p">][</span><span class="n">output</span><span class="p">][</span>
+                    <span class="s2">"val"</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_outputs"</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s2">"val"</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_design_derivatives_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="p">):</span>
@@ -389,39 +389,39 @@
         <span class="n">responses</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_objectives</span><span class="p">(</span><span class="n">use_prom_ivc</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
         <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">responses</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
 
-            <span class="k">if</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;obj&quot;</span><span class="p">:</span>
-                <span class="n">response_type</span> <span class="o">=</span> <span class="s2">&quot;objective&quot;</span>
-            <span class="k">elif</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;con&quot;</span><span class="p">:</span>
-                <span class="n">response_type</span> <span class="o">=</span> <span class="s2">&quot;constraints&quot;</span>
+            <span class="k">if</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"obj"</span><span class="p">:</span>
+                <span class="n">response_type</span> <span class="o">=</span> <span class="s2">"objective"</span>
+            <span class="k">elif</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"con"</span><span class="p">:</span>
+                <span class="n">response_type</span> <span class="o">=</span> <span class="s2">"constraints"</span>
 
-            <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;derivatives&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="s2">"derivatives"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">for</span> <span class="n">dv</span> <span class="ow">in</span> <span class="n">design_vars</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
                 <span class="n">deriv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span><span class="p">[(</span><span class="n">r</span><span class="p">,</span> <span class="n">dv</span><span class="p">)]</span>
-                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="s2">&quot;tolist&quot;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="s2">"tolist"</span><span class="p">):</span>
                     <span class="n">deriv</span> <span class="o">=</span> <span class="n">deriv</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-                <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;derivatives&quot;</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span> <span class="o">=</span> <span class="n">deriv</span>
+                <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="s2">"derivatives"</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span> <span class="o">=</span> <span class="n">deriv</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_additional_output_derivatives_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="p">):</span>
         <span class="n">design_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_design_vars</span><span class="p">(</span><span class="n">use_prom_ivc</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_outputs</span><span class="p">:</span>
-            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_outputs&quot;</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s2">&quot;derivatives&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_outputs"</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s2">"derivatives"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
             <span class="c1"># wrt design vars</span>
             <span class="k">for</span> <span class="n">dv</span> <span class="ow">in</span> <span class="n">design_vars</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
                 <span class="n">deriv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span><span class="p">[(</span><span class="n">output</span><span class="p">,</span> <span class="n">dv</span><span class="p">)]</span>
-                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="s2">&quot;tolist&quot;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="s2">"tolist"</span><span class="p">):</span>
                     <span class="n">deriv</span> <span class="o">=</span> <span class="n">deriv</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_outputs&quot;</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s2">&quot;derivatives&quot;</span><span class="p">][</span>
+                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_outputs"</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s2">"derivatives"</span><span class="p">][</span>
                     <span class="n">dv</span>
                 <span class="p">]</span> <span class="o">=</span> <span class="n">deriv</span>
 
             <span class="c1"># wrt additional_inputs</span>
             <span class="k">for</span> <span class="n">dv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span><span class="p">:</span>
                 <span class="n">deriv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span><span class="p">[(</span><span class="n">output</span><span class="p">,</span> <span class="n">dv</span><span class="p">)]</span>
-                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="s2">&quot;tolist&quot;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="s2">"tolist"</span><span class="p">):</span>
                     <span class="n">deriv</span> <span class="o">=</span> <span class="n">deriv</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;additional_outputs&quot;</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s2">&quot;derivatives&quot;</span><span class="p">][</span>
+                <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"additional_outputs"</span><span class="p">][</span><span class="n">output</span><span class="p">][</span><span class="s2">"derivatives"</span><span class="p">][</span>
                     <span class="n">dv</span>
                 <span class="p">]</span> <span class="o">=</span> <span class="n">deriv</span>
 
@@ -432,16 +432,16 @@
         <span class="n">responses</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_objectives</span><span class="p">(</span><span class="n">use_prom_ivc</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
         <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">responses</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
 
-            <span class="k">if</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;obj&quot;</span><span class="p">:</span>
-                <span class="n">response_type</span> <span class="o">=</span> <span class="s2">&quot;objective&quot;</span>
-            <span class="k">elif</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;con&quot;</span><span class="p">:</span>
-                <span class="n">response_type</span> <span class="o">=</span> <span class="s2">&quot;constraints&quot;</span>
+            <span class="k">if</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"obj"</span><span class="p">:</span>
+                <span class="n">response_type</span> <span class="o">=</span> <span class="s2">"objective"</span>
+            <span class="k">elif</span> <span class="n">responses</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"con"</span><span class="p">:</span>
+                <span class="n">response_type</span> <span class="o">=</span> <span class="s2">"constraints"</span>
 
             <span class="k">for</span> <span class="n">dv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span><span class="p">:</span>
                 <span class="n">deriv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span><span class="p">[(</span><span class="n">r</span><span class="p">,</span> <span class="n">dv</span><span class="p">)]</span>
-                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="s2">&quot;tolist&quot;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="s2">"tolist"</span><span class="p">):</span>
                     <span class="n">deriv</span> <span class="o">=</span> <span class="n">deriv</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-                <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;derivatives&quot;</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span> <span class="o">=</span> <span class="n">deriv</span>
+                <span class="n">remote_output_dict</span><span class="p">[</span><span class="n">response_type</span><span class="p">][</span><span class="n">r</span><span class="p">][</span><span class="s2">"derivatives"</span><span class="p">][</span><span class="n">dv</span><span class="p">]</span> <span class="o">=</span> <span class="n">deriv</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_gather_inputs_and_outputs_from_om_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -472,53 +472,53 @@
                     <span class="n">remote_output_dict</span>
                 <span class="p">)</span>
             <span class="p">)</span>
-        <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">&quot;design_counter&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">design_counter</span>
+        <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"design_counter"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">design_counter</span>
         <span class="k">return</span> <span class="n">remote_output_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_set_design_variables_into_the_server_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
         <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">if</span> <span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                    <span class="o">!=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span>
+                    <span class="o">!=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">"val"</span><span class="p">]</span>
                 <span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
                     <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;SERVER: Unable to get val of </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> due to the following error:&quot;</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">"SERVER: Unable to get val of </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> due to the following error:"</span><span class="p">,</span>
                     <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                 <span class="nb">print</span><span class="p">(</span>
-                    <span class="s2">&quot;This can occur with certain versions of OpenMDAO upon server restart, typically due to &quot;</span>
-                    <span class="o">+</span> <span class="s2">&quot;IVCs/DVs defined within parallel groups. Assuming design has changed...&quot;</span><span class="p">,</span>
+                    <span class="s2">"This can occur with certain versions of OpenMDAO upon server restart, typically due to "</span>
+                    <span class="o">+</span> <span class="s2">"IVCs/DVs defined within parallel groups. Assuming design has changed..."</span><span class="p">,</span>
                     <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">set_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;design_vars&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">set_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">"val"</span><span class="p">])</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">design_changed</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">LOR</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_set_additional_inputs_into_the_server_problem</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">,</span> <span class="n">design_changed</span>
     <span class="p">):</span>
-        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">"additional_inputs"</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="n">design_changed_condition</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                <span class="o">!=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span>
+                <span class="o">!=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">"additional_inputs"</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">"val"</span><span class="p">]</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">design_changed_condition</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
                 <span class="n">design_changed</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">design_changed_condition</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">design_changed_condition</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
                 <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">if</span> <span class="p">(</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">shape</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">input_dict</span><span class="p">[</span><span class="s2">"additional_inputs"</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">"val"</span><span class="p">])</span><span class="o">.</span><span class="n">shape</span>
                 <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">get_remote</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
             <span class="p">):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">set_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">set_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">"additional_inputs"</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">"val"</span><span class="p">])</span>
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;SERVER: shape of additional input </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> differs from actual input size... ignoring.&quot;</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">"SERVER: shape of additional input </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> differs from actual input size... ignoring."</span><span class="p">,</span>
                     <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="p">)</span>
         <span class="k">return</span> <span class="n">design_changed</span>
@@ -526,62 +526,62 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_set_additional_constants_into_the_server_problem</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">,</span> <span class="n">design_changed</span>
     <span class="p">):</span>
-        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">"additional_constants"</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="k">if</span> <span class="p">(</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">shape</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">input_dict</span><span class="p">[</span><span class="s2">"additional_constants"</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">"val"</span><span class="p">])</span><span class="o">.</span><span class="n">shape</span>
                 <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
             <span class="p">):</span>
                 <span class="n">design_changed_condition</span> <span class="o">=</span> <span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">get_val</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-                    <span class="o">!=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">]</span>
+                    <span class="o">!=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">"additional_constants"</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">"val"</span><span class="p">]</span>
                 <span class="p">)</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">design_changed_condition</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
                     <span class="n">design_changed</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">design_changed_condition</span><span class="p">)</span>
                 <span class="k">elif</span> <span class="n">design_changed_condition</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
                     <span class="n">design_changed</span> <span class="o">=</span> <span class="kc">True</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">set_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;val&quot;</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">set_val</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">"additional_constants"</span><span class="p">][</span><span class="n">key</span><span class="p">][</span><span class="s2">"val"</span><span class="p">])</span>
         <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">allgather</span><span class="p">(</span><span class="n">design_changed</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_save_additional_variable_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span> <span class="o">=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_inputs&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">additional_outputs</span> <span class="o">=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_outputs&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">additional_constants</span> <span class="o">=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;additional_constants&quot;</span><span class="p">]</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span><span class="p">,</span> <span class="s2">&quot;keys&quot;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span> <span class="o">=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">"additional_inputs"</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">additional_outputs</span> <span class="o">=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">"additional_outputs"</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">additional_constants</span> <span class="o">=</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">"additional_constants"</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span><span class="p">,</span> <span class="s2">"keys"</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_inputs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_constants</span><span class="p">,</span> <span class="s2">&quot;keys&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_constants</span><span class="p">,</span> <span class="s2">"keys"</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">additional_constants</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_constants</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
 
 <div class="viewcode-block" id="Server.run">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.server.Server.run">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Run the server.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
 
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SERVER: Waiting for new design...&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">"SERVER: Waiting for new design..."</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
             <span class="n">command</span><span class="p">,</span> <span class="n">input_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_incoming_message</span><span class="p">()</span>
 
-            <span class="c1"># interpret command (options are &quot;shutdown&quot;, &quot;initialize&quot;, &quot;evaluate&quot;, or &quot;evaluate derivatives&quot;)</span>
-            <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">:</span>
+            <span class="c1"># interpret command (options are "shutdown", "initialize", "evaluate", or "evaluate derivatives")</span>
+            <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"shutdown"</span><span class="p">:</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SERVER: Received signal to shutdown&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">"SERVER: Received signal to shutdown"</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                 <span class="k">break</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_save_additional_variable_names</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;initialize&quot;</span><span class="p">:</span>  <span class="c1"># evaluate baseline model for RemoteComp setup</span>
+            <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"initialize"</span><span class="p">:</span>  <span class="c1"># evaluate baseline model for RemoteComp setup</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="nb">print</span><span class="p">(</span>
-                        <span class="s2">&quot;SERVER: Initialization requested... using baseline design&quot;</span><span class="p">,</span>
+                        <span class="s2">"SERVER: Initialization requested... using baseline design"</span><span class="p">,</span>
                         <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_design_has_been_evaluated</span><span class="p">:</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="nb">print</span><span class="p">(</span>
-                            <span class="s2">&quot;SERVER: Design already evaluated, skipping run_model&quot;</span><span class="p">,</span>
+                            <span class="s2">"SERVER: Design already evaluated, skipping run_model"</span><span class="p">,</span>
                             <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                         <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
@@ -600,35 +600,35 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">current_design_has_been_evaluated</span> <span class="o">=</span> <span class="kc">False</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">current_derivatives_have_been_evaluated</span> <span class="o">=</span> <span class="kc">False</span>
 
-            <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;evaluate derivatives&quot;</span><span class="p">:</span>  <span class="c1"># compute derivatives</span>
+            <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"evaluate derivatives"</span><span class="p">:</span>  <span class="c1"># compute derivatives</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_derivatives_have_been_evaluated</span><span class="p">:</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="nb">print</span><span class="p">(</span>
-                            <span class="s2">&quot;SERVER: Derivatives already evaluated, skipping compute_totals&quot;</span><span class="p">,</span>
+                            <span class="s2">"SERVER: Derivatives already evaluated, skipping compute_totals"</span><span class="p">,</span>
                             <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                         <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_design_has_been_evaluated</span><span class="p">:</span>
                         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                             <span class="nb">print</span><span class="p">(</span>
-                                <span class="s2">&quot;SERVER: Derivative needed, but design has changed... evaluating forward solution first&quot;</span><span class="p">,</span>
+                                <span class="s2">"SERVER: Derivative needed, but design has changed... evaluating forward solution first"</span><span class="p">,</span>
                                 <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                             <span class="p">)</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_run_model</span><span class="p">()</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SERVER: Evaluating derivatives&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s2">"SERVER: Evaluating derivatives"</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_compute_totals</span><span class="p">()</span>
 
-            <span class="k">elif</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;evaluate&quot;</span><span class="p">:</span>  <span class="c1"># run model</span>
+            <span class="k">elif</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"evaluate"</span><span class="p">:</span>  <span class="c1"># run model</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_design_has_been_evaluated</span><span class="p">:</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="nb">print</span><span class="p">(</span>
-                            <span class="s2">&quot;SERVER: Design already evaluated, skipping run_model&quot;</span><span class="p">,</span>
+                            <span class="s2">"SERVER: Design already evaluated, skipping run_model"</span><span class="p">,</span>
                             <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                         <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SERVER: Evaluating design&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s2">"SERVER: Evaluating design"</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_run_model</span><span class="p">()</span>
 
             <span class="c1"># gather/return outputs</span>
@@ -640,7 +640,7 @@
                 <span class="n">om</span><span class="o">.</span><span class="n">n2</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">prob</span><span class="p">,</span>
                     <span class="n">show_browser</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                    <span class="n">outfile</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;n2_inner_analysis_</span><span class="si">{</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;component_name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">.html&quot;</span><span class="p">,</span>
+                    <span class="n">outfile</span><span class="o">=</span><span class="sa">f</span><span class="s2">"n2_inner_analysis_</span><span class="si">{</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">'component_name'</span><span class="p">]</span><span class="si">}</span><span class="s2">.html"</span><span class="p">,</span>
                 <span class="p">)</span></div>
 </div>
 

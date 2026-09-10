@@ -37,23 +37,23 @@
 <div class="viewcode-block" id="Builder">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder">[docs]</a>
 <span></span><span class="k">class</span><span class="w"> </span><span class="nc">Builder</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    MPHYS builder base class. Template for developers to create their builders.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Because the MPI communicator that will be used inside the OpenMDAO</span>
 <span class="sd">        problem is not known when the builder is instantiated. The actual</span>
 <span class="sd">        solver, transfer scheme, etc. should not be instantiated in the</span>
 <span class="sd">        constructor.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">pass</span>
 
 <div class="viewcode-block" id="Builder.initialize">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.initialize">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">comm</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Initialize the solver, transfer scheme, etc.</span>
 <span class="sd">        This method will be called when the MPI comm is available</span>
 
@@ -62,14 +62,14 @@
 <span class="sd">        comm : :class:`~mpi4py.MPI.Comm`</span>
 <span class="sd">            The communicator object created for this xfer object instance.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">pass</span></div>
 
 
 <div class="viewcode-block" id="Builder.get_mesh_coordinate_subsystem">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_mesh_coordinate_subsystem">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_mesh_coordinate_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        The subsystem that contains the subsystem that will return the mesh</span>
 <span class="sd">        coordinates</span>
 
@@ -82,14 +82,14 @@
 <span class="sd">        -------</span>
 <span class="sd">        mesh : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group` or None</span>
 <span class="sd">            The openmdao subsystem that has an output of coordinates.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="kc">None</span></div>
 
 
 <div class="viewcode-block" id="Builder.get_coupling_group_subsystem">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_coupling_group_subsystem">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_coupling_group_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        The subsystem that this builder will add to the CouplingGroup</span>
 
 <span class="sd">        Parameters</span>
@@ -102,14 +102,14 @@
 <span class="sd">        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group` or None</span>
 <span class="sd">            The openmdao subsystem that handles all the computations for</span>
 <span class="sd">            this solver. Transfer schemes can return multiple subsystems</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="kc">None</span></div>
 
 
 <div class="viewcode-block" id="Builder.get_pre_coupling_subsystem">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_pre_coupling_subsystem">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_pre_coupling_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method that returns the openmdao subsystem to be added to each scenario before the coupling group</span>
 
 <span class="sd">        Parameters</span>
@@ -120,14 +120,14 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group` or None</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="kc">None</span></div>
 
 
 <div class="viewcode-block" id="Builder.get_post_coupling_subsystem">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_post_coupling_subsystem">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_post_coupling_subsystem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method that returns the openmdao subsystem to be added to each scenario after the coupling group</span>
 
 <span class="sd">        Parameters</span>
@@ -138,14 +138,14 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        subsystem : :class:`~openmdao.api.Component` or :class:`~openmdao.api.Group` or None</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="kc">None</span></div>
 
 
 <div class="viewcode-block" id="Builder.get_number_of_nodes">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_number_of_nodes">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_number_of_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method that returns the number of nodes defining the interface</span>
 <span class="sd">        (input) mesh</span>
 
@@ -154,32 +154,32 @@
 <span class="sd">        -------</span>
 <span class="sd">        number_of_nodes : int</span>
 <span class="sd">            number of nodes in the computational domain</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="s2">&quot;Function get_number_of_nodes has not been implemented in the builder.&quot;</span>
+            <span class="s2">"Function get_number_of_nodes has not been implemented in the builder."</span>
         <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Builder.get_ndof">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_ndof">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        The number of degrees of freedom used at each output location.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        ndof : int</span>
 <span class="sd">            number of degrees of freedom of each node in the domain</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="s2">&quot;Function get_ndof has not been implemented in the builder.&quot;</span>
+            <span class="s2">"Function get_ndof has not been implemented in the builder."</span>
         <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Builder.get_tagged_indices">
 <a class="viewcode-back" href="../../../basics/builders.html#mphys.Builder.get_tagged_indices">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_tagged_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tags</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method that returns grid IDs for a list of body/boundary tags.</span>
 
 <span class="sd">        Parameters</span>
@@ -190,9 +190,9 @@
 <span class="sd">        -------</span>
 <span class="sd">        grid_ids : list</span>
 <span class="sd">            list of grid IDs that correspond to given body/boundary tags</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="s2">&quot;Function get_tagged_indices has not been implemented in the builder.&quot;</span>
+            <span class="s2">"Function get_tagged_indices has not been implemented in the builder."</span>
         <span class="p">)</span></div>
 </div>
 

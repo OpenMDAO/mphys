@@ -56,26 +56,26 @@ skip steps 3-4 as these are handled within the Scenario since each Scenario will
 <span class="k">class</span><span class="w"> </span><span class="nc">MyMPhysModel</span><span class="p">(</span><span class="n">Multipoint</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 
-        <span class="n">dvs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_subsystem</span><span class="p">(</span><span class="s1">&#39;dvs&#39;</span><span class="p">,</span> <span class="n">om</span><span class="o">.</span><span class="n">IndepVarComp</span><span class="p">())</span>
-        <span class="n">dvs</span><span class="o">.</span><span class="n">add_output</span><span class="p">(</span><span class="s1">&#39;aoa&#39;</span><span class="p">,</span> <span class="n">val</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="s1">&#39;deg&#39;</span><span class="p">)</span>
+        <span class="n">dvs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_subsystem</span><span class="p">(</span><span class="s1">'dvs'</span><span class="p">,</span> <span class="n">om</span><span class="o">.</span><span class="n">IndepVarComp</span><span class="p">())</span>
+        <span class="n">dvs</span><span class="o">.</span><span class="n">add_output</span><span class="p">(</span><span class="s1">'aoa'</span><span class="p">,</span> <span class="n">val</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="s1">'deg'</span><span class="p">)</span>
 
         <span class="c1"># Step 2</span>
-        <span class="n">aero_builder</span> <span class="o">=</span> <span class="n">AeroBuilder</span><span class="p">(</span><span class="n">mesh</span><span class="o">=</span><span class="s2">&quot;naca0012.ugrid&quot;</span><span class="p">)</span>
+        <span class="n">aero_builder</span> <span class="o">=</span> <span class="n">AeroBuilder</span><span class="p">(</span><span class="n">mesh</span><span class="o">=</span><span class="s2">"naca0012.ugrid"</span><span class="p">)</span>
 
         <span class="c1"># Step 3</span>
         <span class="n">aero_builder</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="p">)</span>
 
         <span class="c1"># Step 4</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">add_subsystem</span><span class="p">(</span><span class="s2">&quot;aero_mesh&quot;</span><span class="p">,</span> <span class="n">aero_builder</span><span class="o">.</span><span class="n">get_mesh_coordinate_subsystem</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_subsystem</span><span class="p">(</span><span class="s2">"aero_mesh"</span><span class="p">,</span> <span class="n">aero_builder</span><span class="o">.</span><span class="n">get_mesh_coordinate_subsystem</span><span class="p">())</span>
 
         <span class="c1"># Step 5</span>
         <span class="n">scenario</span> <span class="o">=</span> <span class="n">ScenarioAerodynamic</span><span class="p">(</span><span class="n">aero_builder</span><span class="o">=</span><span class="n">aero_builder</span><span class="p">)</span>
 
         <span class="c1"># Step 6</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">mphys_add_scenario</span><span class="p">(</span><span class="s2">&quot;cruise&quot;</span><span class="p">,</span> <span class="n">scenario</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mphys_add_scenario</span><span class="p">(</span><span class="s2">"cruise"</span><span class="p">,</span> <span class="n">scenario</span><span class="p">)</span>
 
         <span class="c1"># Step 7</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;dvs.aoa&quot;</span><span class="p">,</span> <span class="s2">&quot;cruise.aoa&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">"dvs.aoa"</span><span class="p">,</span> <span class="s2">"cruise.aoa"</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">MPhysVariables</span><span class="o">.</span><span class="n">Aerodynamics</span><span class="o">.</span><span class="n">Mesh</span><span class="o">.</span><span class="n">COORDINATES</span><span class="p">,</span>
                      <span class="n">MPhysVariables</span><span class="o">.</span><span class="n">Aerodynamics</span><span class="o">.</span><span class="n">Surface</span><span class="o">.</span><span class="n">COORDINATES</span><span class="p">)</span>
 </pre></div>
