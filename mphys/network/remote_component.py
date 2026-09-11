@@ -75,7 +75,7 @@ class RemoteComp(om.ExplicitComponent):
         self.options.declare(
             "reuse_dumped_json",
             default=False,
-            desc="try to reuse existing output json files instead of running the remote component"
+            desc="try to reuse existing output json files instead of running the remote component",
         )
         self.options.declare(
             "var_naming_dot_replacement",
@@ -227,7 +227,9 @@ class RemoteComp(om.ExplicitComponent):
         if self.server_manager is None:
             self._setup_server_manager()
             if command == "initialize":
-                self._print_status_message("Running model from setup to get design problem info")
+                self._print_status_message(
+                    "Running model from setup to get design problem info"
+                )
 
         elif self._need_to_restart_server(command):
             self.server_manager.stop_server()
@@ -261,7 +263,9 @@ class RemoteComp(om.ExplicitComponent):
                 and self._doing_derivative_evaluation(command)
             ):
                 if self.comm.rank == 0:
-                    self._print_status_message("Stopping server's HPC job for down time")
+                    self._print_status_message(
+                        "Stopping server's HPC job for down time"
+                    )
                 self.server_manager.stop_server()
 
         return remote_output_dict
@@ -391,10 +395,9 @@ class RemoteComp(om.ExplicitComponent):
         return not self.server_manager.enough_time_is_remaining(estimated_model_time)
 
     def _reuse_dumped_json(self, remote_input_dict, command):
-
         def extract_number(filepath):
             # for sorting filenames of json files
-            match = re.search(r'(\d+)\.json$', filepath)
+            match = re.search(r"(\d+)\.json$", filepath)
             return int(match.group(1))
 
         save_dir = "remote_json_files"
@@ -408,15 +411,21 @@ class RemoteComp(om.ExplicitComponent):
             if not os.path.isfile(filename):
                 return None
             else:
-                with open(filename, 'r') as file:
+                with open(filename, "r") as file:
                     remote_output_dict = json.load(file)
                 model_time_elapsed = remote_output_dict["wall_time"]
                 if self._doing_derivative_evaluation(command):
-                    self.times_gradient = np.hstack([self.times_gradient, model_time_elapsed])
+                    self.times_gradient = np.hstack(
+                        [self.times_gradient, model_time_elapsed]
+                    )
                 else:
-                    self.times_function = np.hstack([self.times_function, model_time_elapsed])
+                    self.times_function = np.hstack(
+                        [self.times_function, model_time_elapsed]
+                    )
                 if self.comm.rank == 0:
-                    self._print_status_message(f"Obtained design problem info from dumped json file '{filename}'")
+                    self._print_status_message(
+                        f"Obtained design problem info from dumped json file '{filename}'"
+                    )
                 return remote_output_dict
 
         else:
@@ -424,39 +433,66 @@ class RemoteComp(om.ExplicitComponent):
             # possible filenames to read through
             filenames = []
             if not self._doing_derivative_evaluation(command):
-                filenames += sorted(glob(f"{save_dir}/{self.name}_outputs_function*.json"), key=extract_number)
-            filenames += sorted(glob(f"{save_dir}/{self.name}_outputs_derivative*.json"), key=extract_number)
+                filenames += sorted(
+                    glob(f"{save_dir}/{self.name}_outputs_function*.json"),
+                    key=extract_number,
+                )
+            filenames += sorted(
+                glob(f"{save_dir}/{self.name}_outputs_derivative*.json"),
+                key=extract_number,
+            )
 
             # check each json file for design of interest
             for filename in filenames:
-                with open(filename, 'r') as file:
+                with open(filename, "r") as file:
                     remote_output_dict = json.load(file)
                 if self._designs_match(remote_input_dict, remote_output_dict):
                     model_time_elapsed = remote_output_dict["wall_time"]
                     if self._doing_derivative_evaluation(command):
-                        self._print_status_message(f"Found design derivatives in dumped json file '{filename}'")
-                        self.times_gradient = np.hstack([self.times_gradient, model_time_elapsed])
+                        self._print_status_message(
+                            f"Found design derivatives in dumped json file '{filename}'"
+                        )
+                        self.times_gradient = np.hstack(
+                            [self.times_gradient, model_time_elapsed]
+                        )
                     else:
-                        self._print_status_message(f"Found design responses in dumped json file '{filename}'")
-                        self.times_function = np.hstack([self.times_function, model_time_elapsed])
+                        self._print_status_message(
+                            f"Found design responses in dumped json file '{filename}'"
+                        )
+                        self.times_function = np.hstack(
+                            [self.times_function, model_time_elapsed]
+                        )
                     return remote_output_dict
 
         return None
 
     def _designs_match(self, input_dict, output_dict):
         if not self._check_for_consistent_inputs(input_dict, output_dict):
-            self._print_status_message("Inconsistent inputs and outputs found in dumped json file... skipping")
+            self._print_status_message(
+                "Inconsistent inputs and outputs found in dumped json file... skipping"
+            )
             return False
         for input_type in ["design_vars", "additional_constants", "additional_inputs"]:
             for input_name in input_dict[input_type].keys():
                 # TODO: worth having a tolerance on this?
-                if not np.allclose(input_dict[input_type][input_name]["val"], output_dict[input_type][input_name]["val"]):
+                if not np.allclose(
+                    input_dict[input_type][input_name]["val"],
+                    output_dict[input_type][input_name]["val"],
+                ):
                     return False
         return True
 
     def _check_for_consistent_inputs(self, input_dict, output_dict):
-        input_keys = list(input_dict["design_vars"].keys()) + list(input_dict["additional_constants"].keys()) + list(input_dict["additional_inputs"].keys())
-        output_keys = list(output_dict["design_vars"].keys()) + list(output_dict["additional_constants"].keys()) + list(output_dict["additional_inputs"].keys())
+        input_keys = (
+            list(input_dict["design_vars"].keys())
+            + list(input_dict["additional_constants"].keys())
+            + list(input_dict["additional_inputs"].keys())
+        )
+        output_keys = (
+            list(output_dict["design_vars"].keys())
+            + list(output_dict["additional_constants"].keys())
+            + list(output_dict["additional_inputs"].keys())
+        )
         if set(input_keys) != set(output_keys):
             return False
         else:
@@ -474,7 +510,9 @@ class RemoteComp(om.ExplicitComponent):
                     os.mkdir(save_dir)
                 except Exception:
                     pass  # may have been created by now, by a parallel server
-            if self._doing_derivative_evaluation(command): # TODO: change len(times) to something that won't overwrite existing json files?
+            if self._doing_derivative_evaluation(
+                command
+            ):  # TODO: change len(times) to something that won't overwrite existing json files?
                 filename = f"{save_dir}/{self.name}_{dict_type}_derivative{len(self.times_gradient)}.json"
             else:
                 filename = f"{save_dir}/{self.name}_{dict_type}_function{len(self.times_function)}.json"
