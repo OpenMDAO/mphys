@@ -450,8 +450,7 @@ class RemoteComp(om.ExplicitComponent):
         for input_type in ["design_vars", "additional_constants", "additional_inputs"]:
             for input_name in input_dict[input_type].keys():
                 # TODO: worth having a tolerance on this?
-                #if not np.allclose(input_dict[input_type][input_name]["val"], output_dict[input_type][input_name]["val"]):
-                if not np.array_equal(input_dict[input_type][input_name]["val"], output_dict[input_type][input_name]["val"]):
+                if not np.allclose(input_dict[input_type][input_name]["val"], output_dict[input_type][input_name]["val"]):
                     return False
         return True
 
