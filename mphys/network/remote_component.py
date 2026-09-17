@@ -592,13 +592,17 @@ class RemoteComp(om.ExplicitComponent):
                 self.derivative_coloring_num += 1
 
     def _lower_bound_used(self, bound):
-        if hasattr(bound, "__len__"):
+        if bound is None:
+            return False
+        elif hasattr(bound, "__len__"):
             return (np.array(bound) > -1e20).any()
         else:
             return bound > -1e20
 
     def _upper_bound_used(self, bound):
-        if hasattr(bound, "__len__"):
+        if bound is None:
+            return False
+        elif hasattr(bound, "__len__"):
             return (np.array(bound) < 1e20).any()
         else:
             return bound < 1e20
