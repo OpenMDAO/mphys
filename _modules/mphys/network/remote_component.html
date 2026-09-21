@@ -36,8 +36,10 @@
   <h1>Source code for mphys.network.remote_component</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">wraps</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">glob</span><span class="w"> </span><span class="kn">import</span> <span class="n">glob</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">openmdao.api</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">om</span>
@@ -111,6 +113,11 @@
             <span class="n">desc</span><span class="o">=</span><span class="s2">"dump a separate input/output json file for each evaluation"</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span>
+            <span class="s2">"reuse_dumped_json"</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">desc</span><span class="o">=</span><span class="s2">"try to reuse existing output json files instead of running the remote component"</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span>
             <span class="s2">"var_naming_dot_replacement"</span><span class="p">,</span>
             <span class="n">default</span><span class="o">=</span><span class="s2">":"</span><span class="p">,</span>
             <span class="n">desc</span><span class="o">=</span><span class="s2">"what to replace '.' within dv/response name trees"</span><span class="p">,</span>
@@ -179,6 +186,7 @@
             <span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">dump_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">"dump_json"</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">dump_separate_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">"dump_separate_json"</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reuse_dumped_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">"reuse_dumped_json"</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">"additional_remote_inputs"</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">"additional_remote_outputs"</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">additional_remote_constants</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span>
@@ -187,20 +195,16 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">last_analysis_completed_time</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
             <span class="p">)</span>  <span class="c1"># for tracking down time between function/gradient calls</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_dumped_json</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dump_separate_json</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dump_separate_json</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">dump_json</span> <span class="o">=</span> <span class="kc">True</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_setup_server_manager</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span> <span class="o">=</span> <span class="kc">None</span>
 
             <span class="c1"># for tracking model times, and determining whether to relaunch servers</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">times_function</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">times_gradient</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
 
-            <span class="c1"># get baseline model</span>
-            <span class="nb">print</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">): Running model from setup to get design problem info"</span><span class="p">,</span>
-                <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="p">)</span>
             <span class="n">output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_model</span><span class="p">(</span>
                 <span class="n">command</span><span class="o">=</span><span class="s2">"initialize"</span><span class="p">,</span>
                 <span class="n">remote_input_dict</span><span class="o">=</span><span class="p">{</span>
@@ -264,7 +268,20 @@
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">evaluate_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_input_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="s2">"initialize"</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_need_to_restart_server</span><span class="p">(</span><span class="n">command</span><span class="p">):</span>
+
+        <span class="c1"># first check if able to reuse dumped json file</span>
+        <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reuse_dumped_json</span><span class="p">(</span><span class="n">remote_input_dict</span><span class="p">,</span> <span class="n">command</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">remote_output_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">remote_output_dict</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_setup_server_manager</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"initialize"</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_print_status_message</span><span class="p">(</span>
+                    <span class="s2">"Running model from setup to get design problem info"</span>
+                <span class="p">)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_need_to_restart_server</span><span class="p">(</span><span class="n">command</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span><span class="o">.</span><span class="n">stop_server</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span><span class="o">.</span><span class="n">start_server</span><span class="p">()</span>
 
@@ -296,12 +313,15 @@
                 <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_doing_derivative_evaluation</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
             <span class="p">):</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="nb">print</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">"CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">): Stopping server's HPC job for down time"</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_print_status_message</span><span class="p">(</span>
+                        <span class="s2">"Stopping server's HPC job for down time"</span>
                     <span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span><span class="o">.</span><span class="n">stop_server</span><span class="p">()</span>
 
         <span class="k">return</span> <span class="n">remote_output_dict</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_print_status_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_assign_objective_partials_from_remote_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_dict</span><span class="p">,</span> <span class="n">partials</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">remote_dict</span><span class="p">[</span><span class="s2">"objective"</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
@@ -424,6 +444,110 @@
                     <span class="p">)</span>
         <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_manager</span><span class="o">.</span><span class="n">enough_time_is_remaining</span><span class="p">(</span><span class="n">estimated_model_time</span><span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reuse_dumped_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_input_dict</span><span class="p">,</span> <span class="n">command</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">extract_number</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+            <span class="c1"># for sorting filenames of json files</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">"(\d+)\.json$"</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="n">save_dir</span> <span class="o">=</span> <span class="s2">"remote_json_files"</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_dumped_json</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">save_dir</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"initialize"</span><span class="p">:</span>
+
+            <span class="c1"># assume *_function0.json contains info needed for design problem setup</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">save_dir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_outputs_function0.json"</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                    <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+                <span class="n">model_time_elapsed</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"wall_time"</span><span class="p">]</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_doing_derivative_evaluation</span><span class="p">(</span><span class="n">command</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">times_gradient</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+                        <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">times_gradient</span><span class="p">,</span> <span class="n">model_time_elapsed</span><span class="p">]</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">times_function</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+                        <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">times_function</span><span class="p">,</span> <span class="n">model_time_elapsed</span><span class="p">]</span>
+                    <span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_print_status_message</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Obtained design problem info from dumped json file '</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">'"</span>
+                    <span class="p">)</span>
+                <span class="k">return</span> <span class="n">remote_output_dict</span>
+
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="c1"># possible filenames to read through</span>
+            <span class="n">filenames</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_doing_derivative_evaluation</span><span class="p">(</span><span class="n">command</span><span class="p">):</span>
+                <span class="n">filenames</span> <span class="o">+=</span> <span class="nb">sorted</span><span class="p">(</span>
+                    <span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">save_dir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_outputs_function*.json"</span><span class="p">),</span>
+                    <span class="n">key</span><span class="o">=</span><span class="n">extract_number</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">filenames</span> <span class="o">+=</span> <span class="nb">sorted</span><span class="p">(</span>
+                <span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">save_dir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_outputs_derivative*.json"</span><span class="p">),</span>
+                <span class="n">key</span><span class="o">=</span><span class="n">extract_number</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="c1"># check each json file for design of interest</span>
+            <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">filenames</span><span class="p">:</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                    <span class="n">remote_output_dict</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_designs_match</span><span class="p">(</span><span class="n">remote_input_dict</span><span class="p">,</span> <span class="n">remote_output_dict</span><span class="p">):</span>
+                    <span class="n">model_time_elapsed</span> <span class="o">=</span> <span class="n">remote_output_dict</span><span class="p">[</span><span class="s2">"wall_time"</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_doing_derivative_evaluation</span><span class="p">(</span><span class="n">command</span><span class="p">):</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_print_status_message</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"Found design derivatives in dumped json file '</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">'"</span>
+                        <span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">times_gradient</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+                            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">times_gradient</span><span class="p">,</span> <span class="n">model_time_elapsed</span><span class="p">]</span>
+                        <span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_print_status_message</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"Found design responses in dumped json file '</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">'"</span>
+                        <span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">times_function</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+                            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">times_function</span><span class="p">,</span> <span class="n">model_time_elapsed</span><span class="p">]</span>
+                        <span class="p">)</span>
+                    <span class="k">return</span> <span class="n">remote_output_dict</span>
+
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_designs_match</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">,</span> <span class="n">output_dict</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_for_consistent_inputs</span><span class="p">(</span><span class="n">input_dict</span><span class="p">,</span> <span class="n">output_dict</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_print_status_message</span><span class="p">(</span>
+                <span class="s2">"Inconsistent inputs and outputs found in dumped json file... skipping"</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">input_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"design_vars"</span><span class="p">,</span> <span class="s2">"additional_constants"</span><span class="p">,</span> <span class="s2">"additional_inputs"</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">input_name</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="n">input_type</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="c1"># TODO: worth having a tolerance on this?</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span>
+                    <span class="n">input_dict</span><span class="p">[</span><span class="n">input_type</span><span class="p">][</span><span class="n">input_name</span><span class="p">][</span><span class="s2">"val"</span><span class="p">],</span>
+                    <span class="n">output_dict</span><span class="p">[</span><span class="n">input_type</span><span class="p">][</span><span class="n">input_name</span><span class="p">][</span><span class="s2">"val"</span><span class="p">],</span>
+                <span class="p">):</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_for_consistent_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">,</span> <span class="n">output_dict</span><span class="p">):</span>
+        <span class="n">input_keys</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">input_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">input_dict</span><span class="p">[</span><span class="s2">"additional_constants"</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">input_dict</span><span class="p">[</span><span class="s2">"additional_inputs"</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="p">)</span>
+        <span class="n">output_keys</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">"design_vars"</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">"additional_constants"</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">output_dict</span><span class="p">[</span><span class="s2">"additional_inputs"</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">input_keys</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">output_keys</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_dump_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="k">if</span> <span class="s2">"objective"</span> <span class="ow">in</span> <span class="n">remote_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="n">dict_type</span> <span class="o">=</span> <span class="s2">"outputs"</span>
@@ -436,7 +560,9 @@
                     <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">save_dir</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
                     <span class="k">pass</span>  <span class="c1"># may have been created by now, by a parallel server</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_doing_derivative_evaluation</span><span class="p">(</span><span class="n">command</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_doing_derivative_evaluation</span><span class="p">(</span>
+                <span class="n">command</span>
+            <span class="p">):</span>  <span class="c1"># TODO: change len(times) to something that won't overwrite existing json files?</span>
                 <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">save_dir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">dict_type</span><span class="si">}</span><span class="s2">_derivative</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times_gradient</span><span class="p">)</span><span class="si">}</span><span class="s2">.json"</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">save_dir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">dict_type</span><span class="si">}</span><span class="s2">_function</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times_function</span><span class="p">)</span><span class="si">}</span><span class="s2">.json"</span>
@@ -516,13 +642,17 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">derivative_coloring_num</span> <span class="o">+=</span> <span class="mi">1</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_lower_bound_used</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bound</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">bound</span><span class="p">,</span> <span class="s2">"__len__"</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">bound</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">bound</span><span class="p">,</span> <span class="s2">"__len__"</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bound</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mf">1e20</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">bound</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mf">1e20</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_upper_bound_used</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bound</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">bound</span><span class="p">,</span> <span class="s2">"__len__"</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">bound</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">bound</span><span class="p">,</span> <span class="s2">"__len__"</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bound</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e20</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">bound</span> <span class="o">&lt;</span> <span class="mf">1e20</span>
