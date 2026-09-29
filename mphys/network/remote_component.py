@@ -479,7 +479,7 @@ class RemoteComp(om.ExplicitComponent):
                     input_dict[input_type][input_name]["val"],
                     output_dict[input_type][input_name]["val"],
                     rtol=0,
-                    atol=2*sys.float_info.epsilon,
+                    atol=2 * sys.float_info.epsilon,
                 ):
                     return False
         return True
