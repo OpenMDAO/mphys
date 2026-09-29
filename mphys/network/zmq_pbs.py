@@ -30,6 +30,28 @@ def _terminate_when_parent_dies():
             pass
 
 
+def _exit_on_signal(signum, frame):
+    print(
+        f"CLIENT: Received signal {signal.Signals(signum).name}; shutting down remote servers",
+        flush=True,
+    )
+    raise SystemExit(128 + signum)
+
+
+def _install_shutdown_signal_handlers():
+    """
+    Convert SIGTERM/SIGHUP into SystemExit so atexit handlers (and thus
+    stop_server) run. Only replaces the default handler, so user-defined
+    handlers are left untouched. No-op if not called from the main thread.
+    """
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        try:
+            if signal.getsignal(sig) is signal.SIG_DFL:
+                signal.signal(sig, _exit_on_signal)
+        except (ValueError, OSError, AttributeError):
+            pass
+
+
 class RemoteZeroMQComp(RemoteComp):
     """
     A derived RemoteComp class that uses pbs4py for HPC job management
@@ -146,6 +168,10 @@ class MPhysZeroMQServerManager(ServerManager):
         )
         self.server_counter = 0  # for saving output of each server to different files
         self.job_expiration_restarts = 0
+        self.shutdown_send_timeout_ms = 5000
+        self.server_stopped = True
+        _install_shutdown_signal_handlers()
+        atexit.register(self._stop_server_at_exit)
         self.start_server()
 
     def start_server(self):
@@ -160,11 +186,35 @@ class MPhysZeroMQServerManager(ServerManager):
                 f"CLIENT (subsystem {self.component_name}): Stopping the remote analysis server",
                 flush=True,
             )
-            if self.job.state == "R":
-                self.socket.send("shutdown|null".encode())
-            self._shutdown_server()
-            self.socket.close()
             self.server_stopped = True
+            try:
+                if self.job.state == "R":
+                    self.socket.setsockopt(
+                        zmq.SNDTIMEO, self.shutdown_send_timeout_ms
+                    )
+                    self.socket.send("shutdown|null".encode())
+            except Exception as e:
+                print(
+                    f"CLIENT (subsystem {self.component_name}): Could not send shutdown message to server ({e!r}); deleting job directly",
+                    flush=True,
+                )
+            self._shutdown_server()
+            self.socket.setsockopt(zmq.LINGER, 0)
+            self.socket.close()
+
+    def _stop_server_at_exit(self):
+        if not self.server_stopped:
+            print(
+                f"CLIENT (subsystem {self.component_name}): Python exiting; stopping the analysis server",
+                flush=True,
+            )
+            try:
+                self.stop_server()
+            except Exception as e:
+                print(
+                    f"CLIENT (subsystem {self.component_name}): Error while stopping server at exit: {e!r}",
+                    flush=True,
+                )
 
     def enough_time_is_remaining(self, estimated_model_time):
         self.job.update_job_state()
@@ -265,17 +315,17 @@ class MPhysZeroMQServerManager(ServerManager):
             stderr=subprocess.DEVNULL,
             preexec_fn=_terminate_when_parent_dies,
         )
-        atexit.register(self._kill_ssh, self.ssh_proc)
 
-    @staticmethod
-    def _kill_ssh(ssh_proc):
-        if ssh_proc.poll() is None:
-            ssh_proc.kill()
+    def _kill_ssh(self):
+        if self.ssh_proc.poll() is None:
+            self.ssh_proc.kill()
 
     def _shutdown_server(self):
-        self._kill_ssh(self.ssh_proc)
-        time.sleep(0.1)  # prevent full shutdown before job deletion?
-        self.job.qdel()
+        try:
+            self._kill_ssh()
+        finally:
+            time.sleep(0.1)  # prevent full shutdown before job deletion?
+            self.job.qdel()
 
     def _setup_dummy_socket(self):
         print(
