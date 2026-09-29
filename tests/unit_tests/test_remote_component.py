@@ -16,6 +16,8 @@ from fake_remote import (
 from mpi4py import MPI
 from openmdao.utils.assert_utils import assert_near_equal
 
+from mphys.network import Server
+
 
 def expected_outputs(x, y, p, c):
     x = np.asarray(x, dtype=float)
@@ -87,6 +89,19 @@ class TestRemoteCompSetup(unittest.TestCase):
         self.assertEqual(meta["p"]["units"], "kg")
         self.assertIsNone(meta["y"]["units"])
         self.assertIsNone(meta["c"]["units"])
+
+    def test_server_sends_unscaled_bounds(self):
+        # the values the client receives must be in model units regardless of
+        # how the server's OpenMDAO version stores bounds internally
+        sent = self.remote.output_dict
+        assert_near_equal(sent["design_vars"]["x"]["lower"], -10.0)
+        assert_near_equal(sent["design_vars"]["x"]["upper"], 10.0)
+        assert_near_equal(sent["design_vars"]["y"]["lower"], -5.0)
+        assert_near_equal(sent["design_vars"]["y"]["upper"], 5.0)
+        assert_near_equal(sent["constraints"]["g"]["upper"], 20.0)
+        assert_near_equal(sent["constraints"]["h"]["equals"], 1.0)
+        self.assertIsNone(sent["constraints"]["g"]["equals"])
+        self.assertFalse(self.remote._lower_bound_used(sent["constraints"]["g"]["lower"]))
 
     def test_design_vars_match_server(self):
         dvs = self.prob.model.get_design_vars()
@@ -182,6 +197,16 @@ class TestRemoteCompEvaluation(unittest.TestCase):
             assert_near_equal(data["abs error"].forward, 0.0, tolerance=1e-5)
             checked += 1
         self.assertEqual(checked, 12)
+
+    def test_server_replies_to_ping_without_evaluating(self):
+        server = self.remote.server
+        counter = server.design_counter
+        reply = server.handle("ping|null")
+        self.assertEqual(json.loads(reply), Server.PING_REPLY)
+        self.assertEqual(server.design_counter, counter)
+        self.assertEqual(server.messages_received[-1], "ping")
+        self.prob.run_model()
+        assert_near_equal(self.prob.get_val("f"), 14.5, tolerance=1e-12)
 
     def test_command_sequence(self):
         self.prob.run_model()

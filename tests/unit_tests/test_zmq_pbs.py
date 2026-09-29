@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import os
 import select
 import signal
@@ -7,6 +8,7 @@ import socket
 import subprocess
 import sys
 import textwrap
+import threading
 import time
 import unittest
 from unittest import mock
@@ -37,10 +39,19 @@ def make_manager(job_state="R", ssh_running=True, **attrs):
     manager.acceptable_port_range = [5081, 5090]
     manager.forward_through_frontend = False
     manager.shutdown_send_timeout_ms = 100
+    manager.startup_ping_interval = 0.2
+    manager.startup_timeout = None
+    manager.receive_timeout = 0.2
+    manager.job_check_interval = 60
+    manager.job_gone_checks_required = 3
+    manager.job_expiration_max_restarts = None
+    manager.job_expiration_restarts = 0
     manager.server_stopped = False
+    manager._pending_request = None
     manager.job = mock.MagicMock()
     manager.job.state = job_state
     manager.job.hostname = "r101i0n0"
+    manager.job.id = "12345.pbssrv1"
     manager.socket = mock.MagicMock()
     manager.ssh_proc = mock.MagicMock()
     manager.ssh_proc.poll.return_value = None if ssh_running else 0
@@ -53,6 +64,86 @@ def free_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("localhost", 0))
         return s.getsockname()[1]
+
+
+class FakeZmqServer(threading.Thread):
+    """
+    Stand-in for the server end of the ssh tunnel, running in a thread.
+
+    For the first `refuse_for` seconds it behaves like an ssh local forward
+    whose remote end is not yet listening: TCP connections are accepted and
+    immediately closed, so anything the client sent is lost. It then binds a
+    ROUTER socket (so it can choose not to reply, unlike REP) and answers each
+    message with handler(message) -> bytes, or drops it if handler returns None.
+    """
+
+    def __init__(self, port, handler, refuse_for=0.0):
+        super().__init__(daemon=True)
+        self.port = port
+        self.handler = handler
+        self.refuse_for = refuse_for
+        self.received = []
+        self._stop_event = threading.Event()
+        self.bound = threading.Event()
+
+    def stop(self):
+        self._stop_event.set()
+        self.join(timeout=10)
+
+    def _refuse_connections(self):
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(("localhost", self.port))
+        listener.listen(5)
+        deadline = time.time() + self.refuse_for
+        while time.time() < deadline and not self._stop_event.is_set():
+            ready, _, _ = select.select([listener], [], [], 0.05)
+            if ready:
+                conn, _ = listener.accept()
+                conn.close()
+        listener.close()
+
+    def run(self):
+        if self.refuse_for > 0:
+            self._refuse_connections()
+        sock = zmq.Context.instance().socket(zmq.ROUTER)
+        sock.setsockopt(zmq.LINGER, 0)
+        sock.bind(f"tcp://127.0.0.1:{self.port}")
+        self.bound.set()
+        try:
+            while not self._stop_event.is_set():
+                if not sock.poll(50):
+                    continue
+                frames = sock.recv_multipart()
+                identity, message = frames[0], frames[-1]
+                self.received.append(message)
+                reply = self.handler(message)
+                if reply is not None:
+                    sock.send_multipart([identity, b"", reply])
+        finally:
+            sock.close()
+
+
+def ping_reply():
+    return json.dumps(zmq_pbs.Server.PING_REPLY).encode()
+
+
+def make_live_manager(test_case, **attrs):
+    """
+    A manager with a real REQ socket connected to a free local port; the
+    socket is closed when the test finishes.
+    """
+    port = free_port()
+    manager = make_manager(port=port, **attrs)
+    manager._initialize_zmq_socket()
+
+    def close_socket():
+        if not manager.socket.closed:
+            manager.socket.setsockopt(zmq.LINGER, 0)
+            manager.socket.close()
+
+    test_case.addCleanup(close_socket)
+    return manager
 
 
 @skip_without_zmq
@@ -220,6 +311,231 @@ class TestPortSelection(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 with self.assertRaises(RuntimeError):
                     manager._initialize_connection()
+
+
+@skip_without_zmq
+class TestStartupHandshake(unittest.TestCase):
+    N_PROCS = 1
+
+    def setUp(self):
+        self.server = None
+
+    def tearDown(self):
+        if self.server is not None:
+            self.server.stop()
+
+    def _handler_ping_only(self, message):
+        self.assertEqual(message, b"ping|null")
+        return ping_reply()
+
+    def test_ready_immediately(self):
+        manager = make_live_manager(self)
+        self.server = FakeZmqServer(manager.port, self._handler_ping_only)
+        self.server.start()
+        self.server.bound.wait(5)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            manager._wait_for_server_to_be_ready()
+        self.assertEqual(self.server.received, [b"ping|null"])
+        self.assertIn("Server is ready", out.getvalue())
+        manager.job.update_job_state.assert_not_called()
+
+    def test_retries_until_server_binds(self):
+        # ssh accepts connections before the server has bound its port and the
+        # message is lost; the client must keep pinging with fresh sockets
+        manager = make_live_manager(self)
+        self.server = FakeZmqServer(
+            manager.port, self._handler_ping_only, refuse_for=1.0
+        )
+        self.server.start()
+        with mock.patch.object(
+            manager, "_reset_zmq_socket", wraps=manager._reset_zmq_socket
+        ) as reset:
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                manager._wait_for_server_to_be_ready()
+        self.assertGreaterEqual(reset.call_count, 2)
+        self.assertEqual(self.server.received, [b"ping|null"])
+        self.assertIn("Server is ready", out.getvalue())
+
+    def test_unexpected_reply_is_ignored(self):
+        replies = iter([b'"garbage"', ping_reply()])
+        manager = make_live_manager(self)
+        self.server = FakeZmqServer(manager.port, lambda m: next(replies))
+        self.server.start()
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            manager._wait_for_server_to_be_ready()
+        self.assertEqual(len(self.server.received), 2)
+        self.assertIn("Unexpected reply to ping", out.getvalue())
+        self.assertIn("Server is ready", out.getvalue())
+
+    def test_startup_timeout(self):
+        manager = make_live_manager(self, startup_timeout=0.5)
+        with contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "did not become ready"):
+                manager._wait_for_server_to_be_ready()
+
+    def test_job_dies_during_startup(self):
+        manager = make_live_manager(
+            self, job_check_interval=0, job_gone_checks_required=2, job_state="F"
+        )
+        with contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "ended before the server"):
+                manager._wait_for_server_to_be_ready()
+        self.assertEqual(manager.job.update_job_state.call_count, 2)
+
+    def test_transient_qstat_failure_does_not_abort_startup(self):
+        # qstat occasionally returns nothing; a few such results must not be
+        # mistaken for a dead job
+        manager = make_live_manager(self, job_check_interval=0, job_gone_checks_required=3)
+        states = iter(["", "", "R", "R", "R", "R", "R", "R"])
+
+        def update():
+            manager.job.state = next(states, "R")
+
+        manager.job.update_job_state.side_effect = update
+        self.server = FakeZmqServer(
+            manager.port, self._handler_ping_only, refuse_for=1.0
+        )
+        self.server.start()
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            manager._wait_for_server_to_be_ready()
+        self.assertIn("Server is ready", out.getvalue())
+
+    def test_start_server_includes_handshake(self):
+        manager = make_manager()
+        with mock.patch.multiple(
+            manager,
+            _initialize_connection=mock.DEFAULT,
+            _launch_job=mock.DEFAULT,
+            _wait_for_server_to_be_ready=mock.DEFAULT,
+        ) as mocks:
+            manager.server_counter = 0
+            manager.start_server()
+        mocks["_initialize_connection"].assert_called_once()
+        mocks["_launch_job"].assert_called_once()
+        mocks["_wait_for_server_to_be_ready"].assert_called_once()
+        self.assertFalse(manager.server_stopped)
+
+
+@skip_without_zmq
+class TestReceiveReplyRetry(unittest.TestCase):
+    N_PROCS = 1
+
+    REQUEST = b'evaluate|{"design_vars": {"x": {"val": [1.0]}}}'
+    REPLY = b'{"objective": {"f": {"val": [1.0]}}}'
+
+    def setUp(self):
+        self.server = None
+
+    def tearDown(self):
+        if self.server is not None:
+            self.server.stop()
+
+    def _start_server(self, manager, handler):
+        self.server = FakeZmqServer(manager.port, handler)
+        self.server.start()
+        self.server.bound.wait(5)
+
+    def test_reply_received_normally(self):
+        manager = make_live_manager(self)
+        self._start_server(manager, lambda m: self.REPLY)
+        manager.send_request(self.REQUEST)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            reply = manager.receive_reply()
+        self.assertEqual(reply, self.REPLY)
+        self.assertEqual(self.server.received, [self.REQUEST])
+        self.assertEqual(out.getvalue(), "")
+        manager.job.update_job_state.assert_not_called()
+
+    def test_lost_reply_is_recovered_by_resending(self):
+        drop_first = iter([None, self.REPLY])
+        manager = make_live_manager(self)
+        self._start_server(manager, lambda m: next(drop_first))
+        manager.send_request(self.REQUEST)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            reply = manager.receive_reply()
+        self.assertEqual(reply, self.REPLY)
+        self.assertEqual(self.server.received, [self.REQUEST, self.REQUEST])
+        self.assertIn("re-sending request in case it was lost", out.getvalue())
+        manager.job.update_job_state.assert_called()
+
+    def test_slow_server_reply_still_accepted(self):
+        # a reply that arrives after a resend (server was just slow) is fine:
+        # both server replies are for the same request
+        def slow_then_fast(message):
+            if len(self.server.received) == 1:
+                time.sleep(0.5)  # longer than receive_timeout
+            return self.REPLY
+
+        manager = make_live_manager(self)
+        self._start_server(manager, slow_then_fast)
+        manager.send_request(self.REQUEST)
+        with contextlib.redirect_stdout(io.StringIO()):
+            reply = manager.receive_reply()
+        self.assertEqual(reply, self.REPLY)
+
+    def test_dead_job_triggers_restart_and_resend(self):
+        manager = make_live_manager(self, job_gone_checks_required=1)
+        replies = iter([None, self.REPLY])
+        self._start_server(manager, lambda m: next(replies))
+
+        def fake_stop():
+            manager.server_stopped = True
+            manager.socket.setsockopt(zmq.LINGER, 0)
+            manager.socket.close()
+
+        def fake_start():
+            manager.job.state = "R"
+            manager._initialize_zmq_socket()
+            manager.server_stopped = False
+
+        manager.job.state = "F"
+        manager.send_request(self.REQUEST)
+        with mock.patch.object(manager, "stop_server", side_effect=fake_stop) as stop:
+            with mock.patch.object(
+                manager, "start_server", side_effect=fake_start
+            ) as start:
+                with contextlib.redirect_stdout(io.StringIO()) as out:
+                    reply = manager.receive_reply()
+        self.assertEqual(reply, self.REPLY)
+        stop.assert_called_once()
+        start.assert_called_once()
+        self.assertIn("Server job ended while waiting", out.getvalue())
+        self.assertEqual(self.server.received, [self.REQUEST, self.REQUEST])
+
+    def test_dead_job_requires_consecutive_checks(self):
+        manager = make_live_manager(self, job_gone_checks_required=3)
+        states = iter(["", "", "R"])
+
+        def update():
+            manager.job.state = next(states, "R")
+
+        manager.job.update_job_state.side_effect = update
+        replies = iter([None, None, None, self.REPLY])
+        self._start_server(manager, lambda m: next(replies))
+        manager.send_request(self.REQUEST)
+        with mock.patch.object(manager, "stop_server") as stop:
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                reply = manager.receive_reply()
+        self.assertEqual(reply, self.REPLY)
+        stop.assert_not_called()
+        self.assertIn("(1/3 checks)", out.getvalue())
+        self.assertIn("(2/3 checks)", out.getvalue())
+
+    def test_max_restarts_enforced(self):
+        manager = make_live_manager(
+            self,
+            job_gone_checks_required=1,
+            job_expiration_max_restarts=1,
+            job_expiration_restarts=1,
+        )
+        self._start_server(manager, lambda m: None)
+        manager.job.state = "F"
+        manager.send_request(self.REQUEST)
+        with mock.patch.object(manager, "stop_server") as stop:
+            with contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(RuntimeError, "maximum number"):
+                    manager.receive_reply()
+        stop.assert_called_once()
 
 
 @skip_without_zmq

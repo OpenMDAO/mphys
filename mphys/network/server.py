@@ -2,8 +2,15 @@ import warnings
 from copy import deepcopy
 
 import numpy as np
+import openmdao
 import openmdao.api as om
 from mpi4py import MPI
+from packaging.version import Version
+
+# OpenMDAO < 3.44 stores design variable and constraint bounds in driver-scaled
+# form (already multiplied by scaler/ref); 3.44+ stores them unscaled and lets
+# the driver's autoscaler apply the scaling later
+OPENMDAO_STORES_SCALED_BOUNDS = Version(openmdao.__version__) < Version("3.44")
 
 
 class Server:
@@ -27,6 +34,8 @@ class Server:
     rerun_initial_design : bool
         Whether to evaluate the baseline design upon starup
     """
+
+    PING_REPLY = {"status": "ready"}
 
     def __init__(
         self,
@@ -255,78 +264,55 @@ class Server:
                 remote_dict["adder"] = 0.0
         return remote_dict
 
-    def _apply_reference_vals_to_desvar_bounds(self, desvar_dict):
-        if (
-            desvar_dict["adder"] is None and desvar_dict["scaler"] is None
-        ):  # using ref/ref0
-            desvar_dict["lower"] = (
-                desvar_dict["lower"] * (desvar_dict["ref"] - desvar_dict["ref0"])
-                + desvar_dict["ref0"]
-            )
-            desvar_dict["upper"] = (
-                desvar_dict["upper"] * (desvar_dict["ref"] - desvar_dict["ref0"])
-                + desvar_dict["ref0"]
-            )
-        else:  # using adder/scaler
-            desvar_dict["lower"] = (
-                desvar_dict["lower"] / desvar_dict["scaler"] - desvar_dict["adder"]
-            )
-            desvar_dict["upper"] = (
-                desvar_dict["upper"] / desvar_dict["scaler"] - desvar_dict["adder"]
-            )
-        return desvar_dict
+    def _unscale_bound(self, bound, remote_dict):
+        """
+        Convert a driver-scaled bound back to model units. Bounds are sent to
+        the client unscaled, and the client re-applies ref/ref0 or scaler/adder
+        when it defines its own design variables and constraints.
+        """
+        if bound is None:
+            return None
+        if remote_dict["adder"] is None and remote_dict["scaler"] is None:  # ref/ref0
+            return bound * (remote_dict["ref"] - remote_dict["ref0"]) + remote_dict["ref0"]
+        else:  # adder/scaler
+            return bound / remote_dict["scaler"] - remote_dict["adder"]
 
     def _lower_bound_used(self, bound):
+        if bound is None:
+            return False
         if hasattr(bound, "__len__"):
             return (bound > -1e20).any()
         else:
             return bound
 
     def _upper_bound_used(self, bound):
+        if bound is None:
+            return False
         if hasattr(bound, "__len__"):
             return (bound < 1e20).any()
         else:
             return bound
 
+    def _apply_reference_vals_to_desvar_bounds(self, desvar_dict):
+        if OPENMDAO_STORES_SCALED_BOUNDS:
+            desvar_dict["lower"] = self._unscale_bound(desvar_dict["lower"], desvar_dict)
+            desvar_dict["upper"] = self._unscale_bound(desvar_dict["upper"], desvar_dict)
+        return desvar_dict
+
     def _apply_reference_vals_to_constraint_bounds(self, constraint_dict):
-        if (
-            constraint_dict["adder"] is None and constraint_dict["scaler"] is None
-        ):  # using ref/ref0
+        if OPENMDAO_STORES_SCALED_BOUNDS:
             if constraint_dict["equals"] is not None:  # equality constraint
-                constraint_dict["equals"] = (
-                    constraint_dict["equals"]
-                    * (constraint_dict["ref"] - constraint_dict["ref0"])
-                    + constraint_dict["ref0"]
+                constraint_dict["equals"] = self._unscale_bound(
+                    constraint_dict["equals"], constraint_dict
                 )
             else:
                 if self._lower_bound_used(constraint_dict["lower"]):
-                    constraint_dict["lower"] = (
-                        constraint_dict["lower"]
-                        * (constraint_dict["ref"] - constraint_dict["ref0"])
-                        + constraint_dict["ref0"]
+                    constraint_dict["lower"] = self._unscale_bound(
+                        constraint_dict["lower"], constraint_dict
                     )
                 if self._upper_bound_used(constraint_dict["upper"]):
-                    constraint_dict["upper"] = (
-                        constraint_dict["upper"]
-                        * (constraint_dict["ref"] - constraint_dict["ref0"])
-                        + constraint_dict["ref0"]
-                    )
-        else:  # using adder/scaler
-            if constraint_dict["equals"] is not None:  # equality constraint
-                constraint_dict["equals"] = (
-                    constraint_dict["equals"] / constraint_dict["scaler"]
-                    - constraint_dict["adder"]
-                )
-            else:
-                if self._lower_bound_used(constraint_dict["lower"]):
-                    constraint_dict["lower"] = (
-                        constraint_dict["lower"] / constraint_dict["scaler"]
-                        - constraint_dict["adder"]
-                    )
-                if self._upper_bound_used(constraint_dict["upper"]):
-                    constraint_dict["upper"] = (
-                        constraint_dict["upper"] / constraint_dict["scaler"]
-                        - constraint_dict["adder"]
+                    constraint_dict["upper"] = self._unscale_bound(
+                        constraint_dict["upper"], constraint_dict
                     )
         return constraint_dict
 
@@ -524,11 +510,17 @@ class Server:
 
             command, input_dict = self._parse_incoming_message()
 
-            # interpret command (options are "shutdown", "initialize", "evaluate", or "evaluate derivatives")
+            # interpret command (options are "shutdown", "ping", "initialize", "evaluate", or "evaluate derivatives")
             if command == "shutdown":
                 if self.comm.rank == 0:
                     print("SERVER: Received signal to shutdown", flush=True)
                 break
+
+            if command == "ping":  # client checking whether server is up and reachable
+                if self.comm.rank == 0:
+                    print("SERVER: Received ping from client; replying", flush=True)
+                self._send_outputs_to_client(self.PING_REPLY)
+                continue
 
             self._save_additional_variable_names(input_dict)
 
