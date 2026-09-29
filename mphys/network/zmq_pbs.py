@@ -1,8 +1,12 @@
 import argparse
+import atexit
+import ctypes
 import json
 import os
+import signal
 import socket
 import subprocess
+import sys
 import time
 
 import zmq
@@ -10,6 +14,20 @@ from pbs4py import PBS
 from pbs4py.job import PBSJob
 
 from mphys.network import RemoteComp, Server, ServerManager
+
+
+def _terminate_when_parent_dies():
+    """
+    Runs in the child between fork and exec. On Linux, ask the kernel to send
+    SIGTERM to this process when its parent thread exits, so the ssh tunnel
+    does not outlive the client even if the client is killed abruptly.
+    """
+    if sys.platform.startswith("linux"):
+        PR_SET_PDEATHSIG = 1
+        try:
+            ctypes.CDLL(None).prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
+        except (AttributeError, OSError):
+            pass
 
 
 class RemoteZeroMQComp(RemoteComp):
@@ -238,15 +256,24 @@ class MPhysZeroMQServerManager(ServerManager):
     def _setup_ssh(self):
         front_end_host = os.environ.get("PBS_O_HOST")
         if front_end_host is not None and self.forward_through_frontend:
-            ssh_command = f"ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L {self.port}:localhost:{self.port} -J {front_end_host} {self.job.hostname} &"
+            ssh_command = f"ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L {self.port}:localhost:{self.port} -J {front_end_host} {self.job.hostname}"
         else:
-            ssh_command = f"ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L {self.port}:localhost:{self.port} {self.job.hostname} &"
+            ssh_command = f"ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L {self.port}:localhost:{self.port} {self.job.hostname}"
         self.ssh_proc = subprocess.Popen(
-            ssh_command.split(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            ssh_command.split(),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            preexec_fn=_terminate_when_parent_dies,
         )
+        atexit.register(self._kill_ssh, self.ssh_proc)
+
+    @staticmethod
+    def _kill_ssh(ssh_proc):
+        if ssh_proc.poll() is None:
+            ssh_proc.kill()
 
     def _shutdown_server(self):
-        self.ssh_proc.kill()
+        self._kill_ssh(self.ssh_proc)
         time.sleep(0.1)  # prevent full shutdown before job deletion?
         self.job.qdel()
 
