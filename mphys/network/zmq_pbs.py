@@ -31,22 +31,30 @@ def _terminate_when_parent_dies():
 
 
 def _exit_on_signal(signum, frame):
-    print(
-        f"CLIENT: Received signal {signal.Signals(signum).name}; shutting down remote servers",
-        flush=True,
-    )
+    # os.write rather than print: the signal may arrive while the main thread
+    # is inside a buffered stdout write, and re-entering that raises RuntimeError
+    try:
+        os.write(
+            sys.stdout.fileno(),
+            f"CLIENT: Received signal {signal.Signals(signum).name}; shutting down remote servers\n".encode(),
+        )
+    except (OSError, ValueError, AttributeError):
+        pass
     raise SystemExit(128 + signum)
 
 
 def _install_shutdown_signal_handlers():
     """
     Convert SIGTERM/SIGHUP into SystemExit so atexit handlers (and thus
-    stop_server) run. Only replaces the default handler, so user-defined
-    handlers are left untouched. No-op if not called from the main thread.
+    stop_server) run. Replaces the default handler and C-level handlers
+    (signal.getsignal returns None for those, e.g. ones installed by an MPI
+    runtime such as MPT, which would otherwise just exit without cleanup).
+    Python-level user handlers and SIG_IGN are left untouched. No-op if not
+    called from the main thread.
     """
     for sig in (signal.SIGTERM, signal.SIGHUP):
         try:
-            if signal.getsignal(sig) is signal.SIG_DFL:
+            if signal.getsignal(sig) in (signal.SIG_DFL, None):
                 signal.signal(sig, _exit_on_signal)
         except (ValueError, OSError, AttributeError):
             pass
