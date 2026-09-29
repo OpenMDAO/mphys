@@ -189,9 +189,7 @@ class MPhysZeroMQServerManager(ServerManager):
             self.server_stopped = True
             try:
                 if self.job.state == "R":
-                    self.socket.setsockopt(
-                        zmq.SNDTIMEO, self.shutdown_send_timeout_ms
-                    )
+                    self.socket.setsockopt(zmq.SNDTIMEO, self.shutdown_send_timeout_ms)
                     self.socket.send("shutdown|null".encode())
             except Exception as e:
                 print(
