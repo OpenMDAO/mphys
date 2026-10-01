@@ -214,6 +214,11 @@ class MPhysZeroMQServerManager(ServerManager):
         self.job_gone_checks_required = (
             3  # consecutive non-running qstat results before declaring the job dead
         )
+        # retries for PBS commands (qsub/qstat/qdel) failing, e.g. when the PBS server is unreachable
+        self.pbs_retry_attempts = 10
+        self.pbs_retry_delay = 60  # seconds
+        self.qdel_retry_attempts = 3
+        self.qdel_retry_delay = 10  # seconds
         self.server_counter = 0  # for saving output of each server to different files
         self.job_expiration_restarts = 0
         self.shutdown_send_timeout_ms = 5000
@@ -252,8 +257,10 @@ class MPhysZeroMQServerManager(ServerManager):
             if self.socket.poll(int(self.receive_timeout * 1000)):
                 return self.socket.recv()
 
-            if self._job_is_running():
-                job_gone_count = 0
+            running = self._job_is_running()
+            if running or running is None:  # None: PBS could not be queried; assume still running
+                if running:
+                    job_gone_count = 0
                 print(
                     f"CLIENT (subsystem {self.component_name}): No reply from server after {self.receive_timeout} s; "
                     + "re-sending request in case it was lost",
@@ -280,9 +287,39 @@ class MPhysZeroMQServerManager(ServerManager):
                 self.start_server()
             self.socket.send(self._pending_request)
 
-    def _job_is_running(self) -> bool:
-        self.job.update_job_state()
-        return self.job.state == "R"
+    def _job_is_running(self):
+        """
+        Returns True/False, or None if the job state could not be determined
+        (e.g. the PBS server is unreachable).
+        """
+        state = self._query_job_state()
+        if state is None:
+            return None
+        return state == "R"
+
+    def _query_job_state(self):
+        """
+        Refresh the job's attributes from qstat, retrying if PBS cannot be
+        queried (unreachable server, garbled output). Returns the job state
+        string, or None if PBS could not be queried after all retries.
+        """
+        for attempt in range(1, self.pbs_retry_attempts + 1):
+            try:
+                self.job.update_job_state()
+                return self.job.state
+            except Exception as e:
+                print(
+                    f"CLIENT (subsystem {self.component_name}): qstat failed ({e!r}); "
+                    + f"retrying in {self.pbs_retry_delay} s ({attempt}/{self.pbs_retry_attempts})",
+                    flush=True,
+                )
+                time.sleep(self.pbs_retry_delay)
+        print(
+            f"CLIENT (subsystem {self.component_name}): Could not query PBS for job {self.job.id}; "
+            + "treating the job state as unknown",
+            flush=True,
+        )
+        return None
 
     def _count_job_expiration_restart(self):
         if self.job_expiration_max_restarts is not None:
@@ -330,9 +367,10 @@ class MPhysZeroMQServerManager(ServerManager):
                 )
             if time.time() - last_job_check > self.job_check_interval:
                 last_job_check = time.time()
-                if self._job_is_running():
+                running = self._job_is_running()
+                if running:
                     job_gone_count = 0
-                else:
+                elif running is False:  # None (PBS unreachable) is inconclusive
                     job_gone_count += 1
                     if job_gone_count >= self.job_gone_checks_required:
                         raise RuntimeError(
@@ -387,15 +425,28 @@ class MPhysZeroMQServerManager(ServerManager):
                 )
 
     def enough_time_is_remaining(self, estimated_model_time):
-        self.job.update_job_state()
+        if self._query_job_state() is None:
+            print(
+                f"CLIENT (subsystem {self.component_name}): Cannot determine remaining walltime; "
+                + "assuming enough time remains",
+                flush=True,
+            )
+            return True
         if self.job.walltime_remaining is None:
             return False
         else:
             return estimated_model_time < self.job.walltime_remaining
 
     def job_has_expired(self):
-        self.job.update_job_state()
-        if self.job.state == "R" and not self.server_stopped:
+        state = self._query_job_state()
+        if state is None:
+            print(
+                f"CLIENT (subsystem {self.component_name}): Cannot determine job state; "
+                + "assuming the server is still running",
+                flush=True,
+            )
+            return False
+        if state == "R" and not self.server_stopped:
             return False
         else:
             self._count_job_expiration_restart()
@@ -445,12 +496,59 @@ class MPhysZeroMQServerManager(ServerManager):
             python_command,
             output_root_name=f"mphys_{self.component_name}_server{self.server_counter}",
         )
-        jobid = self.pbs.launch(
-            f"MPhys{self.port}", [python_mpi_command], blocking=False
-        )
-        self.job = PBSJob(jobid)
+        jobid = self._submit_job(f"MPhys{self.port}", [python_mpi_command])
+        self.job = self._create_job_handle(jobid)
         self._wait_for_job_to_start()
         self._setup_ssh()
+
+    def _create_job_handle(self, jobid) -> PBSJob:
+        # PBSJob's constructor queries qstat, which may fail if PBS is unreachable
+        for attempt in range(1, self.pbs_retry_attempts + 1):
+            try:
+                return PBSJob(jobid)
+            except Exception as e:
+                print(
+                    f"CLIENT (subsystem {self.component_name}): qstat failed for new job {jobid} ({e!r}); "
+                    + f"retrying in {self.pbs_retry_delay} s ({attempt}/{self.pbs_retry_attempts})",
+                    flush=True,
+                )
+                time.sleep(self.pbs_retry_delay)
+        raise RuntimeError(
+            f"CLIENT (subsystem {self.component_name}): Could not query PBS for new job {jobid}"
+        )
+
+    def _submit_job(self, job_name, job_body) -> str:
+        """
+        qsub the job, retrying if PBS does not return a job id (e.g. the PBS
+        server is unreachable).
+        """
+        for attempt in range(1, self.pbs_retry_attempts + 1):
+            try:
+                jobid = self.pbs.launch(job_name, job_body, blocking=False)
+            except Exception as e:
+                jobid = None
+                reason = repr(e)
+            else:
+                if self._is_valid_job_id(jobid):
+                    return jobid.strip()
+                reason = f"qsub returned {jobid!r}"
+            print(
+                f"CLIENT (subsystem {self.component_name}): Job submission failed ({reason}); "
+                + f"retrying in {self.pbs_retry_delay} s ({attempt}/{self.pbs_retry_attempts})",
+                flush=True,
+            )
+            time.sleep(self.pbs_retry_delay)
+        raise RuntimeError(
+            f"CLIENT (subsystem {self.component_name}): Could not submit server job after "
+            + f"{self.pbs_retry_attempts} attempts"
+        )
+
+    @staticmethod
+    def _is_valid_job_id(jobid) -> bool:
+        if not isinstance(jobid, str):
+            return False
+        jobid = jobid.strip()
+        return jobid[:1].isdigit() or "FakePBS" in jobid
 
     def _wait_for_job_to_start(self):
         print(
@@ -461,7 +559,12 @@ class MPhysZeroMQServerManager(ServerManager):
         self._setup_dummy_socket()
         while self.job.state != "R":
             time.sleep(self.queue_time_delay)
-            self.job.update_job_state()
+            if self._query_job_state() == "F":
+                self._stop_dummy_socket()
+                raise RuntimeError(
+                    f"CLIENT (subsystem {self.component_name}): Server job {self.job.id} finished before it "
+                    + f"started running (exit status {self.job.exit_status}); check the job output for errors"
+                )
         self._stop_dummy_socket()
         self.job_start_time = time.time()
         print(
@@ -491,7 +594,40 @@ class MPhysZeroMQServerManager(ServerManager):
             self._kill_ssh()
         finally:
             time.sleep(0.1)  # prevent full shutdown before job deletion?
-            self.job.qdel()
+            self._qdel()
+
+    def _qdel(self) -> bool:
+        """
+        Delete the server job, retrying if PBS is unreachable. Returns whether
+        the job is known to be gone.
+        """
+        jobid = str(self.job.id)
+        print(f"qdel {jobid}", flush=True)
+        for attempt in range(1, self.qdel_retry_attempts + 1):
+            try:
+                result = subprocess.run(
+                    ["qdel", jobid], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                )
+                error = result.stderr.strip()
+                if result.returncode == 0:
+                    return True
+                # job already gone: nothing left to do
+                if "Unknown Job Id" in error or "Job has finished" in error:
+                    return True
+            except OSError as e:
+                error = repr(e)
+            print(
+                f"CLIENT (subsystem {self.component_name}): qdel failed ({error}); "
+                + f"retrying in {self.qdel_retry_delay} s ({attempt}/{self.qdel_retry_attempts})",
+                flush=True,
+            )
+            time.sleep(self.qdel_retry_delay)
+        print(
+            f"CLIENT (subsystem {self.component_name}): WARNING: could not delete server job {jobid}; "
+            + "it may still be running and should be deleted manually",
+            flush=True,
+        )
+        return False
 
     def _setup_dummy_socket(self):
         print(

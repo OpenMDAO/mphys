@@ -46,8 +46,14 @@ def make_manager(job_state="R", ssh_running=True, **attrs):
     manager.job_gone_checks_required = 3
     manager.job_expiration_max_restarts = None
     manager.job_expiration_restarts = 0
+    manager.queue_time_delay = 0
+    manager.pbs_retry_attempts = 2
+    manager.pbs_retry_delay = 0
+    manager.qdel_retry_attempts = 2
+    manager.qdel_retry_delay = 0
     manager.server_stopped = False
     manager._pending_request = None
+    manager.pbs = mock.MagicMock()
     manager.job = mock.MagicMock()
     manager.job.state = job_state
     manager.job.hostname = "r101i0n0"
@@ -55,9 +61,14 @@ def make_manager(job_state="R", ssh_running=True, **attrs):
     manager.socket = mock.MagicMock()
     manager.ssh_proc = mock.MagicMock()
     manager.ssh_proc.poll.return_value = None if ssh_running else 0
+    manager._qdel = mock.MagicMock(return_value=True)
     for key, val in attrs.items():
         setattr(manager, key, val)
     return manager
+
+
+def qdel_result(returncode=0, stderr=""):
+    return subprocess.CompletedProcess(["qdel"], returncode, stdout="", stderr=stderr)
 
 
 def free_port():
@@ -157,7 +168,7 @@ class TestStopServer(unittest.TestCase):
         manager.socket.setsockopt.assert_any_call(zmq.SNDTIMEO, 100)
         manager.socket.send.assert_called_once_with(b"shutdown|null")
         manager.ssh_proc.kill.assert_called_once()
-        manager.job.qdel.assert_called_once()
+        manager._qdel.assert_called_once()
         manager.socket.setsockopt.assert_any_call(zmq.LINGER, 0)
         manager.socket.close.assert_called_once()
         self.assertTrue(manager.server_stopped)
@@ -169,7 +180,7 @@ class TestStopServer(unittest.TestCase):
             manager.stop_server()
             manager.stop_server()
         manager.socket.send.assert_called_once()
-        manager.job.qdel.assert_called_once()
+        manager._qdel.assert_called_once()
         manager.ssh_proc.kill.assert_called_once()
 
     def test_stop_server_skips_shutdown_message_if_job_not_running(self):
@@ -177,7 +188,7 @@ class TestStopServer(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             manager.stop_server()
         manager.socket.send.assert_not_called()
-        manager.job.qdel.assert_called_once()
+        manager._qdel.assert_called_once()
         manager.ssh_proc.kill.assert_called_once()
 
     def test_stop_server_deletes_job_when_send_fails(self):
@@ -186,7 +197,7 @@ class TestStopServer(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()) as out:
             manager.stop_server()
         manager.ssh_proc.kill.assert_called_once()
-        manager.job.qdel.assert_called_once()
+        manager._qdel.assert_called_once()
         manager.socket.close.assert_called_once()
         self.assertTrue(manager.server_stopped)
         self.assertIn("Could not send shutdown message", out.getvalue())
@@ -197,21 +208,21 @@ class TestStopServer(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             with self.assertRaises(OSError):
                 manager.stop_server()
-        manager.job.qdel.assert_called_once()
+        manager._qdel.assert_called_once()
 
     def test_stop_server_does_not_kill_already_exited_ssh(self):
         manager = make_manager(ssh_running=False)
         with contextlib.redirect_stdout(io.StringIO()):
             manager.stop_server()
         manager.ssh_proc.kill.assert_not_called()
-        manager.job.qdel.assert_called_once()
+        manager._qdel.assert_called_once()
 
     def test_stop_server_at_exit_prints_and_stops(self):
         manager = make_manager()
         with contextlib.redirect_stdout(io.StringIO()) as out:
             manager._stop_server_at_exit()
         self.assertIn("Python exiting; stopping the analysis server", out.getvalue())
-        manager.job.qdel.assert_called_once()
+        manager._qdel.assert_called_once()
         self.assertTrue(manager.server_stopped)
 
     def test_stop_server_at_exit_noop_if_already_stopped(self):
@@ -219,11 +230,11 @@ class TestStopServer(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()) as out:
             manager._stop_server_at_exit()
         self.assertEqual(out.getvalue(), "")
-        manager.job.qdel.assert_not_called()
+        manager._qdel.assert_not_called()
 
     def test_stop_server_at_exit_swallows_errors(self):
         manager = make_manager()
-        manager.job.qdel.side_effect = RuntimeError("qdel failed")
+        manager._qdel.side_effect = RuntimeError("qdel failed")
         with contextlib.redirect_stdout(io.StringIO()) as out:
             manager._stop_server_at_exit()
         self.assertIn("Error while stopping server at exit", out.getvalue())
@@ -314,6 +325,194 @@ class TestPortSelection(unittest.TestCase):
 
 
 @skip_without_zmq
+class TestPbsFailures(unittest.TestCase):
+    """PBS commands failing (e.g. unreachable PBS server) must not crash the client."""
+
+    N_PROCS = 1
+
+    def test_query_job_state_retries_then_succeeds(self):
+        manager = make_manager(pbs_retry_attempts=3)
+        manager.job.update_job_state.side_effect = [KeyError("Job_Name"), None]
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(manager._query_job_state(), "R")
+        self.assertEqual(manager.job.update_job_state.call_count, 2)
+        self.assertIn("qstat failed", out.getvalue())
+
+    def test_query_job_state_returns_none_after_retries(self):
+        manager = make_manager(pbs_retry_attempts=3)
+        manager.job.update_job_state.side_effect = KeyError("Job_Name")
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertIsNone(manager._query_job_state())
+        self.assertEqual(manager.job.update_job_state.call_count, 3)
+        self.assertIn("treating the job state as unknown", out.getvalue())
+
+    def test_job_has_expired_assumes_running_when_pbs_unavailable(self):
+        manager = make_manager()
+        manager.job.update_job_state.side_effect = KeyError("Job_Name")
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertFalse(manager.job_has_expired())
+        self.assertIn("assuming the server is still running", out.getvalue())
+        self.assertEqual(manager.job_expiration_restarts, 0)
+
+    def test_job_has_expired_normal_cases(self):
+        manager = make_manager(job_state="R")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertFalse(manager.job_has_expired())
+            manager.job.state = "F"
+            self.assertTrue(manager.job_has_expired())
+            manager.job.state = "R"
+            manager.server_stopped = True
+            self.assertTrue(manager.job_has_expired())
+
+    def test_enough_time_is_remaining_when_pbs_unavailable(self):
+        manager = make_manager()
+        manager.job.update_job_state.side_effect = KeyError("Job_Name")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertTrue(manager.enough_time_is_remaining(1000.0))
+
+    def test_enough_time_is_remaining_normal_cases(self):
+        manager = make_manager()
+        manager.job.walltime_remaining = 500.0
+        self.assertTrue(manager.enough_time_is_remaining(100.0))
+        self.assertFalse(manager.enough_time_is_remaining(1000.0))
+        manager.job.walltime_remaining = None
+        self.assertFalse(manager.enough_time_is_remaining(1.0))
+
+    def test_is_valid_job_id(self):
+        valid = zmq_pbs.MPhysZeroMQServerManager._is_valid_job_id
+        self.assertTrue(valid("25214052.pbspl1.nas.nasa.gov"))
+        self.assertTrue(valid("5517682.pbssrv1\n"))
+        self.assertTrue(valid("FakePBS.0"))
+        self.assertFalse(valid(""))
+        self.assertFalse(valid("qsub: cannot connect to server"))
+        self.assertFalse(valid(None))
+
+    def test_submit_job_retries_until_qsub_returns_an_id(self):
+        manager = make_manager(pbs_retry_attempts=3)
+        manager.pbs.launch.side_effect = ["", OSError("boom"), "123.pbssrv1\n"]
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            jobid = manager._submit_job("MPhys5081", ["cmd"])
+        self.assertEqual(jobid, "123.pbssrv1")
+        self.assertEqual(manager.pbs.launch.call_count, 3)
+        self.assertEqual(out.getvalue().count("Job submission failed"), 2)
+
+    def test_submit_job_raises_after_retries(self):
+        manager = make_manager(pbs_retry_attempts=2)
+        manager.pbs.launch.return_value = ""
+        with contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "Could not submit server job"):
+                manager._submit_job("MPhys5081", ["cmd"])
+        self.assertEqual(manager.pbs.launch.call_count, 2)
+
+    def test_create_job_handle_retries(self):
+        manager = make_manager(pbs_retry_attempts=3)
+        fake_job = mock.MagicMock()
+        with mock.patch(
+            "mphys.network.zmq_pbs.PBSJob", side_effect=[KeyError("Job_Name"), fake_job]
+        ) as pbsjob:
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertIs(manager._create_job_handle("123.pbssrv1"), fake_job)
+        self.assertEqual(pbsjob.call_count, 2)
+
+    def test_create_job_handle_raises_after_retries(self):
+        manager = make_manager(pbs_retry_attempts=2)
+        with mock.patch("mphys.network.zmq_pbs.PBSJob", side_effect=KeyError("Job_Name")):
+            with contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(RuntimeError, "Could not query PBS"):
+                    manager._create_job_handle("123.pbssrv1")
+
+    def test_wait_for_job_to_start_tolerates_qstat_failures(self):
+        manager = make_manager(job_state="Q")
+        states = iter([KeyError("Job_Name"), "Q", KeyError("Job_Name"), "R"])
+
+        def update():
+            s = next(states)
+            if isinstance(s, Exception):
+                raise s
+            manager.job.state = s
+
+        manager.job.update_job_state.side_effect = update
+        with mock.patch.multiple(
+            manager, _setup_dummy_socket=mock.DEFAULT, _stop_dummy_socket=mock.DEFAULT
+        ) as mocks:
+            with contextlib.redirect_stdout(io.StringIO()):
+                manager._wait_for_job_to_start()
+        self.assertEqual(manager.job.state, "R")
+        mocks["_setup_dummy_socket"].assert_called_once()
+        mocks["_stop_dummy_socket"].assert_called_once()
+
+    def test_wait_for_job_to_start_raises_if_job_fails_in_queue(self):
+        manager = make_manager(job_state="Q")
+        states = iter(["Q", "F"])
+
+        def update():
+            manager.job.state = next(states)
+
+        manager.job.update_job_state.side_effect = update
+        manager.job.exit_status = 1
+        with mock.patch.multiple(
+            manager, _setup_dummy_socket=mock.DEFAULT, _stop_dummy_socket=mock.DEFAULT
+        ) as mocks:
+            with contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(RuntimeError, "finished before it started"):
+                    manager._wait_for_job_to_start()
+        mocks["_stop_dummy_socket"].assert_called_once()
+
+    def _real_qdel_manager(self, **attrs):
+        manager = make_manager(**attrs)
+        del manager._qdel  # use the real method
+        return manager
+
+    def test_qdel_success(self):
+        manager = self._real_qdel_manager()
+        with mock.patch("mphys.network.zmq_pbs.subprocess.run", return_value=qdel_result(0)) as run:
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertTrue(manager._qdel())
+        run.assert_called_once()
+        self.assertEqual(run.call_args[0][0], ["qdel", "12345.pbssrv1"])
+
+    def test_qdel_retries_when_pbs_unreachable(self):
+        manager = self._real_qdel_manager(qdel_retry_attempts=3)
+        results = [
+            qdel_result(1, "qdel: cannot connect to server pbspl1 (errno=111)"),
+            qdel_result(1, "qdel: cannot connect to server pbspl1 (errno=111)"),
+            qdel_result(0),
+        ]
+        with mock.patch("mphys.network.zmq_pbs.subprocess.run", side_effect=results) as run:
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                self.assertTrue(manager._qdel())
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(out.getvalue().count("qdel failed"), 2)
+
+    def test_qdel_already_finished_job_is_success(self):
+        manager = self._real_qdel_manager()
+        result = qdel_result(153, "qdel: Unknown Job Id 12345.pbssrv1")
+        with mock.patch("mphys.network.zmq_pbs.subprocess.run", return_value=result) as run:
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertTrue(manager._qdel())
+        run.assert_called_once()
+
+    def test_qdel_gives_up_with_warning(self):
+        manager = self._real_qdel_manager(qdel_retry_attempts=2)
+        result = qdel_result(1, "qdel: cannot connect to server pbspl1 (errno=111)")
+        with mock.patch("mphys.network.zmq_pbs.subprocess.run", return_value=result) as run:
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                self.assertFalse(manager._qdel())
+        self.assertEqual(run.call_count, 2)
+        self.assertIn("should be deleted manually", out.getvalue())
+
+    def test_stop_server_survives_qdel_failure(self):
+        manager = self._real_qdel_manager(qdel_retry_attempts=1)
+        result = qdel_result(1, "qdel: cannot connect to server pbspl1 (errno=111)")
+        with mock.patch("mphys.network.zmq_pbs.subprocess.run", return_value=result):
+            with contextlib.redirect_stdout(io.StringIO()):
+                manager.stop_server()
+        self.assertTrue(manager.server_stopped)
+        manager.ssh_proc.kill.assert_called_once()
+        manager.socket.close.assert_called_once()
+
+
+@skip_without_zmq
 class TestStartupHandshake(unittest.TestCase):
     N_PROCS = 1
 
@@ -398,6 +597,20 @@ class TestStartupHandshake(unittest.TestCase):
         self.server.start()
         with contextlib.redirect_stdout(io.StringIO()) as out:
             manager._wait_for_server_to_be_ready()
+        self.assertIn("Server is ready", out.getvalue())
+
+    def test_qstat_failure_during_startup_is_inconclusive(self):
+        manager = make_live_manager(
+            self, job_check_interval=0, job_gone_checks_required=1, pbs_retry_attempts=1
+        )
+        manager.job.update_job_state.side_effect = KeyError("Job_Name")
+        self.server = FakeZmqServer(
+            manager.port, self._handler_ping_only, refuse_for=1.0
+        )
+        self.server.start()
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            manager._wait_for_server_to_be_ready()
+        self.assertIn("qstat failed", out.getvalue())
         self.assertIn("Server is ready", out.getvalue())
 
     def test_start_server_includes_handshake(self):
@@ -520,6 +733,21 @@ class TestReceiveReplyRetry(unittest.TestCase):
         stop.assert_not_called()
         self.assertIn("(1/3 checks)", out.getvalue())
         self.assertIn("(2/3 checks)", out.getvalue())
+
+    def test_pbs_unavailable_keeps_waiting_and_resending(self):
+        manager = make_live_manager(self, job_gone_checks_required=1, pbs_retry_attempts=1)
+        manager.job.update_job_state.side_effect = KeyError("Job_Name")
+        replies = iter([None, None, self.REPLY])
+        self._start_server(manager, lambda m: next(replies))
+        manager.send_request(self.REQUEST)
+        with mock.patch.object(manager, "stop_server") as stop:
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                reply = manager.receive_reply()
+        self.assertEqual(reply, self.REPLY)
+        stop.assert_not_called()
+        self.assertEqual(len(self.server.received), 3)
+        self.assertIn("qstat failed", out.getvalue())
+        self.assertIn("re-sending request", out.getvalue())
 
     def test_max_restarts_enforced(self):
         manager = make_live_manager(
