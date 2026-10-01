@@ -326,12 +326,6 @@ class RemoteComp(om.ExplicitComponent):
                 ] = remote_dict["additional_outputs"][output]["derivatives"][inp]
 
     def _create_and_check_input_dict(self, inputs):
-        """
-        Build the input dict on rank 0 and make sure no design variable or
-        additional input contains NaN before anything is sent to the server.
-        The check result is broadcast so that all ranks raise together, and the
-        server is stopped before raising so its HPC job is not left running.
-        """
         input_dict = None
         nan_variables = []
         if self.comm.rank == 0:
@@ -339,11 +333,9 @@ class RemoteComp(om.ExplicitComponent):
             nan_variables = self._find_nan_inputs(input_dict)
         nan_variables = self.comm.bcast(nan_variables)
         if nan_variables:
-            self._print_status_message(
-                f"NaN found in inputs ({nan_variables}); stopping the server"
-            )
+            message = f"NaN found in inputs ({', '.join(nan_variables)}); stopping the server"
             self.stop_server()
-            raise ValueError(message)
+            raise ValueError(f"CLIENT (subsystem {self.name}): {message}")
         return input_dict
 
     def _find_nan_inputs(self, input_dict):
