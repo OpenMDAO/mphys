@@ -191,8 +191,8 @@ class RemoteComp(om.ExplicitComponent):
     @switch_run_directory
     def compute(self, inputs, outputs):
         remote_dict = None
+        input_dict = self._create_and_check_input_dict(inputs)
         if self.comm.rank == 0:
-            input_dict = self._create_input_dict_for_server(inputs)
             remote_dict = self.evaluate_model(
                 remote_input_dict=input_dict, command="evaluate"
             )
@@ -207,8 +207,8 @@ class RemoteComp(om.ExplicitComponent):
         # NOTE: this will not use of and wrt inputs, if given in outer script's compute_totals/check_totals
 
         remote_dict = None
+        input_dict = self._create_and_check_input_dict(inputs)
         if self.comm.rank == 0:
-            input_dict = self._create_input_dict_for_server(inputs)
             remote_dict = self.evaluate_model(
                 remote_input_dict=input_dict, command="evaluate derivatives"
             )
@@ -263,16 +263,16 @@ class RemoteComp(om.ExplicitComponent):
                 self.stop_server_for_down_time == 2
                 and self._doing_derivative_evaluation(command)
             ):
-                if self.comm.rank == 0:
-                    self._print_status_message(
-                        "Stopping server's HPC job for down time"
-                    )
+                self._print_status_message(
+                    "Stopping server's HPC job for down time"
+                )
                 self.server_manager.stop_server()
 
         return remote_output_dict
 
     def _print_status_message(self, message):
-        print(f"CLIENT (subsystem {self.name}): {message}", flush=True)
+        if self.comm.rank==0:
+            print(f"CLIENT (subsystem {self.name}): {message}", flush=True)
 
     def _assign_objective_partials_from_remote_output(self, remote_dict, partials):
         for obj in remote_dict["objective"].keys():
@@ -324,6 +324,35 @@ class RemoteComp(om.ExplicitComponent):
                         inp.replace(".", self.var_naming_dot_replacement),
                     )
                 ] = remote_dict["additional_outputs"][output]["derivatives"][inp]
+
+    def _create_and_check_input_dict(self, inputs):
+        """
+        Build the input dict on rank 0 and make sure no design variable or
+        additional input contains NaN before anything is sent to the server.
+        The check result is broadcast so that all ranks raise together, and the
+        server is stopped before raising so its HPC job is not left running.
+        """
+        input_dict = None
+        nan_variables = []
+        if self.comm.rank == 0:
+            input_dict = self._create_input_dict_for_server(inputs)
+            nan_variables = self._find_nan_inputs(input_dict)
+        nan_variables = self.comm.bcast(nan_variables)
+        if nan_variables:
+            self._print_status_message(
+                f"NaN found in inputs ({nan_variables}); stopping the server"
+            )
+            self.stop_server()
+            raise ValueError(message)
+        return input_dict
+
+    def _find_nan_inputs(self, input_dict):
+        nan_variables = []
+        for var_type in ["design_vars", "additional_inputs"]:
+            for name, data in input_dict[var_type].items():
+                if np.isnan(np.asarray(data["val"], dtype=float)).any():
+                    nan_variables.append(name)
+        return nan_variables
 
     def _create_input_dict_for_server(self, inputs):
         input_dict = {
@@ -423,10 +452,9 @@ class RemoteComp(om.ExplicitComponent):
                     self.times_function = np.hstack(
                         [self.times_function, model_time_elapsed]
                     )
-                if self.comm.rank == 0:
-                    self._print_status_message(
-                        f"Obtained design problem info from dumped json file '{filename}'"
-                    )
+                self._print_status_message(
+                    f"Obtained design problem info from dumped json file '{filename}'"
+                )
                 return remote_output_dict
 
         else:

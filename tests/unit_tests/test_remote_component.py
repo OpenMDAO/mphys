@@ -315,6 +315,49 @@ class TestRemoteCompOptions(unittest.TestCase):
         self.assertEqual(manager.start_calls, 1)
         self.assertFalse(manager.stopped)
 
+    def test_nan_design_var_raises_and_stops_server(self):
+        manager = RecordingServerManager()
+        prob = build_problem(server_manager=manager)
+        prob.setup()
+        server = prob.model.remote.server
+        counter = server.design_counter
+        prob.set_val("x", np.array([1.0, np.nan]))
+        with self.assertRaisesRegex(ValueError, r"NaN found in inputs.*\bx\b"):
+            prob.run_model()
+        self.assertEqual(manager.stop_calls, 1)
+        self.assertTrue(manager.stopped)
+        self.assertEqual(server.design_counter, counter)
+        self.assertEqual(server.messages_received, ["initialize"])
+
+    def test_nan_additional_input_raises_in_compute_partials(self):
+        manager = RecordingServerManager()
+        prob = build_problem(server_manager=manager)
+        prob.setup()
+        prob.run_model()
+        # set directly on the component's input vector: compute_totals does not
+        # re-transfer inputs, so a set_val would not reach compute_partials
+        prob.model.remote._inputs["p"] = np.nan
+        with self.assertRaisesRegex(ValueError, r"NaN found in inputs.*\bp\b"):
+            prob.compute_totals(of=["f"], wrt=["x"])
+        self.assertEqual(manager.stop_calls, 1)
+        self.assertNotIn("evaluate derivatives", prob.model.remote.server.messages_received)
+
+    def test_nan_in_multiple_inputs_lists_all(self):
+        prob = build_problem(server_manager=RecordingServerManager())
+        prob.setup()
+        prob.set_val("y", np.nan)
+        prob.set_val("p", np.nan)
+        with self.assertRaisesRegex(ValueError, r"\by\b.*\bp\b|\bp\b.*\by\b"):
+            prob.run_model()
+
+    def test_nan_constant_is_not_checked(self):
+        # constants are not part of the optimization; leave validation to the server model
+        prob = build_problem(server_manager=RecordingServerManager())
+        prob.setup()
+        prob.set_val("c", np.nan)
+        prob.run_model()
+        self.assertTrue(np.isnan(prob.get_val("g")))
+
     def test_top_level_stop_server_shortcut(self):
         manager = RecordingServerManager()
         prob = build_problem(server_manager=manager)
@@ -455,6 +498,13 @@ class TestRemoteCompParallel(unittest.TestCase):
         self.prob.run_model()
         totals = self.prob.compute_totals(of=["f"], wrt=["x"])
         assert_near_equal(totals["f", "x"], [[2.0, 4.0]], tolerance=1e-12)
+
+    def test_nan_input_raises_on_all_ranks(self):
+        self.prob.set_val("y", np.nan)
+        with self.assertRaisesRegex(ValueError, "NaN found in inputs"):
+            self.prob.run_model()
+        if self.comm.rank == 0:
+            self.assertTrue(self.remote.server_manager.stopped)
 
 
 if __name__ == "__main__":
