@@ -12,6 +12,22 @@ import openmdao.api as om
 from mphys.utils.directory_utils import cd
 
 
+class RemoteComponentError(BaseException):
+    """
+    An unrecoverable failure of a remote component, e.g. the server job cannot
+    be submitted, the server never becomes ready, or NaN inputs would be sent.
+
+    This deliberately derives from BaseException rather than Exception.
+    OpenMDAO's pyOptSparseDriver catches every Exception raised while
+    evaluating the objective or gradients, feeds NaNs to the optimizer, keeps
+    iterating, and only re-raises the stored error after the optimizer gives
+    up. For a remote analysis that would waste the remaining HPC allocation,
+    so these errors must terminate the optimization immediately.
+    """
+
+    pass
+
+
 def switch_run_directory(method):
     """
     Decorator function for methods where run directory must be switched before calling
@@ -335,7 +351,7 @@ class RemoteComp(om.ExplicitComponent):
         if nan_variables:
             message = f"NaN found in inputs ({', '.join(nan_variables)}); stopping the server"
             self.stop_server()
-            raise ValueError(f"CLIENT (subsystem {self.name}): {message}")
+            raise RemoteComponentError(f"CLIENT (subsystem {self.name}): {message}")
         return input_dict
 
     def _find_nan_inputs(self, input_dict):

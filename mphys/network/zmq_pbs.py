@@ -13,7 +13,27 @@ import zmq
 from pbs4py import PBS
 from pbs4py.job import PBSJob
 
-from mphys.network import RemoteComp, Server, ServerManager
+from mphys.network import RemoteComp, RemoteComponentError, Server, ServerManager
+
+
+class PBSJobWithTimeout(PBSJob):
+    """
+    pbs4py PBSJob whose qstat call is given a timeout, so that a PBS server
+    that is down (PBS clients retry the connection for a long time) does not
+    block the client indefinitely. A timeout raises subprocess.TimeoutExpired,
+    which the server manager treats like any other failed qstat.
+    """
+
+    qstat_timeout = 120  # seconds
+
+    def _run_qstat_to_get_full_job_attributes(self):
+        result = subprocess.run(
+            ["qstat", "-xf", str(self.id)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=self.qstat_timeout,
+        )
+        return result.stdout.decode("utf-8", errors="replace").split("\n")
 
 
 def _terminate_when_parent_dies():
@@ -217,6 +237,7 @@ class MPhysZeroMQServerManager(ServerManager):
         # retries for PBS commands (qsub/qstat/qdel) failing, e.g. when the PBS server is unreachable
         self.pbs_retry_attempts = 10
         self.pbs_retry_delay = 60  # seconds
+        self.pbs_command_timeout = 120  # seconds before a hung qsub/qstat/qdel is abandoned
         self.qdel_retry_attempts = 3
         self.qdel_retry_delay = 10  # seconds
         self.server_counter = 0  # for saving output of each server to different files
@@ -325,7 +346,7 @@ class MPhysZeroMQServerManager(ServerManager):
         if self.job_expiration_max_restarts is not None:
             if self.job_expiration_restarts + 1 > self.job_expiration_max_restarts:
                 self.stop_server()
-                raise RuntimeError(
+                raise RemoteComponentError(
                     f"CLIENT (subsystem {self.component_name}): Reached maximum number of job expiration restarts"
                 )
             self.job_expiration_restarts += 1
@@ -361,7 +382,7 @@ class MPhysZeroMQServerManager(ServerManager):
                 self.startup_timeout is not None
                 and time.time() - start_time > self.startup_timeout
             ):
-                raise RuntimeError(
+                raise RemoteComponentError(
                     f"CLIENT (subsystem {self.component_name}): Server did not become ready within "
                     + f"{self.startup_timeout} s"
                 )
@@ -373,7 +394,7 @@ class MPhysZeroMQServerManager(ServerManager):
                 elif running is False:  # None (PBS unreachable) is inconclusive
                     job_gone_count += 1
                     if job_gone_count >= self.job_gone_checks_required:
-                        raise RuntimeError(
+                        raise RemoteComponentError(
                             f"CLIENT (subsystem {self.component_name}): Server job {self.job.id} ended before the "
                             + "server became ready; check the server output file for errors"
                         )
@@ -473,7 +494,7 @@ class MPhysZeroMQServerManager(ServerManager):
                     self.port = port
                     break
             else:
-                raise RuntimeError(
+                raise RemoteComponentError(
                     f"CLIENT (subsystem {self.component_name}): Could not find open port"
                 )
 
@@ -503,9 +524,10 @@ class MPhysZeroMQServerManager(ServerManager):
 
     def _create_job_handle(self, jobid) -> PBSJob:
         # PBSJob's constructor queries qstat, which may fail if PBS is unreachable
+        PBSJobWithTimeout.qstat_timeout = self.pbs_command_timeout
         for attempt in range(1, self.pbs_retry_attempts + 1):
             try:
-                return PBSJob(jobid)
+                return PBSJobWithTimeout(jobid)
             except Exception as e:
                 print(
                     f"CLIENT (subsystem {self.component_name}): qstat failed for new job {jobid} ({e!r}); "
@@ -513,35 +535,90 @@ class MPhysZeroMQServerManager(ServerManager):
                     flush=True,
                 )
                 time.sleep(self.pbs_retry_delay)
-        raise RuntimeError(
+        raise RemoteComponentError(
             f"CLIENT (subsystem {self.component_name}): Could not query PBS for new job {jobid}"
         )
 
+    # qsub stderr fragments indicating a problem that may resolve itself if we retry
+    TRANSIENT_QSUB_ERRORS = (
+        "cannot connect",
+        "Connection refused",
+        "Connection reset",
+        "Connection timed out",
+        "timed out",
+        "No route to host",
+        "Communication failure",
+        "Temporarily unavailable",
+        "Resource temporarily unavailable",
+        "server is busy",
+        "Server shutting down",
+        "Unknown Host",
+    )
+
     def _submit_job(self, job_name, job_body) -> str:
         """
-        qsub the job, retrying if PBS does not return a job id (e.g. the PBS
-        server is unreachable).
+        qsub the job, retrying if PBS appears to be temporarily unreachable.
+        Any other qsub error (e.g. "Unauthorized Request", a bad queue name)
+        is raised immediately with qsub's message.
         """
         for attempt in range(1, self.pbs_retry_attempts + 1):
-            try:
-                jobid = self.pbs.launch(job_name, job_body, blocking=False)
-            except Exception as e:
-                jobid = None
-                reason = repr(e)
-            else:
-                if self._is_valid_job_id(jobid):
-                    return jobid.strip()
-                reason = f"qsub returned {jobid!r}"
+            jobid, error, retryable = self._run_qsub(job_name, job_body)
+            if self._is_valid_job_id(jobid):
+                return jobid.strip()
+            reason = error or f"qsub returned {jobid!r}"
+            if not retryable:
+                raise RemoteComponentError(
+                    f"CLIENT (subsystem {self.component_name}): Could not submit server job: {error}"
+                )
             print(
                 f"CLIENT (subsystem {self.component_name}): Job submission failed ({reason}); "
                 + f"retrying in {self.pbs_retry_delay} s ({attempt}/{self.pbs_retry_attempts})",
                 flush=True,
             )
             time.sleep(self.pbs_retry_delay)
-        raise RuntimeError(
+        raise RemoteComponentError(
             f"CLIENT (subsystem {self.component_name}): Could not submit server job after "
             + f"{self.pbs_retry_attempts} attempts"
         )
+
+    def _run_qsub(self, job_name, job_body):
+        """
+        Write the job script with pbs4py and run qsub ourselves so that qsub's
+        stderr is captured (pbs4py's launch() only returns stdout). Returns
+        (stdout, error_message, retryable). Non-PBS launchers (e.g. pbs4py's
+        fake launcher for testing) fall back to launcher.launch(), with any
+        exception treated as retryable since its cause is unknown.
+        """
+        if not isinstance(self.pbs, PBS):
+            try:
+                return self.pbs.launch(job_name, job_body, blocking=False), "", True
+            except Exception as e:
+                return None, repr(e), True
+        filename = f"{job_name}.{self.pbs.batch_file_extension}"
+        self.pbs.write_job_file(filename, job_name, job_body)
+        try:
+            result = subprocess.run(
+                ["qsub", filename],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=self.pbs_command_timeout,
+            )
+        except subprocess.TimeoutExpired:  # PBS server down: qsub blocks retrying its connection
+            return None, f"qsub did not return within {self.pbs_command_timeout} s", True
+        except OSError as e:  # e.g. qsub not on PATH
+            return None, repr(e), False
+        stdout = result.stdout.strip()
+        if stdout:
+            print(stdout, flush=True)  # the job id, as pbs4py's launch() would print
+        error = result.stderr.strip()
+        retryable = not error or self._is_transient_qsub_error(error)
+        return stdout, error, retryable
+
+    @classmethod
+    def _is_transient_qsub_error(cls, error: str) -> bool:
+        error_lower = error.lower()
+        return any(fragment.lower() in error_lower for fragment in cls.TRANSIENT_QSUB_ERRORS)
 
     @staticmethod
     def _is_valid_job_id(jobid) -> bool:
@@ -561,7 +638,7 @@ class MPhysZeroMQServerManager(ServerManager):
             time.sleep(self.queue_time_delay)
             if self._query_job_state() == "F":
                 self._stop_dummy_socket()
-                raise RuntimeError(
+                raise RemoteComponentError(
                     f"CLIENT (subsystem {self.component_name}): Server job {self.job.id} finished before it "
                     + f"started running (exit status {self.job.exit_status}); check the job output for errors"
                 )
@@ -606,7 +683,11 @@ class MPhysZeroMQServerManager(ServerManager):
         for attempt in range(1, self.qdel_retry_attempts + 1):
             try:
                 result = subprocess.run(
-                    ["qdel", jobid], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                    ["qdel", jobid],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    timeout=self.pbs_command_timeout,
                 )
                 error = result.stderr.strip()
                 if result.returncode == 0:
@@ -614,6 +695,8 @@ class MPhysZeroMQServerManager(ServerManager):
                 # job already gone: nothing left to do
                 if "Unknown Job Id" in error or "Job has finished" in error:
                     return True
+            except subprocess.TimeoutExpired:
+                error = f"qdel did not return within {self.pbs_command_timeout} s"
             except OSError as e:
                 error = repr(e)
             print(

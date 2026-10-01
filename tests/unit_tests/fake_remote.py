@@ -19,6 +19,7 @@ def get_paraboloid_group():
       f = x0^2 + x1^2 + y^2 + p          (objective)
       g = x0 + x1 + c                    (inequality constraint)
       h = y - x0                         (equality constraint)
+      k = 2*x0 - y                       (linear inequality constraint)
       z = 3*x + y                        (additional output, vector)
     with design vars x (2-vector, ref/ref0) and y (scaler/adder),
     additional input p and additional constant c.
@@ -36,6 +37,7 @@ def get_paraboloid_group():
                 "f = x[0]**2 + x[1]**2 + y**2 + p",
                 "g = x[0] + x[1] + c",
                 "h = y - x[0]",
+                "k = 2*x[0] - y",
                 "z = 3*x + y",
             ],
             x={"shape": 2, "units": "m"},
@@ -51,6 +53,7 @@ def get_paraboloid_group():
     model.add_objective("f", ref=100.0)
     model.add_constraint("g", upper=20.0)
     model.add_constraint("h", equals=1.0, ref=3.0)
+    model.add_constraint("k", lower=-20.0, upper=20.0, linear=True)
     return model
 
 

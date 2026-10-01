@@ -16,7 +16,7 @@ from fake_remote import (
 from mpi4py import MPI
 from openmdao.utils.assert_utils import assert_near_equal
 
-from mphys.network import Server
+from mphys.network import RemoteComponentError, Server
 
 
 def expected_outputs(x, y, p, c):
@@ -25,6 +25,7 @@ def expected_outputs(x, y, p, c):
         "f": x[0] ** 2 + x[1] ** 2 + y**2 + p,
         "g": x[0] + x[1] + c,
         "h": y - x[0],
+        "k": 2 * x[0] - y,
         "z": 3 * x + y,
     }
 
@@ -75,7 +76,7 @@ class TestRemoteCompSetup(unittest.TestCase):
         inputs = self.remote.list_inputs(out_stream=None, prom_name=True)
         outputs = self.remote.list_outputs(out_stream=None, prom_name=True)
         self.assertEqual(sorted(name for name, _ in inputs), ["c", "p", "x", "y"])
-        self.assertEqual(sorted(name for name, _ in outputs), ["f", "g", "h", "z"])
+        self.assertEqual(sorted(name for name, _ in outputs), ["f", "g", "h", "k", "z"])
 
     def test_baseline_values_copied_from_server(self):
         assert_near_equal(self.prob.get_val("x"), np.array([1.0, 2.0]))
@@ -122,12 +123,26 @@ class TestRemoteCompSetup(unittest.TestCase):
     def test_constraints_match_server(self):
         cons = self.prob.model.get_constraints()
         server_cons = self.server_model.get_constraints()
-        self.assertEqual(sorted(cons.keys()), ["g", "h"])
+        self.assertEqual(sorted(cons.keys()), ["g", "h", "k"])
         keys = ["lower", "upper", "equals", "ref", "ref0", "scaler", "adder"]
         self._assert_meta_matches_server(cons["g"], server_cons["g"], keys)
         self._assert_meta_matches_server(cons["h"], server_cons["h"], keys)
+        self._assert_meta_matches_server(cons["k"], server_cons["k"], keys)
         self.assertIsNone(cons["g"]["equals"])
         self.assertIsNotNone(cons["h"]["equals"])
+
+    def test_linear_flag_propagated(self):
+        sent = self.remote.output_dict["constraints"]
+        self.assertIs(sent["k"]["linear"], True)
+        self.assertIs(sent["g"]["linear"], False)
+        self.assertIs(sent["h"]["linear"], False)
+        cons = self.prob.model.get_constraints()
+        server_cons = self.server_model.get_constraints()
+        for name in ["g", "h", "k"]:
+            self.assertEqual(cons[name]["linear"], server_cons[name]["linear"], name)
+        self.assertTrue(cons["k"]["linear"])
+        self.assertFalse(cons["g"]["linear"])
+        self.assertFalse(cons["h"]["linear"])
 
     def test_initialize_only_message_sent_during_setup(self):
         self.assertEqual(self.remote.server.messages_received, ["initialize"])
@@ -173,7 +188,7 @@ class TestRemoteCompEvaluation(unittest.TestCase):
         self.prob.set_val("x", np.array([0.3, -1.2]))
         self.prob.set_val("y", 0.7)
         self.prob.run_model()
-        totals = self.prob.compute_totals(of=["f", "g", "h", "z"], wrt=["x", "y", "p"])
+        totals = self.prob.compute_totals(of=["f", "g", "h", "k", "z"], wrt=["x", "y", "p"])
         x = np.array([0.3, -1.2])
         y = 0.7
         assert_near_equal(totals["f", "x"], 2 * x.reshape(1, 2), tolerance=1e-12)
@@ -183,6 +198,8 @@ class TestRemoteCompEvaluation(unittest.TestCase):
         assert_near_equal(totals["g", "y"], [[0.0]], tolerance=1e-12)
         assert_near_equal(totals["h", "x"], [[-1.0, 0.0]], tolerance=1e-12)
         assert_near_equal(totals["h", "y"], [[1.0]], tolerance=1e-12)
+        assert_near_equal(totals["k", "x"], [[2.0, 0.0]], tolerance=1e-12)
+        assert_near_equal(totals["k", "y"], [[-1.0]], tolerance=1e-12)
         assert_near_equal(totals["z", "x"], 3 * np.eye(2), tolerance=1e-12)
         assert_near_equal(totals["z", "y"], [[1.0], [1.0]], tolerance=1e-12)
         assert_near_equal(totals["z", "p"], [[0.0], [0.0]], tolerance=1e-12)
@@ -196,7 +213,7 @@ class TestRemoteCompEvaluation(unittest.TestCase):
                 continue
             assert_near_equal(data["abs error"].forward, 0.0, tolerance=1e-5)
             checked += 1
-        self.assertEqual(checked, 12)
+        self.assertEqual(checked, 15)
 
     def test_server_replies_to_ping_without_evaluating(self):
         server = self.remote.server
@@ -207,6 +224,22 @@ class TestRemoteCompEvaluation(unittest.TestCase):
         self.assertEqual(server.messages_received[-1], "ping")
         self.prob.run_model()
         assert_near_equal(self.prob.get_val("f"), 14.5, tolerance=1e-12)
+
+    def test_optimization_through_remote_component(self):
+        # min f = x0^2 + x1^2 + y^2 + p  s.t.  h: y - x0 = 1 (nonlinear),
+        # k: -20 <= 2*x0 - y <= 20 (linear), g: x0 + x1 + c <= 20 (inactive)
+        # -> x = [-0.5, 0], y = 0.5, f = 1.0
+        prob = build_problem()
+        prob.driver = om.ScipyOptimizeDriver(optimizer="SLSQP", tol=1e-9, disp=False)
+        prob.setup()
+        prob.run_driver()
+        x = prob.get_val("x")
+        assert_near_equal(x[0], -0.5, tolerance=1e-4)
+        self.assertLess(abs(x[1]), 1e-3)
+        assert_near_equal(prob.get_val("y"), 0.5, tolerance=1e-4)
+        assert_near_equal(prob.get_val("f"), 1.0, tolerance=1e-6)
+        assert_near_equal(prob.get_val("h"), 1.0, tolerance=1e-6)
+        self.assertTrue(prob.model.get_constraints()["k"]["linear"])
 
     def test_command_sequence(self):
         self.prob.run_model()
@@ -322,7 +355,7 @@ class TestRemoteCompOptions(unittest.TestCase):
         server = prob.model.remote.server
         counter = server.design_counter
         prob.set_val("x", np.array([1.0, np.nan]))
-        with self.assertRaisesRegex(ValueError, r"NaN found in inputs.*\bx\b"):
+        with self.assertRaisesRegex(RemoteComponentError, r"NaN found in inputs.*\bx\b"):
             prob.run_model()
         self.assertEqual(manager.stop_calls, 1)
         self.assertTrue(manager.stopped)
@@ -337,17 +370,33 @@ class TestRemoteCompOptions(unittest.TestCase):
         # set directly on the component's input vector: compute_totals does not
         # re-transfer inputs, so a set_val would not reach compute_partials
         prob.model.remote._inputs["p"] = np.nan
-        with self.assertRaisesRegex(ValueError, r"NaN found in inputs.*\bp\b"):
+        with self.assertRaisesRegex(RemoteComponentError, r"NaN found in inputs.*\bp\b"):
             prob.compute_totals(of=["f"], wrt=["x"])
         self.assertEqual(manager.stop_calls, 1)
         self.assertNotIn("evaluate derivatives", prob.model.remote.server.messages_received)
+
+    def test_remote_errors_are_not_swallowed_by_pyoptsparse_style_handlers(self):
+        # pyOptSparseDriver wraps evaluations in `except Exception`, fills NaNs
+        # and keeps optimizing; remote failures must escape that
+        self.assertTrue(issubclass(RemoteComponentError, BaseException))
+        self.assertFalse(issubclass(RemoteComponentError, Exception))
+        prob = build_problem(server_manager=RecordingServerManager())
+        prob.setup()
+        prob.set_val("x", np.array([np.nan, 0.0]))
+        swallowed = False
+        with self.assertRaises(RemoteComponentError):
+            try:
+                prob.run_model()
+            except Exception:
+                swallowed = True
+        self.assertFalse(swallowed)
 
     def test_nan_in_multiple_inputs_lists_all(self):
         prob = build_problem(server_manager=RecordingServerManager())
         prob.setup()
         prob.set_val("y", np.nan)
         prob.set_val("p", np.nan)
-        with self.assertRaisesRegex(ValueError, r"\by\b.*\bp\b|\bp\b.*\by\b"):
+        with self.assertRaisesRegex(RemoteComponentError, r"\by\b.*\bp\b|\bp\b.*\by\b"):
             prob.run_model()
 
     def test_nan_constant_is_not_checked(self):
@@ -420,10 +469,10 @@ class TestRemoteCompJsonDump(unittest.TestCase):
         prob = build_problem(dump_separate_json=True, run_directory=self.run_dir)
         prob.setup()
         prob.run_model()
-        prob.compute_totals(of=["f", "g", "h", "z"], wrt=["x", "y", "p"])
+        prob.compute_totals(of=["f", "g", "h", "k", "z"], wrt=["x", "y", "p"])
         prob.set_val("x", np.array([0.3, -1.2]))
         prob.run_model()
-        totals_ref = prob.compute_totals(of=["f", "g", "h", "z"], wrt=["x", "y", "p"])
+        totals_ref = prob.compute_totals(of=["f", "g", "h", "k", "z"], wrt=["x", "y", "p"])
 
         manager = RecordingServerManager()
         prob2 = build_problem(
@@ -440,7 +489,7 @@ class TestRemoteCompJsonDump(unittest.TestCase):
         expected = expected_outputs([0.3, -1.2], 3.0, 0.5, 10.0)
         for name, val in expected.items():
             assert_near_equal(prob2.get_val(name), val, tolerance=1e-12)
-        totals = prob2.compute_totals(of=["f", "g", "h", "z"], wrt=["x", "y", "p"])
+        totals = prob2.compute_totals(of=["f", "g", "h", "k", "z"], wrt=["x", "y", "p"])
         for key in totals_ref:
             assert_near_equal(totals[key], totals_ref[key], tolerance=1e-12)
         self.assertIsNone(prob2.model.remote.server)
@@ -501,7 +550,7 @@ class TestRemoteCompParallel(unittest.TestCase):
 
     def test_nan_input_raises_on_all_ranks(self):
         self.prob.set_val("y", np.nan)
-        with self.assertRaisesRegex(ValueError, "NaN found in inputs"):
+        with self.assertRaisesRegex(RemoteComponentError, "NaN found in inputs"):
             self.prob.run_model()
         if self.comm.rank == 0:
             self.assertTrue(self.remote.server_manager.stopped)
