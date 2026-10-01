@@ -271,7 +271,7 @@ class RemoteComp(om.ExplicitComponent):
         return remote_output_dict
 
     def _print_status_message(self, message):
-        if self.comm.rank==0:
+        if self.comm.rank == 0:
             print(f"CLIENT (subsystem {self.name}): {message}", flush=True)
 
     def _assign_objective_partials_from_remote_output(self, remote_dict, partials):
