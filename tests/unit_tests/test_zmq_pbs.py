@@ -679,7 +679,11 @@ class TestStartupHandshake(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()) as out:
                 manager._wait_for_server_to_be_ready()
         self.assertGreaterEqual(reset.call_count, 2)
-        self.assertEqual(self.server.received, [b"ping|null"])
+        # usually exactly one ping reaches the bound server, but on a slow
+        # machine the reply to the first one can miss the ping interval, so the
+        # client (correctly) pings again
+        self.assertGreaterEqual(len(self.server.received), 1)
+        self.assertTrue(all(m == b"ping|null" for m in self.server.received))
         self.assertIn("Server is ready", out.getvalue())
 
     def test_unexpected_reply_is_ignored(self):
@@ -756,11 +760,40 @@ class TestStartupHandshake(unittest.TestCase):
         self.assertFalse(manager.server_stopped)
 
 
+# env vars that would make a child python try to join the MPI job of an
+# mpiexec-launched test process instead of running standalone; MPI
+# configuration variables such as OMPI_MCA_* are kept
 MPI_ENV_PREFIXES = ("MPI_", "MPT_", "PMI_", "PMIX_", "OMPI_", "MPICH_", "HYDRA_")
+MPI_CONFIG_PREFIXES = ("OMPI_MCA_", "MPI_ROOT")
 
 
 def non_mpi_env():
-    return {k: v for k, v in os.environ.items() if not k.startswith(MPI_ENV_PREFIXES)}
+    return {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith(MPI_ENV_PREFIXES) or k.startswith(MPI_CONFIG_PREFIXES)
+    }
+
+
+def read_until(stream, predicate, timeout=120):
+    """
+    Read lines from a subprocess pipe until predicate(line) is true; MPI
+    libraries may print warnings (e.g. Open MPI/UCX on CI runners) first.
+    Returns (matching_line or None, all lines read).
+    """
+    lines = []
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        ready, _, _ = select.select([stream], [], [], max(0.0, deadline - time.time()))
+        if not ready:
+            break
+        line = stream.readline()
+        if line == "":
+            break
+        lines.append(line)
+        if predicate(line):
+            return line, lines
+    return None, lines
 
 
 @skip_without_zmq
@@ -858,7 +891,8 @@ class TestServerErrorReporting(unittest.TestCase):
         info = self._error_info(self._request(sock, "evaluate", self._inputs(10.0)))
         proc.communicate(timeout=60)
         self.assertNotEqual(proc.returncode, 0)
-        self.assertIn("RuntimeError: solver blew up", info["traceback"])
+        # newer OpenMDAO re-raises as "RuntimeError: '<comp>' ...: Error calling compute(), <msg>"
+        self.assertRegex(info["traceback"], r"RuntimeError: .*solver blew up")
 
     def test_report_errors_disabled(self):
         proc, sock = self._start_server("get_model_with_import_error", report_errors=False)
@@ -1163,36 +1197,20 @@ class TestProcessLifetime(unittest.TestCase):
         """
     )
 
-    # env vars that would make the child python try to join the MPI job of
-    # the (mpiexec-launched) test process instead of running standalone
-    MPI_ENV_PREFIXES = ("MPI_", "MPT_", "PMI_", "PMIX_", "OMPI_", "MPICH_", "HYDRA_")
-
     def _spawn_client(self):
-        env = {
-            k: v
-            for k, v in os.environ.items()
-            if not k.startswith(self.MPI_ENV_PREFIXES)
-        }
         proc = subprocess.Popen(
             [sys.executable, "-c", self.CLIENT_SCRIPT],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            env=env,
+            env=non_mpi_env(),
         )
-        ready, _, _ = select.select([proc.stdout], [], [], 120)
-        if not ready:
+        pid_line, lines = read_until(proc.stdout, lambda line: line.strip().isdigit())
+        if pid_line is None:
             proc.kill()
             out, _ = proc.communicate()
-            self.fail(f"client subprocess did not start in time; output:\n{out}")
-        first_line = proc.stdout.readline()
-        try:
-            child_pid = int(first_line)
-        except ValueError:
-            proc.kill()
-            out, _ = proc.communicate()
-            self.fail(f"unexpected client output: {first_line!r}\n{out}")
-        return proc, child_pid
+            self.fail("client subprocess did not report its child pid; output:\n" + "".join(lines) + out)
+        return proc, int(pid_line)
 
     @staticmethod
     def _pid_alive(pid):
@@ -1238,22 +1256,16 @@ class TestProcessLifetime(unittest.TestCase):
                 print("x" * 65536, flush=True)
             """
         )
-        env = {
-            k: v
-            for k, v in os.environ.items()
-            if not k.startswith(self.MPI_ENV_PREFIXES)
-        }
         proc = subprocess.Popen(
             [sys.executable, "-c", script],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=env,
+            env=non_mpi_env(),
         )
         try:
-            ready, _, _ = select.select([proc.stderr], [], [], 120)
-            self.assertTrue(ready, "client subprocess did not start in time")
-            self.assertEqual(proc.stderr.readline().strip(), "READY")
+            ready_line, lines = read_until(proc.stderr, lambda line: line.strip() == "READY")
+            self.assertIsNotNone(ready_line, "client did not start:\n" + "".join(lines))
             time.sleep(0.5)  # let the child block inside a flush on the full pipe
             proc.send_signal(signal.SIGTERM)
             out, err = proc.communicate(timeout=20)
