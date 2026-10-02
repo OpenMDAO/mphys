@@ -16,6 +16,26 @@ from pbs4py.job import PBSJob
 from mphys.network import RemoteComp, RemoteComponentError, Server, ServerManager
 
 
+def _pbs_command_env():
+    """
+    Environment for running PBS client commands. When the client itself runs
+    in a multi-node PBS job, $TMPDIR points to a per-job directory
+    (/var/tmp/pbs.<jobid>) that only exists on the job's first node; qsub
+    fails with "could not create/open tmp file" on the other nodes. Fall back
+    to a temp directory that exists in that case.
+    """
+    env = dict(os.environ)
+    tmpdir = env.get("TMPDIR")
+    if tmpdir and not os.path.isdir(tmpdir):
+        for fallback in ("/var/tmp", "/tmp"):
+            if os.path.isdir(fallback):
+                env["TMPDIR"] = fallback
+                break
+        else:
+            env.pop("TMPDIR")
+    return env
+
+
 class PBSJobWithTimeout(PBSJob):
     """
     pbs4py PBSJob whose qstat call is given a timeout, so that a PBS server
@@ -32,6 +52,7 @@ class PBSJobWithTimeout(PBSJob):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=self.qstat_timeout,
+            env=_pbs_command_env(),
         )
         return result.stdout.decode("utf-8", errors="replace").split("\n")
 
@@ -603,6 +624,7 @@ class MPhysZeroMQServerManager(ServerManager):
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=self.pbs_command_timeout,
+                env=_pbs_command_env(),
             )
         except subprocess.TimeoutExpired:  # PBS server down: qsub blocks retrying its connection
             return None, f"qsub did not return within {self.pbs_command_timeout} s", True
@@ -688,6 +710,7 @@ class MPhysZeroMQServerManager(ServerManager):
                     stderr=subprocess.PIPE,
                     text=True,
                     timeout=self.pbs_command_timeout,
+                    env=_pbs_command_env(),
                 )
                 error = result.stderr.strip()
                 if result.returncode == 0:

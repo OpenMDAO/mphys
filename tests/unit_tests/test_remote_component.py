@@ -1,7 +1,10 @@
+import contextlib
+import io
 import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 import numpy as np
 import openmdao.api as om
@@ -50,8 +53,6 @@ def build_problem(server_factory=None, server_manager=None, **remote_options):
 
 
 class TestRemoteCompSetup(unittest.TestCase):
-    N_PROCS = 1
-
     def setUp(self):
         self.prob = build_problem()
         self.prob.setup()
@@ -149,8 +150,6 @@ class TestRemoteCompSetup(unittest.TestCase):
 
 
 class TestRemoteCompEvaluation(unittest.TestCase):
-    N_PROCS = 1
-
     def setUp(self):
         self.prob = build_problem()
         self.prob.setup()
@@ -251,8 +250,6 @@ class TestRemoteCompEvaluation(unittest.TestCase):
 
 
 class TestRemoteCompOptions(unittest.TestCase):
-    N_PROCS = 1
-
     def test_dot_replacement_in_variable_names(self):
         prob = om.Problem()
         prob.model.add_subsystem(
@@ -391,6 +388,71 @@ class TestRemoteCompOptions(unittest.TestCase):
                 swallowed = True
         self.assertFalse(swallowed)
 
+    def _fake_world(self, size):
+        world = mock.MagicMock()
+        world.size = size
+        return mock.patch(
+            "mphys.network.remote_component._world_comm", return_value=world
+        ), world
+
+    def _failing_start_manager(self):
+        class FailingStart(RecordingServerManager):
+            def enough_time_is_remaining(self, estimated_model_time):
+                return False  # force a restart on the next evaluation
+
+            def start_server(self):
+                raise RemoteComponentError("qsub: Unauthorized Request")
+
+        return FailingStart()
+
+    def test_partial_rank_error_aborts_mpi(self):
+        # error raised on one rank of a larger MPI job (e.g. qsub failing for
+        # one remote component of a parallel group) must abort all ranks
+        manager = self._failing_start_manager()
+        prob = build_problem(server_manager=manager)
+        prob.setup()
+        prob.set_val("y", 1.0)
+        patcher, world = self._fake_world(size=4)
+        with patcher, contextlib.redirect_stderr(io.StringIO()) as err:
+            with self.assertRaises(RemoteComponentError):
+                prob.run_model()
+        world.Abort.assert_called_once_with(1)
+        self.assertGreaterEqual(manager.stop_calls, 1)
+        self.assertIn("Aborting all 4 MPI ranks", err.getvalue())
+        self.assertIn("Unauthorized Request", err.getvalue())
+
+    def test_collective_error_does_not_abort(self):
+        prob = build_problem(server_manager=RecordingServerManager())
+        prob.setup()
+        prob.set_val("x", np.array([np.nan, 0.0]))
+        patcher, world = self._fake_world(size=1)
+        with patcher:
+            with self.assertRaises(RemoteComponentError) as cm:
+                prob.run_model()
+        world.Abort.assert_not_called()
+        self.assertEqual(cm.exception.collective_comm_size, 1)
+
+    def test_nan_error_aborts_if_component_spans_only_some_ranks(self):
+        prob = build_problem(server_manager=RecordingServerManager())
+        prob.setup()
+        prob.set_val("x", np.array([np.nan, 0.0]))
+        patcher, world = self._fake_world(size=2)  # component comm has 1 rank
+        with patcher, contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(RemoteComponentError):
+                prob.run_model()
+        world.Abort.assert_called_once_with(1)
+
+    def test_abort_can_be_disabled(self):
+        manager = self._failing_start_manager()
+        prob = build_problem(server_manager=manager, abort_mpi_on_error=False)
+        prob.setup()
+        prob.set_val("y", 1.0)
+        patcher, world = self._fake_world(size=4)
+        with patcher:
+            with self.assertRaises(RemoteComponentError):
+                prob.run_model()
+        world.Abort.assert_not_called()
+
     def test_nan_in_multiple_inputs_lists_all(self):
         prob = build_problem(server_manager=RecordingServerManager())
         prob.setup()
@@ -420,8 +482,6 @@ class TestRemoteCompOptions(unittest.TestCase):
 
 
 class TestRemoteCompJsonDump(unittest.TestCase):
-    N_PROCS = 1
-
     def setUp(self):
         self.tmpdir = tempfile.TemporaryDirectory()
         self.run_dir = self.tmpdir.name

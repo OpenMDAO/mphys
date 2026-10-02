@@ -23,9 +23,67 @@ class RemoteComponentError(BaseException):
     iterating, and only re-raises the stored error after the optimizer gives
     up. For a remote analysis that would waste the remaining HPC allocation,
     so these errors must terminate the optimization immediately.
+
+    Parameters
+    ----------
+    collective_comm_size : int
+        If the error is raised on every rank of a communicator at once, the
+        size of that communicator. Used to decide whether an MPI abort is
+        needed to keep the remaining ranks from hanging.
     """
 
-    pass
+    def __init__(self, *args, collective_comm_size=None):
+        super().__init__(*args)
+        self.collective_comm_size = collective_comm_size
+
+
+def _world_comm():
+    from mpi4py import MPI
+
+    return MPI.COMM_WORLD
+
+
+def abort_mpi_on_remote_error(method):
+    """
+    Decorator: if a RemoteComponentError escapes on only some MPI ranks, the
+    other ranks would block forever in their next collective operation. In
+    that case, stop this component's server and abort the whole MPI job.
+    Errors raised collectively on every rank of COMM_WORLD (e.g. NaN inputs
+    in a component that spans all ranks) are re-raised normally.
+    """
+
+    @wraps(method)
+    def wrapped_method(self, *args, **kwargs):
+        try:
+            return method(self, *args, **kwargs)
+        except RemoteComponentError as err:
+            world = _world_comm()
+            if (
+                not self.options["abort_mpi_on_error"]
+                or world.size == 1
+                or err.collective_comm_size == world.size
+            ):
+                raise
+            print(
+                f"CLIENT (subsystem {self.name}): {err}\n"
+                + f"CLIENT (subsystem {self.name}): Aborting all {world.size} MPI ranks "
+                + "so that the remaining ranks do not hang",
+                file=sys.stderr,
+                flush=True,
+            )
+            try:
+                self.stop_server()
+            except BaseException as stop_err:
+                print(
+                    f"CLIENT (subsystem {self.name}): Error stopping server before abort: {stop_err!r}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            sys.stdout.flush()
+            world.Abort(1)
+            raise  # only reached if Abort returns (e.g. a mocked communicator)
+
+    return wrapped_method
 
 
 def switch_run_directory(method):
@@ -143,7 +201,15 @@ class RemoteComp(om.ExplicitComponent):
             desc="Stop server after evaluation, in case significant down time is expected afterwards. Allows user to conserve HPC "
             + "SBUs in certain applications. 0=never, 1=after first function call, 2=after first derivative call.",
         )
+        self.options.declare(
+            "abort_mpi_on_error",
+            default=True,
+            types=bool,
+            desc="When running with MPI, abort all ranks if an unrecoverable remote component error occurs on only "
+            + "some of them (otherwise the remaining ranks would hang)",
+        )
 
+    @abort_mpi_on_remote_error
     @switch_run_directory
     def setup(self):
         self.var_naming_dot_replacement = self.options["var_naming_dot_replacement"]
@@ -204,6 +270,7 @@ class RemoteComp(om.ExplicitComponent):
 
         self.declare_partials("*", "*")
 
+    @abort_mpi_on_remote_error
     @switch_run_directory
     def compute(self, inputs, outputs):
         remote_dict = None
@@ -218,6 +285,7 @@ class RemoteComp(om.ExplicitComponent):
         self._assign_constraints_from_remote_output(remote_dict, outputs)
         self._assign_additional_outputs_from_remote_output(remote_dict, outputs)
 
+    @abort_mpi_on_remote_error
     @switch_run_directory
     def compute_partials(self, inputs, partials):
         # NOTE: this will not use of and wrt inputs, if given in outer script's compute_totals/check_totals
@@ -351,7 +419,10 @@ class RemoteComp(om.ExplicitComponent):
         if nan_variables:
             message = f"NaN found in inputs ({', '.join(nan_variables)}); stopping the server"
             self.stop_server()
-            raise RemoteComponentError(f"CLIENT (subsystem {self.name}): {message}")
+            raise RemoteComponentError(
+                f"CLIENT (subsystem {self.name}): {message}",
+                collective_comm_size=self.comm.size,
+            )
         return input_dict
 
     def _find_nan_inputs(self, input_dict):

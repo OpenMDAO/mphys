@@ -7,6 +7,7 @@ import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import textwrap
 import threading
 import time
@@ -160,8 +161,6 @@ def make_live_manager(test_case, **attrs):
 
 @skip_without_zmq
 class TestStopServer(unittest.TestCase):
-    N_PROCS = 1
-
     def test_stop_server_sends_shutdown_and_cleans_up(self):
         manager = make_manager()
         with contextlib.redirect_stdout(io.StringIO()) as out:
@@ -243,8 +242,6 @@ class TestStopServer(unittest.TestCase):
 
 @skip_without_zmq
 class TestSshSetup(unittest.TestCase):
-    N_PROCS = 1
-
     def _run_setup_ssh(self, forward_through_frontend, pbs_o_host):
         manager = make_manager(forward_through_frontend=forward_through_frontend)
         env = {"PBS_O_HOST": pbs_o_host} if pbs_o_host else {}
@@ -281,8 +278,6 @@ class TestSshSetup(unittest.TestCase):
 
 @skip_without_zmq
 class TestPortSelection(unittest.TestCase):
-    N_PROCS = 1
-
     def test_port_is_in_use(self):
         manager = make_manager()
         port = free_port()
@@ -328,8 +323,6 @@ class TestPortSelection(unittest.TestCase):
 @skip_without_zmq
 class TestPbsFailures(unittest.TestCase):
     """PBS commands failing (e.g. unreachable PBS server) must not crash the client."""
-
-    N_PROCS = 1
 
     def test_query_job_state_retries_then_succeeds(self):
         manager = make_manager(pbs_retry_attempts=3)
@@ -501,6 +494,27 @@ class TestPbsFailures(unittest.TestCase):
         job_class.assert_called_once_with("123.pbspl1")
         self.assertEqual(job_class.qstat_timeout, 7)
 
+    def test_pbs_env_replaces_missing_tmpdir(self):
+        with mock.patch.dict(os.environ, {"TMPDIR": "/var/tmp/pbs.does_not_exist.pbssrv1"}):
+            env = zmq_pbs._pbs_command_env()
+        self.assertIn(env.get("TMPDIR"), ("/var/tmp", "/tmp", None))
+        self.assertTrue(env.get("TMPDIR") is None or os.path.isdir(env["TMPDIR"]))
+
+    def test_pbs_env_keeps_existing_tmpdir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {"TMPDIR": tmp}):
+                self.assertEqual(zmq_pbs._pbs_command_env()["TMPDIR"], tmp)
+
+    def test_qsub_runs_with_valid_tmpdir(self):
+        manager = self._pbs_manager()
+        result = subprocess.CompletedProcess(["qsub"], 0, stdout="123.pbssrv1\n", stderr="")
+        with mock.patch.dict(os.environ, {"TMPDIR": "/var/tmp/pbs.does_not_exist.pbssrv1"}):
+            with mock.patch("mphys.network.zmq_pbs.subprocess.run", return_value=result) as run:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    manager._submit_job("MPhys5081", ["cmd"])
+        tmpdir = run.call_args.kwargs["env"].get("TMPDIR")
+        self.assertTrue(tmpdir is None or os.path.isdir(tmpdir))
+
     def test_is_transient_qsub_error(self):
         transient = zmq_pbs.MPhysZeroMQServerManager._is_transient_qsub_error
         self.assertTrue(transient("qsub: cannot connect to server pbspl1 (errno=111)"))
@@ -628,8 +642,6 @@ class TestPbsFailures(unittest.TestCase):
 
 @skip_without_zmq
 class TestStartupHandshake(unittest.TestCase):
-    N_PROCS = 1
-
     def setUp(self):
         self.server = None
 
@@ -745,8 +757,6 @@ class TestStartupHandshake(unittest.TestCase):
 
 @skip_without_zmq
 class TestReceiveReplyRetry(unittest.TestCase):
-    N_PROCS = 1
-
     REQUEST = b'evaluate|{"design_vars": {"x": {"val": [1.0]}}}'
     REPLY = b'{"objective": {"f": {"val": [1.0]}}}'
 
@@ -882,8 +892,6 @@ class TestReceiveReplyRetry(unittest.TestCase):
 
 @skip_without_zmq
 class TestSignalHandling(unittest.TestCase):
-    N_PROCS = 1
-
     def setUp(self):
         self.saved = {sig: signal.getsignal(sig) for sig in (signal.SIGTERM, signal.SIGHUP)}
 
@@ -935,8 +943,6 @@ class TestProcessLifetime(unittest.TestCase):
     that shutdown hooks fire and that a child with the death signal set dies
     with its parent.
     """
-
-    N_PROCS = 1
 
     CLIENT_SCRIPT = textwrap.dedent(
         """
