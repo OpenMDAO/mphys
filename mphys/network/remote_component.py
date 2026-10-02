@@ -65,7 +65,7 @@ def abort_mpi_on_remote_error(method):
             ):
                 raise
             print(
-                f"CLIENT (subsystem {self.name}): {err}\n"
+                f"{err}\n"
                 + f"CLIENT (subsystem {self.name}): Aborting all {world.size} MPI ranks "
                 + "so that the remaining ranks do not hang",
                 file=sys.stderr,
