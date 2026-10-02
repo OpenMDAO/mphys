@@ -8,12 +8,17 @@ import socket
 import subprocess
 import sys
 import time
+import traceback
 
 import zmq
 from pbs4py import PBS
 from pbs4py.job import PBSJob
 
 from mphys.network import RemoteComp, RemoteComponentError, Server, ServerManager
+
+
+# MPhysZeroMQServer error replies start with this; "status" must be the first key
+SERVER_ERROR_PREFIX = b'{"status": "error"'
 
 
 def _pbs_command_env():
@@ -246,6 +251,7 @@ class MPhysZeroMQServerManager(ServerManager):
         self.startup_ping_interval = startup_ping_interval
         self.startup_timeout = startup_timeout
         self.receive_timeout = receive_timeout
+        self._server_output_file = None
         self.queue_time_delay = (
             5  # seconds to wait before rechecking if a job has started
         )
@@ -297,7 +303,9 @@ class MPhysZeroMQServerManager(ServerManager):
         job_gone_count = 0
         while True:
             if self.socket.poll(int(self.receive_timeout * 1000)):
-                return self.socket.recv()
+                reply = self.socket.recv()
+                self._raise_if_server_error(reply)
+                return reply
 
             running = self._job_is_running()
             if running or running is None:  # None: PBS could not be queried; assume still running
@@ -391,6 +399,7 @@ class MPhysZeroMQServerManager(ServerManager):
             self.socket.send(b"ping|null")
             if self.socket.poll(ping_timeout_ms):
                 reply = self.socket.recv()
+                self._raise_if_server_error(reply)
                 if json.loads(reply.decode()) == Server.PING_REPLY:
                     break
                 print(
@@ -417,13 +426,51 @@ class MPhysZeroMQServerManager(ServerManager):
                     if job_gone_count >= self.job_gone_checks_required:
                         raise RemoteComponentError(
                             f"CLIENT (subsystem {self.component_name}): Server job {self.job.id} ended before the "
-                            + "server became ready; check the server output file for errors"
+                            + "server became ready"
+                            + self._server_output_tail()
                         )
         print(
             f"CLIENT (subsystem {self.component_name}): Server is ready "
             + f"(startup time: {time.time() - start_time:.1f} s)",
             flush=True,
         )
+
+    def _raise_if_server_error(self, reply: bytes):
+        """
+        Raise if the reply is an error report from MPhysZeroMQServer: the
+        server failed, and retrying or relaunching it would fail the same way.
+        """
+        if not reply.startswith(SERVER_ERROR_PREFIX):
+            return
+        try:
+            info = json.loads(reply.decode())
+        except ValueError:
+            info = {"traceback": reply.decode(errors="replace")}
+        location = f" on {info.get('host')}" if info.get("host") else ""
+        if info.get("rank") is not None:
+            location += f" (rank {info['rank']})"
+        try:
+            self.stop_server()
+        except Exception as e:
+            print(
+                f"CLIENT (subsystem {self.component_name}): Error stopping failed server: {e!r}",
+                flush=True,
+            )
+        raise RemoteComponentError(
+            f"CLIENT (subsystem {self.component_name}): The remote analysis server failed{location} "
+            + f"with the following error:\n{info.get('traceback', '').rstrip()}"
+        )
+
+    def _server_output_tail(self, num_lines=30) -> str:
+        path = self._server_output_file
+        if not path or not os.path.isfile(path):
+            return "; check the server output file for errors"
+        try:
+            with open(path, errors="replace") as f:
+                lines = f.readlines()[-num_lines:]
+        except OSError:
+            return f"; check {path} for errors"
+        return f". Last lines of {path}:\n" + "".join(lines).rstrip()
 
     def _reset_zmq_socket(self):
         # a REQ socket that has sent without receiving cannot send again;
@@ -534,9 +581,11 @@ class MPhysZeroMQServerManager(ServerManager):
             flush=True,
         )
         python_command = f"python {self.run_server_filename} --port {self.port} {self.additional_server_args}"
+        output_root_name = f"mphys_{self.component_name}_server{self.server_counter}"
+        self._server_output_file = os.path.abspath(f"{output_root_name}.out")
         python_mpi_command = self.pbs.create_mpi_command(
             python_command,
-            output_root_name=f"mphys_{self.component_name}_server{self.server_counter}",
+            output_root_name=output_root_name,
         )
         jobid = self._submit_job(f"MPhys{self.port}", [python_mpi_command])
         self.job = self._create_job_handle(jobid)
@@ -662,7 +711,8 @@ class MPhysZeroMQServerManager(ServerManager):
                 self._stop_dummy_socket()
                 raise RemoteComponentError(
                     f"CLIENT (subsystem {self.component_name}): Server job {self.job.id} finished before it "
-                    + f"started running (exit status {self.job.exit_status}); check the job output for errors"
+                    + f"started running (exit status {self.job.exit_status})"
+                    + self._server_output_tail()
                 )
         self._stop_dummy_socket()
         self.job_start_time = time.time()
@@ -752,7 +802,25 @@ class MPhysZeroMQServerManager(ServerManager):
 class MPhysZeroMQServer(Server):
     """
     A derived Server class that uses ZeroMQ for network communication.
+
+    Parameters
+    ----------
+    port : int
+        TCP port to listen on
+    report_errors : bool
+        If the server raises during startup (model import/setup) or while
+        handling a request, send the traceback to the client as the reply to
+        its next message, so the client raises immediately instead of
+        retrying or relaunching a server that would fail the same way.
+        Errors raised before this object is created (e.g. import errors at the
+        top of the server script) cannot be reported this way; the client then
+        detects the ended job and shows the end of the server output file.
+
+    Other parameters are passed to :class:`~mphys.network.Server`.
     """
+
+    ERROR_REPORT_TIMEOUT = 300  # seconds rank 0 waits for the client to contact it
+    NONROOT_ERROR_GRACE_PERIOD = 360  # seconds other ranks wait for rank 0 before aborting
 
     def __init__(
         self,
@@ -762,16 +830,28 @@ class MPhysZeroMQServer(Server):
         ignore_runtime_warnings=False,
         rerun_initial_design=False,
         write_n2=False,
+        report_errors=True,
     ):
+        self.port = port
+        self.report_errors = report_errors
+        self.socket = None
+        try:
+            super().__init__(
+                get_om_group_function_pointer,
+                ignore_setup_warnings,
+                ignore_runtime_warnings,
+                rerun_initial_design,
+                write_n2,
+            )
+            self._setup_zeromq_socket(port)
+        except Exception:
+            self._handle_server_error()
 
-        super().__init__(
-            get_om_group_function_pointer,
-            ignore_setup_warnings,
-            ignore_runtime_warnings,
-            rerun_initial_design,
-            write_n2,
-        )
-        self._setup_zeromq_socket(port)
+    def run(self):
+        try:
+            super().run()
+        except Exception:
+            self._handle_server_error()
 
     def _setup_zeromq_socket(self, port):
         if self.comm.rank == 0:
@@ -793,6 +873,82 @@ class MPhysZeroMQServer(Server):
     def _send_outputs_to_client(self, output_dict: dict):
         if self.comm.rank == 0:
             self.socket.send(str(json.dumps(output_dict)).encode())
+
+    def _handle_server_error(self):
+        """
+        Called from an except block. Report the error to the client from rank
+        0, then make sure the whole MPI job ends (other ranks may be blocked in
+        collectives). Re-raises the original exception if nothing needs aborting.
+        """
+        if not self.report_errors:
+            raise
+        error_text = traceback.format_exc()
+        from mpi4py import MPI
+
+        world = MPI.COMM_WORLD
+        comm = getattr(self, "comm", None) or world
+        print(
+            f"SERVER (rank {comm.rank}): failed with the following error:\n{error_text}",
+            file=sys.stderr,
+            flush=True,
+        )
+        if comm.rank == 0:
+            reply = _server_error_reply(error_text, comm.rank)
+            if _report_error_to_client(self.socket, self.port, reply, self.ERROR_REPORT_TIMEOUT):
+                print("SERVER: error reported to client", flush=True)
+        elif world.size > 1:
+            time.sleep(self.NONROOT_ERROR_GRACE_PERIOD)
+        if world.size > 1:
+            world.Abort(1)
+        raise
+
+
+def _server_error_reply(error_text, rank=None) -> bytes:
+    # "status" must be the first key: the client detects error replies by SERVER_ERROR_PREFIX
+    return json.dumps(
+        {
+            "status": "error",
+            "host": socket.gethostname(),
+            "rank": rank,
+            "traceback": error_text,
+        }
+    ).encode()
+
+
+def _send_and_close(sock, reply):
+    sock.send(reply)
+    sock.setsockopt(zmq.LINGER, 5000)  # give the reply time to leave
+    time.sleep(1.0)
+    sock.close()
+
+
+def _report_error_to_client(sock, port, reply, timeout) -> bool:
+    """
+    Send an error reply to the client. With an existing REP socket that has
+    just received a request, the reply answers that request; otherwise wait
+    for the client's next message (e.g. a startup ping). Returns whether sent.
+    """
+    if sock is not None and not sock.closed:
+        try:
+            _send_and_close(sock, reply)
+            return True
+        except zmq.ZMQError:
+            pass  # not waiting to send: wait for the next request below
+    else:
+        sock = zmq.Context.instance().socket(zmq.REP)
+        try:
+            sock.bind(f"tcp://*:{port}")
+        except zmq.ZMQError as e:
+            print(f"SERVER: could not bind port {port} to report error ({e})", flush=True)
+            sock.close(linger=0)
+            return False
+    if not sock.poll(int(timeout * 1000)):
+        print(f"SERVER: client did not contact server within {timeout} s", flush=True)
+        sock.close(linger=0)
+        return False
+    sock.recv()
+    _send_and_close(sock, reply)
+    return True
 
 
 def get_default_zmq_pbs_argparser():

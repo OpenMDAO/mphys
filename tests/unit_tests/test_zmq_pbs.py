@@ -55,6 +55,7 @@ def make_manager(job_state="R", ssh_running=True, **attrs):
     manager.qdel_retry_delay = 0
     manager.server_stopped = False
     manager._pending_request = None
+    manager._server_output_file = None
     manager.pbs = mock.MagicMock()
     manager.job = mock.MagicMock()
     manager.job.state = job_state
@@ -753,6 +754,202 @@ class TestStartupHandshake(unittest.TestCase):
         mocks["_launch_job"].assert_called_once()
         mocks["_wait_for_server_to_be_ready"].assert_called_once()
         self.assertFalse(manager.server_stopped)
+
+
+MPI_ENV_PREFIXES = ("MPI_", "MPT_", "PMI_", "PMIX_", "OMPI_", "MPICH_", "HYDRA_")
+
+
+def non_mpi_env():
+    return {k: v for k, v in os.environ.items() if not k.startswith(MPI_ENV_PREFIXES)}
+
+
+@skip_without_zmq
+class TestServerErrorReporting(unittest.TestCase):
+    """Run MPhysZeroMQServer for real (in a subprocess) with failing models."""
+
+    MODEL = """
+    import numpy as np
+    import openmdao.api as om
+    from mphys.network.zmq_pbs import MPhysZeroMQServer
+
+
+    class Fragile(om.ExplicitComponent):
+        def setup(self):
+            self.add_input("x", 1.0)
+            self.add_output("y", 1.0)
+
+        def compute(self, inputs, outputs):
+            if inputs["x"][0] > 5:
+                raise RuntimeError("solver blew up")
+            outputs["y"] = 2 * inputs["x"]
+
+
+    def get_model():
+        model = om.Group()
+        model.add_subsystem("comp", Fragile(), promotes=["*"])
+        model.add_design_var("x")
+        model.add_objective("y")
+        return model
+
+
+    def get_model_with_import_error():
+        import module_that_does_not_exist_xyz  # noqa: F401
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.port = free_port()
+
+    def _start_server(self, get_model, report_errors=True):
+        script = os.path.join(self.tmp.name, "server.py")
+        with open(script, "w") as f:
+            f.write(textwrap.dedent(self.MODEL))
+            f.write(
+                f"\nMPhysZeroMQServer({self.port}, {get_model}, report_errors={report_errors}).run()\n"
+            )
+        proc = subprocess.Popen(
+            [sys.executable, script],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=non_mpi_env(),
+            cwd=self.tmp.name,
+        )
+        self.addCleanup(lambda: proc.poll() is None and proc.kill())
+        sock = zmq.Context.instance().socket(zmq.REQ)
+        sock.setsockopt(zmq.LINGER, 0)
+        sock.connect(f"tcp://localhost:{self.port}")
+        self.addCleanup(sock.close)
+        return proc, sock
+
+    def _request(self, sock, command, payload=None, timeout=120):
+        sock.send(f"{command}|{json.dumps(payload)}".encode())
+        self.assertTrue(sock.poll(timeout * 1000), f"no reply to {command}")
+        return sock.recv()
+
+    @staticmethod
+    def _inputs(x):
+        return {
+            "design_vars": {"x": {"val": [x]}},
+            "additional_inputs": {},
+            "additional_constants": {},
+            "additional_outputs": [],
+            "component_name": "remote",
+        }
+
+    def _error_info(self, reply):
+        self.assertTrue(reply.startswith(zmq_pbs.SERVER_ERROR_PREFIX), reply[:80])
+        return json.loads(reply)
+
+    def test_startup_error_reported_to_ping(self):
+        proc, sock = self._start_server("get_model_with_import_error")
+        info = self._error_info(self._request(sock, "ping"))
+        out, _ = proc.communicate(timeout=60)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("module_that_does_not_exist_xyz", info["traceback"])
+        self.assertEqual(info["rank"], 0)
+        self.assertIn("error reported to client", out)
+
+    def test_runtime_error_reported_as_reply(self):
+        proc, sock = self._start_server("get_model")
+        self.assertEqual(json.loads(self._request(sock, "ping")), zmq_pbs.Server.PING_REPLY)
+        self._request(sock, "initialize", self._inputs(1.0))
+        info = self._error_info(self._request(sock, "evaluate", self._inputs(10.0)))
+        proc.communicate(timeout=60)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("RuntimeError: solver blew up", info["traceback"])
+
+    def test_report_errors_disabled(self):
+        proc, sock = self._start_server("get_model_with_import_error", report_errors=False)
+        out, _ = proc.communicate(timeout=120)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("module_that_does_not_exist_xyz", out)
+        self.assertNotIn("error reported to client", out)
+        sock.send(b"ping|null")
+        self.assertFalse(sock.poll(1000))  # nobody listening
+
+
+@skip_without_zmq
+class TestServerErrorHandlingOnClient(unittest.TestCase):
+    ERROR = (
+        b'{"status": "error", "host": "r101i0n0", "rank": 0, '
+        b'"traceback": "Traceback ...\\nImportError: no module named tacs"}'
+    )
+
+    def setUp(self):
+        self.server = None
+
+    def tearDown(self):
+        if self.server is not None:
+            self.server.stop()
+
+    def test_error_reply_to_ping_raises_without_retry(self):
+        manager = make_live_manager(self)
+        self.server = FakeZmqServer(manager.port, lambda m: self.ERROR)
+        self.server.start()
+        with mock.patch.object(manager, "stop_server") as stop:
+            with contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaises(zmq_pbs.RemoteComponentError) as cm:
+                    manager._wait_for_server_to_be_ready()
+        stop.assert_called_once()
+        self.assertEqual(len(self.server.received), 1)
+        self.assertIn("ImportError: no module named tacs", str(cm.exception))
+        self.assertIn("on r101i0n0 (rank 0)", str(cm.exception))
+
+    def test_error_reply_to_request_raises_without_resend(self):
+        manager = make_live_manager(self)
+        self.server = FakeZmqServer(manager.port, lambda m: self.ERROR)
+        self.server.start()
+        self.server.bound.wait(5)
+        manager.send_request(b"evaluate|{}")
+        with mock.patch.object(manager, "stop_server") as stop:
+            with contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(zmq_pbs.RemoteComponentError, "no module named tacs"):
+                    manager.receive_reply()
+        stop.assert_called_once()
+        self.assertEqual(len(self.server.received), 1)
+
+    def test_normal_replies_pass(self):
+        manager = make_manager()
+        manager._raise_if_server_error(b'{"objective": {}}')
+        manager._raise_if_server_error(json.dumps(zmq_pbs.Server.PING_REPLY).encode())
+
+    def _launch_command(self, **attrs):
+        manager = make_manager(run_server_filename="mphys_server.py", additional_server_args="--x 1", **attrs)
+        manager.server_counter = 1
+        manager.pbs.create_mpi_command.side_effect = lambda cmd, output_root_name: cmd
+        with mock.patch.multiple(
+            manager,
+            _submit_job=mock.DEFAULT,
+            _create_job_handle=mock.DEFAULT,
+            _wait_for_job_to_start=mock.DEFAULT,
+            _setup_ssh=mock.DEFAULT,
+        ) as mocks:
+            with contextlib.redirect_stdout(io.StringIO()):
+                manager._launch_job()
+        return mocks["_submit_job"].call_args[0][1][0], manager
+
+    def test_launch_command(self):
+        command, manager = self._launch_command()
+        self.assertEqual(command.split()[:3], ["python", "mphys_server.py", "--port"])
+        self.assertTrue(command.rstrip().endswith("--x 1"))
+        self.assertTrue(manager._server_output_file.endswith("mphys_test_server1.out"))
+
+    def test_startup_failure_includes_server_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out_file = os.path.join(tmp, "mphys_test_server1.out")
+            with open(out_file, "w") as f:
+                f.write("line 1\nSegmentation fault (core dumped)\n")
+            manager = make_live_manager(
+                self, job_check_interval=0, job_gone_checks_required=1, job_state="F"
+            )
+            manager._server_output_file = out_file
+            with contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(
+                    zmq_pbs.RemoteComponentError, "(?s)ended before.*Segmentation fault"
+                ):
+                    manager._wait_for_server_to_be_ready()
 
 
 @skip_without_zmq
