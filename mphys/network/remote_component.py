@@ -347,9 +347,7 @@ class RemoteComp(om.ExplicitComponent):
                 self.stop_server_for_down_time == 2
                 and self._doing_derivative_evaluation(command)
             ):
-                self._print_status_message(
-                    "Stopping server's HPC job for down time"
-                )
+                self._print_status_message("Stopping server's HPC job for down time")
                 self.server_manager.stop_server()
 
         return remote_output_dict

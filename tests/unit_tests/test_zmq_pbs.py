@@ -295,9 +295,7 @@ class TestPortSelection(unittest.TestCase):
             s.listen(1)
             with mock.patch.object(
                 manager, "_initialize_zmq_socket"
-            ), contextlib.redirect_stdout(
-                io.StringIO()
-            ):
+            ), contextlib.redirect_stdout(io.StringIO()):
                 manager._initialize_connection()
         self.assertNotEqual(manager.port, busy)
         self.assertGreater(manager.port, busy)
