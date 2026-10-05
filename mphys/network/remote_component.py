@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import sys
 import time
 from functools import wraps
 from glob import glob
@@ -474,10 +475,11 @@ class RemoteComp(om.ExplicitComponent):
             return False
         for input_type in ["design_vars", "additional_constants", "additional_inputs"]:
             for input_name in input_dict[input_type].keys():
-                # TODO: worth having a tolerance on this?
                 if not np.allclose(
                     input_dict[input_type][input_name]["val"],
                     output_dict[input_type][input_name]["val"],
+                    rtol=0,
+                    atol=2 * sys.float_info.epsilon,
                 ):
                     return False
         return True
