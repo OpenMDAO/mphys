@@ -35,10 +35,14 @@
             
   <h1>Source code for mphys.network.zmq_pbs</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">atexit</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">ctypes</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">signal</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">socket</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">zmq</span>
@@ -46,6 +50,50 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">pbs4py.job</span><span class="w"> </span><span class="kn">import</span> <span class="n">PBSJob</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">mphys.network</span><span class="w"> </span><span class="kn">import</span> <span class="n">RemoteComp</span><span class="p">,</span> <span class="n">Server</span><span class="p">,</span> <span class="n">ServerManager</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_terminate_when_parent_dies</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Runs in the child between fork and exec. On Linux, ask the kernel to send</span>
+<span class="sd">    SIGTERM to this process when its parent thread exits, so the ssh tunnel</span>
+<span class="sd">    does not outlive the client even if the client is killed abruptly.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"linux"</span><span class="p">):</span>
+        <span class="n">PR_SET_PDEATHSIG</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="n">prctl</span><span class="p">(</span><span class="n">PR_SET_PDEATHSIG</span><span class="p">,</span> <span class="n">signal</span><span class="o">.</span><span class="n">SIGTERM</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+            <span class="k">pass</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_exit_on_signal</span><span class="p">(</span><span class="n">signum</span><span class="p">,</span> <span class="n">frame</span><span class="p">):</span>
+    <span class="c1"># os.write rather than print: the signal may arrive while the main thread</span>
+    <span class="c1"># is inside a buffered stdout write, and re-entering that raises RuntimeError</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">fileno</span><span class="p">(),</span>
+            <span class="sa">f</span><span class="s2">"CLIENT: Received signal </span><span class="si">{</span><span class="n">signal</span><span class="o">.</span><span class="n">Signals</span><span class="p">(</span><span class="n">signum</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">; shutting down remote servers</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+        <span class="k">pass</span>
+    <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="mi">128</span> <span class="o">+</span> <span class="n">signum</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_install_shutdown_signal_handlers</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Convert SIGTERM/SIGHUP into SystemExit so atexit handlers (and thus</span>
+<span class="sd">    stop_server) run. Replaces the default handler and C-level handlers</span>
+<span class="sd">    (signal.getsignal returns None for those, e.g. ones installed by an MPI</span>
+<span class="sd">    runtime such as MPT, which would otherwise just exit without cleanup).</span>
+<span class="sd">    Python-level user handlers and SIG_IGN are left untouched. No-op if not</span>
+<span class="sd">    called from the main thread.</span>
+<span class="sd">    """</span>
+    <span class="k">for</span> <span class="n">sig</span> <span class="ow">in</span> <span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGTERM</span><span class="p">,</span> <span class="n">signal</span><span class="o">.</span><span class="n">SIGHUP</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">signal</span><span class="o">.</span><span class="n">getsignal</span><span class="p">(</span><span class="n">sig</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIG_DFL</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
+                <span class="n">signal</span><span class="o">.</span><span class="n">signal</span><span class="p">(</span><span class="n">sig</span><span class="p">,</span> <span class="n">_exit_on_signal</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+            <span class="k">pass</span>
 
 
 <div class="viewcode-block" id="RemoteZeroMQComp">
@@ -172,6 +220,10 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">server_counter</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># for saving output of each server to different files</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">job_expiration_restarts</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shutdown_send_timeout_ms</span> <span class="o">=</span> <span class="mi">5000</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">server_stopped</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">_install_shutdown_signal_handlers</span><span class="p">()</span>
+        <span class="n">atexit</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_stop_server_at_exit</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">start_server</span><span class="p">()</span>
 
 <div class="viewcode-block" id="MPhysZeroMQServerManager.start_server">
@@ -191,12 +243,34 @@
                 <span class="sa">f</span><span class="s2">"CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s2">): Stopping the remote analysis server"</span><span class="p">,</span>
                 <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="p">)</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">"R"</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="s2">"shutdown|null"</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">server_stopped</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">"R"</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">zmq</span><span class="o">.</span><span class="n">SNDTIMEO</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shutdown_send_timeout_ms</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="s2">"shutdown|null"</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s2">): Could not send shutdown message to server (</span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">); deleting job directly"</span><span class="p">,</span>
+                    <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_server</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">server_stopped</span> <span class="o">=</span> <span class="kc">True</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">zmq</span><span class="o">.</span><span class="n">LINGER</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_stop_server_at_exit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_stopped</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s2">): Python exiting; stopping the analysis server"</span><span class="p">,</span>
+                <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stop_server</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"CLIENT (subsystem </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="si">}</span><span class="s2">): Error while stopping server at exit: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
 
 <div class="viewcode-block" id="MPhysZeroMQServerManager.enough_time_is_remaining">
 <a class="viewcode-back" href="../../../basics/remote_components.html#mphys.network.zmq_pbs.MPhysZeroMQServerManager.enough_time_is_remaining">[docs]</a>
@@ -294,17 +368,26 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_setup_ssh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">front_end_host</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"PBS_O_HOST"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">front_end_host</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward_through_frontend</span><span class="p">:</span>
-            <span class="n">ssh_command</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">:localhost:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2"> -J </span><span class="si">{</span><span class="n">front_end_host</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">hostname</span><span class="si">}</span><span class="s2"> &amp;"</span>
+            <span class="n">ssh_command</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">:localhost:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2"> -J </span><span class="si">{</span><span class="n">front_end_host</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">hostname</span><span class="si">}</span><span class="s2">"</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">ssh_command</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">:localhost:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">hostname</span><span class="si">}</span><span class="s2"> &amp;"</span>
+            <span class="n">ssh_command</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"ssh -4 -o ServerAliveCountMax=40 -o ServerAliveInterval=15 -N -L </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">:localhost:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">hostname</span><span class="si">}</span><span class="s2">"</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ssh_proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
-            <span class="n">ssh_command</span><span class="o">.</span><span class="n">split</span><span class="p">(),</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span>
+            <span class="n">ssh_command</span><span class="o">.</span><span class="n">split</span><span class="p">(),</span>
+            <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
+            <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
+            <span class="n">preexec_fn</span><span class="o">=</span><span class="n">_terminate_when_parent_dies</span><span class="p">,</span>
         <span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_kill_ssh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ssh_proc</span><span class="o">.</span><span class="n">poll</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ssh_proc</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_shutdown_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ssh_proc</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
-        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>  <span class="c1"># prevent full shutdown before job deletion?</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">qdel</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_kill_ssh</span><span class="p">()</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>  <span class="c1"># prevent full shutdown before job deletion?</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">qdel</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_setup_dummy_socket</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">print</span><span class="p">(</span>
