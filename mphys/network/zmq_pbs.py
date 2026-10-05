@@ -264,7 +264,9 @@ class MPhysZeroMQServerManager(ServerManager):
         # retries for PBS commands (qsub/qstat/qdel) failing, e.g. when the PBS server is unreachable
         self.pbs_retry_attempts = 10
         self.pbs_retry_delay = 60  # seconds
-        self.pbs_command_timeout = 120  # seconds before a hung qsub/qstat/qdel is abandoned
+        self.pbs_command_timeout = (
+            120  # seconds before a hung qsub/qstat/qdel is abandoned
+        )
         self.qdel_retry_attempts = 3
         self.qdel_retry_delay = 10  # seconds
         self.server_counter = 0  # for saving output of each server to different files
@@ -308,7 +310,9 @@ class MPhysZeroMQServerManager(ServerManager):
                 return reply
 
             running = self._job_is_running()
-            if running or running is None:  # None: PBS could not be queried; assume still running
+            if (
+                running or running is None
+            ):  # None: PBS could not be queried; assume still running
                 if running:
                     job_gone_count = 0
                 print(
@@ -676,7 +680,11 @@ class MPhysZeroMQServerManager(ServerManager):
                 env=_pbs_command_env(),
             )
         except subprocess.TimeoutExpired:  # PBS server down: qsub blocks retrying its connection
-            return None, f"qsub did not return within {self.pbs_command_timeout} s", True
+            return (
+                None,
+                f"qsub did not return within {self.pbs_command_timeout} s",
+                True,
+            )
         except OSError as e:  # e.g. qsub not on PATH
             return None, repr(e), False
         stdout = result.stdout.strip()
@@ -689,7 +697,9 @@ class MPhysZeroMQServerManager(ServerManager):
     @classmethod
     def _is_transient_qsub_error(cls, error: str) -> bool:
         error_lower = error.lower()
-        return any(fragment.lower() in error_lower for fragment in cls.TRANSIENT_QSUB_ERRORS)
+        return any(
+            fragment.lower() in error_lower for fragment in cls.TRANSIENT_QSUB_ERRORS
+        )
 
     @staticmethod
     def _is_valid_job_id(jobid) -> bool:
@@ -820,7 +830,9 @@ class MPhysZeroMQServer(Server):
     """
 
     ERROR_REPORT_TIMEOUT = 300  # seconds rank 0 waits for the client to contact it
-    NONROOT_ERROR_GRACE_PERIOD = 360  # seconds other ranks wait for rank 0 before aborting
+    NONROOT_ERROR_GRACE_PERIOD = (
+        360  # seconds other ranks wait for rank 0 before aborting
+    )
 
     def __init__(
         self,
@@ -894,7 +906,9 @@ class MPhysZeroMQServer(Server):
         )
         if comm.rank == 0:
             reply = _server_error_reply(error_text, comm.rank)
-            if _report_error_to_client(self.socket, self.port, reply, self.ERROR_REPORT_TIMEOUT):
+            if _report_error_to_client(
+                self.socket, self.port, reply, self.ERROR_REPORT_TIMEOUT
+            ):
                 print("SERVER: error reported to client", flush=True)
         elif world.size > 1:
             time.sleep(self.NONROOT_ERROR_GRACE_PERIOD)
@@ -939,7 +953,9 @@ def _report_error_to_client(sock, port, reply, timeout) -> bool:
         try:
             sock.bind(f"tcp://*:{port}")
         except zmq.ZMQError as e:
-            print(f"SERVER: could not bind port {port} to report error ({e})", flush=True)
+            print(
+                f"SERVER: could not bind port {port} to report error ({e})", flush=True
+            )
             sock.close(linger=0)
             return False
     if not sock.poll(int(timeout * 1000)):

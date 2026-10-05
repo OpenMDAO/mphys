@@ -46,9 +46,7 @@ def get_paraboloid_group():
         ),
         promotes=["*"],
     )
-    model.add_design_var(
-        "x", lower=-10.0, upper=10.0, ref=2.0, ref0=-1.0, units="m"
-    )
+    model.add_design_var("x", lower=-10.0, upper=10.0, ref=2.0, ref0=-1.0, units="m")
     model.add_design_var("y", lower=-5.0, upper=5.0, scaler=2.0, adder=1.0)
     model.add_objective("f", ref=100.0)
     model.add_constraint("g", upper=20.0)
@@ -111,7 +109,9 @@ class UnreachableServer:
     """A server that fails the test if the client ever contacts it."""
 
     def handle(self, message: str):
-        raise AssertionError(f"Client contacted the server unexpectedly: {message[:40]}")
+        raise AssertionError(
+            f"Client contacted the server unexpectedly: {message[:40]}"
+        )
 
 
 class RecordingServerManager(ServerManager):

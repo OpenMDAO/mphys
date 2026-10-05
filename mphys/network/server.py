@@ -273,7 +273,9 @@ class Server:
         if bound is None:
             return None
         if remote_dict["adder"] is None and remote_dict["scaler"] is None:  # ref/ref0
-            return bound * (remote_dict["ref"] - remote_dict["ref0"]) + remote_dict["ref0"]
+            return (
+                bound * (remote_dict["ref"] - remote_dict["ref0"]) + remote_dict["ref0"]
+            )
         else:  # adder/scaler
             return bound / remote_dict["scaler"] - remote_dict["adder"]
 
@@ -295,8 +297,12 @@ class Server:
 
     def _apply_reference_vals_to_desvar_bounds(self, desvar_dict):
         if OPENMDAO_STORES_SCALED_BOUNDS:
-            desvar_dict["lower"] = self._unscale_bound(desvar_dict["lower"], desvar_dict)
-            desvar_dict["upper"] = self._unscale_bound(desvar_dict["upper"], desvar_dict)
+            desvar_dict["lower"] = self._unscale_bound(
+                desvar_dict["lower"], desvar_dict
+            )
+            desvar_dict["upper"] = self._unscale_bound(
+                desvar_dict["upper"], desvar_dict
+            )
         return desvar_dict
 
     def _apply_reference_vals_to_constraint_bounds(self, constraint_dict):

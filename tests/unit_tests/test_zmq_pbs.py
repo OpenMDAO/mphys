@@ -32,9 +32,7 @@ def make_manager(job_state="R", ssh_running=True, **attrs):
     Build an MPhysZeroMQServerManager without running __init__ (which would
     submit a PBS job), with mocked job, socket, and ssh process.
     """
-    manager = zmq_pbs.MPhysZeroMQServerManager.__new__(
-        zmq_pbs.MPhysZeroMQServerManager
-    )
+    manager = zmq_pbs.MPhysZeroMQServerManager.__new__(zmq_pbs.MPhysZeroMQServerManager)
     manager.component_name = "test"
     manager.port = 5081
     manager.acceptable_port_range = [5081, 5090]
@@ -295,7 +293,9 @@ class TestPortSelection(unittest.TestCase):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("localhost", busy))
             s.listen(1)
-            with mock.patch.object(manager, "_initialize_zmq_socket"), contextlib.redirect_stdout(
+            with mock.patch.object(
+                manager, "_initialize_zmq_socket"
+            ), contextlib.redirect_stdout(
                 io.StringIO()
             ):
                 manager._initialize_connection()
@@ -402,23 +402,34 @@ class TestPbsFailures(unittest.TestCase):
         result = subprocess.CompletedProcess(
             ["qsub"], 1, stdout="", stderr="qsub: Unauthorized Request\n"
         )
-        with mock.patch("mphys.network.zmq_pbs.subprocess.run", return_value=result) as run:
+        with mock.patch(
+            "mphys.network.zmq_pbs.subprocess.run", return_value=result
+        ) as run:
             with contextlib.redirect_stdout(io.StringIO()):
-                with self.assertRaisesRegex(zmq_pbs.RemoteComponentError, "Unauthorized Request"):
+                with self.assertRaisesRegex(
+                    zmq_pbs.RemoteComponentError, "Unauthorized Request"
+                ):
                     manager._submit_job("MPhys5081", ["cmd"])
         run.assert_called_once()  # a non-transient error is not retried
         self.assertEqual(run.call_args[0][0], ["qsub", "MPhys5081.pbs"])
-        manager.pbs.write_job_file.assert_called_once_with("MPhys5081.pbs", "MPhys5081", ["cmd"])
+        manager.pbs.write_job_file.assert_called_once_with(
+            "MPhys5081.pbs", "MPhys5081", ["cmd"]
+        )
 
     def test_qsub_transient_error_is_retried(self):
         manager = self._pbs_manager(pbs_retry_attempts=3)
         results = [
             subprocess.CompletedProcess(
-                ["qsub"], 1, stdout="", stderr="qsub: cannot connect to server pbspl1 (errno=111)"
+                ["qsub"],
+                1,
+                stdout="",
+                stderr="qsub: cannot connect to server pbspl1 (errno=111)",
             ),
             subprocess.CompletedProcess(["qsub"], 0, stdout="123.pbspl1\n", stderr=""),
         ]
-        with mock.patch("mphys.network.zmq_pbs.subprocess.run", side_effect=results) as run:
+        with mock.patch(
+            "mphys.network.zmq_pbs.subprocess.run", side_effect=results
+        ) as run:
             with contextlib.redirect_stdout(io.StringIO()) as out:
                 jobid = manager._submit_job("MPhys5081", ["cmd"])
         self.assertEqual(jobid, "123.pbspl1")
@@ -429,19 +440,26 @@ class TestPbsFailures(unittest.TestCase):
     def test_qsub_empty_output_is_retried(self):
         manager = self._pbs_manager(pbs_retry_attempts=2)
         result = subprocess.CompletedProcess(["qsub"], 1, stdout="", stderr="")
-        with mock.patch("mphys.network.zmq_pbs.subprocess.run", return_value=result) as run:
+        with mock.patch(
+            "mphys.network.zmq_pbs.subprocess.run", return_value=result
+        ) as run:
             with contextlib.redirect_stdout(io.StringIO()):
-                with self.assertRaisesRegex(zmq_pbs.RemoteComponentError, "after 2 attempts"):
+                with self.assertRaisesRegex(
+                    zmq_pbs.RemoteComponentError, "after 2 attempts"
+                ):
                     manager._submit_job("MPhys5081", ["cmd"])
         self.assertEqual(run.call_count, 2)
 
     def test_qsub_missing_executable(self):
         manager = self._pbs_manager(pbs_retry_attempts=1)
         with mock.patch(
-            "mphys.network.zmq_pbs.subprocess.run", side_effect=FileNotFoundError("qsub")
+            "mphys.network.zmq_pbs.subprocess.run",
+            side_effect=FileNotFoundError("qsub"),
         ):
             with contextlib.redirect_stdout(io.StringIO()):
-                with self.assertRaisesRegex(zmq_pbs.RemoteComponentError, "FileNotFoundError"):
+                with self.assertRaisesRegex(
+                    zmq_pbs.RemoteComponentError, "FileNotFoundError"
+                ):
                     manager._submit_job("MPhys5081", ["cmd"])
 
     def test_qsub_hang_is_retried(self):
@@ -450,7 +468,9 @@ class TestPbsFailures(unittest.TestCase):
             subprocess.TimeoutExpired(["qsub"], 7),
             subprocess.CompletedProcess(["qsub"], 0, stdout="123.pbspl1\n", stderr=""),
         ]
-        with mock.patch("mphys.network.zmq_pbs.subprocess.run", side_effect=results) as run:
+        with mock.patch(
+            "mphys.network.zmq_pbs.subprocess.run", side_effect=results
+        ) as run:
             with contextlib.redirect_stdout(io.StringIO()) as out:
                 jobid = manager._submit_job("MPhys5081", ["cmd"])
         self.assertEqual(jobid, "123.pbspl1")
@@ -461,7 +481,9 @@ class TestPbsFailures(unittest.TestCase):
     def test_qdel_hang_is_retried(self):
         manager = self._real_qdel_manager(qdel_retry_attempts=2, pbs_command_timeout=7)
         results = [subprocess.TimeoutExpired(["qdel"], 7), qdel_result(0)]
-        with mock.patch("mphys.network.zmq_pbs.subprocess.run", side_effect=results) as run:
+        with mock.patch(
+            "mphys.network.zmq_pbs.subprocess.run", side_effect=results
+        ) as run:
             with contextlib.redirect_stdout(io.StringIO()) as out:
                 self.assertTrue(manager._qdel())
         self.assertEqual(run.call_count, 2)
@@ -483,7 +505,9 @@ class TestPbsFailures(unittest.TestCase):
 
     def test_qstat_hang_is_treated_as_failed_query(self):
         manager = make_manager(pbs_retry_attempts=2)
-        manager.job.update_job_state.side_effect = subprocess.TimeoutExpired(["qstat"], 120)
+        manager.job.update_job_state.side_effect = subprocess.TimeoutExpired(
+            ["qstat"], 120
+        )
         with contextlib.redirect_stdout(io.StringIO()) as out:
             self.assertIsNone(manager._query_job_state())
         self.assertIn("TimeoutExpired", out.getvalue())
@@ -496,7 +520,9 @@ class TestPbsFailures(unittest.TestCase):
         self.assertEqual(job_class.qstat_timeout, 7)
 
     def test_pbs_env_replaces_missing_tmpdir(self):
-        with mock.patch.dict(os.environ, {"TMPDIR": "/var/tmp/pbs.does_not_exist.pbssrv1"}):
+        with mock.patch.dict(
+            os.environ, {"TMPDIR": "/var/tmp/pbs.does_not_exist.pbssrv1"}
+        ):
             env = zmq_pbs._pbs_command_env()
         self.assertIn(env.get("TMPDIR"), ("/var/tmp", "/tmp", None))
         self.assertTrue(env.get("TMPDIR") is None or os.path.isdir(env["TMPDIR"]))
@@ -508,9 +534,15 @@ class TestPbsFailures(unittest.TestCase):
 
     def test_qsub_runs_with_valid_tmpdir(self):
         manager = self._pbs_manager()
-        result = subprocess.CompletedProcess(["qsub"], 0, stdout="123.pbssrv1\n", stderr="")
-        with mock.patch.dict(os.environ, {"TMPDIR": "/var/tmp/pbs.does_not_exist.pbssrv1"}):
-            with mock.patch("mphys.network.zmq_pbs.subprocess.run", return_value=result) as run:
+        result = subprocess.CompletedProcess(
+            ["qsub"], 0, stdout="123.pbssrv1\n", stderr=""
+        )
+        with mock.patch.dict(
+            os.environ, {"TMPDIR": "/var/tmp/pbs.does_not_exist.pbssrv1"}
+        ):
+            with mock.patch(
+                "mphys.network.zmq_pbs.subprocess.run", return_value=result
+            ) as run:
                 with contextlib.redirect_stdout(io.StringIO()):
                     manager._submit_job("MPhys5081", ["cmd"])
         tmpdir = run.call_args.kwargs["env"].get("TMPDIR")
@@ -529,7 +561,9 @@ class TestPbsFailures(unittest.TestCase):
         manager = make_manager(pbs_retry_attempts=2)
         manager.pbs.launch.return_value = ""
         with contextlib.redirect_stdout(io.StringIO()):
-            with self.assertRaisesRegex(zmq_pbs.RemoteComponentError, "Could not submit server job"):
+            with self.assertRaisesRegex(
+                zmq_pbs.RemoteComponentError, "Could not submit server job"
+            ):
                 manager._submit_job("MPhys5081", ["cmd"])
         self.assertEqual(manager.pbs.launch.call_count, 2)
 
@@ -537,7 +571,8 @@ class TestPbsFailures(unittest.TestCase):
         manager = make_manager(pbs_retry_attempts=3)
         fake_job = mock.MagicMock()
         with mock.patch(
-            "mphys.network.zmq_pbs.PBSJobWithTimeout", side_effect=[KeyError("Job_Name"), fake_job]
+            "mphys.network.zmq_pbs.PBSJobWithTimeout",
+            side_effect=[KeyError("Job_Name"), fake_job],
         ) as pbsjob:
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertIs(manager._create_job_handle("123.pbssrv1"), fake_job)
@@ -545,9 +580,13 @@ class TestPbsFailures(unittest.TestCase):
 
     def test_create_job_handle_raises_after_retries(self):
         manager = make_manager(pbs_retry_attempts=2)
-        with mock.patch("mphys.network.zmq_pbs.PBSJobWithTimeout", side_effect=KeyError("Job_Name")):
+        with mock.patch(
+            "mphys.network.zmq_pbs.PBSJobWithTimeout", side_effect=KeyError("Job_Name")
+        ):
             with contextlib.redirect_stdout(io.StringIO()):
-                with self.assertRaisesRegex(zmq_pbs.RemoteComponentError, "Could not query PBS"):
+                with self.assertRaisesRegex(
+                    zmq_pbs.RemoteComponentError, "Could not query PBS"
+                ):
                     manager._create_job_handle("123.pbssrv1")
 
     def test_wait_for_job_to_start_tolerates_qstat_failures(self):
@@ -583,7 +622,9 @@ class TestPbsFailures(unittest.TestCase):
             manager, _setup_dummy_socket=mock.DEFAULT, _stop_dummy_socket=mock.DEFAULT
         ) as mocks:
             with contextlib.redirect_stdout(io.StringIO()):
-                with self.assertRaisesRegex(zmq_pbs.RemoteComponentError, "finished before it started"):
+                with self.assertRaisesRegex(
+                    zmq_pbs.RemoteComponentError, "finished before it started"
+                ):
                     manager._wait_for_job_to_start()
         mocks["_stop_dummy_socket"].assert_called_once()
 
@@ -594,7 +635,9 @@ class TestPbsFailures(unittest.TestCase):
 
     def test_qdel_success(self):
         manager = self._real_qdel_manager()
-        with mock.patch("mphys.network.zmq_pbs.subprocess.run", return_value=qdel_result(0)) as run:
+        with mock.patch(
+            "mphys.network.zmq_pbs.subprocess.run", return_value=qdel_result(0)
+        ) as run:
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertTrue(manager._qdel())
         run.assert_called_once()
@@ -607,7 +650,9 @@ class TestPbsFailures(unittest.TestCase):
             qdel_result(1, "qdel: cannot connect to server pbspl1 (errno=111)"),
             qdel_result(0),
         ]
-        with mock.patch("mphys.network.zmq_pbs.subprocess.run", side_effect=results) as run:
+        with mock.patch(
+            "mphys.network.zmq_pbs.subprocess.run", side_effect=results
+        ) as run:
             with contextlib.redirect_stdout(io.StringIO()) as out:
                 self.assertTrue(manager._qdel())
         self.assertEqual(run.call_count, 3)
@@ -616,7 +661,9 @@ class TestPbsFailures(unittest.TestCase):
     def test_qdel_already_finished_job_is_success(self):
         manager = self._real_qdel_manager()
         result = qdel_result(153, "qdel: Unknown Job Id 12345.pbssrv1")
-        with mock.patch("mphys.network.zmq_pbs.subprocess.run", return_value=result) as run:
+        with mock.patch(
+            "mphys.network.zmq_pbs.subprocess.run", return_value=result
+        ) as run:
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertTrue(manager._qdel())
         run.assert_called_once()
@@ -624,7 +671,9 @@ class TestPbsFailures(unittest.TestCase):
     def test_qdel_gives_up_with_warning(self):
         manager = self._real_qdel_manager(qdel_retry_attempts=2)
         result = qdel_result(1, "qdel: cannot connect to server pbspl1 (errno=111)")
-        with mock.patch("mphys.network.zmq_pbs.subprocess.run", return_value=result) as run:
+        with mock.patch(
+            "mphys.network.zmq_pbs.subprocess.run", return_value=result
+        ) as run:
             with contextlib.redirect_stdout(io.StringIO()) as out:
                 self.assertFalse(manager._qdel())
         self.assertEqual(run.call_count, 2)
@@ -700,7 +749,9 @@ class TestStartupHandshake(unittest.TestCase):
     def test_startup_timeout(self):
         manager = make_live_manager(self, startup_timeout=0.5)
         with contextlib.redirect_stdout(io.StringIO()):
-            with self.assertRaisesRegex(zmq_pbs.RemoteComponentError, "did not become ready"):
+            with self.assertRaisesRegex(
+                zmq_pbs.RemoteComponentError, "did not become ready"
+            ):
                 manager._wait_for_server_to_be_ready()
 
     def test_job_dies_during_startup(self):
@@ -708,14 +759,18 @@ class TestStartupHandshake(unittest.TestCase):
             self, job_check_interval=0, job_gone_checks_required=2, job_state="F"
         )
         with contextlib.redirect_stdout(io.StringIO()):
-            with self.assertRaisesRegex(zmq_pbs.RemoteComponentError, "ended before the server"):
+            with self.assertRaisesRegex(
+                zmq_pbs.RemoteComponentError, "ended before the server"
+            ):
                 manager._wait_for_server_to_be_ready()
         self.assertEqual(manager.job.update_job_state.call_count, 2)
 
     def test_transient_qstat_failure_does_not_abort_startup(self):
         # qstat occasionally returns nothing; a few such results must not be
         # mistaken for a dead job
-        manager = make_live_manager(self, job_check_interval=0, job_gone_checks_required=3)
+        manager = make_live_manager(
+            self, job_check_interval=0, job_gone_checks_required=3
+        )
         states = iter(["", "", "R", "R", "R", "R", "R", "R"])
 
         def update():
@@ -886,7 +941,9 @@ class TestServerErrorReporting(unittest.TestCase):
 
     def test_runtime_error_reported_as_reply(self):
         proc, sock = self._start_server("get_model")
-        self.assertEqual(json.loads(self._request(sock, "ping")), zmq_pbs.Server.PING_REPLY)
+        self.assertEqual(
+            json.loads(self._request(sock, "ping")), zmq_pbs.Server.PING_REPLY
+        )
         self._request(sock, "initialize", self._inputs(1.0))
         info = self._error_info(self._request(sock, "evaluate", self._inputs(10.0)))
         proc.communicate(timeout=60)
@@ -895,7 +952,9 @@ class TestServerErrorReporting(unittest.TestCase):
         self.assertRegex(info["traceback"], r"RuntimeError: .*solver blew up")
 
     def test_report_errors_disabled(self):
-        proc, sock = self._start_server("get_model_with_import_error", report_errors=False)
+        proc, sock = self._start_server(
+            "get_model_with_import_error", report_errors=False
+        )
         out, _ = proc.communicate(timeout=120)
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("module_that_does_not_exist_xyz", out)
@@ -939,7 +998,9 @@ class TestServerErrorHandlingOnClient(unittest.TestCase):
         manager.send_request(b"evaluate|{}")
         with mock.patch.object(manager, "stop_server") as stop:
             with contextlib.redirect_stdout(io.StringIO()):
-                with self.assertRaisesRegex(zmq_pbs.RemoteComponentError, "no module named tacs"):
+                with self.assertRaisesRegex(
+                    zmq_pbs.RemoteComponentError, "no module named tacs"
+                ):
                     manager.receive_reply()
         stop.assert_called_once()
         self.assertEqual(len(self.server.received), 1)
@@ -950,7 +1011,11 @@ class TestServerErrorHandlingOnClient(unittest.TestCase):
         manager._raise_if_server_error(json.dumps(zmq_pbs.Server.PING_REPLY).encode())
 
     def _launch_command(self, **attrs):
-        manager = make_manager(run_server_filename="mphys_server.py", additional_server_args="--x 1", **attrs)
+        manager = make_manager(
+            run_server_filename="mphys_server.py",
+            additional_server_args="--x 1",
+            **attrs,
+        )
         manager.server_counter = 1
         manager.pbs.create_mpi_command.side_effect = lambda cmd, output_root_name: cmd
         with mock.patch.multiple(
@@ -1090,7 +1155,9 @@ class TestReceiveReplyRetry(unittest.TestCase):
         self.assertIn("(2/3 checks)", out.getvalue())
 
     def test_pbs_unavailable_keeps_waiting_and_resending(self):
-        manager = make_live_manager(self, job_gone_checks_required=1, pbs_retry_attempts=1)
+        manager = make_live_manager(
+            self, job_gone_checks_required=1, pbs_retry_attempts=1
+        )
         manager.job.update_job_state.side_effect = KeyError("Job_Name")
         replies = iter([None, None, self.REPLY])
         self._start_server(manager, lambda m: next(replies))
@@ -1116,7 +1183,9 @@ class TestReceiveReplyRetry(unittest.TestCase):
         manager.send_request(self.REQUEST)
         with mock.patch.object(manager, "stop_server") as stop:
             with contextlib.redirect_stdout(io.StringIO()):
-                with self.assertRaisesRegex(zmq_pbs.RemoteComponentError, "maximum number"):
+                with self.assertRaisesRegex(
+                    zmq_pbs.RemoteComponentError, "maximum number"
+                ):
                     manager.receive_reply()
         stop.assert_called_once()
 
@@ -1124,7 +1193,9 @@ class TestReceiveReplyRetry(unittest.TestCase):
 @skip_without_zmq
 class TestSignalHandling(unittest.TestCase):
     def setUp(self):
-        self.saved = {sig: signal.getsignal(sig) for sig in (signal.SIGTERM, signal.SIGHUP)}
+        self.saved = {
+            sig: signal.getsignal(sig) for sig in (signal.SIGTERM, signal.SIGHUP)
+        }
 
     def tearDown(self):
         for sig, handler in self.saved.items():
@@ -1209,7 +1280,11 @@ class TestProcessLifetime(unittest.TestCase):
         if pid_line is None:
             proc.kill()
             out, _ = proc.communicate()
-            self.fail("client subprocess did not report its child pid; output:\n" + "".join(lines) + out)
+            self.fail(
+                "client subprocess did not report its child pid; output:\n"
+                + "".join(lines)
+                + out
+            )
         return proc, int(pid_line)
 
     @staticmethod
@@ -1264,7 +1339,9 @@ class TestProcessLifetime(unittest.TestCase):
             env=non_mpi_env(),
         )
         try:
-            ready_line, lines = read_until(proc.stderr, lambda line: line.strip() == "READY")
+            ready_line, lines = read_until(
+                proc.stderr, lambda line: line.strip() == "READY"
+            )
             self.assertIsNotNone(ready_line, "client did not start:\n" + "".join(lines))
             time.sleep(0.5)  # let the child block inside a flush on the full pipe
             proc.send_signal(signal.SIGTERM)
@@ -1288,7 +1365,9 @@ class TestProcessLifetime(unittest.TestCase):
         self.assertIn("Python exiting; stopping the analysis server", out)
         self.assertTrue(self._wait_for_death(child_pid))
 
-    @unittest.skipUnless(sys.platform.startswith("linux"), "PR_SET_PDEATHSIG is Linux-only")
+    @unittest.skipUnless(
+        sys.platform.startswith("linux"), "PR_SET_PDEATHSIG is Linux-only"
+    )
     def test_ssh_child_dies_when_client_is_sigkilled(self):
         proc, child_pid = self._spawn_client()
         self.assertTrue(self._pid_alive(child_pid))

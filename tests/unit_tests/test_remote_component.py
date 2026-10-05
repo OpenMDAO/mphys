@@ -103,7 +103,9 @@ class TestRemoteCompSetup(unittest.TestCase):
         assert_near_equal(sent["constraints"]["g"]["upper"], 20.0)
         assert_near_equal(sent["constraints"]["h"]["equals"], 1.0)
         self.assertIsNone(sent["constraints"]["g"]["equals"])
-        self.assertFalse(self.remote._lower_bound_used(sent["constraints"]["g"]["lower"]))
+        self.assertFalse(
+            self.remote._lower_bound_used(sent["constraints"]["g"]["lower"])
+        )
 
     def test_design_vars_match_server(self):
         dvs = self.prob.model.get_design_vars()
@@ -187,7 +189,9 @@ class TestRemoteCompEvaluation(unittest.TestCase):
         self.prob.set_val("x", np.array([0.3, -1.2]))
         self.prob.set_val("y", 0.7)
         self.prob.run_model()
-        totals = self.prob.compute_totals(of=["f", "g", "h", "k", "z"], wrt=["x", "y", "p"])
+        totals = self.prob.compute_totals(
+            of=["f", "g", "h", "k", "z"], wrt=["x", "y", "p"]
+        )
         x = np.array([0.3, -1.2])
         y = 0.7
         assert_near_equal(totals["f", "x"], 2 * x.reshape(1, 2), tolerance=1e-12)
@@ -296,9 +300,7 @@ class TestRemoteCompOptions(unittest.TestCase):
 
     def test_restart_before_derivatives_when_allowed(self):
         manager = RecordingServerManager(time_remaining=False)
-        prob = build_problem(
-            server_manager=manager, reboot_only_on_function_call=False
-        )
+        prob = build_problem(server_manager=manager, reboot_only_on_function_call=False)
         prob.setup()
         prob.run_model()
         self.assertEqual((manager.start_calls, manager.stop_calls), (1, 1))
@@ -352,7 +354,9 @@ class TestRemoteCompOptions(unittest.TestCase):
         server = prob.model.remote.server
         counter = server.design_counter
         prob.set_val("x", np.array([1.0, np.nan]))
-        with self.assertRaisesRegex(RemoteComponentError, r"NaN found in inputs.*\bx\b"):
+        with self.assertRaisesRegex(
+            RemoteComponentError, r"NaN found in inputs.*\bx\b"
+        ):
             prob.run_model()
         self.assertEqual(manager.stop_calls, 1)
         self.assertTrue(manager.stopped)
@@ -367,10 +371,14 @@ class TestRemoteCompOptions(unittest.TestCase):
         # set directly on the component's input vector: compute_totals does not
         # re-transfer inputs, so a set_val would not reach compute_partials
         prob.model.remote._inputs["p"] = np.nan
-        with self.assertRaisesRegex(RemoteComponentError, r"NaN found in inputs.*\bp\b"):
+        with self.assertRaisesRegex(
+            RemoteComponentError, r"NaN found in inputs.*\bp\b"
+        ):
             prob.compute_totals(of=["f"], wrt=["x"])
         self.assertEqual(manager.stop_calls, 1)
-        self.assertNotIn("evaluate derivatives", prob.model.remote.server.messages_received)
+        self.assertNotIn(
+            "evaluate derivatives", prob.model.remote.server.messages_received
+        )
 
     def test_remote_errors_are_not_swallowed_by_pyoptsparse_style_handlers(self):
         # pyOptSparseDriver wraps evaluations in `except Exception`, fills NaNs
@@ -391,9 +399,12 @@ class TestRemoteCompOptions(unittest.TestCase):
     def _fake_world(self, size):
         world = mock.MagicMock()
         world.size = size
-        return mock.patch(
-            "mphys.network.remote_component._world_comm", return_value=world
-        ), world
+        return (
+            mock.patch(
+                "mphys.network.remote_component._world_comm", return_value=world
+            ),
+            world,
+        )
 
     def _failing_start_manager(self):
         class FailingStart(RecordingServerManager):
@@ -532,7 +543,9 @@ class TestRemoteCompJsonDump(unittest.TestCase):
         prob.compute_totals(of=["f", "g", "h", "k", "z"], wrt=["x", "y", "p"])
         prob.set_val("x", np.array([0.3, -1.2]))
         prob.run_model()
-        totals_ref = prob.compute_totals(of=["f", "g", "h", "k", "z"], wrt=["x", "y", "p"])
+        totals_ref = prob.compute_totals(
+            of=["f", "g", "h", "k", "z"], wrt=["x", "y", "p"]
+        )
 
         manager = RecordingServerManager()
         prob2 = build_problem(

@@ -417,7 +417,9 @@ class RemoteComp(om.ExplicitComponent):
             nan_variables = self._find_nan_inputs(input_dict)
         nan_variables = self.comm.bcast(nan_variables)
         if nan_variables:
-            message = f"NaN found in inputs ({', '.join(nan_variables)}); stopping the server"
+            message = (
+                f"NaN found in inputs ({', '.join(nan_variables)}); stopping the server"
+            )
             self.stop_server()
             raise RemoteComponentError(
                 f"CLIENT (subsystem {self.name}): {message}",
