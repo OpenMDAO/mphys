@@ -37,6 +37,7 @@
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">wraps</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">glob</span><span class="w"> </span><span class="kn">import</span> <span class="n">glob</span>
@@ -524,10 +525,11 @@
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">for</span> <span class="n">input_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"design_vars"</span><span class="p">,</span> <span class="s2">"additional_constants"</span><span class="p">,</span> <span class="s2">"additional_inputs"</span><span class="p">]:</span>
             <span class="k">for</span> <span class="n">input_name</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="p">[</span><span class="n">input_type</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="c1"># TODO: worth having a tolerance on this?</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span>
                     <span class="n">input_dict</span><span class="p">[</span><span class="n">input_type</span><span class="p">][</span><span class="n">input_name</span><span class="p">][</span><span class="s2">"val"</span><span class="p">],</span>
                     <span class="n">output_dict</span><span class="p">[</span><span class="n">input_type</span><span class="p">][</span><span class="n">input_name</span><span class="p">][</span><span class="s2">"val"</span><span class="p">],</span>
+                    <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="n">atol</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sys</span><span class="o">.</span><span class="n">float_info</span><span class="o">.</span><span class="n">epsilon</span><span class="p">,</span>
                 <span class="p">):</span>
                     <span class="k">return</span> <span class="kc">False</span>
         <span class="k">return</span> <span class="kc">True</span>
