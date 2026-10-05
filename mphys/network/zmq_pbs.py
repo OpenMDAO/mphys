@@ -16,7 +16,6 @@ from pbs4py.job import PBSJob
 
 from mphys.network import RemoteComp, RemoteComponentError, Server, ServerManager
 
-
 # MPhysZeroMQServer error replies start with this; "status" must be the first key
 SERVER_ERROR_PREFIX = b'{"status": "error"'
 
