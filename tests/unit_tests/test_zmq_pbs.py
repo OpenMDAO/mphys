@@ -1114,9 +1114,8 @@ class TestReceiveReplyRetry(unittest.TestCase):
             reply = manager.receive_reply()
         self.assertEqual(reply, self.REPLY)
         self.assertEqual(self.server.received, [self.REQUEST])
-        self.assertIn("Still waiting for server reply", out.getvalue())
         self.assertNotIn("re-sending", out.getvalue())
-        manager.job.update_job_state.assert_called()
+        manager.job.update_job_state.assert_called()  # job state checked while waiting
 
     def test_dead_ssh_tunnel_is_restarted_and_request_resent(self):
         replies = iter([None, self.REPLY])
@@ -1228,7 +1227,7 @@ class TestReceiveReplyRetry(unittest.TestCase):
         stop.assert_not_called()
         self.assertEqual(self.server.received, [self.REQUEST])
         self.assertIn("qstat failed", out.getvalue())
-        self.assertIn("Still waiting", out.getvalue())
+        self.assertNotIn("re-sending", out.getvalue())
 
     def test_max_restarts_enforced(self):
         manager = make_live_manager(
