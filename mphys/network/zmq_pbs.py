@@ -13,9 +13,11 @@ import traceback
 import zmq
 from pbs4py import PBS
 from pbs4py.job import PBSJob
+from zmq.utils.monitor import recv_monitor_message
 
 from mphys.network import RemoteComp, RemoteComponentError, Server, ServerManager
 
+_monitor_counter = 0  # for unique ZeroMQ socket monitor endpoints
 # MPhysZeroMQServer error replies start with this; "status" must be the first key
 SERVER_ERROR_PREFIX = b'{"status": "error"'
 
@@ -151,8 +153,8 @@ class RemoteZeroMQComp(RemoteComp):
             "receive_timeout",
             default=300.0,
             types=(int, float),
-            desc="seconds to wait for a server reply before re-sending the request (in case it was lost) "
-            + "and checking whether the server job is still running",
+            desc="interval (seconds) for checking that the server job is still running while waiting for a "
+            + "reply; requests are re-sent only if the connection to the server drops",
         )
         super().initialize()
         self.server_manager = (
@@ -221,8 +223,8 @@ class MPhysZeroMQServerManager(ServerManager):
     startup_timeout : float
         Seconds to wait for a newly launched server to reply to pings before raising an error; unlimited if None
     receive_timeout : float
-        Seconds to wait for a server reply before re-sending the request (in case it was lost in transit)
-        and checking whether the server job is still running
+        Interval (seconds) for checking that the server job is still running while waiting for a reply.
+        Requests are re-sent only if the connection to the server drops or the ssh tunnel dies
     """
 
     def __init__(
@@ -288,57 +290,106 @@ class MPhysZeroMQServerManager(ServerManager):
     def send_request(self, message: bytes):
         """
         Send a request to the server. The message is kept so that it can be
-        re-sent by receive_reply if the reply does not arrive in time.
+        re-sent by receive_reply if the connection drops before the reply arrives.
         """
         self._pending_request = message
+        self._drain_monitor_events()  # ignore disconnects from before this request
         self.socket.send(message)
 
     def receive_reply(self) -> bytes:
         """
-        Wait for the server's reply to the last request. If no reply arrives
-        within receive_timeout seconds, the request is re-sent in case it (or
-        the reply) was lost in transit; the server skips re-evaluating a design
-        it has already evaluated, so this is safe. If the server's job is found
-        to have ended, the server is restarted and the request re-sent.
+        Wait for the server's reply to the last request.
+
+        The request is re-sent when it may have been lost, i.e. the connection
+        to the server dropped or the ssh tunnel died. Every receive_timeout
+        seconds the job state is checked; if the job has ended, the server is
+        restarted and the request re-sent.
         """
         job_gone_count = 0
         while True:
-            if self.socket.poll(int(self.receive_timeout * 1000)):
+            event = self._wait_for_reply_or_disconnect(self.receive_timeout)
+            if event == "reply":
                 reply = self.socket.recv()
                 self._raise_if_server_error(reply)
                 return reply
 
+            if event == "disconnected" or not self._ssh_tunnel_is_alive():
+                reason = (
+                    "connection to the server dropped"
+                    if event == "disconnected"
+                    else "ssh tunnel to the server died; restarting it"
+                )
+                print(
+                    f"CLIENT (subsystem {self.component_name}): {reason}; re-sending request",
+                    flush=True,
+                )
+                if not self._ssh_tunnel_is_alive():
+                    self._setup_ssh()
+                self._reset_zmq_socket()
+                self.socket.send(self._pending_request)
+                continue
+
+            # timed out with the connection intact: the server is presumably busy
             running = self._job_is_running()
             if (
                 running or running is None
             ):  # None: PBS could not be queried; assume still running
                 if running:
                     job_gone_count = 0
+                continue
+
+            job_gone_count += 1
+            if job_gone_count < self.job_gone_checks_required:
                 print(
-                    f"CLIENT (subsystem {self.component_name}): No reply from server after {self.receive_timeout} s; "
-                    + "re-sending request in case it was lost",
+                    f"CLIENT (subsystem {self.component_name}): No reply from server and qstat does not report a "
+                    + f"running job ({job_gone_count}/{self.job_gone_checks_required} checks)",
                     flush=True,
                 )
-                self._reset_zmq_socket()
-            else:
-                job_gone_count += 1
-                if job_gone_count < self.job_gone_checks_required:
-                    print(
-                        f"CLIENT (subsystem {self.component_name}): No reply from server and qstat does not report a "
-                        + f"running job ({job_gone_count}/{self.job_gone_checks_required} checks)",
-                        flush=True,
-                    )
-                    continue
-                job_gone_count = 0
-                print(
-                    f"CLIENT (subsystem {self.component_name}): Server job ended while waiting for a reply; "
-                    + "restarting server and re-sending request",
-                    flush=True,
-                )
-                self._count_job_expiration_restart()
-                self.stop_server()
-                self.start_server()
+                continue
+            job_gone_count = 0
+            print(
+                f"CLIENT (subsystem {self.component_name}): Server job ended while waiting for a reply; "
+                + "restarting server and re-sending request",
+                flush=True,
+            )
+            self._count_job_expiration_restart()
+            self.stop_server()
+            self.start_server()
             self.socket.send(self._pending_request)
+
+    def _wait_for_reply_or_disconnect(self, timeout):
+        """
+        Returns "reply", "disconnected", or "timeout".
+        """
+        poller = zmq.Poller()
+        poller.register(self.socket, zmq.POLLIN)
+        poller.register(self._monitor, zmq.POLLIN)
+        deadline = time.time() + timeout
+        while True:
+            remaining_ms = max(0, int((deadline - time.time()) * 1000))
+            events = dict(poller.poll(remaining_ms))
+            if self.socket in events:
+                return "reply"
+            if self._monitor in events:
+                if self._drain_monitor_events():
+                    return "disconnected"
+                continue
+            return "timeout"
+
+    def _drain_monitor_events(self) -> bool:
+        """
+        Read pending socket monitor events; returns whether a disconnect occurred.
+        """
+        disconnected = False
+        while self._monitor.poll(0):
+            event = recv_monitor_message(self._monitor)
+            if event["event"] == zmq.EVENT_DISCONNECTED:
+                disconnected = True
+        return disconnected
+
+    def _ssh_tunnel_is_alive(self) -> bool:
+        ssh_proc = getattr(self, "ssh_proc", None)
+        return ssh_proc is None or ssh_proc.poll() is None
 
     def _job_is_running(self):
         """
@@ -478,8 +529,7 @@ class MPhysZeroMQServerManager(ServerManager):
     def _reset_zmq_socket(self):
         # a REQ socket that has sent without receiving cannot send again;
         # drop it (and any unsent message) and connect a fresh one
-        self.socket.setsockopt(zmq.LINGER, 0)
-        self.socket.close()
+        self._close_zmq_socket()
         self._initialize_zmq_socket()
 
     def stop_server(self):
@@ -499,8 +549,7 @@ class MPhysZeroMQServerManager(ServerManager):
                     flush=True,
                 )
             self._shutdown_server()
-            self.socket.setsockopt(zmq.LINGER, 0)
-            self.socket.close()
+            self._close_zmq_socket()
 
     def _stop_server_at_exit(self):
         if not self.server_stopped:
@@ -576,7 +625,28 @@ class MPhysZeroMQServerManager(ServerManager):
         # zmq.Context() would otherwise leak an IO thread
         context = zmq.Context.instance()
         self.socket = context.socket(zmq.REQ)
+        # connection events, so that receive_reply can tell a dropped connection from a busy server.
+        # unique endpoint: pyzmq's default is derived from the socket's file descriptor, which is
+        # reused by later sockets and would collide with a monitor that was not shut down cleanly
+        global _monitor_counter
+        _monitor_counter += 1
+        address = f"inproc://mphys-zmq-monitor-{os.getpid()}-{_monitor_counter}"
+        self.socket.monitor(address, zmq.EVENT_DISCONNECTED)
+        self._monitor = context.socket(zmq.PAIR)
+        self._monitor.connect(address)
         self.socket.connect(f"tcp://localhost:{self.port}")
+
+    def _close_zmq_socket(self):
+        monitor = getattr(self, "_monitor", None)
+        if monitor is not None:
+            try:
+                self.socket.disable_monitor()
+            except zmq.ZMQError:
+                pass
+            monitor.close(linger=0)
+            self._monitor = None
+        self.socket.setsockopt(zmq.LINGER, 0)
+        self.socket.close()
 
     def _launch_job(self):
         print(

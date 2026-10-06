@@ -118,9 +118,7 @@ class FakeZmqServer(threading.Thread):
     def run(self):
         if self.refuse_for > 0:
             self._refuse_connections()
-        sock = zmq.Context.instance().socket(zmq.ROUTER)
-        sock.setsockopt(zmq.LINGER, 0)
-        sock.bind(f"tcp://127.0.0.1:{self.port}")
+        sock = self._bind()
         self.bound.set()
         try:
             while not self._stop_event.is_set():
@@ -130,10 +128,24 @@ class FakeZmqServer(threading.Thread):
                 identity, message = frames[0], frames[-1]
                 self.received.append(message)
                 reply = self.handler(message)
-                if reply is not None:
+                if reply is DISCONNECT:
+                    # drop the connection, like a broken ssh tunnel, then listen again
+                    sock.close()
+                    time.sleep(0.2)
+                    sock = self._bind()
+                elif reply is not None:
                     sock.send_multipart([identity, b"", reply])
         finally:
             sock.close()
+
+    def _bind(self):
+        sock = zmq.Context.instance().socket(zmq.ROUTER)
+        sock.setsockopt(zmq.LINGER, 0)
+        sock.bind(f"tcp://127.0.0.1:{self.port}")
+        return sock
+
+
+DISCONNECT = object()  # FakeZmqServer handler return value: drop the connection
 
 
 def ping_reply():
@@ -151,8 +163,7 @@ def make_live_manager(test_case, **attrs):
 
     def close_socket():
         if not manager.socket.closed:
-            manager.socket.setsockopt(zmq.LINGER, 0)
-            manager.socket.close()
+            manager._close_zmq_socket()
 
     test_case.addCleanup(close_socket)
     return manager
@@ -1077,32 +1088,74 @@ class TestReceiveReplyRetry(unittest.TestCase):
         self.assertEqual(out.getvalue(), "")
         manager.job.update_job_state.assert_not_called()
 
-    def test_lost_reply_is_recovered_by_resending(self):
-        drop_first = iter([None, self.REPLY])
-        manager = make_live_manager(self)
-        self._start_server(manager, lambda m: next(drop_first))
+    def test_dropped_connection_triggers_resend(self):
+        replies = iter([DISCONNECT, self.REPLY])
+        manager = make_live_manager(self, receive_timeout=30)
+        self._start_server(manager, lambda m: next(replies))
         manager.send_request(self.REQUEST)
         with contextlib.redirect_stdout(io.StringIO()) as out:
             reply = manager.receive_reply()
         self.assertEqual(reply, self.REPLY)
         self.assertEqual(self.server.received, [self.REQUEST, self.REQUEST])
-        self.assertIn("re-sending request in case it was lost", out.getvalue())
-        manager.job.update_job_state.assert_called()
+        self.assertIn("connection to the server dropped", out.getvalue())
+        manager.job.update_job_state.assert_not_called()
 
-    def test_slow_server_reply_still_accepted(self):
-        # a reply that arrives after a resend (server was just slow) is fine:
-        # both server replies are for the same request
-        def slow_then_fast(message):
-            if len(self.server.received) == 1:
-                time.sleep(0.5)  # longer than receive_timeout
+    def test_slow_server_is_not_sent_duplicate_requests(self):
+        # an analysis longer than receive_timeout (e.g. a cold start after a
+        # restart) must not cause re-sends: their replies would all be dropped
+        def slow(message):
+            time.sleep(1.0)  # several receive_timeouts
             return self.REPLY
 
         manager = make_live_manager(self)
-        self._start_server(manager, slow_then_fast)
+        self._start_server(manager, slow)
         manager.send_request(self.REQUEST)
-        with contextlib.redirect_stdout(io.StringIO()):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
             reply = manager.receive_reply()
         self.assertEqual(reply, self.REPLY)
+        self.assertEqual(self.server.received, [self.REQUEST])
+        self.assertIn("Still waiting for server reply", out.getvalue())
+        self.assertNotIn("re-sending", out.getvalue())
+        manager.job.update_job_state.assert_called()
+
+    def test_dead_ssh_tunnel_is_restarted_and_request_resent(self):
+        replies = iter([None, self.REPLY])
+        manager = make_live_manager(self)
+        self._start_server(manager, lambda m: next(replies))
+        manager.ssh_proc.poll.return_value = 255  # ssh exited
+        manager.send_request(self.REQUEST)
+
+        def restart_ssh():
+            manager.ssh_proc.poll.return_value = None
+
+        with mock.patch.object(
+            manager, "_setup_ssh", side_effect=restart_ssh
+        ) as setup_ssh:
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                reply = manager.receive_reply()
+        self.assertEqual(reply, self.REPLY)
+        setup_ssh.assert_called_once()
+        self.assertEqual(self.server.received, [self.REQUEST, self.REQUEST])
+        self.assertIn("ssh tunnel to the server died", out.getvalue())
+
+    def test_disconnect_before_request_is_ignored(self):
+        # a dropped connection while idle (e.g. during the previous handshake
+        # resets) must not trigger a re-send of the next request
+        manager = make_live_manager(self)
+        first = FakeZmqServer(manager.port, lambda m: self.REPLY)
+        first.start()
+        first.bound.wait(5)
+        manager.send_request(self.REQUEST)
+        with contextlib.redirect_stdout(io.StringIO()):
+            manager.receive_reply()
+        first.stop()  # connection drops while the client is idle
+        time.sleep(0.5)
+        self._start_server(manager, lambda m: self.REPLY)
+        manager.send_request(self.REQUEST)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(manager.receive_reply(), self.REPLY)
+        self.assertEqual(self.server.received, [self.REQUEST])
+        self.assertNotIn("re-sending", out.getvalue())
 
     def test_dead_job_triggers_restart_and_resend(self):
         manager = make_live_manager(self, job_gone_checks_required=1)
@@ -1111,8 +1164,7 @@ class TestReceiveReplyRetry(unittest.TestCase):
 
         def fake_stop():
             manager.server_stopped = True
-            manager.socket.setsockopt(zmq.LINGER, 0)
-            manager.socket.close()
+            manager._close_zmq_socket()
 
         def fake_start():
             manager.job.state = "R"
@@ -1141,33 +1193,42 @@ class TestReceiveReplyRetry(unittest.TestCase):
             manager.job.state = next(states, "R")
 
         manager.job.update_job_state.side_effect = update
-        replies = iter([None, None, None, self.REPLY])
-        self._start_server(manager, lambda m: next(replies))
+
+        def slow(message):
+            time.sleep(0.7)  # about three receive_timeouts
+            return self.REPLY
+
+        self._start_server(manager, slow)
         manager.send_request(self.REQUEST)
         with mock.patch.object(manager, "stop_server") as stop:
             with contextlib.redirect_stdout(io.StringIO()) as out:
                 reply = manager.receive_reply()
         self.assertEqual(reply, self.REPLY)
         stop.assert_not_called()
+        self.assertEqual(self.server.received, [self.REQUEST])
         self.assertIn("(1/3 checks)", out.getvalue())
         self.assertIn("(2/3 checks)", out.getvalue())
 
-    def test_pbs_unavailable_keeps_waiting_and_resending(self):
+    def test_pbs_unavailable_keeps_waiting(self):
         manager = make_live_manager(
             self, job_gone_checks_required=1, pbs_retry_attempts=1
         )
         manager.job.update_job_state.side_effect = KeyError("Job_Name")
-        replies = iter([None, None, self.REPLY])
-        self._start_server(manager, lambda m: next(replies))
+
+        def slow(message):
+            time.sleep(0.5)
+            return self.REPLY
+
+        self._start_server(manager, slow)
         manager.send_request(self.REQUEST)
         with mock.patch.object(manager, "stop_server") as stop:
             with contextlib.redirect_stdout(io.StringIO()) as out:
                 reply = manager.receive_reply()
         self.assertEqual(reply, self.REPLY)
         stop.assert_not_called()
-        self.assertEqual(len(self.server.received), 3)
+        self.assertEqual(self.server.received, [self.REQUEST])
         self.assertIn("qstat failed", out.getvalue())
-        self.assertIn("re-sending request", out.getvalue())
+        self.assertIn("Still waiting", out.getvalue())
 
     def test_max_restarts_enforced(self):
         manager = make_live_manager(
