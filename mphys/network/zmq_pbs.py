@@ -153,8 +153,8 @@ class RemoteZeroMQComp(RemoteComp):
             "receive_timeout",
             default=300.0,
             types=(int, float),
-            desc="interval (seconds) for checking that the server job is still running while waiting for a "
-            + "reply; requests are re-sent only if the connection to the server drops",
+            desc="interval (seconds) for checking that the server job and ssh tunnel are still alive while "
+            + "waiting for a reply; requests are re-sent only if the tunnel or job has to be restarted",
         )
         super().initialize()
         self.server_manager = (
@@ -223,8 +223,8 @@ class MPhysZeroMQServerManager(ServerManager):
     startup_timeout : float
         Seconds to wait for a newly launched server to reply to pings before raising an error; unlimited if None
     receive_timeout : float
-        Interval (seconds) for checking that the server job is still running while waiting for a reply.
-        Requests are re-sent only if the connection to the server drops or the ssh tunnel dies
+        Interval (seconds) for checking that the server job and ssh tunnel are still alive while waiting for a
+        reply. Requests are re-sent only if the tunnel or job has to be restarted; a dropped connection is an error
     """
 
     def __init__(
@@ -300,10 +300,11 @@ class MPhysZeroMQServerManager(ServerManager):
         """
         Wait for the server's reply to the last request.
 
-        The request is re-sent when it may have been lost, i.e. the connection
-        to the server dropped or the ssh tunnel died. Every receive_timeout
-        seconds the job state is checked; if the job has ended, the server is
-        restarted and the request re-sent.
+        A dropped connection means the server went away (it died, or its job
+        ended) while handling the request: the server is stopped and an error
+        raised. Every receive_timeout seconds the job state is checked: if the
+        ssh tunnel died it is restarted and the request re-sent; if the job
+        has ended, the server is restarted and the request re-sent.
         """
         job_gone_count = 0
         while True:
@@ -313,49 +314,54 @@ class MPhysZeroMQServerManager(ServerManager):
                 self._raise_if_server_error(reply)
                 return reply
 
-            if event == "disconnected" or not self._ssh_tunnel_is_alive():
-                reason = (
-                    "connection to the server dropped"
-                    if event == "disconnected"
-                    else "ssh tunnel to the server died; restarting it"
+            if event == "disconnected":
+                self._reset_zmq_socket()  # the REQ socket cannot send the shutdown message while awaiting a reply
+                self.stop_server()
+                raise RemoteComponentError(
+                    f"CLIENT (subsystem {self.component_name}): Connection to the server dropped while waiting "
+                    + "for a reply; the server probably failed"
+                    + self._server_output_tail()
                 )
-                print(
-                    f"CLIENT (subsystem {self.component_name}): {reason}; re-sending request",
-                    flush=True,
-                )
-                if not self._ssh_tunnel_is_alive():
-                    self._setup_ssh()
-                self._reset_zmq_socket()
-                self.socket.send(self._pending_request)
-                continue
 
-            # timed out with the connection intact: the server is presumably busy
-            running = self._job_is_running()
-            if (
-                running or running is None
-            ):  # None: PBS could not be queried; assume still running
-                if running:
+            if event == "timeout":
+                running = self._job_is_running()
+
+                if running is None:  # PBS could not be queried; assume still running
+                    continue
+
+                # job running but no reply yet: either the ssh tunnel died or the server is just busy
+                elif running:
                     job_gone_count = 0
-                continue
+                    if not self._ssh_tunnel_is_alive():
+                        print(
+                            f"CLIENT (subsystem {self.component_name}): ssh tunnel to the server died; "
+                            + "restarting connection and re-sending request",
+                            flush=True,
+                        )
+                        self._setup_ssh()
+                        self._reset_zmq_socket()
+                        self.socket.send(self._pending_request)
+                    continue
 
-            job_gone_count += 1
-            if job_gone_count < self.job_gone_checks_required:
-                print(
-                    f"CLIENT (subsystem {self.component_name}): No reply from server and qstat does not report a "
-                    + f"running job ({job_gone_count}/{self.job_gone_checks_required} checks)",
-                    flush=True,
-                )
-                continue
-            job_gone_count = 0
-            print(
-                f"CLIENT (subsystem {self.component_name}): Server job ended while waiting for a reply; "
-                + "restarting server and re-sending request",
-                flush=True,
-            )
-            self._count_job_expiration_restart()
-            self.stop_server()
-            self.start_server()
-            self.socket.send(self._pending_request)
+                else:  # job stopped while waiting for a reply
+                    job_gone_count += 1
+                    if job_gone_count < self.job_gone_checks_required:
+                        print(
+                            f"CLIENT (subsystem {self.component_name}): No reply from server and qstat does not report a "
+                            + f"running job ({job_gone_count}/{self.job_gone_checks_required} checks)",
+                            flush=True,
+                        )
+                        continue
+                    job_gone_count = 0
+                    print(
+                        f"CLIENT (subsystem {self.component_name}): Server job ended while waiting for a reply; "
+                        + "restarting server and re-sending request",
+                        flush=True,
+                    )
+                    self._count_job_expiration_restart()
+                    self.stop_server()
+                    self.start_server()
+                    self.socket.send(self._pending_request)
 
     def _wait_for_reply_or_disconnect(self, timeout):
         """
