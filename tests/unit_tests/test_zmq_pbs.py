@@ -713,7 +713,9 @@ class TestStartupHandshake(unittest.TestCase):
         return ping_reply()
 
     def test_ready_immediately(self):
-        manager = make_live_manager(self)
+        # server is already listening: a long ping interval means a second ping can only
+        # come from a real problem, not from a slow reply on a busy machine
+        manager = make_live_manager(self, startup_ping_interval=5.0)
         self.server = FakeZmqServer(manager.port, self._handler_ping_only)
         self.server.start()
         self.server.bound.wait(5)
@@ -746,7 +748,9 @@ class TestStartupHandshake(unittest.TestCase):
 
     def test_unexpected_reply_is_ignored(self):
         replies = iter([b'"garbage"', ping_reply()])
-        manager = make_live_manager(self)
+        # server is already listening: a long ping interval means a second ping can only
+        # come from a real problem, not from a slow reply on a busy machine
+        manager = make_live_manager(self, startup_ping_interval=5.0)
         self.server = FakeZmqServer(manager.port, lambda m: next(replies))
         self.server.start()
         with contextlib.redirect_stdout(io.StringIO()) as out:
@@ -987,7 +991,9 @@ class TestServerErrorHandlingOnClient(unittest.TestCase):
             self.server.stop()
 
     def test_error_reply_to_ping_raises_without_retry(self):
-        manager = make_live_manager(self)
+        # server is already listening: a long ping interval means a second ping can only
+        # come from a real problem, not from a slow reply on a busy machine
+        manager = make_live_manager(self, startup_ping_interval=5.0)
         self.server = FakeZmqServer(manager.port, lambda m: self.ERROR)
         self.server.start()
         with mock.patch.object(manager, "stop_server") as stop:
@@ -1088,17 +1094,43 @@ class TestReceiveReplyRetry(unittest.TestCase):
         self.assertEqual(out.getvalue(), "")
         manager.job.update_job_state.assert_not_called()
 
-    def test_dropped_connection_triggers_resend(self):
+    def test_dropped_connection_stops_server_and_raises(self):
+        # the server going away mid-request (e.g. it crashed) must not cause an
+        # endless loop of re-sends: stop the server and fail immediately
         replies = iter([DISCONNECT, self.REPLY])
         manager = make_live_manager(self, receive_timeout=30)
         self._start_server(manager, lambda m: next(replies))
         manager.send_request(self.REQUEST)
-        with contextlib.redirect_stdout(io.StringIO()) as out:
-            reply = manager.receive_reply()
-        self.assertEqual(reply, self.REPLY)
-        self.assertEqual(self.server.received, [self.REQUEST, self.REQUEST])
-        self.assertIn("connection to the server dropped", out.getvalue())
+        with mock.patch.object(
+            manager, "stop_server", wraps=manager.stop_server
+        ) as stop:
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                with self.assertRaisesRegex(
+                    zmq_pbs.RemoteComponentError, "Connection to the server dropped"
+                ):
+                    manager.receive_reply()
+        stop.assert_called_once()
+        self.assertTrue(manager.server_stopped)
+        manager._qdel.assert_called_once()
+        self.assertEqual(self.server.received.count(self.REQUEST), 1)
+        self.assertNotIn("re-sending", out.getvalue())
         manager.job.update_job_state.assert_not_called()
+
+    def test_dropped_connection_error_includes_server_output(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".out", delete=False) as f:
+            f.write("SERVER: Evaluating design\nTraceback: something broke\n")
+        self.addCleanup(os.remove, f.name)
+        manager = make_live_manager(
+            self, receive_timeout=30, _server_output_file=f.name
+        )
+        self._start_server(manager, lambda m: DISCONNECT)
+        manager.send_request(self.REQUEST)
+        with mock.patch.object(manager, "stop_server"):
+            with contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaises(zmq_pbs.RemoteComponentError) as cm:
+                    manager.receive_reply()
+        self.assertIn("something broke", str(cm.exception))
+        self.assertIn(f.name, str(cm.exception))
 
     def test_slow_server_is_not_sent_duplicate_requests(self):
         # an analysis longer than receive_timeout (e.g. a cold start after a

@@ -629,5 +629,156 @@ class TestRemoteCompParallel(unittest.TestCase):
             self.assertTrue(self.remote.server_manager.stopped)
 
 
+class TestClientDerivativeColoring(unittest.TestCase):
+    def test_use_derivative_coloring_assigns_unique_colors(self):
+        prob = build_problem(use_derivative_coloring=True)
+        prob.setup()
+        prob.final_setup()
+        responses = {**prob.model.get_objectives(), **prob.model.get_constraints()}
+        colors = {
+            name: meta["parallel_deriv_color"] for name, meta in responses.items()
+        }
+        self.assertEqual(sorted(colors), ["f", "g", "h", "k"])
+        self.assertEqual(len(set(colors.values())), len(colors))
+        self.assertTrue(all(c.startswith("color") for c in colors.values()))
+
+    def test_no_colors_by_default(self):
+        prob = build_problem()
+        prob.setup()
+        prob.final_setup()
+        for meta in prob.model.get_constraints().values():
+            self.assertIsNone(meta["parallel_deriv_color"])
+
+    def test_colored_totals_match_uncolored(self):
+        of = ["f", "g", "h", "k", "z"]
+        wrt = ["x", "y", "p"]
+        totals = []
+        for coloring in (False, True):
+            prob = build_problem(use_derivative_coloring=coloring)
+            prob.setup(mode="rev")
+            prob.set_val("x", np.array([0.3, -1.2]))
+            prob.run_model()
+            totals.append(prob.compute_totals(of=of, wrt=wrt))
+        for key in totals[0]:
+            assert_near_equal(totals[1][key], totals[0][key], tolerance=1e-12)
+
+
+def build_parallel_remote_problem():
+    """
+    Client model shaped like the supersonic panel as_opt_remote_parallel.py
+    example: two remote components in a ParallelGroup (one per rank on 2
+    procs) sharing promoted design variables, a vector IVC distributed to the
+    components' scalar additional inputs via src_indices, and top-level
+    constraints from both components sharing parallel derivative colors.
+    """
+    model = om.Group()
+    ivc = model.add_subsystem("ivc", om.IndepVarComp(), promotes=["*"])
+    ivc.add_output("p_vec", val=np.array([0.5, -1.0]))
+    model.add_design_var("p_vec")
+    par = model.add_subsystem(
+        "multipoint", om.ParallelGroup(), promotes_inputs=["x", "y"]
+    )
+    for i in range(2):
+        par.add_subsystem(
+            f"remote{i}",
+            InProcessRemoteComp(
+                server_factory=lambda: InProcessServer(get_paraboloid_group),
+                skip_objective_constraint_definition=True,
+                additional_remote_inputs=["p"],
+                additional_remote_outputs=["z"],
+                additional_remote_constants=["c"],
+            ),
+            promotes_inputs=["x", "y"],
+        )
+        model.connect("p_vec", f"multipoint.remote{i}.p", src_indices=[i])
+        model.add_constraint(
+            f"multipoint.remote{i}.g", upper=20.0, parallel_deriv_color="g"
+        )
+        model.add_constraint(
+            f"multipoint.remote{i}.h", equals=1.0, parallel_deriv_color="h"
+        )
+    model.add_objective("multipoint.remote0.f")
+    prob = om.Problem(model)
+    prob.setup(mode="rev")
+    return prob
+
+
+@unittest.skipUnless(
+    MPI.COMM_WORLD.size == 2,
+    "requires 2 MPI processes (run with testflo, or mpiexec -n 2 python -m unittest)",
+)
+class TestParallelRemoteComponents(unittest.TestCase):
+    N_PROCS = 2
+
+    def setUp(self):
+        self.comm = MPI.COMM_WORLD
+        self.prob = build_parallel_remote_problem()
+
+    def _local_remote(self):
+        # _get_subsystem also finds subsystems owned by other ranks
+        local = list(self.prob.model.multipoint._subsystems_myproc)
+        self.assertEqual(len(local), 1)
+        return local[0]
+
+    def test_one_component_and_server_per_rank(self):
+        remote = self._local_remote()
+        self.assertEqual(remote.comm.size, 1)
+        self.assertIsNotNone(remote.server)
+        names = self.comm.allgather(remote.name)
+        self.assertEqual(sorted(names), ["remote0", "remote1"])
+
+    def test_values_from_both_components(self):
+        x = np.array([0.3, -1.2])
+        y = 2.0
+        self.prob.set_val("x", x)
+        self.prob.set_val("y", y)
+        self.prob.run_model()
+        for i, p in enumerate([0.5, -1.0]):
+            expected = expected_outputs(x, y, p, 10.0)
+            for name in ["f", "g", "h", "z"]:
+                val = self.prob.get_val(f"multipoint.remote{i}.{name}", get_remote=True)
+                assert_near_equal(val, expected[name], tolerance=1e-12)
+
+    def test_totals_with_shared_parallel_deriv_colors(self):
+        x = np.array([0.3, -1.2])
+        y = 2.0
+        self.prob.set_val("x", x)
+        self.prob.set_val("y", y)
+        self.prob.run_model()
+        of = ["multipoint.remote0.f"] + [
+            f"multipoint.remote{i}.{name}" for name in ["g", "h"] for i in range(2)
+        ]
+        totals = self.prob.compute_totals(of=of, wrt=["x", "y", "p_vec"])
+        f = "multipoint.remote0.f"
+        assert_near_equal(totals[f, "x"], [2 * x], tolerance=1e-12)
+        assert_near_equal(totals[f, "y"], [[2 * y]], tolerance=1e-12)
+        assert_near_equal(totals[f, "p_vec"], [[1.0, 0.0]], tolerance=1e-12)
+        for i in range(2):
+            g, h = f"multipoint.remote{i}.g", f"multipoint.remote{i}.h"
+            assert_near_equal(totals[g, "x"], [[1.0, 1.0]], tolerance=1e-12)
+            assert_near_equal(totals[g, "y"], [[0.0]], tolerance=1e-12)
+            assert_near_equal(totals[g, "p_vec"], [[0.0, 0.0]], tolerance=1e-12)
+            assert_near_equal(totals[h, "x"], [[-1.0, 0.0]], tolerance=1e-12)
+            assert_near_equal(totals[h, "y"], [[1.0]], tolerance=1e-12)
+        cons = self.prob.model.get_constraints()
+        self.assertEqual(cons["multipoint.remote1.g"]["parallel_deriv_color"], "g")
+        self.assertEqual(cons["multipoint.remote1.h"]["parallel_deriv_color"], "h")
+
+    def test_nan_input_aborts_because_error_is_not_collective_over_world(self):
+        # each component spans 1 of the 2 ranks, so its error is not collective
+        # across COMM_WORLD: the abort path must trigger (mocked here)
+        world = mock.MagicMock()
+        world.size = 2
+        self.prob.set_val("x", np.array([np.nan, 0.0]))
+        with mock.patch(
+            "mphys.network.remote_component._world_comm", return_value=world
+        ):
+            with contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(RemoteComponentError):
+                    self.prob.run_model()
+        world.Abort.assert_called_once_with(1)
+        self.assertTrue(self._local_remote().server_manager.stopped)
+
+
 if __name__ == "__main__":
     unittest.main()

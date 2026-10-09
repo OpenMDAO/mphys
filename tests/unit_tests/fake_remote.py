@@ -55,6 +55,60 @@ def get_paraboloid_group():
     return model
 
 
+def get_parallel_scenarios_group():
+    """
+    Server-side model shaped like the supersonic panel as_opt_parallel.py
+    example: two scenarios evaluated in a ParallelGroup (one per rank when run
+    on 2 procs), with constraints from both scenarios sharing parallel
+    derivative colors, an objective outside the parallel group, an
+    additional input feeding both scenarios, and an additional output from
+    the second scenario.
+    """
+    model = om.Group()
+    ivc = model.add_subsystem("ivc", om.IndepVarComp(), promotes=["*"])
+    ivc.add_output("x", val=np.array([1.0, 2.0]))
+    ivc.add_output("y", val=0.5)
+    ivc.add_output("p", val=1.5)
+    model.add_subsystem(
+        "mass", om.ExecComp("m = x[0]**2 + x[1]**2", x={"shape": 2}), promotes=["*"]
+    )
+    par = model.add_subsystem("par", om.ParallelGroup(), promotes_inputs=["*"])
+    par.add_subsystem(
+        "scen0",
+        om.ExecComp(
+            ["c = x[0]*y + p", "s = x[0]**2 + x[1]", "extra = 3*x[1]*y"],
+            x={"shape": 2},
+        ),
+        promotes_inputs=["*"],
+    )
+    par.add_subsystem(
+        "scen1",
+        om.ExecComp(
+            ["c = x[1]*y**2 - p", "s = x[0]*x[1]", "extra = x[0] + 2*y*p"],
+            x={"shape": 2},
+        ),
+        promotes_inputs=["*"],
+    )
+    model.add_design_var("x", lower=-5.0, upper=5.0)
+    model.add_design_var("y", lower=-5.0, upper=5.0, ref=2.0)
+    model.add_objective("m", ref=10.0)
+    for i in range(2):
+        model.add_constraint(f"par.scen{i}.c", lower=0.1, parallel_deriv_color="lift")
+        model.add_constraint(f"par.scen{i}.s", upper=4.0, parallel_deriv_color="stress")
+    return model
+
+
+PARALLEL_SCENARIO_RESPONSES = [
+    "m",
+    "par.scen0.c",
+    "par.scen1.c",
+    "par.scen0.s",
+    "par.scen1.s",
+]
+PARALLEL_SCENARIO_ADDITIONAL_OUTPUTS = ["par.scen1.extra"]
+PARALLEL_SCENARIO_ADDITIONAL_INPUTS = ["p"]
+
+
 def get_nested_group():
     """
     Server-side model whose variable names contain dots, to test the
@@ -74,27 +128,35 @@ class InProcessServer(Server):
     """
     A Server that processes one JSON message per call to handle(); each call
     runs Server.run() until the injected shutdown message is reached.
+
+    By default the server model runs on COMM_SELF. With comm=MPI.COMM_WORLD
+    it runs on all ranks: handle() must then be called collectively, the
+    message given on rank 0 is broadcast to the other ranks (as in
+    MPhysZeroMQServer), and the reply is only meaningful on rank 0.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, comm=None, **kwargs):
         self._pending = []
         self._response = None
         self.messages_received = []
+        self._server_comm = MPI.COMM_SELF if comm is None else comm
         super().__init__(*args, **kwargs)
 
     def _load_the_model(self):
-        self.prob = om.Problem(comm=MPI.COMM_SELF)
+        self.prob = om.Problem(comm=self._server_comm)
         self.prob.model = self.get_om_group_function_pointer()
         self.prob.setup(mode="rev")
         self.comm = self.prob.model.comm
 
-    def handle(self, message: str) -> str:
+    def handle(self, message: str = None) -> str:
         self._pending = [message, "shutdown|null"]
         self.run()
         return self._response
 
     def _parse_incoming_message(self):
         message = self._pending.pop(0)
+        if message != "shutdown|null":
+            message = self._server_comm.bcast(message, root=0)
         command, input_str = message.split("|", 1)
         if command == "shutdown":
             return command, None
