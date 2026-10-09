@@ -8,12 +8,59 @@ import socket
 import subprocess
 import sys
 import time
+import traceback
 
 import zmq
 from pbs4py import PBS
 from pbs4py.job import PBSJob
+from zmq.utils.monitor import recv_monitor_message
 
-from mphys.network import RemoteComp, Server, ServerManager
+from mphys.network import RemoteComp, RemoteComponentError, Server, ServerManager
+
+_monitor_counter = 0  # for unique ZeroMQ socket monitor endpoints
+# MPhysZeroMQServer error replies start with this; "status" must be the first key
+SERVER_ERROR_PREFIX = b'{"status": "error"'
+
+
+def _pbs_command_env():
+    """
+    Environment for running PBS client commands. When the client itself runs
+    in a multi-node PBS job, $TMPDIR points to a per-job directory
+    (/var/tmp/pbs.<jobid>) that only exists on the job's first node; qsub
+    fails with "could not create/open tmp file" on the other nodes. Fall back
+    to a temp directory that exists in that case.
+    """
+    env = dict(os.environ)
+    tmpdir = env.get("TMPDIR")
+    if tmpdir and not os.path.isdir(tmpdir):
+        for fallback in ("/var/tmp", "/tmp"):
+            if os.path.isdir(fallback):
+                env["TMPDIR"] = fallback
+                break
+        else:
+            env.pop("TMPDIR")
+    return env
+
+
+class PBSJobWithTimeout(PBSJob):
+    """
+    pbs4py PBSJob whose qstat call is given a timeout, so that a PBS server
+    that is down (PBS clients retry the connection for a long time) does not
+    block the client indefinitely. A timeout raises subprocess.TimeoutExpired,
+    which the server manager treats like any other failed qstat.
+    """
+
+    qstat_timeout = 120  # seconds
+
+    def _run_qstat_to_get_full_job_attributes(self):
+        result = subprocess.run(
+            ["qstat", "-xf", str(self.id)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=self.qstat_timeout,
+            env=_pbs_command_env(),
+        )
+        return result.stdout.decode("utf-8", errors="replace").split("\n")
 
 
 def _terminate_when_parent_dies():
@@ -91,6 +138,24 @@ class RemoteZeroMQComp(RemoteComp):
             default=None,
             desc="Optional maximum number of server restarts due to job expiration; unlimited by default",
         )
+        self.options.declare(
+            "startup_ping_interval",
+            default=10.0,
+            types=(int, float),
+            desc="seconds between pings sent to a newly launched server until it replies",
+        )
+        self.options.declare(
+            "startup_timeout",
+            default=None,
+            desc="seconds to wait for a newly launched server to reply to pings before raising an error; unlimited by default",
+        )
+        self.options.declare(
+            "receive_timeout",
+            default=300.0,
+            types=(int, float),
+            desc="interval (seconds) for checking that the server job and ssh tunnel are still alive while "
+            + "waiting for a reply; requests are re-sent only if the tunnel or job has to be restarted",
+        )
         super().initialize()
         self.server_manager = (
             None  # for avoiding reinitialization due to multiple setup calls
@@ -108,10 +173,10 @@ class RemoteZeroMQComp(RemoteComp):
                 flush=True,
             )
         input_str = f"{command}|{str(json.dumps(remote_input_dict))}"
-        self.server_manager.socket.send(input_str.encode())
+        self.server_manager.send_request(input_str.encode())
 
     def _receive_outputs_from_server(self):
-        return json.loads(self.server_manager.socket.recv().decode())
+        return json.loads(self.server_manager.receive_reply().decode())
 
     def _setup_server_manager(self):
         if self.server_manager is None:
@@ -124,6 +189,9 @@ class RemoteZeroMQComp(RemoteComp):
                 forward_through_frontend=self.options["forward_through_frontend"],
                 additional_server_args=self.options["additional_server_args"],
                 job_expiration_max_restarts=self.options["job_expiration_max_restarts"],
+                startup_ping_interval=self.options["startup_ping_interval"],
+                startup_timeout=self.options["startup_timeout"],
+                receive_timeout=self.options["receive_timeout"],
             )
 
 
@@ -150,6 +218,13 @@ class MPhysZeroMQServerManager(ServerManager):
         Optional arguments to give server, in addition to --port <port number>
     job_expiration_max_restarts : int
         Optional maximum number of server restarts due to job expiration; unlimited by default
+    startup_ping_interval : float
+        Seconds between pings sent to a newly launched server until it replies
+    startup_timeout : float
+        Seconds to wait for a newly launched server to reply to pings before raising an error; unlimited if None
+    receive_timeout : float
+        Interval (seconds) for checking that the server job and ssh tunnel are still alive while waiting for a
+        reply. Requests are re-sent only if the tunnel or job has to be restarted; a dropped connection is an error
     """
 
     def __init__(
@@ -162,6 +237,9 @@ class MPhysZeroMQServerManager(ServerManager):
         forward_through_frontend=False,
         additional_server_args="",
         job_expiration_max_restarts=None,
+        startup_ping_interval=10.0,
+        startup_timeout=None,
+        receive_timeout=300.0,
     ):
         self.pbs = pbs
         self.run_server_filename = run_server_filename
@@ -171,13 +249,33 @@ class MPhysZeroMQServerManager(ServerManager):
         self.forward_through_frontend = forward_through_frontend
         self.additional_server_args = additional_server_args
         self.job_expiration_max_restarts = job_expiration_max_restarts
+        self.startup_ping_interval = startup_ping_interval
+        self.startup_timeout = startup_timeout
+        self.receive_timeout = receive_timeout
+        self._server_output_file = None
         self.queue_time_delay = (
             5  # seconds to wait before rechecking if a job has started
         )
+        self.job_check_interval = (
+            60  # seconds between qstat calls while waiting on the server
+        )
+        self.job_gone_checks_required = (
+            3  # consecutive non-running qstat results before declaring the job dead
+        )
+        # retries for PBS commands (qsub/qstat/qdel) failing, e.g. when the PBS server is unreachable
+        self.pbs_retry_attempts = 10
+        self.pbs_retry_delay = 60  # seconds
+        self.pbs_command_timeout = (
+            120  # seconds before a hung qsub/qstat/qdel is abandoned
+        )
+        self.qdel_retry_attempts = 3
+        self.qdel_retry_delay = 10  # seconds
         self.server_counter = 0  # for saving output of each server to different files
         self.job_expiration_restarts = 0
         self.shutdown_send_timeout_ms = 5000
         self.server_stopped = True
+        self.socket = None
+        self._pending_request = None
         _install_shutdown_signal_handlers()
         atexit.register(self._stop_server_at_exit)
         self.start_server()
@@ -187,6 +285,258 @@ class MPhysZeroMQServerManager(ServerManager):
         self.server_counter += 1
         self._launch_job()
         self.server_stopped = False
+        self._wait_for_server_to_be_ready()
+
+    def send_request(self, message: bytes):
+        """
+        Send a request to the server. The message is kept so that it can be
+        re-sent by receive_reply if the connection drops before the reply arrives.
+        """
+        self._pending_request = message
+        self._drain_monitor_events()  # ignore disconnects from before this request
+        self.socket.send(message)
+
+    def receive_reply(self) -> bytes:
+        """
+        Wait for the server's reply to the last request.
+
+        A dropped connection means the server went away (it died, or its job
+        ended) while handling the request: the server is stopped and an error
+        raised. Every receive_timeout seconds the job state is checked: if the
+        ssh tunnel died it is restarted and the request re-sent; if the job
+        has ended, the server is restarted and the request re-sent.
+        """
+        job_gone_count = 0
+        while True:
+            event = self._wait_for_reply_or_disconnect(self.receive_timeout)
+            if event == "reply":
+                reply = self.socket.recv()
+                self._raise_if_server_error(reply)
+                return reply
+
+            if event == "disconnected":
+                self._reset_zmq_socket()  # the REQ socket cannot send the shutdown message while awaiting a reply
+                self.stop_server()
+                raise RemoteComponentError(
+                    f"CLIENT (subsystem {self.component_name}): Connection to the server dropped while waiting "
+                    + "for a reply; the server probably failed"
+                    + self._server_output_tail()
+                )
+
+            if event == "timeout":
+                running = self._job_is_running()
+
+                if running is None:  # PBS could not be queried; assume still running
+                    continue
+
+                # job running but no reply yet: either the ssh tunnel died or the server is just busy
+                elif running:
+                    job_gone_count = 0
+                    if not self._ssh_tunnel_is_alive():
+                        print(
+                            f"CLIENT (subsystem {self.component_name}): ssh tunnel to the server died; "
+                            + "restarting connection and re-sending request",
+                            flush=True,
+                        )
+                        self._setup_ssh()
+                        self._reset_zmq_socket()
+                        self.socket.send(self._pending_request)
+                    continue
+
+                else:  # job stopped while waiting for a reply
+                    job_gone_count += 1
+                    if job_gone_count < self.job_gone_checks_required:
+                        print(
+                            f"CLIENT (subsystem {self.component_name}): No reply from server and qstat does not report a "
+                            + f"running job ({job_gone_count}/{self.job_gone_checks_required} checks)",
+                            flush=True,
+                        )
+                        continue
+                    job_gone_count = 0
+                    print(
+                        f"CLIENT (subsystem {self.component_name}): Server job ended while waiting for a reply; "
+                        + "restarting server and re-sending request",
+                        flush=True,
+                    )
+                    self._count_job_expiration_restart()
+                    self.stop_server()
+                    self.start_server()
+                    self.socket.send(self._pending_request)
+
+    def _wait_for_reply_or_disconnect(self, timeout):
+        """
+        Returns "reply", "disconnected", or "timeout".
+        """
+        poller = zmq.Poller()
+        poller.register(self.socket, zmq.POLLIN)
+        poller.register(self._monitor, zmq.POLLIN)
+        deadline = time.time() + timeout
+        while True:
+            remaining_ms = max(0, int((deadline - time.time()) * 1000))
+            events = dict(poller.poll(remaining_ms))
+            if self.socket in events:
+                return "reply"
+            if self._monitor in events:
+                if self._drain_monitor_events():
+                    return "disconnected"
+                continue
+            return "timeout"
+
+    def _drain_monitor_events(self) -> bool:
+        """
+        Read pending socket monitor events; returns whether a disconnect occurred.
+        """
+        disconnected = False
+        while self._monitor.poll(0):
+            event = recv_monitor_message(self._monitor)
+            if event["event"] == zmq.EVENT_DISCONNECTED:
+                disconnected = True
+        return disconnected
+
+    def _ssh_tunnel_is_alive(self) -> bool:
+        ssh_proc = getattr(self, "ssh_proc", None)
+        return ssh_proc is None or ssh_proc.poll() is None
+
+    def _job_is_running(self):
+        """
+        Returns True/False, or None if the job state could not be determined
+        (e.g. the PBS server is unreachable).
+        """
+        state = self._query_job_state()
+        if state is None:
+            return None
+        return state == "R"
+
+    def _query_job_state(self):
+        """
+        Refresh the job's attributes from qstat, retrying if PBS cannot be
+        queried (unreachable server, garbled output). Returns the job state
+        string, or None if PBS could not be queried after all retries.
+        """
+        for attempt in range(1, self.pbs_retry_attempts + 1):
+            try:
+                self.job.update_job_state()
+                return self.job.state
+            except Exception as e:
+                print(
+                    f"CLIENT (subsystem {self.component_name}): qstat failed ({e!r}); "
+                    + f"retrying in {self.pbs_retry_delay} s ({attempt}/{self.pbs_retry_attempts})",
+                    flush=True,
+                )
+                time.sleep(self.pbs_retry_delay)
+        print(
+            f"CLIENT (subsystem {self.component_name}): Could not query PBS for job {self.job.id}; "
+            + "treating the job state as unknown",
+            flush=True,
+        )
+        return None
+
+    def _count_job_expiration_restart(self):
+        if self.job_expiration_max_restarts is not None:
+            if self.job_expiration_restarts + 1 > self.job_expiration_max_restarts:
+                self.stop_server()
+                raise RemoteComponentError(
+                    f"CLIENT (subsystem {self.component_name}): Reached maximum number of job expiration restarts"
+                )
+            self.job_expiration_restarts += 1
+
+    def _wait_for_server_to_be_ready(self):
+        """
+        Ping the server until it replies. The PBS job reports as running long
+        before the server has set up its model and bound its port; a request
+        sent through the ssh tunnel before then is silently dropped, which
+        would deadlock the REQ/REP pair.
+        """
+        print(
+            f"CLIENT (subsystem {self.component_name}): Waiting for server to be ready",
+            flush=True,
+        )
+        start_time = time.time()
+        last_job_check = start_time
+        job_gone_count = 0
+        ping_timeout_ms = int(self.startup_ping_interval * 1000)
+        while True:
+            self.socket.send(b"ping|null")
+            if self.socket.poll(ping_timeout_ms):
+                reply = self.socket.recv()
+                self._raise_if_server_error(reply)
+                if json.loads(reply.decode()) == Server.PING_REPLY:
+                    break
+                print(
+                    f"CLIENT (subsystem {self.component_name}): Unexpected reply to ping: {reply[:80]!r}",
+                    flush=True,
+                )
+            self._reset_zmq_socket()
+
+            if (
+                self.startup_timeout is not None
+                and time.time() - start_time > self.startup_timeout
+            ):
+                raise RemoteComponentError(
+                    f"CLIENT (subsystem {self.component_name}): Server did not become ready within "
+                    + f"{self.startup_timeout} s"
+                )
+            if time.time() - last_job_check > self.job_check_interval:
+                last_job_check = time.time()
+                running = self._job_is_running()
+                if running:
+                    job_gone_count = 0
+                elif running is False:  # None (PBS unreachable) is inconclusive
+                    job_gone_count += 1
+                    if job_gone_count >= self.job_gone_checks_required:
+                        raise RemoteComponentError(
+                            f"CLIENT (subsystem {self.component_name}): Server job {self.job.id} ended before the "
+                            + "server became ready"
+                            + self._server_output_tail()
+                        )
+        print(
+            f"CLIENT (subsystem {self.component_name}): Server is ready "
+            + f"(startup time: {time.time() - start_time:.1f} s)",
+            flush=True,
+        )
+
+    def _raise_if_server_error(self, reply: bytes):
+        """
+        Raise if the reply is an error report from MPhysZeroMQServer: the
+        server failed, and retrying or relaunching it would fail the same way.
+        """
+        if not reply.startswith(SERVER_ERROR_PREFIX):
+            return
+        try:
+            info = json.loads(reply.decode())
+        except ValueError:
+            info = {"traceback": reply.decode(errors="replace")}
+        location = f" on {info.get('host')}" if info.get("host") else ""
+        if info.get("rank") is not None:
+            location += f" (rank {info['rank']})"
+        try:
+            self.stop_server()
+        except Exception as e:
+            print(
+                f"CLIENT (subsystem {self.component_name}): Error stopping failed server: {e!r}",
+                flush=True,
+            )
+        raise RemoteComponentError(
+            f"CLIENT (subsystem {self.component_name}): The remote analysis server failed{location} "
+            + f"with the following error:\n{info.get('traceback', '').rstrip()}"
+        )
+
+    def _server_output_tail(self, num_lines=30) -> str:
+        path = self._server_output_file
+        if not path or not os.path.isfile(path):
+            return "; check the server output file for errors"
+        try:
+            with open(path, errors="replace") as f:
+                lines = f.readlines()[-num_lines:]
+        except OSError:
+            return f"; check {path} for errors"
+        return f". Last lines of {path}:\n" + "".join(lines).rstrip()
+
+    def _reset_zmq_socket(self):
+        # a REQ socket that has sent without receiving cannot send again;
+        # drop it (and any unsent message) and connect a fresh one
+        self._close_zmq_socket()
+        self._initialize_zmq_socket()
 
     def stop_server(self):
         if not self.server_stopped:
@@ -205,8 +555,7 @@ class MPhysZeroMQServerManager(ServerManager):
                     flush=True,
                 )
             self._shutdown_server()
-            self.socket.setsockopt(zmq.LINGER, 0)
-            self.socket.close()
+            self._close_zmq_socket()
 
     def _stop_server_at_exit(self):
         if not self.server_stopped:
@@ -223,24 +572,31 @@ class MPhysZeroMQServerManager(ServerManager):
                 )
 
     def enough_time_is_remaining(self, estimated_model_time):
-        self.job.update_job_state()
+        if self._query_job_state() is None:
+            print(
+                f"CLIENT (subsystem {self.component_name}): Cannot determine remaining walltime; "
+                + "assuming enough time remains",
+                flush=True,
+            )
+            return True
         if self.job.walltime_remaining is None:
             return False
         else:
             return estimated_model_time < self.job.walltime_remaining
 
     def job_has_expired(self):
-        self.job.update_job_state()
-        if self.job.state == "R" and not self.server_stopped:
+        state = self._query_job_state()
+        if state is None:
+            print(
+                f"CLIENT (subsystem {self.component_name}): Cannot determine job state; "
+                + "assuming the server is still running",
+                flush=True,
+            )
+            return False
+        if state == "R" and not self.server_stopped:
             return False
         else:
-            if self.job_expiration_max_restarts is not None:
-                if self.job_expiration_restarts + 1 > self.job_expiration_max_restarts:
-                    self.stop_server()
-                    raise RuntimeError(
-                        f"CLIENT (subsystem {self.component_name}): Reached maximum number of job expiration restarts"
-                    )
-                self.job_expiration_restarts += 1
+            self._count_job_expiration_restart()
             print(
                 f"CLIENT (subsystem {self.component_name}): Job no longer running; flagging for job restart"
             )
@@ -264,16 +620,39 @@ class MPhysZeroMQServerManager(ServerManager):
                     self.port = port
                     break
             else:
-                raise RuntimeError(
+                raise RemoteComponentError(
                     f"CLIENT (subsystem {self.component_name}): Could not find open port"
                 )
 
         self._initialize_zmq_socket()
 
     def _initialize_zmq_socket(self):
-        context = zmq.Context()
+        # shared context: sockets are recreated on every retry, and each
+        # zmq.Context() would otherwise leak an IO thread
+        context = zmq.Context.instance()
         self.socket = context.socket(zmq.REQ)
+        # connection events, so that receive_reply can tell a dropped connection from a busy server.
+        # unique endpoint: pyzmq's default is derived from the socket's file descriptor, which is
+        # reused by later sockets and would collide with a monitor that was not shut down cleanly
+        global _monitor_counter
+        _monitor_counter += 1
+        address = f"inproc://mphys-zmq-monitor-{os.getpid()}-{_monitor_counter}"
+        self.socket.monitor(address, zmq.EVENT_DISCONNECTED)
+        self._monitor = context.socket(zmq.PAIR)
+        self._monitor.connect(address)
         self.socket.connect(f"tcp://localhost:{self.port}")
+
+    def _close_zmq_socket(self):
+        monitor = getattr(self, "_monitor", None)
+        if monitor is not None:
+            try:
+                self.socket.disable_monitor()
+            except zmq.ZMQError:
+                pass
+            monitor.close(linger=0)
+            self._monitor = None
+        self.socket.setsockopt(zmq.LINGER, 0)
+        self.socket.close()
 
     def _launch_job(self):
         print(
@@ -281,16 +660,128 @@ class MPhysZeroMQServerManager(ServerManager):
             flush=True,
         )
         python_command = f"python {self.run_server_filename} --port {self.port} {self.additional_server_args}"
+        output_root_name = f"mphys_{self.component_name}_server{self.server_counter}"
+        self._server_output_file = os.path.abspath(f"{output_root_name}.out")
         python_mpi_command = self.pbs.create_mpi_command(
             python_command,
-            output_root_name=f"mphys_{self.component_name}_server{self.server_counter}",
+            output_root_name=output_root_name,
         )
-        jobid = self.pbs.launch(
-            f"MPhys{self.port}", [python_mpi_command], blocking=False
-        )
-        self.job = PBSJob(jobid)
+        jobid = self._submit_job(f"MPhys{self.port}", [python_mpi_command])
+        self.job = self._create_job_handle(jobid)
         self._wait_for_job_to_start()
         self._setup_ssh()
+
+    def _create_job_handle(self, jobid) -> PBSJob:
+        # PBSJob's constructor queries qstat, which may fail if PBS is unreachable
+        PBSJobWithTimeout.qstat_timeout = self.pbs_command_timeout
+        for attempt in range(1, self.pbs_retry_attempts + 1):
+            try:
+                return PBSJobWithTimeout(jobid)
+            except Exception as e:
+                print(
+                    f"CLIENT (subsystem {self.component_name}): qstat failed for new job {jobid} ({e!r}); "
+                    + f"retrying in {self.pbs_retry_delay} s ({attempt}/{self.pbs_retry_attempts})",
+                    flush=True,
+                )
+                time.sleep(self.pbs_retry_delay)
+        raise RemoteComponentError(
+            f"CLIENT (subsystem {self.component_name}): Could not query PBS for new job {jobid}"
+        )
+
+    # qsub stderr fragments indicating a problem that may resolve itself if we retry
+    TRANSIENT_QSUB_ERRORS = (
+        "cannot connect",
+        "Connection refused",
+        "Connection reset",
+        "Connection timed out",
+        "timed out",
+        "No route to host",
+        "Communication failure",
+        "Temporarily unavailable",
+        "Resource temporarily unavailable",
+        "server is busy",
+        "Server shutting down",
+        "Unknown Host",
+    )
+
+    def _submit_job(self, job_name, job_body) -> str:
+        """
+        qsub the job, retrying if PBS appears to be temporarily unreachable.
+        Any other qsub error (e.g. "Unauthorized Request", a bad queue name)
+        is raised immediately with qsub's message.
+        """
+        for attempt in range(1, self.pbs_retry_attempts + 1):
+            jobid, error, retryable = self._run_qsub(job_name, job_body)
+            if self._is_valid_job_id(jobid):
+                return jobid.strip()
+            reason = error or f"qsub returned {jobid!r}"
+            if not retryable:
+                raise RemoteComponentError(
+                    f"CLIENT (subsystem {self.component_name}): Could not submit server job: {error}"
+                )
+            print(
+                f"CLIENT (subsystem {self.component_name}): Job submission failed ({reason}); "
+                + f"retrying in {self.pbs_retry_delay} s ({attempt}/{self.pbs_retry_attempts})",
+                flush=True,
+            )
+            time.sleep(self.pbs_retry_delay)
+        raise RemoteComponentError(
+            f"CLIENT (subsystem {self.component_name}): Could not submit server job after "
+            + f"{self.pbs_retry_attempts} attempts"
+        )
+
+    def _run_qsub(self, job_name, job_body):
+        """
+        Write the job script with pbs4py and run qsub ourselves so that qsub's
+        stderr is captured (pbs4py's launch() only returns stdout). Returns
+        (stdout, error_message, retryable). Non-PBS launchers (e.g. pbs4py's
+        fake launcher for testing) fall back to launcher.launch(), with any
+        exception treated as retryable since its cause is unknown.
+        """
+        if not isinstance(self.pbs, PBS):
+            try:
+                return self.pbs.launch(job_name, job_body, blocking=False), "", True
+            except Exception as e:
+                return None, repr(e), True
+        filename = f"{job_name}.{self.pbs.batch_file_extension}"
+        self.pbs.write_job_file(filename, job_name, job_body)
+        try:
+            result = subprocess.run(
+                ["qsub", filename],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=self.pbs_command_timeout,
+                env=_pbs_command_env(),
+            )
+        except subprocess.TimeoutExpired:  # PBS server down: qsub blocks retrying its connection
+            return (
+                None,
+                f"qsub did not return within {self.pbs_command_timeout} s",
+                True,
+            )
+        except OSError as e:  # e.g. qsub not on PATH
+            return None, repr(e), False
+        stdout = result.stdout.strip()
+        if stdout:
+            print(stdout, flush=True)  # the job id, as pbs4py's launch() would print
+        error = result.stderr.strip()
+        retryable = not error or self._is_transient_qsub_error(error)
+        return stdout, error, retryable
+
+    @classmethod
+    def _is_transient_qsub_error(cls, error: str) -> bool:
+        error_lower = error.lower()
+        return any(
+            fragment.lower() in error_lower for fragment in cls.TRANSIENT_QSUB_ERRORS
+        )
+
+    @staticmethod
+    def _is_valid_job_id(jobid) -> bool:
+        if not isinstance(jobid, str):
+            return False
+        jobid = jobid.strip()
+        return jobid[:1].isdigit() or "FakePBS" in jobid
 
     def _wait_for_job_to_start(self):
         print(
@@ -301,7 +792,13 @@ class MPhysZeroMQServerManager(ServerManager):
         self._setup_dummy_socket()
         while self.job.state != "R":
             time.sleep(self.queue_time_delay)
-            self.job.update_job_state()
+            if self._query_job_state() == "F":
+                self._stop_dummy_socket()
+                raise RemoteComponentError(
+                    f"CLIENT (subsystem {self.component_name}): Server job {self.job.id} finished before it "
+                    + f"started running (exit status {self.job.exit_status})"
+                    + self._server_output_tail()
+                )
         self._stop_dummy_socket()
         self.job_start_time = time.time()
         print(
@@ -331,25 +828,86 @@ class MPhysZeroMQServerManager(ServerManager):
             self._kill_ssh()
         finally:
             time.sleep(0.1)  # prevent full shutdown before job deletion?
-            self.job.qdel()
+            self._qdel()
+
+    def _qdel(self) -> bool:
+        """
+        Delete the server job, retrying if PBS is unreachable. Returns whether
+        the job is known to be gone.
+        """
+        jobid = str(self.job.id)
+        print(f"qdel {jobid}", flush=True)
+        for attempt in range(1, self.qdel_retry_attempts + 1):
+            try:
+                result = subprocess.run(
+                    ["qdel", jobid],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    timeout=self.pbs_command_timeout,
+                    env=_pbs_command_env(),
+                )
+                error = result.stderr.strip()
+                if result.returncode == 0:
+                    return True
+                # job already gone: nothing left to do
+                if "Unknown Job Id" in error or "Job has finished" in error:
+                    return True
+            except subprocess.TimeoutExpired:
+                error = f"qdel did not return within {self.pbs_command_timeout} s"
+            except OSError as e:
+                error = repr(e)
+            print(
+                f"CLIENT (subsystem {self.component_name}): qdel failed ({error}); "
+                + f"retrying in {self.qdel_retry_delay} s ({attempt}/{self.qdel_retry_attempts})",
+                flush=True,
+            )
+            time.sleep(self.qdel_retry_delay)
+        print(
+            f"CLIENT (subsystem {self.component_name}): WARNING: could not delete server job {jobid}; "
+            + "it may still be running and should be deleted manually",
+            flush=True,
+        )
+        return False
 
     def _setup_dummy_socket(self):
         print(
             f"CLIENT (subsystem {self.component_name}): Starting dummy ZeroMQ socket to hold port {self.port} while in queue",
             flush=True,
         )
-        context = zmq.Context()
+        context = zmq.Context.instance()
         self.dummy_socket = context.socket(zmq.REP)
         self.dummy_socket.bind(f"tcp://*:{self.port}")
 
     def _stop_dummy_socket(self):
+        self.dummy_socket.setsockopt(zmq.LINGER, 0)
         self.dummy_socket.close()
 
 
 class MPhysZeroMQServer(Server):
     """
     A derived Server class that uses ZeroMQ for network communication.
+
+    Parameters
+    ----------
+    port : int
+        TCP port to listen on
+    report_errors : bool
+        If the server raises during startup (model import/setup) or while
+        handling a request, send the traceback to the client as the reply to
+        its next message, so the client raises immediately instead of
+        retrying or relaunching a server that would fail the same way.
+        Errors raised before this object is created (e.g. import errors at the
+        top of the server script) cannot be reported this way; the client then
+        detects the ended job and shows the end of the server output file.
+
+    Other parameters are passed to :class:`~mphys.network.Server`.
     """
+
+    ERROR_REPORT_TIMEOUT = 300  # seconds rank 0 waits for the client to contact it
+    NONROOT_ERROR_GRACE_PERIOD = (
+        360  # seconds other ranks wait for rank 0 before aborting
+    )
 
     def __init__(
         self,
@@ -359,16 +917,28 @@ class MPhysZeroMQServer(Server):
         ignore_runtime_warnings=False,
         rerun_initial_design=False,
         write_n2=False,
+        report_errors=True,
     ):
+        self.port = port
+        self.report_errors = report_errors
+        self.socket = None
+        try:
+            super().__init__(
+                get_om_group_function_pointer,
+                ignore_setup_warnings,
+                ignore_runtime_warnings,
+                rerun_initial_design,
+                write_n2,
+            )
+            self._setup_zeromq_socket(port)
+        except Exception:
+            self._handle_server_error()
 
-        super().__init__(
-            get_om_group_function_pointer,
-            ignore_setup_warnings,
-            ignore_runtime_warnings,
-            rerun_initial_design,
-            write_n2,
-        )
-        self._setup_zeromq_socket(port)
+    def run(self):
+        try:
+            super().run()
+        except Exception:
+            self._handle_server_error()
 
     def _setup_zeromq_socket(self, port):
         if self.comm.rank == 0:
@@ -390,6 +960,86 @@ class MPhysZeroMQServer(Server):
     def _send_outputs_to_client(self, output_dict: dict):
         if self.comm.rank == 0:
             self.socket.send(str(json.dumps(output_dict)).encode())
+
+    def _handle_server_error(self):
+        """
+        Called from an except block. Report the error to the client from rank
+        0, then make sure the whole MPI job ends (other ranks may be blocked in
+        collectives). Re-raises the original exception if nothing needs aborting.
+        """
+        if not self.report_errors:
+            raise
+        error_text = traceback.format_exc()
+        from mpi4py import MPI
+
+        world = MPI.COMM_WORLD
+        comm = getattr(self, "comm", None) or world
+        print(
+            f"SERVER (rank {comm.rank}): failed with the following error:\n{error_text}",
+            file=sys.stderr,
+            flush=True,
+        )
+        if comm.rank == 0:
+            reply = _server_error_reply(error_text, comm.rank)
+            if _report_error_to_client(
+                self.socket, self.port, reply, self.ERROR_REPORT_TIMEOUT
+            ):
+                print("SERVER: error reported to client", flush=True)
+        elif world.size > 1:
+            time.sleep(self.NONROOT_ERROR_GRACE_PERIOD)
+        if world.size > 1:
+            world.Abort(1)
+        raise
+
+
+def _server_error_reply(error_text, rank=None) -> bytes:
+    # "status" must be the first key: the client detects error replies by SERVER_ERROR_PREFIX
+    return json.dumps(
+        {
+            "status": "error",
+            "host": socket.gethostname(),
+            "rank": rank,
+            "traceback": error_text,
+        }
+    ).encode()
+
+
+def _send_and_close(sock, reply):
+    sock.send(reply)
+    sock.setsockopt(zmq.LINGER, 5000)  # give the reply time to leave
+    time.sleep(1.0)
+    sock.close()
+
+
+def _report_error_to_client(sock, port, reply, timeout) -> bool:
+    """
+    Send an error reply to the client. With an existing REP socket that has
+    just received a request, the reply answers that request; otherwise wait
+    for the client's next message (e.g. a startup ping). Returns whether sent.
+    """
+    if sock is not None and not sock.closed:
+        try:
+            _send_and_close(sock, reply)
+            return True
+        except zmq.ZMQError:
+            pass  # not waiting to send: wait for the next request below
+    else:
+        sock = zmq.Context.instance().socket(zmq.REP)
+        try:
+            sock.bind(f"tcp://*:{port}")
+        except zmq.ZMQError as e:
+            print(
+                f"SERVER: could not bind port {port} to report error ({e})", flush=True
+            )
+            sock.close(linger=0)
+            return False
+    if not sock.poll(int(timeout * 1000)):
+        print(f"SERVER: client did not contact server within {timeout} s", flush=True)
+        sock.close(linger=0)
+        return False
+    sock.recv()
+    _send_and_close(sock, reply)
+    return True
 
 
 def get_default_zmq_pbs_argparser():

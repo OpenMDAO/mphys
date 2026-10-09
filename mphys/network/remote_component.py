@@ -12,6 +12,80 @@ import openmdao.api as om
 from mphys.utils.directory_utils import cd
 
 
+class RemoteComponentError(BaseException):
+    """
+    An unrecoverable failure of a remote component, e.g. the server job cannot
+    be submitted, the server never becomes ready, or NaN inputs would be sent.
+
+    This deliberately derives from BaseException rather than Exception.
+    OpenMDAO's pyOptSparseDriver catches every Exception raised while
+    evaluating the objective or gradients, feeds NaNs to the optimizer, keeps
+    iterating, and only re-raises the stored error after the optimizer gives
+    up. For a remote analysis that would waste the remaining HPC allocation,
+    so these errors must terminate the optimization immediately.
+
+    Parameters
+    ----------
+    collective_comm_size : int
+        If the error is raised on every rank of a communicator at once, the
+        size of that communicator. Used to decide whether an MPI abort is
+        needed to keep the remaining ranks from hanging.
+    """
+
+    def __init__(self, *args, collective_comm_size=None):
+        super().__init__(*args)
+        self.collective_comm_size = collective_comm_size
+
+
+def _world_comm():
+    from mpi4py import MPI
+
+    return MPI.COMM_WORLD
+
+
+def abort_mpi_on_remote_error(method):
+    """
+    Decorator: if a RemoteComponentError escapes on only some MPI ranks, the
+    other ranks would block forever in their next collective operation. In
+    that case, stop this component's server and abort the whole MPI job.
+    Errors raised collectively on every rank of COMM_WORLD (e.g. NaN inputs
+    in a component that spans all ranks) are re-raised normally.
+    """
+
+    @wraps(method)
+    def wrapped_method(self, *args, **kwargs):
+        try:
+            return method(self, *args, **kwargs)
+        except RemoteComponentError as err:
+            world = _world_comm()
+            if (
+                not self.options["abort_mpi_on_error"]
+                or world.size == 1
+                or err.collective_comm_size == world.size
+            ):
+                raise
+            print(
+                f"{err}\n"
+                + f"CLIENT (subsystem {self.name}): Aborting all {world.size} MPI ranks "
+                + "so that the remaining ranks do not hang",
+                file=sys.stderr,
+                flush=True,
+            )
+            try:
+                self.stop_server()
+            except BaseException as stop_err:
+                print(
+                    f"CLIENT (subsystem {self.name}): Error stopping server before abort: {stop_err!r}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            sys.stdout.flush()
+            world.Abort(1)
+            raise  # only reached if Abort returns (e.g. a mocked communicator)
+
+    return wrapped_method
+
+
 def switch_run_directory(method):
     """
     Decorator function for methods where run directory must be switched before calling
@@ -127,7 +201,15 @@ class RemoteComp(om.ExplicitComponent):
             desc="Stop server after evaluation, in case significant down time is expected afterwards. Allows user to conserve HPC "
             + "SBUs in certain applications. 0=never, 1=after first function call, 2=after first derivative call.",
         )
+        self.options.declare(
+            "abort_mpi_on_error",
+            default=True,
+            types=bool,
+            desc="When running with MPI, abort all ranks if an unrecoverable remote component error occurs on only "
+            + "some of them (otherwise the remaining ranks would hang)",
+        )
 
+    @abort_mpi_on_remote_error
     @switch_run_directory
     def setup(self):
         self.var_naming_dot_replacement = self.options["var_naming_dot_replacement"]
@@ -188,11 +270,12 @@ class RemoteComp(om.ExplicitComponent):
 
         self.declare_partials("*", "*")
 
+    @abort_mpi_on_remote_error
     @switch_run_directory
     def compute(self, inputs, outputs):
         remote_dict = None
+        input_dict = self._create_and_check_input_dict(inputs)
         if self.comm.rank == 0:
-            input_dict = self._create_input_dict_for_server(inputs)
             remote_dict = self.evaluate_model(
                 remote_input_dict=input_dict, command="evaluate"
             )
@@ -202,13 +285,14 @@ class RemoteComp(om.ExplicitComponent):
         self._assign_constraints_from_remote_output(remote_dict, outputs)
         self._assign_additional_outputs_from_remote_output(remote_dict, outputs)
 
+    @abort_mpi_on_remote_error
     @switch_run_directory
     def compute_partials(self, inputs, partials):
         # NOTE: this will not use of and wrt inputs, if given in outer script's compute_totals/check_totals
 
         remote_dict = None
+        input_dict = self._create_and_check_input_dict(inputs)
         if self.comm.rank == 0:
-            input_dict = self._create_input_dict_for_server(inputs)
             remote_dict = self.evaluate_model(
                 remote_input_dict=input_dict, command="evaluate derivatives"
             )
@@ -263,16 +347,14 @@ class RemoteComp(om.ExplicitComponent):
                 self.stop_server_for_down_time == 2
                 and self._doing_derivative_evaluation(command)
             ):
-                if self.comm.rank == 0:
-                    self._print_status_message(
-                        "Stopping server's HPC job for down time"
-                    )
+                self._print_status_message("Stopping server's HPC job for down time")
                 self.server_manager.stop_server()
 
         return remote_output_dict
 
     def _print_status_message(self, message):
-        print(f"CLIENT (subsystem {self.name}): {message}", flush=True)
+        if self.comm.rank == 0:
+            print(f"CLIENT (subsystem {self.name}): {message}", flush=True)
 
     def _assign_objective_partials_from_remote_output(self, remote_dict, partials):
         for obj in remote_dict["objective"].keys():
@@ -324,6 +406,32 @@ class RemoteComp(om.ExplicitComponent):
                         inp.replace(".", self.var_naming_dot_replacement),
                     )
                 ] = remote_dict["additional_outputs"][output]["derivatives"][inp]
+
+    def _create_and_check_input_dict(self, inputs):
+        input_dict = None
+        nan_variables = []
+        if self.comm.rank == 0:
+            input_dict = self._create_input_dict_for_server(inputs)
+            nan_variables = self._find_nan_inputs(input_dict)
+        nan_variables = self.comm.bcast(nan_variables)
+        if nan_variables:
+            message = (
+                f"NaN found in inputs ({', '.join(nan_variables)}); stopping the server"
+            )
+            self.stop_server()
+            raise RemoteComponentError(
+                f"CLIENT (subsystem {self.name}): {message}",
+                collective_comm_size=self.comm.size,
+            )
+        return input_dict
+
+    def _find_nan_inputs(self, input_dict):
+        nan_variables = []
+        for var_type in ["design_vars", "additional_inputs"]:
+            for name, data in input_dict[var_type].items():
+                if np.isnan(np.asarray(data["val"], dtype=float)).any():
+                    nan_variables.append(name)
+        return nan_variables
 
     def _create_input_dict_for_server(self, inputs):
         input_dict = {
@@ -423,10 +531,9 @@ class RemoteComp(om.ExplicitComponent):
                     self.times_function = np.hstack(
                         [self.times_function, model_time_elapsed]
                     )
-                if self.comm.rank == 0:
-                    self._print_status_message(
-                        f"Obtained design problem info from dumped json file '{filename}'"
-                    )
+                self._print_status_message(
+                    f"Obtained design problem info from dumped json file '{filename}'"
+                )
                 return remote_output_dict
 
         else:
