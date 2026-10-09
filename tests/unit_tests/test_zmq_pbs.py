@@ -1358,6 +1358,13 @@ class TestProcessLifetime(unittest.TestCase):
         """
     )
 
+    @staticmethod
+    def _reset_sigint():
+        # runs in the child before exec: an ignored SIGINT (inherited e.g. from a
+        # CI runner or a backgrounded shell job) would keep python from installing
+        # its KeyboardInterrupt handler, making the child immune to SIGINT
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+
     def _spawn_client(self):
         proc = subprocess.Popen(
             [sys.executable, "-c", self.CLIENT_SCRIPT],
@@ -1365,6 +1372,7 @@ class TestProcessLifetime(unittest.TestCase):
             stderr=subprocess.STDOUT,
             text=True,
             env=non_mpi_env(),
+            preexec_fn=self._reset_sigint,
         )
         pid_line, lines = read_until(proc.stdout, lambda line: line.strip().isdigit())
         if pid_line is None:
