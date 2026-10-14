@@ -178,4 +178,4 @@ if __name__ == "__main__":
         compact_print=True,
     )
 
-    prob.check_partials(compact_print=True, step_calc="rel_avg")
+    prob.check_partials(compact_print=True, step_calc="rel_avg", show_only_incorrect=True)
