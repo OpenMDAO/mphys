@@ -277,7 +277,7 @@ class PistonTheory:
         # The pressure derivative is distributed, but the normalization uses
         # the global number of panels rather than the local pressure length.
         # OpenMDAO supplies the scalar output adjoint as a one-element array.
-        adjoint = adjoint.reshape(-1)[0]
+        adjoint = adjoint.item()
         d_p = np.ones_like(self.pressure) / self.qdyn / self.N_el * adjoint
 
         if self.rank == 0:
