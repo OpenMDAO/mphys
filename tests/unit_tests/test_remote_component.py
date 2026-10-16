@@ -680,13 +680,17 @@ class TestClientDerivativeColoring(unittest.TestCase):
             assert_near_equal(totals[1][key], totals[0][key], tolerance=1e-12)
 
 
-def build_parallel_remote_problem():
+def build_parallel_remote_problem(use_derivative_coloring=False):
     """
     Client model shaped like the supersonic panel as_opt_remote_parallel.py
     example: two remote components in a ParallelGroup (one per rank on 2
-    procs) sharing promoted design variables, a vector IVC distributed to the
-    components' scalar additional inputs via src_indices, and top-level
-    constraints from both components sharing parallel derivative colors.
+    procs) sharing promoted design variables and a vector IVC distributed to
+    the components' scalar additional inputs via src_indices.
+
+    By default the components skip their objective/constraint definitions and
+    top-level constraints from both components are given shared parallel
+    derivative colors by hand. With use_derivative_coloring, the components
+    define the responses themselves and assign the colors.
     """
     model = om.Group()
     ivc = model.add_subsystem("ivc", om.IndepVarComp(), promotes=["*"])
@@ -700,7 +704,8 @@ def build_parallel_remote_problem():
             f"remote{i}",
             InProcessRemoteComp(
                 server_factory=lambda: InProcessServer(get_paraboloid_group),
-                skip_objective_constraint_definition=True,
+                skip_objective_constraint_definition=not use_derivative_coloring,
+                use_derivative_coloring=use_derivative_coloring,
                 additional_remote_inputs=["p"],
                 additional_remote_outputs=["z"],
                 additional_remote_constants=["c"],
@@ -708,16 +713,32 @@ def build_parallel_remote_problem():
             promotes_inputs=["x", "y"],
         )
         model.connect("p_vec", f"multipoint.remote{i}.p", src_indices=[i])
-        model.add_constraint(
-            f"multipoint.remote{i}.g", upper=20.0, parallel_deriv_color="g"
-        )
-        model.add_constraint(
-            f"multipoint.remote{i}.h", equals=1.0, parallel_deriv_color="h"
-        )
-    model.add_objective("multipoint.remote0.f")
+        if not use_derivative_coloring:
+            model.add_constraint(
+                f"multipoint.remote{i}.g", upper=20.0, parallel_deriv_color="g"
+            )
+            model.add_constraint(
+                f"multipoint.remote{i}.h", equals=1.0, parallel_deriv_color="h"
+            )
+    if not use_derivative_coloring:
+        model.add_objective("multipoint.remote0.f")
     prob = om.Problem(model)
     prob.setup(mode="rev")
     return prob
+
+
+def expected_parallel_totals(x, y):
+    """
+    Analytic totals of each remote component's responses and additional output
+    wrt the shared design variables and the component's entry of p_vec.
+    """
+    return {
+        "f": {"x": [2 * x], "y": [[2 * y]], "p": [[1.0]]},
+        "g": {"x": [[1.0, 1.0]], "y": [[0.0]], "p": [[0.0]]},
+        "h": {"x": [[-1.0, 0.0]], "y": [[1.0]], "p": [[0.0]]},
+        "k": {"x": [[2.0, 0.0]], "y": [[-1.0]], "p": [[0.0]]},
+        "z": {"x": 3 * np.eye(2), "y": [[1.0], [1.0]], "p": [[0.0], [0.0]]},
+    }
 
 
 @unittest.skipUnless(
@@ -780,6 +801,52 @@ class TestParallelRemoteComponents(unittest.TestCase):
         cons = self.prob.model.get_constraints()
         self.assertEqual(cons["multipoint.remote1.g"]["parallel_deriv_color"], "g")
         self.assertEqual(cons["multipoint.remote1.h"]["parallel_deriv_color"], "h")
+
+    def test_use_derivative_coloring_with_additional_inputs_and_outputs(self):
+        # the components assign the colors themselves: corresponding responses of
+        # the two components (on different ranks) must share a color so that
+        # their adjoints are solved simultaneously, and the totals of responses
+        # and additional outputs wrt design vars and additional inputs must be
+        # unaffected by the coloring
+        prob = build_parallel_remote_problem(use_derivative_coloring=True)
+        prob.final_setup()
+        responses = {**prob.model.get_objectives(), **prob.model.get_constraints()}
+        colors = {
+            name: meta["parallel_deriv_color"] for name, meta in responses.items()
+        }
+        self.assertEqual(
+            sorted(colors),
+            [
+                f"multipoint.remote{i}.{n}"
+                for i in range(2)
+                for n in ["f", "g", "h", "k"]
+            ],
+        )
+        for n in ["f", "g", "h", "k"]:
+            self.assertEqual(
+                colors[f"multipoint.remote0.{n}"], colors[f"multipoint.remote1.{n}"]
+            )
+        self.assertEqual(
+            len({colors[f"multipoint.remote0.{n}"] for n in ["f", "g", "h", "k"]}), 4
+        )
+
+        x = np.array([0.3, -1.2])
+        y = 2.0
+        prob.set_val("x", x)
+        prob.set_val("y", y)
+        prob.run_model()
+        names = ["f", "g", "h", "k", "z"]
+        of = [f"multipoint.remote{i}.{n}" for i in range(2) for n in names]
+        totals = prob.compute_totals(of=of, wrt=["x", "y", "p_vec"])
+        expected = expected_parallel_totals(x, y)
+        for i in range(2):
+            for n in names:
+                resp = f"multipoint.remote{i}.{n}"
+                assert_near_equal(totals[resp, "x"], expected[n]["x"], tolerance=1e-12)
+                assert_near_equal(totals[resp, "y"], expected[n]["y"], tolerance=1e-12)
+                dp = np.zeros((np.size(expected[n]["p"]), 2))
+                dp[:, i] = np.asarray(expected[n]["p"]).ravel()
+                assert_near_equal(totals[resp, "p_vec"], dp, tolerance=1e-12)
 
     def test_nan_input_aborts_because_error_is_not_collective_over_world(self):
         # each component spans 1 of the 2 ranks, so its error is not collective

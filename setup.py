@@ -12,7 +12,7 @@ with open(os.path.join(mphys_root, "README.md"), encoding="utf-8") as f:
 optional_dependencies = {
     "remote": ["pbs4py", "zmq"],
     "test": ["testflo"],
-    "docs": ["sphinx", "sphinxcontrib.bibtex", "pbs4py", "zmq"],
+    "docs": ["sphinx", "sphinxcontrib.bibtex", "pbs4py", "zmq", "numpydoc", "redbaron"],
     "format": ["black", "flake8", "isort"],
 }
 # Add an optional dependency that concatenates all others
