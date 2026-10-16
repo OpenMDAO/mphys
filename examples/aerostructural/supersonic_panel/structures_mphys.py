@@ -59,7 +59,7 @@ class StructSolver(om.ImplicitComponent):
     def solve_nonlinear(self, inputs, outputs):
         self.solver.dv_struct = inputs["dv_struct"]
         self.solver.xyz = inputs[self.x_struct_name]
-        self.solver.modulus = inputs["modulus"]
+        self.solver.modulus = inputs["modulus"].item()
 
         outputs[self.u_struct_name] = self.solver.solve_system(
             f=inputs[self.f_struct_name]
@@ -68,7 +68,7 @@ class StructSolver(om.ImplicitComponent):
     def apply_nonlinear(self, inputs, outputs, residuals):
         self.solver.dv_struct = inputs["dv_struct"]
         self.solver.xyz = inputs[self.x_struct_name]
-        self.solver.modulus = inputs["modulus"]
+        self.solver.modulus = inputs["modulus"].item()
 
         residuals[self.u_struct_name] = self.solver.compute_residual(
             u=outputs[self.u_struct_name], f=inputs[self.f_struct_name]
@@ -89,7 +89,7 @@ class StructSolver(om.ImplicitComponent):
             if self.u_struct_name in d_residuals:
                 self.solver.dv_struct = inputs["dv_struct"]
                 self.solver.xyz = inputs[self.x_struct_name]
-                self.solver.modulus = inputs["modulus"]
+                self.solver.modulus = inputs["modulus"].item()
 
                 adjoint = self.solver.set_adjoint(
                     adjoint=d_residuals[self.u_struct_name]
@@ -154,8 +154,8 @@ class StructFunction(om.ExplicitComponent):
     def compute(self, inputs, outputs):
         self.solver.dv_struct = inputs["dv_struct"]
         self.solver.xyz = inputs[self.x_struct_name]
-        self.solver.modulus = inputs["modulus"]
-        self.solver.yield_stress = inputs["yield_stress"]
+        self.solver.modulus = inputs["modulus"].item()
+        self.solver.yield_stress = inputs["yield_stress"].item()
 
         self.stress, outputs["func_struct"] = self.solver.compute_stress(
             u=inputs[self.u_struct_name],
@@ -169,8 +169,8 @@ class StructFunction(om.ExplicitComponent):
             if "func_struct" in d_outputs:
                 self.solver.dv_struct = inputs["dv_struct"]
                 self.solver.xyz = inputs[self.x_struct_name]
-                self.solver.modulus = inputs["modulus"]
-                self.solver.yield_stress = inputs["yield_stress"]
+                self.solver.modulus = inputs["modulus"].item()
+                self.solver.yield_stress = inputs["yield_stress"].item()
 
                 (
                     d_dv_struct,
@@ -182,7 +182,7 @@ class StructFunction(om.ExplicitComponent):
                     u=inputs[self.u_struct_name],
                     stress=self.stress,
                     aggregation_parameter=self.aggregation_parameter,
-                    adjoint=d_outputs["func_struct"],
+                    adjoint=d_outputs["func_struct"].item(),
                 )
 
                 if "dv_struct" in d_inputs:
@@ -220,7 +220,7 @@ class StructMass(om.ExplicitComponent):
     def compute(self, inputs, outputs):
         self.solver.dv_struct = inputs["dv_struct"]
         self.solver.xyz = inputs[self.x_struct_name]
-        self.solver.density = inputs["density"]
+        self.solver.density = inputs["density"].item()
 
         outputs["mass"] = self.solver.compute_mass()
 
@@ -229,10 +229,10 @@ class StructMass(om.ExplicitComponent):
             if "mass" in d_outputs:
                 self.solver.dv_struct = inputs["dv_struct"]
                 self.solver.xyz = inputs[self.x_struct_name]
-                self.solver.density = inputs["density"]
+                self.solver.density = inputs["density"].item()
 
                 d_dv_struct, d_xs, d_density = self.solver.compute_mass_derivatives(
-                    adjoint=d_outputs["mass"]
+                    adjoint=d_outputs["mass"].item()
                 )
 
                 if "dv_struct" in d_inputs:

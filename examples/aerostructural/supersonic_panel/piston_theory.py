@@ -265,11 +265,20 @@ class PistonTheory:
         return d_xa, d_p
 
     def compute_lift(self):
-        C_L = self.comm.bcast(np.mean(self.pressure) / self.qdyn, root=0)
-        return C_L
+        # Pressure is assembled on rank 0 and is empty on the other ranks.
+        # Compute the scalar result only where pressure exists, then broadcast it.
+        if self.rank == 0:
+            C_L = np.mean(self.pressure) / self.qdyn
+        else:
+            C_L = None
+        return self.comm.bcast(C_L, root=0)
 
     def compute_lift_derivatives(self, adjoint):
-        d_p = np.ones_like(self.pressure) / self.qdyn / len(self.pressure) * adjoint
+        # The pressure derivative is distributed, but the normalization uses
+        # the global number of panels rather than the local pressure length.
+        # OpenMDAO supplies the scalar output adjoint as a one-element array.
+        adjoint = adjoint.item()
+        d_p = np.ones_like(self.pressure) / self.qdyn / self.N_el * adjoint
 
         if self.rank == 0:
             d_qdyn = -np.mean(self.pressure) / self.qdyn / self.qdyn * adjoint
