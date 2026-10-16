@@ -585,6 +585,10 @@ class MPhysZeroMQServerManager(ServerManager):
             return estimated_model_time < self.job.walltime_remaining
 
     def job_has_expired(self):
+        if self.server_stopped:
+            # stopped deliberately (e.g. for down time): the relaunch is expected and
+            # does not count as a job expiration
+            return True
         state = self._query_job_state()
         if state is None:
             print(
@@ -593,14 +597,14 @@ class MPhysZeroMQServerManager(ServerManager):
                 flush=True,
             )
             return False
-        if state == "R" and not self.server_stopped:
+        if state == "R":
             return False
-        else:
-            self._count_job_expiration_restart()
-            print(
-                f"CLIENT (subsystem {self.component_name}): Job no longer running; flagging for job restart"
-            )
-            return True
+        self._count_job_expiration_restart()
+        print(
+            f"CLIENT (subsystem {self.component_name}): Job no longer running; flagging for job restart",
+            flush=True,
+        )
+        return True
 
     def _port_is_in_use(self, port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

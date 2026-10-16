@@ -43,7 +43,7 @@ The server is configured through its constructor arguments rather than OpenMDAO 
 * :code:`port`: TCP port to listen on; passed to the server script by the client as :code:`--port`.
 * :code:`get_om_group_function_pointer`: function (or functor) returning the OpenMDAO Group to evaluate.
 * :code:`ignore_setup_warnings`, :code:`ignore_runtime_warnings`: suppress OpenMDAO warnings during :code:`setup` and :code:`run_model`/:code:`compute_totals`, respectively (default False).
-* :code:`rerun_initial_design`: evaluate the baseline design before any new ones, for cases where the analysis somehow depends on the starting design (default Faulse).
+* :code:`rerun_initial_design`: evaluate the baseline design before any new ones, for cases where the analysis somehow depends on the starting design (default False).
 * :code:`write_n2`: write :code:`n2_inner_analysis_<component name>.html` after each evaluation (default False).
 * :code:`report_errors`: send the traceback of any server-side error back to the client, which then stops the job and raises the error (default True).
 
@@ -79,9 +79,9 @@ By default it waits indefinitely (with periodic checks that the job is still run
 
 Before each function or gradient evaluation, the client estimates the evaluation time as :code:`time_estimate_multiplier` times the longest previous evaluation of that type, plus :code:`time_estimate_buffer` seconds.
 If this exceeds the job's remaining wall time, or the job is no longer running, the server is first stopped and replaced with a new one.
-With :code:`reboot_only_on_function_call` set to true (the default), the estimated time includes a potential gradient evaluation following the function call (i.e., the previous estimate plus the maximum gradient wall time).
-This shortens the current job, but avoids a situation where a newly launched server needs to reevaluate the same design before gradients can be computed.
-In the case where a job has expired before the required function or gradient evaluation can be returned, the server is relaunched up to :code:`job_expiration_max_restarts` times, after which an error is raised.
+With :code:`reboot_only_on_function_call` set to true (the default), the restart-check is skipped before gradient calls; before function calls, the estimated time includes a potential gradient evaluation following the function call (i.e., the previous estimate plus the maximum gradient wall time times the multiplier).
+This may shorten the current job, but avoids a situation where a newly launched server needs to reevaluate the same design before gradients can be computed.
+Each relaunch caused by a job that has ended unexpectedly (whether detected before an evaluation or while waiting for its result) counts toward :code:`job_expiration_max_restarts`; once exceeded, an error is raised.
 If significant idle time between evaluations is expected, which would typically waste compute hours on an HPC for example, :code:`stop_server_for_down_time` stops the job after every evaluation if set to 1, or only after gradient evaluations if set to 2.
 
 Servers are stopped (shutdown message, ssh tunnel killed, job deleted) when :code:`stop_server()` is called, when the client process exits normally, or when the client receives SIGTERM or SIGHUP.
