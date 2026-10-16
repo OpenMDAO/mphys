@@ -150,6 +150,23 @@ class TestRemoteCompSetup(unittest.TestCase):
     def test_initialize_only_message_sent_during_setup(self):
         self.assertEqual(self.remote.server.messages_received, ["initialize"])
 
+    def test_repeated_setup_reuses_server(self):
+        # a second setup must not launch a second server job and tunnel,
+        # leaving the first one running unused
+        manager, server = self.remote.server_manager, self.remote.server
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.prob.setup()
+            self.prob.final_setup()
+        self.assertIs(self.remote.server_manager, manager)
+        self.assertIs(self.remote.server, server)
+        self.assertEqual(manager.stop_calls, 0)
+        self.assertEqual(server.messages_received, ["initialize", "initialize"])
+        self.assertIn("Reusing the existing server", out.getvalue())
+        self.prob.set_val("x", np.array([0.3, -1.2]))
+        self.prob.run_model()
+        expected = expected_outputs([0.3, -1.2], 3.0, 0.5, 10.0)
+        assert_near_equal(self.prob.get_val("f"), expected["f"], tolerance=1e-12)
+
 
 class TestRemoteCompEvaluation(unittest.TestCase):
     def setUp(self):

@@ -208,6 +208,9 @@ class RemoteComp(om.ExplicitComponent):
             desc="When running with MPI, abort all ranks if an unrecoverable remote component error occurs on only "
             + "some of them (otherwise the remaining ranks would hang)",
         )
+        # created on first use; kept across repeated setup calls so that the
+        # same server job and ssh tunnel are reused
+        self.server_manager = None
 
     @abort_mpi_on_remote_error
     @switch_run_directory
@@ -239,7 +242,6 @@ class RemoteComp(om.ExplicitComponent):
                 self.dump_separate_json = True
             if self.dump_separate_json:
                 self.dump_json = True
-            self.server_manager = None
 
             # for tracking model times, and determining whether to relaunch servers
             self.times_function = np.array([])
@@ -319,6 +321,11 @@ class RemoteComp(om.ExplicitComponent):
         elif self._need_to_restart_server(command):
             self.server_manager.stop_server()
             self.server_manager.start_server()
+
+        elif command == "initialize":
+            self._print_status_message(
+                "Reusing the existing server to get design problem info"
+            )
 
         if self.dump_json:
             self._dump_json(remote_input_dict, command)
