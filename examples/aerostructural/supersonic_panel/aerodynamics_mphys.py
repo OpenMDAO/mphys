@@ -55,17 +55,20 @@ class AeroSolver(om.ImplicitComponent):
     def solve_nonlinear(self, inputs, outputs):
 
         self.solver.xyz = inputs[self.x_aero_name]
-        self.solver.aoa = inputs["aoa"]
-        self.solver.qdyn = inputs["qdyn"]
-        self.solver.mach = inputs["mach"]
+        # OpenMDAO presents scalar inputs as one-element arrays.  Convert them
+        # to scalar NumPy values before passing them to the solver so scalar
+        # pressure entries do not receive array-valued expressions.
+        self.solver.aoa = inputs["aoa"].item()
+        self.solver.qdyn = inputs["qdyn"].item()
+        self.solver.mach = inputs["mach"].item()
 
         outputs["pressure"] = self.solver.compute_pressure()
 
     def apply_nonlinear(self, inputs, outputs, residuals):
         self.solver.xyz = inputs[self.x_aero_name]
-        self.solver.aoa = inputs["aoa"]
-        self.solver.qdyn = inputs["qdyn"]
-        self.solver.mach = inputs["mach"]
+        self.solver.aoa = inputs["aoa"].item()
+        self.solver.qdyn = inputs["qdyn"].item()
+        self.solver.mach = inputs["mach"].item()
 
         residuals["pressure"] = self.solver.compute_residual(
             pressure=outputs["pressure"]
@@ -156,7 +159,7 @@ class AeroFunction(om.ExplicitComponent):
         self.add_output("C_L", tags=["mphys_result"])
 
     def compute(self, inputs, outputs):
-        self.solver.qdyn = inputs["qdyn"]
+        self.solver.qdyn = inputs["qdyn"].item()
         self.solver.pressure = inputs["pressure"]
 
         outputs["C_L"] = self.solver.compute_lift()
